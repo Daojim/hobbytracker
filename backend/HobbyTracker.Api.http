@@ -1,0 +1,22 @@
+@HobbyTracker.Api_HostAddress = http://localhost:5201
+
+### Search IGDB for games by title.
+# Hits IGDB, upserts every result into media + games, returns them in relevance order.
+# Run it twice and the row count will not change — see the upsert note in CLAUDE.md.
+GET {{HobbyTracker.Api_HostAddress}}/api/games?search=halo
+Accept: application/json
+
+### Same search, capped to five results.
+GET {{HobbyTracker.Api_HostAddress}}/api/games?search=hollow%20knight&limit=5
+Accept: application/json
+
+### A title with no IGDB match — expect 200 and an empty array, not a 404.
+GET {{HobbyTracker.Api_HostAddress}}/api/games?search=zzzzzzzznotarealgame
+Accept: application/json
+
+### Missing search term — expect 400 with a ValidationProblemDetails body.
+GET {{HobbyTracker.Api_HostAddress}}/api/games
+Accept: application/json
+
+### OpenAPI document (Development only).
+GET {{HobbyTracker.Api_HostAddress}}/openapi/v1.json
