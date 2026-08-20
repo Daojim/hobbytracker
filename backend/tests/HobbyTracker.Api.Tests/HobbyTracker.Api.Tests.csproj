@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>HobbyTracker.Api.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <!-- xUnit v3 test projects are self-executing console apps, not class libraries. -->
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <!-- Versions live in backend/Directory.Packages.props. -->
+  <ItemGroup>
+    <!-- xunit.v3 speaks Microsoft.Testing.Platform natively, which is what `dotnet test`
+         uses on the .NET 10 SDK (opted into via global.json). Deliberately no
+         Microsoft.NET.Test.Sdk or xunit.runner.visualstudio: those make the project support
+         VSTest as well, and a project that supports both is the mixed configuration the
+         .NET 10 SDK refuses to run. -->
+    <PackageReference Include="xunit.v3" />
+
+    <!-- WebApplicationFactory: runs the real pipeline in-process, no port binding.
+         Also carries the Microsoft.AspNetCore.App framework reference this project needs. -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+
+    <!-- A throwaway Postgres per test run. The upsert logic depends on Postgres-specific
+         behaviour (23505 on the partial unique index, text[] columns), so an in-memory or
+         SQLite provider would test something that is not what production runs. -->
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Respawn" />
+
+    <!-- Shouldly rather than FluentAssertions: v8+ of the latter is Xceed-owned and
+         "all rights reserved", which is a licensing question a portfolio repo does not need. -->
+    <PackageReference Include="Shouldly" />
+
+    <!-- Referenced directly so central pinning applies; the fixture builds its own DbContext. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\HobbyTracker.Api\HobbyTracker.Api.csproj" />
+  </ItemGroup>
+
+</Project>

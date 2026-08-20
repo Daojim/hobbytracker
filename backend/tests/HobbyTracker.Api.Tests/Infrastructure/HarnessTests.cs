@@ -1,0 +1,80 @@
+using System.Net;
+using HobbyTracker.Api.Data;
+using Microsoft.EntityFrameworkCore;
+using Shouldly;
+
+namespace HobbyTracker.Api.Tests.Infrastructure;
+
+/// <summary>
+/// Proves the harness itself works before anything is built on top of it. A test suite that is
+/// green because it never really started the app is worse than no suite at all.
+/// </summary>
+[Collection(DatabaseCollection.Name)]
+public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(postgres)
+{
+    [Fact]
+    public async Task Migrations_run_and_produce_every_table()
+    {
+        var tables = await WithDbAsync(async db =>
+        {
+            var connection = db.Database.GetDbConnection();
+            await db.Database.OpenConnectionAsync();
+
+            await using var command = connection.CreateCommand();
+            command.CommandText =
+                "select table_name from information_schema.tables where table_schema = 'public'";
+
+            var names = new List<string>();
+            await using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                names.Add(reader.GetString(0));
+            }
+
+            return names;
+        });
+
+        tables.ShouldContain("media");
+        tables.ShouldContain("games");
+        tables.ShouldContain("log_entries");
+        tables.ShouldContain("hobby_lu");
+        tables.ShouldContain("source_lu");
+        tables.ShouldContain("users");
+        tables.ShouldContain("auth_identities");
+    }
+
+    [Fact]
+    public async Task Seeded_lookups_survive_the_respawn_reset()
+    {
+        // InitializeAsync already reset the database before this test ran, so if the lookups
+        // were not in TablesToIgnore they would be gone by now.
+        var sources = await WithDbAsync(db => db.Sources.OrderBy(s => s.Id).ToListAsync(Ct));
+        var hobbies = await WithDbAsync(db => db.Hobbies.OrderBy(h => h.Id).ToListAsync(Ct));
+
+        hobbies.Count.ShouldBe(6);
+        sources.Count.ShouldBe(2);
+        sources.Single(s => s.Name == "igdb").BaseUrl.ShouldBe("https://api.igdb.com/v4/");
+        sources.Single(s => s.Name == "manual").BaseUrl.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Host_boots_and_serves_requests()
+    {
+        // Exercises two things at once: Program is reachable to WebApplicationFactory, and
+        // IgdbOptions validation passes on the placeholder credentials the factory supplies.
+        var response = await Client.GetAsync("/api/games", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Igdb_is_faked_so_no_test_reaches_the_network()
+    {
+        Igdb.SetResults("halo", FakeIgdbClient.Game(740, "Halo: Combat Evolved"));
+
+        var response = await Client.GetAsync("/api/games?search=halo", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        Igdb.Calls.ShouldHaveSingleItem().Search.ShouldBe("halo");
+    }
+}
