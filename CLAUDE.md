@@ -5,6 +5,42 @@ follow. It doubles as a portfolio piece, so structure and explainability count a
 working code — prefer the version that is easy to justify in a review over the version that is
 merely shorter.
 
+## Where things stand
+
+**Backend complete, 114 tests green. Frontend not started — that is the current job.**
+
+Currently on branch **`kanban-board`**, one commit ahead of `main`. `main` is pushed to
+github.com/Daojim/hobbytracker.
+
+The full plan for the frontend is at
+`C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` — **read it before
+starting.** Part A of it (the backend the board needs) is done and committed. Part B onward is
+what remains:
+
+1. Scaffold `frontend/` (currently an empty directory) — Vite + React + TypeScript.
+2. API client + Vitest tests for it.
+3. Board components, then the drag wiring.
+4. Playwright drag specs — written red first.
+5. Search page.
+
+Decisions already made with the user, **settled — do not reopen**:
+
+| | |
+|---|---|
+| Shape | Vite + React + TS SPA, client routing. Not Next.js |
+| Scope | `/board` and `/search` only. No detail page or year-review page yet |
+| Columns | Backlog · Playing · Completed, plus Dropped as a muted 4th, collapsed by default |
+| Dropped | close button on a card; drag out of the Dropped column to un-drop |
+| Close button | **hidden on Completed and Dropped cards** — meaningless on both |
+| Year picker | above the Completed column only; Backlog and Playing ignore it |
+| Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
+| Libraries | TanStack Query, dnd-kit, Tailwind v4 |
+| Dev wiring | Vite proxy `/api` → `:5201`. **No CORS change needed or wanted** |
+| Testing | Vitest + RTL + MSW for logic and components; Playwright for the drag |
+
+Working method the user asked for and has held to since Phase 2: **write the failing test
+first, show it red, then implement.** Not implementation followed by an offer to add tests.
+
 ## Stack
 
 | | |
@@ -128,7 +164,7 @@ is how the lookup tables keep their `_lu` suffix.
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
 | `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `hltb_main_story_hours`, `hltb_id` |
-| `log_entries` | `id`, `user_id`, `media_id`, `status`, `rating`, `notes`, `date_started`, `date_completed` |
+| `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `notes`, `date_started`, `date_completed` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
 
@@ -225,7 +261,10 @@ Two IGDB quirks the code depends on:
 | `GET /api/log-entries/{id}` | |
 | `PUT /api/log-entries/{id}` | full replacement |
 | `DELETE /api/log-entries/{id}` | |
-| `GET /api/library?hobby=&status=&page=&pageSize=` | your collection |
+| `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
+| `GET /api/library/years?hobby=` | years with completions, newest first |
+| `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
+| `PUT /api/library/order` | store one column's manual ranking |
 
 **Search** queries IGDB, upserts every result into `media` + `games`, and returns them **in
 IGDB's relevance order** (the database has no idea that ordering exists). It hits IGDB on every
@@ -258,31 +297,82 @@ foreign-key violation would be a 500). `dateCompleted < dateStarted` is caught b
 most one decimal place** — `numeric(3,1)` *rounds* 8.75 to 8.8 rather than rejecting it, so
 accepting two places would mean the response reporting a rating the database does not hold.
 
-Two mapping traps, both of which fail loudly rather than silently:
+List endpoints return `PagedResult<T>` — `{ items, total, page, pageSize }`. Search does not: it
+returns a bare array of whatever IGDB ranked, capped by `limit`.
 
+### Board semantics
+
+`POST /api/library/{mediaId}/status` is what dragging a card calls. The caller names only a
+target column; which entry gets touched and which dates get set is decided server-side, so no
+client has to know which entry is current.
+
+| Latest entry is | Target | Effect |
+|---|---|---|
+| not Completed | `Backlog` | edit in place; **clear both dates** |
+| not Completed | `InProgress` | edit in place; set `date_started` = today *only if null*; clear `date_completed` |
+| not Completed | `Completed` | edit in place; set `date_completed` = today |
+| not Completed | `Dropped` | edit in place; **leave dates alone** |
+| **Completed** | anything else | **insert a new entry** at the top of the target column |
+| same as target | — | no-op |
+
+**Leaving `Completed` inserts rather than edits.** Replaying a game finished in 2024 must not
+overwrite that completion — preserving it is the entire reason the schema allows several entries
+per title, and editing in place would destroy the record silently, on a gesture as casual as a
+drag. `StatusTransitionTests` covers every row above; do not "simplify" this into a plain update.
+
+`InProgress` sets `date_started` only when null, so picking a dropped game back up keeps the day
+you actually started it. Dates are UTC-today — a known rough edge for anyone far from UTC, fixable
+later with an optional client-supplied date without breaking the contract.
+
+**Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries
+take `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just
+added appears on top and nothing gets renumbered. `PUT /api/library/order` takes the whole column
+top-first rather than a move-and-index: idempotent, no off-by-one arithmetic, and ids that have
+since left the column are ignored rather than rejected, because a loaded board can legitimately
+be one drag out of date.
+
+**Sorting never writes.** `sort` ∈ `manual` (default) · `added` · `title` · `rating` are
+read-only views that leave `position` untouched — which is what lets the UI enable dragging only
+in manual mode and still guarantee the ranking survives a look at the alphabetical order.
+`sort=hours` deliberately does not exist while `hltb_main_story_hours` is null on every row.
+
+### Traps, all of which have bitten already
+
+- **Project board rows with member-init, not a constructor.** EF Core can decompose
+  `new BoardRow { A = ..., B = ... }` and push later `Where`/`OrderBy` into SQL; a positional
+  record is opaque to it and every filter on the projected latest entry fails to translate.
+  It surfaces as an *empty library*, not an obvious error. See `LibraryService.BoardQuery`.
+- **`LibraryService.BoardQuery` and `LatestEntryFor` must order identically.** If they drift,
+  the board moves one entry and then displays a different one.
 - Validation attributes go on record **primary-constructor parameters**, not `[property:]`
   targets. MVC throws `InvalidOperationException` rather than skipping them.
 - `LogStatus` needs `JsonStringEnumConverter` (registered in `Program.cs`) to travel as
   `"Completed"` rather than `2`.
 
-List endpoints return `PagedResult<T>` — `{ items, total, page, pageSize }`. Search does not: it
-returns a bare array of whatever IGDB ranked, capped by `limit`.
-
 ## Phases
 
 - **Phase 1 — done.** Schema + migration, IGDB integration, `GET /api/games`.
 - **Phase 2 — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
-- **Phase 3.** Google/Discord OAuth and JWT issuance.
-- **Phase 4.** React + TypeScript frontend.
-- **Phase 5.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
+- **Phase 3 — in progress.** Kanban board frontend. The backend half (transitions, ordering,
+  year filtering) is done and committed; the React app is not started.
+- **Phase 4.** Google/Discord OAuth and JWT issuance.
+- **Phase 5.** Game detail page and the year-in-review page.
+- **Phase 6.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
+- **Later.** HowLongToBeat ingestion, which also unlocks `sort=hours` on the board.
 
-**Auth was deliberately moved behind logging.** The original plan had it in Phase 2, but
-`log_entries.user_id` is already nullable, so the journal works without a line of auth, and
-sequencing auth first would have left the app unable to do its job throughout. When auth lands:
-backfill `user_id` on existing rows, flip the column to `NOT NULL`, and scope every query in
-`LogEntryService` and `LibraryService` to the current user. Treat the nullable `user_id` as
-temporary, not as a design decision.
+**Auth keeps being deliberately deferred, twice now.** The original brief had it in Phase 2.
+`log_entries.user_id` is already nullable, so both the journal and the board work without a
+line of auth, and sequencing auth first would have left the app unable to do its job while it
+was built. This is a considered choice, not an oversight — do not propose bringing it forward
+without asking.
+
+When auth does land: backfill `user_id` on existing rows, flip the column to `NOT NULL`, and
+scope every query in `LogEntryService` and `LibraryService` to the current user. Treat the
+nullable `user_id` as temporary, not as a design decision.
+
+The board is built hobby-parameterised (`/api/library?hobby=games`) even though only games
+exist, so Phase 6's boards are a routing change rather than a rewrite.
 
 Not built yet, on purpose: auth of any kind, any hobby table besides `Games`, HowLongToBeat
 ingestion (the `hltb_*` columns exist so that pass is a backfill, not a migration).
