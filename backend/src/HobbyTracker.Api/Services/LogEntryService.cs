@@ -92,6 +92,10 @@ public sealed class LogEntryService(HobbyTrackerDbContext db) : ILogEntryService
             Notes = request.Notes,
             DateStarted = request.DateStarted,
             DateCompleted = request.DateCompleted,
+
+            // Top of its column, so a title you just added is the first thing you see rather
+            // than something you have to scroll for.
+            Position = await BoardPositions.TopOfColumnAsync(db, request.Status, cancellationToken),
         };
 
         db.LogEntries.Add(entry);

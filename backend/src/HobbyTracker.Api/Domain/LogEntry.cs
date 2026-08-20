@@ -17,6 +17,13 @@ public class LogEntry
 
     public LogStatus Status { get; set; } = LogStatus.Backlog;
 
+    /// <summary>
+    /// Manual rank within its board column. Lower sorts first, ties break on id descending.
+    /// New entries take <c>min(position) - 1</c> for their column, so a freshly added title
+    /// appears at the top without renumbering anything already there.
+    /// </summary>
+    public int Position { get; set; }
+
     /// <summary>1.0–10.0 to one decimal place (numeric(3,1)). Null until rated.</summary>
     public decimal? Rating { get; set; }
 
