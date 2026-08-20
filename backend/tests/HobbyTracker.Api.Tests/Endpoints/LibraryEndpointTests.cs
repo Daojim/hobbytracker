@@ -40,7 +40,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         await GivenGameAsync("Never Played", externalId: "2");
 
         await GivenLogEntryAsync(logged, LogStatus.Completed, rating: 9.5m,
-            dateCompleted: new DateOnly(2026, 5, 1));
+            completedAt: Eastern(2026, 5, 1));
 
         var page = await GetPageAsync("/api/library");
 
@@ -52,7 +52,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         item.CurrentStatus.ShouldBe(LogStatus.Completed);
         item.EntryCount.ShouldBe(1);
         item.LatestRating.ShouldBe(9.5m);
-        item.LastActivity.ShouldBe(new DateOnly(2026, 5, 1));
+        item.LastActivity.ShouldBe(Eastern(2026, 5, 1));
     }
 
     [Fact]
@@ -61,9 +61,9 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         var mediaId = await GivenGameAsync();
 
         await GivenLogEntryAsync(mediaId, LogStatus.Completed, rating: 8m,
-            dateStarted: new DateOnly(2024, 1, 1), dateCompleted: new DateOnly(2024, 3, 1));
+            startedAt: Eastern(2024, 1, 1), completedAt: Eastern(2024, 3, 1));
         await GivenLogEntryAsync(mediaId, LogStatus.InProgress,
-            dateStarted: new DateOnly(2026, 8, 1));
+            startedAt: Eastern(2026, 8, 1));
 
         var item = (await GetPageAsync("/api/library")).Items.ShouldHaveSingleItem();
 
@@ -92,12 +92,12 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     {
         var mediaId = await GivenGameAsync();
 
-        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, dateStarted: new DateOnly(2026, 8, 1));
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 8, 1));
         await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
 
         var item = (await GetPageAsync("/api/library")).Items.ShouldHaveSingleItem();
 
-        // Ordering is date_started DESC NULLS LAST, id DESC: an entry that says when it
+        // Ordering is started_at DESC NULLS LAST, id DESC: an entry that says when it
         // happened is better evidence of current state than a later one that does not.
         item.CurrentStatus.ShouldBe(LogStatus.InProgress);
     }
@@ -106,11 +106,11 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     public async Task Filters_on_current_status_not_any_status()
     {
         var replayed = await GivenGameAsync("Replayed", externalId: "1");
-        await GivenLogEntryAsync(replayed, LogStatus.Completed, dateStarted: new DateOnly(2024, 1, 1));
-        await GivenLogEntryAsync(replayed, LogStatus.InProgress, dateStarted: new DateOnly(2026, 8, 1));
+        await GivenLogEntryAsync(replayed, LogStatus.Completed, startedAt: Eastern(2024, 1, 1));
+        await GivenLogEntryAsync(replayed, LogStatus.InProgress, startedAt: Eastern(2026, 8, 1));
 
         var finished = await GivenGameAsync("Finished", externalId: "2");
-        await GivenLogEntryAsync(finished, LogStatus.Completed, dateStarted: new DateOnly(2025, 1, 1));
+        await GivenLogEntryAsync(finished, LogStatus.Completed, startedAt: Eastern(2025, 1, 1));
 
         var completed = await GetPageAsync("/api/library?status=Completed");
 

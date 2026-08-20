@@ -67,7 +67,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
     }
 
     [Fact]
-    public async Task Rejects_a_completion_date_before_its_start_date()
+    public async Task Rejects_a_completion_that_precedes_its_own_start()
     {
         var mediaId = await GivenAGameAsync();
 
@@ -77,13 +77,13 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
             {
                 MediaId = mediaId,
                 Status = LogStatus.Completed,
-                DateStarted = new DateOnly(2026, 8, 20),
-                DateCompleted = new DateOnly(2026, 7, 1),
+                StartedAt = Eastern(2026, 8, 20),
+                CompletedAt = Eastern(2026, 7, 1),
             });
             await db.SaveChangesAsync(Ct);
         }));
 
-        ShouldBeCheckViolation(exception, "ck_log_entries_date_order");
+        ShouldBeCheckViolation(exception, "ck_log_entries_timestamp_order");
     }
 
     [Fact]

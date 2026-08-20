@@ -1,6 +1,7 @@
 using System.Net;
 using HobbyTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Shouldly;
 
 namespace HobbyTracker.Api.Tests.Infrastructure;
@@ -76,5 +77,18 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         Igdb.Calls.ShouldHaveSingleItem().Search.ShouldBe("halo");
+    }
+
+    [Fact]
+    public async Task A_time_zone_the_platform_cannot_resolve_stops_the_host_booting()
+    {
+        // The mirror of the test above. ValidateOnStart is only worth having if it actually
+        // fails the boot: a zone id that quietly fell back to UTC would put every evening's
+        // dates a day out with nothing anywhere looking broken.
+        await using var factory = new ApiFactory(Postgres, Igdb, Clock, timeZone: "Mars/Olympus_Mons");
+
+        var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
+
+        error.Message.ShouldContain("Journal:TimeZone");
     }
 }

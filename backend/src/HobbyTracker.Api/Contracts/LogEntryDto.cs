@@ -14,8 +14,11 @@ public sealed record LogEntryDto(
     LogStatus Status,
     decimal? Rating,
     string? Notes,
-    DateOnly? DateStarted,
-    DateOnly? DateCompleted)
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt,
+
+    /// <summary>When the entry was written down. Server-stamped; see <see cref="LogEntry.LoggedAt"/>.</summary>
+    DateTimeOffset LoggedAt)
 {
     public static LogEntryDto From(LogEntry entry) => new(
         entry.Id,
@@ -24,8 +27,9 @@ public sealed record LogEntryDto(
         entry.Status,
         entry.Rating,
         entry.Notes,
-        entry.DateStarted,
-        entry.DateCompleted);
+        entry.StartedAt,
+        entry.CompletedAt,
+        entry.LoggedAt);
 }
 
 /// <summary>
@@ -40,11 +44,11 @@ public sealed record CreateLogEntryRequest(
     LogStatus Status,
     [Rating] decimal? Rating,
     [MaxLength(4000)] string? Notes,
-    DateOnly? DateStarted,
-    DateOnly? DateCompleted) : IValidatableObject
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt) : IValidatableObject
 {
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
-        LogEntryRules.DateOrder(DateStarted, DateCompleted);
+        LogEntryRules.TimestampOrder(StartedAt, CompletedAt);
 }
 
 /// <summary>
@@ -59,11 +63,11 @@ public sealed record UpdateLogEntryRequest(
     LogStatus Status,
     [Rating] decimal? Rating,
     [MaxLength(4000)] string? Notes,
-    DateOnly? DateStarted,
-    DateOnly? DateCompleted) : IValidatableObject
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt) : IValidatableObject
 {
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
-        LogEntryRules.DateOrder(DateStarted, DateCompleted);
+        LogEntryRules.TimestampOrder(StartedAt, CompletedAt);
 }
 
 /// <summary>Rules shared by the create and update bodies.</summary>
@@ -71,15 +75,15 @@ internal static class LogEntryRules
 {
     /// <summary>
     /// A completion cannot precede its own start. The database enforces this too, via
-    /// ck_log_entries_date_order — but reaching it means a 500, and this is a 400.
+    /// ck_log_entries_timestamp_order — but reaching it means a 500, and this is a 400.
     /// </summary>
-    public static IEnumerable<ValidationResult> DateOrder(DateOnly? started, DateOnly? completed)
+    public static IEnumerable<ValidationResult> TimestampOrder(DateTimeOffset? started, DateTimeOffset? completed)
     {
         if (started is { } start && completed is { } completion && completion < start)
         {
             yield return new ValidationResult(
-                "dateCompleted cannot be earlier than dateStarted.",
-                [nameof(CreateLogEntryRequest.DateCompleted)]);
+                "completedAt cannot be earlier than startedAt.",
+                [nameof(CreateLogEntryRequest.CompletedAt)]);
         }
     }
 }

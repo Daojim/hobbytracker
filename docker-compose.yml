@@ -8,6 +8,10 @@
 services:
   db:
     image: postgres:17
+    # Renders timestamptz columns in Eastern, so what psql shows matches what the app shows.
+    # Convenience only: every query that depends on a zone states it explicitly, so nothing
+    # is correct because of this line and nothing breaks if it is removed.
+    command: postgres -c timezone=America/New_York
     container_name: hobbytracker-db
     environment:
       POSTGRES_DB: hobbytracker

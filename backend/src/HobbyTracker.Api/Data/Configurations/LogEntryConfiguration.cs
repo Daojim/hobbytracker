@@ -17,8 +17,8 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
             // A completion cannot precede its own start. Cheap to enforce here, and it
             // stops a UI bug from quietly writing nonsense into the history.
             table.HasCheckConstraint(
-                "ck_log_entries_date_order",
-                "date_started IS NULL OR date_completed IS NULL OR date_completed >= date_started");
+                "ck_log_entries_timestamp_order",
+                "started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at");
         });
 
         // Stored as text rather than an int ordinal, so `select status from log_entries`
@@ -31,6 +31,11 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
         builder.Property(e => e.Rating).HasPrecision(3, 1);
 
         builder.Property(e => e.Notes).HasMaxLength(4000);
+
+        // Mirrors users.created_at: the database can fill this in, so a row written by hand in
+        // psql is still a valid row. The service sets it from the journal clock on every insert
+        // it makes, so the default is a backstop rather than the normal path.
+        builder.Property(e => e.LoggedAt).HasDefaultValueSql("now()");
 
         // SetNull rather than Cascade: deleting an account should not erase the journal, and
         // UserId is nullable already while auth is still Phase 2 work.

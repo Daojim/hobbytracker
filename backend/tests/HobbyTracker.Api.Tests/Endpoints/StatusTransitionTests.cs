@@ -15,7 +15,19 @@ namespace HobbyTracker.Api.Tests.Endpoints;
 [Collection(DatabaseCollection.Name)]
 public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTestBase(postgres)
 {
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.UtcNow);
+    /// <summary>
+    /// The day the stopped clock sits on. A literal rather than a recomputation of whatever the
+    /// server just did: reproducing the conversion here would let both sides be wrong together,
+    /// and reading the wall clock at assert time — which this used to do — made every date
+    /// assertion below quietly dependent on the run not straddling a midnight.
+    /// </summary>
+    /// <summary>
+    /// The moment the stopped clock sits at. A literal rather than a recomputation of whatever
+    /// the server just did: reproducing the arithmetic here would let both sides be wrong
+    /// together, and reading the wall clock at assert time — which this used to do — made every
+    /// assertion below quietly dependent on the run not straddling a midnight.
+    /// </summary>
+    private static readonly DateTimeOffset Now = new(2026, 9, 15, 16, 0, 0, TimeSpan.Zero);
 
     // ------------------------------------------------- editing the current entry
 
@@ -30,15 +42,15 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
 
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
         entry.Status.ShouldBe(LogStatus.InProgress);
-        entry.DateStarted.ShouldBe(Today);
-        entry.DateCompleted.ShouldBeNull();
+        entry.StartedAt.ShouldBe(Now);
+        entry.CompletedAt.ShouldBeNull();
     }
 
     [Fact]
     public async Task Moving_back_to_the_backlog_clears_both_dates()
     {
         var mediaId = await GivenGameAsync();
-        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, dateStarted: new DateOnly(2026, 8, 1));
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 8, 1));
 
         await MoveAsync(mediaId, LogStatus.Backlog);
 
@@ -46,23 +58,23 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         // date behind would make the year view claim you played it.
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
         entry.Status.ShouldBe(LogStatus.Backlog);
-        entry.DateStarted.ShouldBeNull();
-        entry.DateCompleted.ShouldBeNull();
+        entry.StartedAt.ShouldBeNull();
+        entry.CompletedAt.ShouldBeNull();
     }
 
     [Fact]
     public async Task Finishing_a_game_stamps_the_completion_date_and_keeps_the_start()
     {
         var mediaId = await GivenGameAsync();
-        var started = new DateOnly(2026, 7, 2);
-        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, dateStarted: started);
+        var started = Eastern(2026, 7, 2);
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: started);
 
         await MoveAsync(mediaId, LogStatus.Completed);
 
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
         entry.Status.ShouldBe(LogStatus.Completed);
-        entry.DateStarted.ShouldBe(started);
-        entry.DateCompleted.ShouldBe(Today);
+        entry.StartedAt.ShouldBe(started);
+        entry.CompletedAt.ShouldBe(Now);
     }
 
     [Fact]
@@ -74,55 +86,108 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         await MoveAsync(mediaId, LogStatus.Completed);
 
         // Inventing a start date would be a lie, and the check constraint is satisfied either
-        // way since date_started is null.
+        // way since started_at is null.
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
-        entry.DateStarted.ShouldBeNull();
-        entry.DateCompleted.ShouldBe(Today);
+        entry.StartedAt.ShouldBeNull();
+        entry.CompletedAt.ShouldBe(Now);
     }
 
     [Fact]
     public async Task Dropping_a_game_leaves_its_dates_alone()
     {
         var mediaId = await GivenGameAsync();
-        var started = new DateOnly(2026, 5, 5);
-        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, dateStarted: started);
+        var started = Eastern(2026, 5, 5);
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: started);
 
         await MoveAsync(mediaId, LogStatus.Dropped);
 
         // You did start it. Abandoning it does not undo that.
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
         entry.Status.ShouldBe(LogStatus.Dropped);
-        entry.DateStarted.ShouldBe(started);
+        entry.StartedAt.ShouldBe(started);
     }
 
     [Fact]
     public async Task Un_dropping_keeps_the_day_you_actually_started()
     {
         var mediaId = await GivenGameAsync();
-        var started = new DateOnly(2026, 5, 5);
-        await GivenLogEntryAsync(mediaId, LogStatus.Dropped, dateStarted: started);
+        var started = Eastern(2026, 5, 5);
+        await GivenLogEntryAsync(mediaId, LogStatus.Dropped, startedAt: started);
 
         await MoveAsync(mediaId, LogStatus.InProgress);
 
-        // date_started is set only when it is null. Overwriting it here would quietly rewrite
+        // started_at is set only when it is null. Overwriting it here would quietly rewrite
         // history every time you picked a game back up.
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
         entry.Status.ShouldBe(LogStatus.InProgress);
-        entry.DateStarted.ShouldBe(started);
+        entry.StartedAt.ShouldBe(started);
     }
 
     [Fact]
     public async Task Moving_to_the_column_it_is_already_in_changes_nothing()
     {
         var mediaId = await GivenGameAsync();
-        var started = new DateOnly(2026, 5, 5);
-        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, dateStarted: started);
+        var started = Eastern(2026, 5, 5);
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: started);
 
         var response = await MoveAsync(mediaId, LogStatus.InProgress);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
-        entry.DateStarted.ShouldBe(started);
+        entry.StartedAt.ShouldBe(started);
+    }
+
+    // --------------------------------------------------- the day it is here
+
+    // The server used to ask UTC what day it was. Eastern runs four to five hours behind, so
+    // every evening there is a window in which UTC has already rolled over and the journal
+    // recorded tomorrow — and evening is when someone actually finishes a game.
+
+    [Fact]
+    public async Task Finishing_in_the_evening_records_tonight_not_tomorrow()
+    {
+        // 01:30 UTC on the 21st is 21:30 on the 20th in New York. An ordinary Thursday evening.
+        Clock.UtcNow = new DateTimeOffset(2026, 8, 21, 1, 30, 0, TimeSpan.Zero);
+
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 8, 1));
+
+        await MoveAsync(mediaId, LogStatus.Completed);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        // The instant is simply the instant; the question a plain date could not answer is
+        // which day it belongs to, and here that is still the 20th.
+        Journal.DayOf(entry.CompletedAt!.Value).ShouldBe(new DateOnly(2026, 8, 20));
+    }
+
+    [Fact]
+    public async Task Starting_in_the_evening_records_tonight_not_tomorrow()
+    {
+        Clock.UtcNow = new DateTimeOffset(2026, 8, 21, 1, 30, 0, TimeSpan.Zero);
+
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        await MoveAsync(mediaId, LogStatus.InProgress);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        Journal.DayOf(entry.StartedAt!.Value).ShouldBe(new DateOnly(2026, 8, 20));
+    }
+
+    [Fact]
+    public async Task The_offset_widens_in_winter_when_daylight_saving_ends()
+    {
+        // Same wall-clock evening in January, but Eastern is UTC-5 rather than UTC-4, so the
+        // window opens an hour earlier. 04:30 UTC is 23:30 on the 14th.
+        Clock.UtcNow = new DateTimeOffset(2026, 1, 15, 4, 30, 0, TimeSpan.Zero);
+
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        await MoveAsync(mediaId, LogStatus.Completed);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        Journal.DayOf(entry.CompletedAt!.Value).ShouldBe(new DateOnly(2026, 1, 14));
     }
 
     // ------------------------------------------------------- leaving Completed
@@ -133,7 +198,7 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         var mediaId = await GivenGameAsync("Celeste");
         await GivenLogEntryAsync(
             mediaId, LogStatus.Completed, rating: 9.6m,
-            dateStarted: new DateOnly(2024, 1, 10), dateCompleted: new DateOnly(2024, 3, 2));
+            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
 
         await MoveAsync(mediaId, LogStatus.InProgress);
 
@@ -145,14 +210,14 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         // only record that the game was ever finished.
         var original = entries[0];
         original.Status.ShouldBe(LogStatus.Completed);
-        original.DateStarted.ShouldBe(new DateOnly(2024, 1, 10));
-        original.DateCompleted.ShouldBe(new DateOnly(2024, 3, 2));
+        original.StartedAt.ShouldBe(Eastern(2024, 1, 10));
+        original.CompletedAt.ShouldBe(Eastern(2024, 3, 2));
         original.Rating.ShouldBe(9.6m);
 
         var replay = entries[1];
         replay.Status.ShouldBe(LogStatus.InProgress);
-        replay.DateStarted.ShouldBe(Today);
-        replay.DateCompleted.ShouldBeNull();
+        replay.StartedAt.ShouldBe(Now);
+        replay.CompletedAt.ShouldBeNull();
         replay.Rating.ShouldBeNull();
     }
 
@@ -161,7 +226,7 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
     {
         var mediaId = await GivenGameAsync();
         await GivenLogEntryAsync(
-            mediaId, LogStatus.Completed, dateCompleted: new DateOnly(2024, 3, 2));
+            mediaId, LogStatus.Completed, completedAt: Eastern(2024, 3, 2));
 
         await MoveAsync(mediaId, LogStatus.Backlog);
 
@@ -169,8 +234,8 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         entries.Count.ShouldBe(2);
         entries[0].Status.ShouldBe(LogStatus.Completed);
         entries[1].Status.ShouldBe(LogStatus.Backlog);
-        entries[1].DateStarted.ShouldBeNull();
-        entries[1].DateCompleted.ShouldBeNull();
+        entries[1].StartedAt.ShouldBeNull();
+        entries[1].CompletedAt.ShouldBeNull();
     }
 
     [Fact]
@@ -178,8 +243,8 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
     {
         var mediaId = await GivenGameAsync("Celeste");
         await GivenLogEntryAsync(
-            mediaId, LogStatus.Completed, dateStarted: new DateOnly(2024, 1, 10),
-            dateCompleted: new DateOnly(2024, 3, 2));
+            mediaId, LogStatus.Completed, startedAt: Eastern(2024, 1, 10),
+            completedAt: Eastern(2024, 3, 2));
 
         var response = await MoveAsync(mediaId, LogStatus.InProgress);
 
@@ -200,7 +265,7 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         }
 
         var replayed = await GivenGameAsync("Replayed", externalId: "3");
-        await GivenLogEntryAsync(replayed, LogStatus.Completed, dateCompleted: new DateOnly(2024, 1, 1));
+        await GivenLogEntryAsync(replayed, LogStatus.Completed, completedAt: Eastern(2024, 1, 1));
 
         await MoveAsync(replayed, LogStatus.Backlog);
 

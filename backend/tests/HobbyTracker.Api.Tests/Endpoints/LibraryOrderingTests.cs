@@ -148,8 +148,8 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     [Fact]
     public async Task The_year_narrows_completed_titles_to_that_year()
     {
-        await GivenCompletedAsync("Old", "1", completedOn: new DateOnly(2024, 6, 1));
-        await GivenCompletedAsync("Recent", "2", completedOn: new DateOnly(2026, 6, 1));
+        await GivenCompletedAsync("Old", "1", completedOn: Eastern(2024, 6, 1));
+        await GivenCompletedAsync("Recent", "2", completedOn: Eastern(2026, 6, 1));
 
         var column = await GetColumnAsync(LogStatus.Completed, year: 2026);
 
@@ -168,9 +168,9 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     [Fact]
     public async Task The_years_endpoint_lists_each_year_with_completions_once()
     {
-        await GivenCompletedAsync("A", "1", completedOn: new DateOnly(2024, 6, 1));
-        await GivenCompletedAsync("B", "2", completedOn: new DateOnly(2026, 1, 5));
-        await GivenCompletedAsync("C", "3", completedOn: new DateOnly(2026, 8, 9));
+        await GivenCompletedAsync("A", "1", completedOn: Eastern(2024, 6, 1));
+        await GivenCompletedAsync("B", "2", completedOn: Eastern(2026, 1, 5));
+        await GivenCompletedAsync("C", "3", completedOn: Eastern(2026, 8, 9));
         await GivenBacklogAsync("Unplayed", "4");
 
         var years = await ReadAsync<List<int>>(
@@ -178,6 +178,23 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
 
         // Newest first, deduplicated, and a backlog title contributes nothing.
         years.ShouldBe([2026, 2024]);
+    }
+
+    [Fact]
+    public async Task A_completion_late_on_new_years_eve_belongs_to_the_year_it_was_here()
+    {
+        // 8pm on the 31st here is already the 1st in UTC. Extracting the year from the stored
+        // instant without saying in which zone would file this under 2027 — and the year view
+        // would quietly lose a game every time someone finished one on New Year's Eve.
+        await GivenCompletedAsync("Midnight Run", "1", completedOn: Eastern(2026, 12, 31, 20, 0));
+
+        (await GetColumnAsync(LogStatus.Completed, year: 2026)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Midnight Run");
+        (await GetColumnAsync(LogStatus.Completed, year: 2027)).Items.ShouldBeEmpty();
+
+        var years = await ReadAsync<List<int>>(
+            await Client.GetAsync("/api/library/years?hobby=games", Ct));
+        years.ShouldBe([2026]);
     }
 
     // ----------------------------------------------------------------- helpers
@@ -194,7 +211,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     }
 
     private async Task<int> GivenCompletedAsync(
-        string title, string externalId, decimal? rating = null, DateOnly? completedOn = null)
+        string title, string externalId, decimal? rating = null, DateTimeOffset? completedOn = null)
     {
         var mediaId = await GivenGameAsync(title, externalId);
         await Client.PostAsJsonAsync(

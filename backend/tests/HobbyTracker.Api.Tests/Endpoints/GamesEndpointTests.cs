@@ -131,9 +131,9 @@ public sealed class GamesEndpointTests(PostgresFixture postgres) : DatabaseTestB
             platforms: ["Nintendo Switch", "PC"]);
 
         await GivenLogEntryAsync(mediaId, LogStatus.Completed, rating: 9.5m,
-            dateCompleted: new DateOnly(2025, 6, 1));
+            completedAt: Eastern(2025, 6, 1));
         await GivenLogEntryAsync(mediaId, LogStatus.InProgress,
-            dateStarted: new DateOnly(2026, 8, 1));
+            startedAt: Eastern(2026, 8, 1));
 
         var response = await Client.GetAsync($"/api/games/{mediaId}", Ct);
 

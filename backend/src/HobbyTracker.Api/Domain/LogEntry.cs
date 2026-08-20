@@ -29,8 +29,27 @@ public class LogEntry
 
     public string? Notes { get; set; }
 
-    /// <summary>DateOnly, not DateTime: "started on the 3rd" has no meaningful time of day.</summary>
-    public DateOnly? DateStarted { get; set; }
+    /// <summary>
+    /// When this pass began. An instant rather than a date — this was a DateOnly, and the
+    /// argument for that was "started on the 3rd" having no meaningful time of day. True of a
+    /// start you half-remember; false of the moment you finally beat something at 11:47pm, which
+    /// is the part of a journal worth reading back. A bare date also cannot say which day 11pm
+    /// belongs to without someone, somewhere, assuming a timezone.
+    ///
+    /// Null until started. Stored as timestamptz: an absolute moment, rendered in whatever zone
+    /// is being asked.
+    /// </summary>
+    public DateTimeOffset? StartedAt { get; set; }
 
-    public DateOnly? DateCompleted { get; set; }
+    /// <summary>When this pass finished. Null until it does. See <see cref="StartedAt"/>.</summary>
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    /// <summary>
+    /// When this entry was written down. Server-stamped and deliberately not settable by a
+    /// caller: it records what happened rather than what someone says happened, which is the
+    /// same reasoning that keeps MediaId off the update contract.
+    ///
+    /// The one timestamp every entry has — a dropped entry carries neither of the other two.
+    /// </summary>
+    public DateTimeOffset LoggedAt { get; set; }
 }

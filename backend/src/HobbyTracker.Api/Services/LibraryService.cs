@@ -1,6 +1,7 @@
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
+using HobbyTracker.Api.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace HobbyTracker.Api.Services;
@@ -35,7 +36,7 @@ public interface ILibraryService
 /// side effect, so `media` accumulates whatever has ever been typed into a search box. Joining
 /// to log_entries is what separates the catalog from the collection.
 /// </summary>
-public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
+public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock) : ILibraryService
 {
     /// <summary>
     /// A title on the board, with the entry that decides which column it sits in.
@@ -53,6 +54,12 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
         public LogEntry Latest { get; set; } = null!;
     }
 
+    /// <summary>
+    /// The instants a calendar year spans here. Half-open, [From, To), so the boundary belongs
+    /// to exactly one year however the clocks moved during it.
+    /// </summary>
+    private readonly record struct YearSpan(DateTimeOffset From, DateTimeOffset To);
+
     public Task<bool> HobbyExistsAsync(string hobby, CancellationToken cancellationToken) =>
         db.Hobbies.AnyAsync(h => h.Name == hobby, cancellationToken);
 
@@ -67,7 +74,7 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
     {
         var (normalisedPage, normalisedSize) = Paging.Normalise(page, pageSize);
 
-        var query = Filtered(BoardQuery().AsNoTracking(), hobby, status, year);
+        var query = Filtered(BoardQuery().AsNoTracking(), hobby, status, SpanOf(year));
 
         var total = await query.CountAsync(cancellationToken);
 
@@ -82,22 +89,33 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
                 row.Latest.Status,
                 row.EntryCount,
                 row.Latest.Rating,
-                row.Latest.DateCompleted ?? row.Latest.DateStarted))
+                row.Latest.CompletedAt ?? row.Latest.StartedAt))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<LibraryItemDto>(items, total, normalisedPage, normalisedSize);
     }
 
     public async Task<IReadOnlyList<int>> CompletionYearsAsync(
-        string? hobby, CancellationToken cancellationToken) =>
-        await Filtered(BoardQuery().AsNoTracking(), hobby, LogStatus.Completed, year: null)
-            .Where(row => row.Latest.DateCompleted != null)
-            // Off the same projection the Completed column uses, so the picker can never offer
-            // a year that turns out to be empty.
-            .Select(row => row.Latest.DateCompleted!.Value.Year)
-            .Distinct()
-            .OrderByDescending(year => year)
+        string? hobby, CancellationToken cancellationToken)
+    {
+        // Off the same projection the Completed column uses, so the picker can never offer a
+        // year that turns out to be empty.
+        var completions = await Filtered(
+                BoardQuery().AsNoTracking(), hobby, LogStatus.Completed, year: null)
+            .Where(row => row.Latest.CompletedAt != null)
+            .Select(row => row.Latest.CompletedAt!.Value)
             .ToListAsync(cancellationToken);
+
+        // The instant becomes a year here rather than in SQL. Postgres can only localise a
+        // timestamptz through AT TIME ZONE, which is STABLE rather than IMMUTABLE — it will not
+        // go in an index or a generated column — and a bare date_part would read whatever
+        // timezone the session was opened with. At the size a personal catalogue reaches this is
+        // a few hundred rows, which is a cheap price for the zone staying explicit.
+        return [.. completions
+            .Select(instant => clock.DayOf(instant).Year)
+            .Distinct()
+            .OrderByDescending(year => year)];
+    }
 
     public async Task<LibraryItemDto?> TransitionAsync(
         int mediaId, LogStatus target, CancellationToken cancellationToken)
@@ -111,7 +129,7 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
 
         if (latest.Status != target)
         {
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var now = clock.Now;
 
             if (latest.Status == LogStatus.Completed)
             {
@@ -123,16 +141,17 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
                 {
                     MediaId = mediaId,
                     Status = target,
+                    LoggedAt = now,
                     Position = await BoardPositions.TopOfColumnAsync(db, target, cancellationToken),
                 };
 
-                ApplyTransitionDates(replay, target, today);
+                ApplyTransitionTimestamps(replay, target, now);
                 db.LogEntries.Add(replay);
             }
             else
             {
                 latest.Status = target;
-                ApplyTransitionDates(latest, target, today);
+                ApplyTransitionTimestamps(latest, target, now);
             }
 
             await db.SaveChangesAsync(cancellationToken);
@@ -182,7 +201,7 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
             EntryCount = media.LogEntries.Count(),
 
             // "Current" state comes from the most recent entry: a replay under way beats an old
-            // completion. Ordering is date_started DESC NULLS LAST, id DESC — an entry that
+            // completion. Ordering is started_at DESC NULLS LAST, id DESC — an entry that
             // says when it happened is better evidence than a later one that does not, and the
             // id breaks ties among undated entries.
             //
@@ -191,8 +210,8 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
             // Kept in step with LatestEntryFor below: if the two ever disagree, the board will
             // move one entry and then display a different one.
             Latest = media.LogEntries
-                .OrderBy(entry => entry.DateStarted == null)
-                .ThenByDescending(entry => entry.DateStarted)
+                .OrderBy(entry => entry.StartedAt == null)
+                .ThenByDescending(entry => entry.StartedAt)
                 .ThenByDescending(entry => entry.Id)
                 .First(),
         });
@@ -203,12 +222,27 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
     /// </summary>
     private IQueryable<LogEntry> LatestEntryFor(int mediaId) => db.LogEntries
         .Where(entry => entry.MediaId == mediaId)
-        .OrderBy(entry => entry.DateStarted == null)
-        .ThenByDescending(entry => entry.DateStarted)
+        .OrderBy(entry => entry.StartedAt == null)
+        .ThenByDescending(entry => entry.StartedAt)
         .ThenByDescending(entry => entry.Id);
 
+    /// <summary>
+    /// Turns a calendar year into the instants that bound it here. The offset is asked of the
+    /// zone at each boundary rather than assumed, so a year is the right length even though one
+    /// of its days is 23 hours and another is 25.
+    /// </summary>
+    private YearSpan? SpanOf(int? year) => year is { } chosen
+        ? new YearSpan(FirstInstantOf(chosen), FirstInstantOf(chosen + 1))
+        : null;
+
+    private DateTimeOffset FirstInstantOf(int year)
+    {
+        var midnight = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        return new DateTimeOffset(midnight, clock.Zone.GetUtcOffset(midnight)).ToUniversalTime();
+    }
+
     private static IQueryable<BoardRow> Filtered(
-        IQueryable<BoardRow> query, string? hobby, LogStatus? status, int? year)
+        IQueryable<BoardRow> query, string? hobby, LogStatus? status, YearSpan? year)
     {
         if (!string.IsNullOrWhiteSpace(hobby))
         {
@@ -223,12 +257,16 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
             query = query.Where(row => row.Latest.Status == wanted);
         }
 
-        if (year is { } chosen)
+        if (year is { } span)
         {
-            // Scopes the Completed column to a year. Entries finished without a date show up
-            // only when no year is asked for.
-            query = query.Where(row => row.Latest.DateCompleted != null
-                                       && row.Latest.DateCompleted!.Value.Year == chosen);
+            // A half-open range of instants, not EXTRACT(year FROM completed_at). date_part on
+            // a timestamptz reads the session's timezone, so that query would answer
+            // differently depending on how the connection happened to be opened — and a game
+            // finished at 8pm on New Year's Eve would count towards the following year.
+            // Entries finished without a timestamp show up only when no year is asked for.
+            query = query.Where(row => row.Latest.CompletedAt != null
+                                       && row.Latest.CompletedAt >= span.From
+                                       && row.Latest.CompletedAt < span.To);
         }
 
         return query;
@@ -249,30 +287,30 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
         _ => query.OrderBy(row => row.Latest.Position).ThenByDescending(row => row.Latest.Id),
     };
 
-    private static void ApplyTransitionDates(LogEntry entry, LogStatus target, DateOnly today)
+    private static void ApplyTransitionTimestamps(LogEntry entry, LogStatus target, DateTimeOffset now)
     {
         switch (target)
         {
             case LogStatus.Backlog:
                 // Back in the queue means not started. A leftover start date would make the
                 // year view claim the game was played.
-                entry.DateStarted = null;
-                entry.DateCompleted = null;
+                entry.StartedAt = null;
+                entry.CompletedAt = null;
                 break;
 
             case LogStatus.InProgress:
                 // Only when absent: picking a dropped game back up must keep the day you
                 // actually started it rather than resetting to today.
-                entry.DateStarted ??= today;
-                entry.DateCompleted = null;
+                entry.StartedAt ??= now;
+                entry.CompletedAt = null;
                 break;
 
             case LogStatus.Completed:
-                // Guards ck_log_entries_date_order against a start date set in the future,
+                // Guards ck_log_entries_timestamp_order against a start moment in the future,
                 // which is reachable by hand through PUT and would otherwise be a 500.
-                entry.DateCompleted = entry.DateStarted is { } started && started > today
+                entry.CompletedAt = entry.StartedAt is { } started && started > now
                     ? started
-                    : today;
+                    : now;
                 break;
 
             case LogStatus.Dropped:
@@ -293,6 +331,6 @@ public sealed class LibraryService(HobbyTrackerDbContext db) : ILibraryService
                 row.Latest.Status,
                 row.EntryCount,
                 row.Latest.Rating,
-                row.Latest.DateCompleted ?? row.Latest.DateStarted))
+                row.Latest.CompletedAt ?? row.Latest.StartedAt))
             .FirstOrDefaultAsync(cancellationToken);
 }
