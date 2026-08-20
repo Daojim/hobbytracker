@@ -1,3 +1,8 @@
 <Solution>
-  <Project Path="HobbyTracker.Api.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/HobbyTracker.Api/HobbyTracker.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/HobbyTracker.Api.Tests/HobbyTracker.Api.Tests.csproj" />
+  </Folder>
 </Solution>

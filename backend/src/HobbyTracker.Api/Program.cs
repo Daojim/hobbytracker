@@ -64,3 +64,10 @@ app.UseHttpsRedirection();
 app.MapControllers();
 
 app.Run();
+
+/// <summary>
+/// Top-level statements compile into an internal Program class, which
+/// WebApplicationFactory&lt;Program&gt; cannot reach. Declaring it public here is what lets the
+/// test project boot the real pipeline in-process rather than mirroring its configuration.
+/// </summary>
+public partial class Program;
