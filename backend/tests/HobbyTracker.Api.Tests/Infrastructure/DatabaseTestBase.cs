@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using HobbyTracker.Api.Data;
+using HobbyTracker.Api.Domain;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HobbyTracker.Api.Tests.Infrastructure;
@@ -70,4 +71,70 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     protected static async Task<T> ReadAsync<T>(HttpResponseMessage response) =>
         await response.Content.ReadFromJsonAsync<T>(Json)
         ?? throw new InvalidOperationException($"Response body was null: {typeof(T).Name}");
+
+    // ---------------------------------------------------------------- arrange
+
+    /// <summary>Inserts a game straight into the catalog, bypassing IGDB.</summary>
+    protected Task<int> GivenGameAsync(
+        string title = "Test Game",
+        string externalId = "1",
+        string? coverUrl = null,
+        string[]? platforms = null) => WithDbAsync(async db =>
+        {
+            var game = new Game
+            {
+                HobbyId = SeedData.Hobbies.Games,
+                SourceId = SeedData.Sources.Igdb,
+                ExternalId = externalId,
+                Title = title,
+                CoverUrl = coverUrl,
+                Platforms = [.. platforms ?? []],
+            };
+
+            db.Games.Add(game);
+            await db.SaveChangesAsync(Ct);
+            return game.Id;
+        });
+
+    /// <summary>
+    /// Inserts a media row with no detail table behind it — what a movie looks like before
+    /// Phase 4 adds its sibling table. Only expressible because the mapping is TPT.
+    /// </summary>
+    protected Task<int> GivenNonGameMediaAsync(
+        int hobbyId, string title = "Some Film") => WithDbAsync(async db =>
+        {
+            var media = new Media
+            {
+                HobbyId = hobbyId,
+                SourceId = SeedData.Sources.Manual,
+                Title = title,
+            };
+
+            db.Media.Add(media);
+            await db.SaveChangesAsync(Ct);
+            return media.Id;
+        });
+
+    protected Task<int> GivenLogEntryAsync(
+        int mediaId,
+        LogStatus status = LogStatus.Backlog,
+        decimal? rating = null,
+        DateOnly? dateStarted = null,
+        DateOnly? dateCompleted = null,
+        string? notes = null) => WithDbAsync(async db =>
+        {
+            var entry = new LogEntry
+            {
+                MediaId = mediaId,
+                Status = status,
+                Rating = rating,
+                Notes = notes,
+                DateStarted = dateStarted,
+                DateCompleted = dateCompleted,
+            };
+
+            db.LogEntries.Add(entry);
+            await db.SaveChangesAsync(Ct);
+            return entry.Id;
+        });
 }

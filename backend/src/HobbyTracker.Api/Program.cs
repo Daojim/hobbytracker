@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Text.Json.Serialization;
 using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Igdb;
@@ -44,9 +45,15 @@ builder.Services.AddHttpClient<IIgdbClient, IgdbClient>((serviceProvider, client
     .AddHttpMessageHandler<IgdbAuthHandler>();
 
 builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
+builder.Services.AddScoped<ILogEntryService, LogEntryService>();
+builder.Services.AddScoped<ILibraryService, LibraryService>();
 
 // ------------------------------------------------------------------------ web
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    // LogStatus travels as "Completed", not 2. Readable on the wire, and immune to someone
+    // reordering the enum -- which with ordinals would silently reinterpret existing rows.
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<IgdbExceptionHandler>();
 builder.Services.AddOpenApi();

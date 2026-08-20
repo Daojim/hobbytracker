@@ -1,0 +1,85 @@
+using System.ComponentModel.DataAnnotations;
+using HobbyTracker.Api.Domain;
+
+namespace HobbyTracker.Api.Contracts;
+
+/// <summary>
+/// One recorded pass through a title. Carries the media title so a client listing a journal
+/// does not have to fetch each game separately.
+/// </summary>
+public sealed record LogEntryDto(
+    int Id,
+    int MediaId,
+    string MediaTitle,
+    LogStatus Status,
+    decimal? Rating,
+    string? Notes,
+    DateOnly? DateStarted,
+    DateOnly? DateCompleted)
+{
+    public static LogEntryDto From(LogEntry entry) => new(
+        entry.Id,
+        entry.MediaId,
+        entry.Media?.Title ?? string.Empty,
+        entry.Status,
+        entry.Rating,
+        entry.Notes,
+        entry.DateStarted,
+        entry.DateCompleted);
+}
+
+/// <summary>
+/// Body for creating an entry. Several entries against one media id is expected, not a
+/// conflict — that is what makes replays first-class rather than an overwrite.
+/// </summary>
+// Validation attributes sit on the constructor parameters, not behind [property:]. MVC
+// refuses the latter outright — it cannot associate property metadata with a record's
+// primary-constructor binding, so it throws rather than silently skipping the rules.
+public sealed record CreateLogEntryRequest(
+    [Range(1, int.MaxValue)] int MediaId,
+    LogStatus Status,
+    [Rating] decimal? Rating,
+    [MaxLength(4000)] string? Notes,
+    DateOnly? DateStarted,
+    DateOnly? DateCompleted) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        LogEntryRules.DateOrder(DateStarted, DateCompleted);
+}
+
+/// <summary>
+/// Body for replacing an entry. PUT rather than PATCH: an omitted field is cleared, which is
+/// unambiguous, where PATCH cannot distinguish "clear the rating" from "leave it alone"
+/// without an Optional&lt;T&gt; wrapper.
+///
+/// MediaId is deliberately absent — moving an entry to a different title is not an edit, it is
+/// a delete and a create.
+/// </summary>
+public sealed record UpdateLogEntryRequest(
+    LogStatus Status,
+    [Rating] decimal? Rating,
+    [MaxLength(4000)] string? Notes,
+    DateOnly? DateStarted,
+    DateOnly? DateCompleted) : IValidatableObject
+{
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
+        LogEntryRules.DateOrder(DateStarted, DateCompleted);
+}
+
+/// <summary>Rules shared by the create and update bodies.</summary>
+internal static class LogEntryRules
+{
+    /// <summary>
+    /// A completion cannot precede its own start. The database enforces this too, via
+    /// ck_log_entries_date_order — but reaching it means a 500, and this is a 400.
+    /// </summary>
+    public static IEnumerable<ValidationResult> DateOrder(DateOnly? started, DateOnly? completed)
+    {
+        if (started is { } start && completed is { } completion && completion < start)
+        {
+            yield return new ValidationResult(
+                "dateCompleted cannot be earlier than dateStarted.",
+                [nameof(CreateLogEntryRequest.DateCompleted)]);
+        }
+    }
+}

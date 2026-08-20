@@ -14,6 +14,9 @@ public interface IGameCatalogService
 {
     Task<IReadOnlyList<GameDto>> SearchAsync(
         string search, int? limit, CancellationToken cancellationToken);
+
+    /// <summary>Returns null when no game with that media id exists.</summary>
+    Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -52,6 +55,30 @@ public sealed class GameCatalogService(
                 .Where(game => game is not null)
                 .Select(game => GameDto.From(game!))
         ];
+    }
+
+    public async Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken)
+    {
+        // Querying the derived DbSet is what makes this correct under TPT: it emits an INNER
+        // JOIN of media and games, so a media row with no game detail — a film, once Phase 4
+        // lands — is not found here rather than returned with empty game fields.
+        var game = await db.Games
+            .AsNoTracking()
+            .FirstOrDefaultAsync(candidate => candidate.Id == mediaId, cancellationToken);
+
+        if (game is null)
+        {
+            return null;
+        }
+
+        var entries = await db.LogEntries
+            .AsNoTracking()
+            .Include(entry => entry.Media)
+            .Where(entry => entry.MediaId == mediaId)
+            .OrderByDescending(entry => entry.Id)
+            .ToListAsync(cancellationToken);
+
+        return GameDetailDto.From(game, entries);
     }
 
     /// <summary>

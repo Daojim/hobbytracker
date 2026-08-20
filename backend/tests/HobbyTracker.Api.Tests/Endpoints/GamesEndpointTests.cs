@@ -1,5 +1,7 @@
 using System.Net.Http.Json;
 using HobbyTracker.Api.Contracts;
+using HobbyTracker.Api.Data;
+using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -118,5 +120,64 @@ public sealed class GamesEndpointTests(PostgresFixture postgres) : DatabaseTestB
         // Search is not paged: it returns whatever IGDB ranked, capped by limit. Pinning the
         // shape here so adding pagination elsewhere does not silently change this endpoint.
         body.TrimStart().ShouldStartWith("[");
+    }
+
+    // ------------------------------------------------------------------ detail
+
+    [Fact]
+    public async Task Returns_one_stored_game_with_everything_logged_against_it()
+    {
+        var mediaId = await GivenGameAsync("Hollow Knight", externalId: "14593",
+            platforms: ["Nintendo Switch", "PC"]);
+
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed, rating: 9.5m,
+            dateCompleted: new DateOnly(2025, 6, 1));
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress,
+            dateStarted: new DateOnly(2026, 8, 1));
+
+        var response = await Client.GetAsync($"/api/games/{mediaId}", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var game = await ReadAsync<GameDetailDto>(response);
+        game.Id.ShouldBe(mediaId);
+        game.Title.ShouldBe("Hollow Knight");
+        game.ExternalId.ShouldBe("14593");
+        game.Platforms.ShouldBe(["Nintendo Switch", "PC"]);
+
+        // One request, not one per entry — the point of a detail endpoint.
+        game.LogEntries.Count.ShouldBe(2);
+        game.LogEntries.Select(e => e.Status)
+            .ShouldContain(LogStatus.Completed);
+    }
+
+    [Fact]
+    public async Task Returns_a_game_with_no_entries_as_an_empty_list()
+    {
+        var mediaId = await GivenGameAsync("Never Played");
+
+        var response = await Client.GetAsync($"/api/games/{mediaId}", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        (await ReadAsync<GameDetailDto>(response)).LogEntries.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Detail_404s_for_an_unknown_id()
+    {
+        (await Client.GetAsync("/api/games/999999", Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Detail_404s_for_media_that_is_not_a_game()
+    {
+        var filmId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Arrival");
+
+        var response = await Client.GetAsync($"/api/games/{filmId}", Ct);
+
+        // The row exists in media but has no games detail. Querying the derived DbSet under
+        // TPT is what filters it out; querying Media would wrongly return it.
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 }

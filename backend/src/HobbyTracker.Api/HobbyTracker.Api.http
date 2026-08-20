@@ -18,5 +18,83 @@ Accept: application/json
 GET {{HobbyTracker.Api_HostAddress}}/api/games
 Accept: application/json
 
+### One stored game with everything logged against it. Use an id from a search above.
+GET {{HobbyTracker.Api_HostAddress}}/api/games/1
+Accept: application/json
+
+### ---------------------------------------------------------------- log entries
+
+### Start playing something. mediaId must be a game already in the catalog.
+POST {{HobbyTracker.Api_HostAddress}}/api/log-entries
+Content-Type: application/json
+
+{
+  "mediaId": 1,
+  "status": "InProgress",
+  "dateStarted": "2026-08-01"
+}
+
+### Log a finished playthrough with a rating.
+POST {{HobbyTracker.Api_HostAddress}}/api/log-entries
+Content-Type: application/json
+
+{
+  "mediaId": 1,
+  "status": "Completed",
+  "rating": 9.6,
+  "notes": "held up better than I expected",
+  "dateStarted": "2026-07-02",
+  "dateCompleted": "2026-08-19"
+}
+
+### Rejected: numeric(3,1) would silently round 8.75 to 8.8, so 400 rather than lie.
+POST {{HobbyTracker.Api_HostAddress}}/api/log-entries
+Content-Type: application/json
+
+{ "mediaId": 1, "status": "Completed", "rating": 8.75 }
+
+### Rejected: a completion cannot precede its own start.
+POST {{HobbyTracker.Api_HostAddress}}/api/log-entries
+Content-Type: application/json
+
+{
+  "mediaId": 1,
+  "status": "Completed",
+  "dateStarted": "2026-08-20",
+  "dateCompleted": "2026-07-01"
+}
+
+### The whole journal, most recently recorded first.
+GET {{HobbyTracker.Api_HostAddress}}/api/log-entries
+Accept: application/json
+
+### Filtered and paged.
+GET {{HobbyTracker.Api_HostAddress}}/api/log-entries?status=Completed&page=1&pageSize=10
+Accept: application/json
+
+### Replace an entry outright. Fields left out of the body are CLEARED, not preserved.
+PUT {{HobbyTracker.Api_HostAddress}}/api/log-entries/1
+Content-Type: application/json
+
+{
+  "status": "Completed",
+  "rating": 10.0,
+  "dateCompleted": "2026-08-20"
+}
+
+### Remove an entry. The game stays in the catalog.
+DELETE {{HobbyTracker.Api_HostAddress}}/api/log-entries/1
+
+### -------------------------------------------------------------------- library
+
+### Your collection: titles you have logged, not everything a search happened to cache.
+GET {{HobbyTracker.Api_HostAddress}}/api/library
+Accept: application/json
+
+### Filtered on the CURRENT status — a game completed in 2024 and being replayed now
+### appears under InProgress, not Completed.
+GET {{HobbyTracker.Api_HostAddress}}/api/library?hobby=games&status=InProgress
+Accept: application/json
+
 ### OpenAPI document (Development only).
 GET {{HobbyTracker.Api_HostAddress}}/openapi/v1.json

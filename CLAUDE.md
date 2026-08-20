@@ -22,26 +22,38 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 ```
 /                        monorepo root
 ├── docker-compose.yml    local Postgres 17
+├── global.json           opts dotnet test into Microsoft.Testing.Platform
 ├── CLAUDE.md             this file
 ├── frontend/             empty until Phase 3
 └── backend/
-    ├── HobbyTracker.Api.csproj
-    ├── Program.cs        composition root — DI wiring lives here, nowhere else
-    ├── Domain/           EF entities, no attributes, no persistence concerns
-    ├── Data/
-    │   ├── HobbyTrackerDbContext.cs
-    │   ├── SeedData.cs           lookup rows + their fixed ids
-    │   ├── Configurations/       one IEntityTypeConfiguration per entity
-    │   └── Migrations/
-    ├── Integrations/Igdb/        IGDB client, auth, wire DTOs
-    ├── Services/                 orchestration (IGDB → database → DTO)
-    ├── Contracts/                what the API returns
-    ├── Controllers/
-    └── Infrastructure/           cross-cutting (exception handling)
+    ├── HobbyTracker.slnx
+    ├── Directory.Packages.props   ALL package versions live here (central management)
+    ├── src/HobbyTracker.Api/
+    │   ├── Program.cs        composition root — DI wiring lives here, nowhere else
+    │   ├── Domain/           EF entities, no attributes, no persistence concerns
+    │   ├── Data/
+    │   │   ├── HobbyTrackerDbContext.cs
+    │   │   ├── SeedData.cs           lookup rows + their fixed ids
+    │   │   ├── Configurations/       one IEntityTypeConfiguration per entity
+    │   │   └── Migrations/
+    │   ├── Integrations/Igdb/        IGDB client, auth, wire DTOs
+    │   ├── Services/                 orchestration (IGDB → database → DTO)
+    │   ├── Contracts/                what the API accepts and returns
+    │   ├── Controllers/
+    │   └── Infrastructure/           cross-cutting (exception handling)
+    └── tests/HobbyTracker.Api.Tests/
+        ├── Infrastructure/           container fixture, host factory, fakes
+        ├── Data/  Services/  Integrations/  Endpoints/
 ```
 
 The layering rule worth keeping: **IGDB wire types never leave `Integrations/Igdb`, and EF
 entities never leave the service layer.** Controllers speak `Contracts/` only.
+
+Package versions are centrally managed. Add a `PackageVersion` to
+`backend/Directory.Packages.props` and a bare `PackageReference` (no `Version`) in the csproj.
+`CentralPackageTransitivePinningEnabled` is on deliberately: without it the test project
+resolves EF Core 10.0.4 (Npgsql's declared minimum) while the API resolves 10.0.11 via the
+Design package, which does not flow across a `ProjectReference`.
 
 ## Running it
 
@@ -50,11 +62,11 @@ docker compose up -d db                      # Postgres on localhost:5432
 
 # One-time: IGDB credentials. These are Twitch credentials — register an app at
 # https://dev.twitch.tv/console/apps. Never put them in appsettings.json.
-dotnet user-secrets set "Igdb:ClientId" "..."     --project backend
-dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend
+dotnet user-secrets set "Igdb:ClientId" "..."     --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTracker.Api
 
-dotnet ef database update --project backend --startup-project backend
-dotnet run --project backend                 # http://localhost:5201
+dotnet ef database update --project backend/src/HobbyTracker.Api --startup-project backend/src/HobbyTracker.Api
+dotnet run --project backend/src/HobbyTracker.Api   # http://localhost:5201
 ```
 
 `docker compose exec db psql -U admin -d hobbytracker` for a shell. Credentials are
@@ -66,8 +78,43 @@ the missing setting. That is the intended behaviour, not a bug to work around.
 
 New migration:
 ```bash
-dotnet ef migrations add <Name> --project backend --startup-project backend --output-dir Data/Migrations
+dotnet ef migrations add <Name> \
+  --project backend/src/HobbyTracker.Api --startup-project backend/src/HobbyTracker.Api \
+  --output-dir Data/Migrations
 ```
+
+## Tests
+
+```bash
+dotnet test --solution backend/HobbyTracker.slnx
+```
+
+Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
+`global.json`) takes it, where the old VSTest mode took a bare path.
+
+The suite starts its own throwaway Postgres via Testcontainers, so it neither needs nor touches
+the docker-compose database. It does need Docker running. A full run is under ten seconds.
+
+Choices worth not re-litigating:
+
+- **Real Postgres, not in-memory or SQLite.** What is worth testing here is Postgres-specific:
+  the partial unique index behind upsert idempotency, the `23505` the upsert recovers from,
+  `text[]` columns, check constraints. A fake provider passes tests production fails.
+- **Migrations, not `EnsureCreated`.** `EnsureCreated` builds DDL from the model and skips
+  migrations entirely, so anything expressed only in a migration would vanish.
+- **Respawn ignores `hobby_lu` and `source_lu`.** They are migration-managed reference data
+  whose ids `SeedData` exposes as compile-time constants; wiping them between tests shows up as
+  baffling foreign-key failures.
+- **`ApiFactory` runs under a "Testing" environment**, so `appsettings.Development.json` and
+  user-secrets do not load and real IGDB credentials cannot leak into a test run.
+- **No `Microsoft.NET.Test.Sdk` or `xunit.runner.visualstudio`.** Those make the project support
+  VSTest as well as MTP, which is the mixed configuration the .NET 10 SDK refuses to run.
+- **Shouldly, not FluentAssertions** — v8+ of the latter is Xceed-owned and "all rights
+  reserved".
+
+Working method: **write the failing test first.** The Phase 2 endpoints were driven that way,
+and the backfill suite over Phase 1 code was written before any of them, so the harness was
+proven against behaviour already known to work rather than going green on its first run.
 
 ## Schema
 
@@ -169,29 +216,76 @@ Two IGDB quirks the code depends on:
 
 ## API
 
-`GET /api/games?search={title}&limit={n}`
+| Route | |
+|---|---|
+| `GET /api/games?search=&limit=` | search IGDB, upsert, return |
+| `GET /api/games/{id}` | one stored game plus its log entries |
+| `GET /api/log-entries?mediaId=&status=&page=&pageSize=` | the journal, newest first |
+| `POST /api/log-entries` | record a pass through a title |
+| `GET /api/log-entries/{id}` | |
+| `PUT /api/log-entries/{id}` | full replacement |
+| `DELETE /api/log-entries/{id}` | |
+| `GET /api/library?hobby=&status=&page=&pageSize=` | your collection |
 
-Queries IGDB, upserts every result into `media` + `games`, returns them **in IGDB's relevance
-order** (the database has no idea that ordering exists). This hits IGDB on every call by
-design — the Phase 3 frontend debounces. Idempotent: running the same search twice must not
-change `select count(*) from media`.
+**Search** queries IGDB, upserts every result into `media` + `games`, and returns them **in
+IGDB's relevance order** (the database has no idea that ordering exists). It hits IGDB on every
+call by design — the Phase 3 frontend debounces. Idempotent: running the same search twice must
+not change `select count(*) from media`.
 
 The upsert reads then writes, so two identical concurrent searches can race. The partial unique
 index turns that into a `23505` rather than a duplicate row; `GameCatalogService` catches it,
 clears the change tracker, and re-reads.
 
+**Library is not the catalog.** Searching upserts every IGDB result, so `media` accumulates
+everything ever typed into a search box. `/api/library` joins to `log_entries` and returns only
+titles you actually recorded something about — one row per title regardless of replays, carrying
+`currentStatus`, `entryCount` and `latestRating`. Do not "fix" it to list all of `media`.
+
+**`currentStatus` is the most recent entry's status**, ordered `date_started DESC NULLS LAST,
+id DESC`: a replay under way beats an old completion, a dated entry beats an undated one, and
+the id breaks ties. `?status=` filters on that, not on "has ever been" — a game completed in
+2024 and being replayed now appears under `InProgress` and must not also appear under
+`Completed`. EF turns the nested `First()` into a LATERAL join, not N queries.
+
+**Updates are `PUT`, not `PATCH`**: a field absent from the body is *cleared*. That is the whole
+reason for choosing PUT — PATCH cannot distinguish "clear the rating" from "leave it alone"
+without an `Optional<T>` wrapper. `mediaId` is not replaceable; moving an entry to a different
+title is a delete and a create.
+
+**Validation returns 400, never 500.** Unknown `mediaId` is checked before insert (a raw
+foreign-key violation would be a 500). `dateCompleted < dateStarted` is caught by
+`IValidatableObject` before the check constraint can throw. Ratings must be 1.0–10.0 **with at
+most one decimal place** — `numeric(3,1)` *rounds* 8.75 to 8.8 rather than rejecting it, so
+accepting two places would mean the response reporting a rating the database does not hold.
+
+Two mapping traps, both of which fail loudly rather than silently:
+
+- Validation attributes go on record **primary-constructor parameters**, not `[property:]`
+  targets. MVC throws `InvalidOperationException` rather than skipping them.
+- `LogStatus` needs `JsonStringEnumConverter` (registered in `Program.cs`) to travel as
+  `"Completed"` rather than `2`.
+
+List endpoints return `PagedResult<T>` — `{ items, total, page, pageSize }`. Search does not: it
+returns a bare array of whatever IGDB ranked, capped by `limit`.
+
 ## Phases
 
 - **Phase 1 — done.** Schema + migration, IGDB integration, `GET /api/games`.
-- **Phase 2.** Google/Discord OAuth and JWT issuance; `Log_Entries` CRUD once real users exist.
-  `users.id` is already nullable on `log_entries` to allow the transition.
-- **Phase 3.** React + TypeScript frontend.
-- **Phase 4.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
+- **Phase 2 — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
+- **Phase 3.** Google/Discord OAuth and JWT issuance.
+- **Phase 4.** React + TypeScript frontend.
+- **Phase 5.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
 
-Not built yet, on purpose: auth of any kind, `Log_Entries` endpoints, any hobby table besides
-`Games`, HowLongToBeat ingestion (the `hltb_*` columns exist so that pass is a backfill, not a
-migration).
+**Auth was deliberately moved behind logging.** The original plan had it in Phase 2, but
+`log_entries.user_id` is already nullable, so the journal works without a line of auth, and
+sequencing auth first would have left the app unable to do its job throughout. When auth lands:
+backfill `user_id` on existing rows, flip the column to `NOT NULL`, and scope every query in
+`LogEntryService` and `LibraryService` to the current user. Treat the nullable `user_id` as
+temporary, not as a design decision.
+
+Not built yet, on purpose: auth of any kind, any hobby table besides `Games`, HowLongToBeat
+ingestion (the `hltb_*` columns exist so that pass is a backfill, not a migration).
 
 Root `README.md` is still the scaffold placeholder — worth writing before this is shown to
 anyone.

@@ -36,4 +36,17 @@ public class GamesController(IGameCatalogService catalog) : ControllerBase
         var games = await catalog.SearchAsync(search.Trim(), limit, cancellationToken);
         return Ok(games);
     }
+
+    /// <summary>
+    /// Returns one stored game together with everything logged against it, so a detail page
+    /// needs a single request rather than one per entry.
+    /// </summary>
+    [HttpGet("{id:int}")]
+    [ProducesResponseType<GameDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GameDetailDto>> Get(int id, CancellationToken cancellationToken)
+    {
+        var game = await catalog.GetAsync(id, cancellationToken);
+        return game is null ? NotFound() : Ok(game);
+    }
 }
