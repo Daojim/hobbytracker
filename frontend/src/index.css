@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/*
+ * Tailwind v4 is configured in CSS, not a tailwind.config.js — @theme is where tokens live.
+ * Only the board's own vocabulary goes here; everything else is Tailwind's defaults.
+ */
+@theme {
+  --color-column-dropped: oklch(0.55 0.01 260);
+}

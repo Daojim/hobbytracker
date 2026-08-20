@@ -1,0 +1,6 @@
+# Vite build output and caches. node_modules is already covered by the root .gitignore.
+dist/
+node_modules/
+*.local
+.vite/
+*.tsbuildinfo
