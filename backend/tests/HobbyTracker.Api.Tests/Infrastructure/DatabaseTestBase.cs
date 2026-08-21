@@ -126,7 +126,7 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
 
     /// <summary>
     /// Inserts a media row with no detail table behind it — what a movie looks like before
-    /// Phase 4 adds its sibling table. Only expressible because the mapping is TPT.
+    /// movies get their sibling table. Only expressible because the mapping is TPT.
     /// </summary>
     protected Task<int> GivenNonGameMediaAsync(
         int hobbyId, string title = "Some Film") => WithDbAsync(async db =>

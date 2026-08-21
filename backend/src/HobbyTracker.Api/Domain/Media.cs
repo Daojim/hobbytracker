@@ -11,7 +11,7 @@ public class Media
     /// <summary>
     /// Redundant with the CLR type under TPT (a row in `games` is always hobby=games), and
     /// kept deliberately: it lets "everything in hobby X" filter on one table instead of
-    /// LEFT JOINing every detail table that will exist by Phase 4.
+    /// LEFT JOINing every detail table that will exist once the other hobbies do.
     /// </summary>
     public int HobbyId { get; set; }
     public Hobby? Hobby { get; set; }

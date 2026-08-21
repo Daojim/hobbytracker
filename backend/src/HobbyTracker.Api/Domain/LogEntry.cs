@@ -8,7 +8,7 @@ public class LogEntry
 {
     public int Id { get; set; }
 
-    /// <summary>Nullable until auth arrives in Phase 2; every row is the single local user for now.</summary>
+    /// <summary>Nullable until auth arrives; every row is the single local user for now.</summary>
     public int? UserId { get; set; }
     public User? User { get; set; }
 

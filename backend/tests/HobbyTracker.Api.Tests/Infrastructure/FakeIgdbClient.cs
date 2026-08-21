@@ -6,7 +6,7 @@ namespace HobbyTracker.Api.Tests.Infrastructure;
 /// <summary>
 /// Stands in for IGDB so tests never touch the network.
 ///
-/// That this is a two-line swap is a payoff from Phase 1 keeping IIgdbClient an interface:
+/// That this is a two-line swap is a payoff from the IGDB work keeping IIgdbClient an interface:
 /// the catalog service and the endpoint are exercised exactly as they run in production, with
 /// only the outermost HTTP boundary replaced.
 /// </summary>

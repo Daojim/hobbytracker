@@ -60,7 +60,7 @@ public sealed class GameCatalogService(
     public async Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken)
     {
         // Querying the derived DbSet is what makes this correct under TPT: it emits an INNER
-        // JOIN of media and games, so a media row with no game detail — a film, once Phase 4
+        // JOIN of media and games, so a media row with no game detail — a film, once movies
         // lands — is not found here rather than returned with empty game fields.
         var game = await db.Games
             .AsNoTracking()

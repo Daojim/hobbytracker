@@ -64,7 +64,7 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
     [Fact]
     public async Task Searching_twice_does_not_duplicate_rows()
     {
-        // The Phase 1 invariant, previously only ever checked by hand with curl.
+        // The upsert invariant, previously only ever checked by hand with curl.
         Igdb.SetResults("halo",
             FakeIgdbClient.Game(740, "Halo: Combat Evolved"),
             FakeIgdbClient.Game(2640, "Halo: Combat Evolved Anniversary"));

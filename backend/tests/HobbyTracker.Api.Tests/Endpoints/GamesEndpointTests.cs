@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HobbyTracker.Api.Tests.Endpoints;
 
-/// <summary>The Phase 1 endpoint, pinned by tests rather than by me remembering to run curl.</summary>
+/// <summary>The original search endpoint, pinned by tests rather than by me remembering to run curl.</summary>
 [Collection(DatabaseCollection.Name)]
 public sealed class GamesEndpointTests(PostgresFixture postgres) : DatabaseTestBase(postgres)
 {

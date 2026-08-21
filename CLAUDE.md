@@ -14,7 +14,7 @@ Currently on branch **`kanban-board`**, five commits ahead of `main` and pushed 
 github.com/Daojim/hobbytracker. Working tree clean; no PR opened yet.
 
 Two plans, both worth reading before touching this:
-`C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original Phase 3
+`C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original board
 plan; `i-had-a-previous-melodic-nebula.md` beside it is the timezone and timestamp work that
 interrupted it. Steps 1 and 2 below are done.
 
@@ -56,7 +56,7 @@ Decisions already made with the user, **settled — do not reopen**:
 | Timezone | `America/New_York`, server-configured, DST-following. See **Time** |
 | Timestamps | `started_at` / `completed_at` / `logged_at` are instants, not dates |
 
-Working method the user asked for and has held to since Phase 2: **write the failing test
+Working method the user asked for and has held to since the journal: **write the failing test
 first, show it red, then implement.** Not implementation followed by an offer to add tests.
 ## Stack
 
@@ -64,7 +64,7 @@ first, show it red, then implement.** Not implementation followed by an offer to
 |---|---|
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
-| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query — **Phase 3, in progress** |
+| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query — **the board, in progress** |
 | External data | IGDB v4 (games), authenticated through Twitch |
 
 Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
@@ -183,9 +183,10 @@ pinning to the journal zone. Component and drag coverage arrives with the board 
 components, Playwright for the drag, because drag-and-drop in jsdom has no real layout or pointer
 events and passes for the wrong reasons.
 
-Working method: **write the failing test first.** The Phase 2 endpoints were driven that way,
-and the backfill suite over Phase 1 code was written before any of them, so the harness was
-proven against behaviour already known to work rather than going green on its first run.
+Working method: **write the failing test first.** The journal endpoints were driven that way,
+and the backfill suite over the schema-and-search code was written before any of them, so the
+harness was proven against behaviour already known to work rather than going green on its first
+run.
 
 ## Schema
 
@@ -228,7 +229,7 @@ renames the column in `media` too and leaves the base table with no `id` at all.
 
 - **`media.hobby_id` is redundant under TPT** — a row in `games` is always hobby=games. Kept on
   purpose: it lets "everything in hobby X" filter on one table instead of LEFT JOINing every
-  detail table that will exist by Phase 4. Nothing enforces the two agree; the catalog service
+  detail table that will exist once movies do. Nothing enforces the two agree; the catalog service
   sets it from `SeedData.Hobbies`.
 - **`external_id` is `text`, not `int`.** IGDB and TMDB use numeric ids, but `media` is
   source-agnostic and future sources may not. Null for `manual` rows.
@@ -358,7 +359,7 @@ Two IGDB quirks the code depends on:
 
 **Search** queries IGDB, upserts every result into `media` + `games`, and returns them **in
 IGDB's relevance order** (the database has no idea that ordering exists). It hits IGDB on every
-call by design — the Phase 3 frontend debounces. Idempotent: running the same search twice must
+call by design — the frontend debounces. Idempotent: running the same search twice must
 not change `select count(*) from media`.
 
 The upsert reads then writes, so two identical concurrent searches can race. The partial unique
@@ -444,18 +445,23 @@ in manual mode and still guarantee the ranking survives a look at the alphabetic
 
 ## Phases
 
-- **Phase 1 — done.** Schema + migration, IGDB integration, `GET /api/games`.
-- **Phase 2 — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
-- **Phase 3 — in progress.** Kanban board frontend. Backend done (transitions, ordering, year
+Phases are referred to **by name, not by number**, anywhere outside this list. The order has now
+changed twice — auth deferred, then HowLongToBeat brought forward — and each reorder silently
+invalidated every "by Phase 4" scattered through the code. "once movies exist" stays true however
+the list is shuffled.
+
+- **Schema and search — done.** Schema + migration, IGDB integration, `GET /api/games`.
+- **The journal — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
+- **The board — in progress.** Kanban board frontend. Backend done (transitions, ordering, year
   filtering, and the Eastern timezone/timestamp work). Frontend scaffolded with its API client
   and tests; board components, drag wiring, Playwright and the search page remain.
-- **Phase 4.** Google/Discord OAuth and JWT issuance.
-- **Phase 5.** Game detail page and the year-in-review page.
-- **Phase 6.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
+- **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below.
+- **Auth.** Google/Discord OAuth and JWT issuance.
+- **Detail and review.** Game detail page and the year-in-review page.
+- **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
-- **Later.** HowLongToBeat ingestion, which also unlocks `sort=hours` on the board.
 
-**Auth keeps being deliberately deferred, twice now.** The original brief had it in Phase 2.
+**Auth keeps being deliberately deferred, three times now.** The original brief had it second.
 `log_entries.user_id` is already nullable, so both the journal and the board work without a
 line of auth, and sequencing auth first would have left the app unable to do its job while it
 was built. This is a considered choice, not an oversight — do not propose bringing it forward
@@ -466,10 +472,43 @@ scope every query in `LogEntryService` and `LibraryService` to the current user.
 nullable `user_id` as temporary, not as a design decision.
 
 The board is built hobby-parameterised (`/api/library?hobby=games`) even though only games
-exist, so Phase 6's boards are a routing change rather than a rewrite.
+exist, so the other hobbies' boards are a routing change rather than a rewrite.
 
-Not built yet, on purpose: auth of any kind, any hobby table besides `Games`, HowLongToBeat
-ingestion (the `hltb_*` columns exist so that pass is a backfill, not a migration).
+### HowLongToBeat, moved ahead of the other hobbies
 
-Root `README.md` is still the scaffold placeholder — worth writing before this is shown to
-anyone.
+Decided with the user, **settled — do not reopen**:
+
+| | |
+|---|---|
+| Position | Straight after the board, ahead of auth. `sort=hours` lands with data behind it |
+| Numbers | **Main Story only.** Uses the column that exists; no migration, and `sort=hours` has one meaning |
+| Matching | Auto-accept above a confidence threshold; **below it, leave null** |
+| Fetching | On add to the board, plus a backfill pass for what is already there |
+
+It is genuinely a backfill: `games.hltb_main_story_hours` (`numeric(5,2)`) and `games.hltb_id`
+already exist, `GameDto` and `GameDetailDto` already expose them, and `GameCatalogService`
+deliberately leaves both alone when it upserts from IGDB — so re-searching a game cannot wipe its
+hours.
+
+**HLTB is not an API, and this is the thing to design around.** IGDB is documented,
+authenticated, and versioned. HLTB is a website with an internal endpoint that unofficial clients
+wrap and that has broken those clients repeatedly. Establish the current access shape with a
+spike *before* planning the rest — it is the only real unknown in the feature. Then isolate it
+behind `IHltbClient` in `Integrations/Hltb/`, mirroring `IIgdbClient`, so the blast radius when it
+breaks is one folder. Nothing a user does should ever block on it, and `HltbException` should
+become a 502 the way `IgdbException` does.
+
+`hltb_id` is what makes that survivable: a confident match is stored once and never looked up
+again, so an outage costs new games only.
+
+**Matching is the work; fetching is not.** IGDB and HLTB disagree about titles constantly —
+remasters, anniversaries, subtitle punctuation. A wrong number is worse than no number here,
+because the whole point is answering "can I finish this before the weekend is out". So a match
+below the threshold writes nothing and the card simply shows no hours, which is honest. Correction
+for a bad match arrives with the detail page; until then, a wrong `hltb_id` is fixed in psql.
+
+**Do not fetch at search time.** Searching IGDB returns up to 500 results and upserts every one;
+a lookup per result would be slow and rude to a service that never agreed to serve us.
+
+`sort=hours` stays absent from `LibrarySort` until this ships. A sort control that visibly does
+nothing is worse than an absent one.
