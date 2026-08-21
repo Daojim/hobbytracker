@@ -73,7 +73,11 @@ export function BoardPage() {
         {/* What the cursor carries. A card cannot follow the pointer out of its own column and
             stay in the list, and a second sortable with the same id would be ambiguous to
             dnd-kit — so the overlay wears the card's face without being one. */}
-        <DragOverlay>
+        {/* dropAnimation={null}, or releasing a card tweens the overlay back to the rect it
+            started in and only then re-renders it where it was dropped — which reads as the card
+            being yanked home before it changes its mind. The optimistic cache update has already
+            put it in the new column by then, so there is nothing worth animating towards. */}
+        <DragOverlay dropAnimation={null}>
           {board.dragging !== null && (
             <div className={`${CARD_CLASS} cursor-grabbing shadow-lg`}>
               <CardFace item={board.dragging} />

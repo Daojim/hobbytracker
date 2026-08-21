@@ -7,12 +7,11 @@ merely shorter.
 
 ## Where things stand
 
-**Backend complete, 132 tests green. The board is built and draggable: 65 Vitest tests and 8
-Playwright drag specs green. The search page is the current job.**
+**The board phase is complete.** Backend 132 tests, frontend 82 Vitest tests, 11 Playwright
+specs — all green. Next up is HowLongToBeat.
 
-Currently on branch **`board-components`**, branched off `hltb-priority` rather than `main` —
-that branch's phase-reorder commit touches the same paragraphs this work does, and PR #2 was
-open for it at the time. Steps 1 to 4 below are done.
+Currently on branch **`search-page`**, off `main` at the merge of PR #3. Every step below is
+done.
 
 Three plans, all worth reading before touching this:
 `C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original board
@@ -25,9 +24,16 @@ interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the board component
    the writes. Each column fetches itself, which is what makes the year picker narrow Completed
    alone and a sort on one column cost nothing on the other three.
 4. ~~The drag, and Playwright specs written red first~~ — dnd-kit, 8 specs in `frontend/e2e/`.
-5. **Search page.** `searchGames()` and `addToBacklog()` are already built and tested; the page
-   is a debounced input over the first and a button over the second. `SearchPage` is still the
-   placeholder and should be replaced wholesale, not extended.
+5. ~~Search page~~ — a 300ms debounced input over `searchGames()`, and a button over
+   `addToBacklog()`.
+
+**Two things about search worth not re-deriving.** It debounces at 300ms because the API reaches
+IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
+"hollow" and six requests. And a result already in your library shows "On your board" rather than
+an add button, because a second Backlog entry is not a replay but the card would render it as
+one. Knowing that needs the whole library, so `libraryMediaIds()` pages to the end rather than
+stopping at the API's maximum page size; capping it would offer to add your hundred-and-first
+title twice.
 
 **The column query key is `['library', hobby, status, { sort, year }]`** — see
 `frontend/src/board/keys.ts`, which is the only place it is spelled out. The sort and the year
@@ -62,7 +68,7 @@ first, show it red, then implement.** Not implementation followed by an offer to
 |---|---|
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
-| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit — **the board, done** |
+| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit — **done** |
 | External data | IGDB v4 (games), authenticated through Twitch |
 
 Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
@@ -83,7 +89,7 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── board/        the board. keys.ts owns the query key; useBoard owns the writes
-│       ├── search/       SearchPage — placeholder
+│       ├── search/       SearchPage + SearchResult, over a debounced IGDB search
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── HobbyTracker.slnx
@@ -150,8 +156,8 @@ dotnet ef migrations add <Name> \
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 132 tests
-cd frontend && npm test                             # frontend, 65 tests
-cd frontend && npm run test:e2e                     # the drag, 8 specs in a real browser
+cd frontend && npm test                             # frontend, 82 tests
+cd frontend && npm run test:e2e                     # 11 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -476,9 +482,9 @@ the list is shuffled.
 
 - **Schema and search — done.** Schema + migration, IGDB integration, `GET /api/games`.
 - **The journal — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
-- **The board — in progress.** Kanban board frontend. Backend done (transitions, ordering, year
-  filtering, and the Eastern timezone/timestamp work). The board itself is done: components, the
-  drag, and Playwright specs against a real browser. **Only the search page remains.**
+- **The board — done.** Kanban board frontend: transitions, manual ordering, year filtering and
+  the Eastern timezone work on the backend; components, the drag, and the search page on the
+  front, with Playwright specs against a real browser.
 - **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
