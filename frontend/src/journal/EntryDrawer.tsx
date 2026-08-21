@@ -1,5 +1,6 @@
 import { formatJournalDate } from '../lib/time';
 import { EntryForm } from './EntryForm';
+import { entrySeed } from './fields';
 import { useJournalEntry } from './useJournalEntry';
 import type { LogEntry, LogStatus } from '../api/types';
 
@@ -66,8 +67,9 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
 
           <EntryForm
             // Remounts when a different card is opened, so the inputs reload rather than
-            // keeping the last title's half-typed notes.
-            key={current.id}
+            // keeping the last title's half-typed notes — and when this pass changes underneath
+            // the drawer, which a drag does without changing its id. See `entrySeed`.
+            key={entrySeed(current)}
             entry={current}
             saving={save.isPending}
             serverErrors={fieldErrors}

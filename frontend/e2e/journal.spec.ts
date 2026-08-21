@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
-import { card, column, drag, openJournal, seed } from './support/board';
+import { card, column, drag, openJournal, seed, setSort, today, todayOnCard } from './support/board';
 
 /**
  * Journalling a title from the board.
@@ -115,4 +115,47 @@ test('a card still drags even though its title opens the journal', async ({ page
   await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
   // The gesture moved a card and did not also open anything.
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+});
+
+test('the drawer catches up with a drag', async ({ page, request }) => {
+  // A drag sets started_at server-side, and the drawer reads a different query from the one the
+  // drag invalidates. With staleTime at 30s, open-close-drag-reopen inside that window served
+  // the pre-drag entry, so Started looked empty on a game that had just been started.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByLabel('Started')).toHaveValue('');
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await drag(page, card(page, 'Celeste'), column(page, 'InProgress'));
+
+  // Waited for rather than the card merely arriving: a backlog entry carries no dates, so the
+  // date on its face can only have come from the refetch. Clicking before that lands means
+  // clicking a node React is in the middle of replacing, and the click never becomes one.
+  await expect(card(page, 'Celeste')).toContainText(todayOnCard());
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByLabel('Started')).toHaveValue(today());
+});
+
+test('a drag reaches the ordering you are not looking at', async ({ page, request }) => {
+  // The same missed invalidation one level over: a column's key carries its sort, so only the
+  // ordering on screen was refetched and any other cached ordering of it kept the moved card.
+  await seed(request, 'Celeste', 'Backlog');
+  await seed(request, 'Hades', 'Backlog');
+  await page.reload();
+
+  // Look at Title first, so that ordering is in the cache and has something to go stale. Then
+  // back to My order, which is the only mode a drag is offered in.
+  await setSort(page, 'Backlog', 'Title');
+  await expect(column(page, 'Backlog').getByText('Celeste')).toBeVisible();
+  await setSort(page, 'Backlog', 'My order');
+
+  await drag(page, card(page, 'Celeste'), column(page, 'InProgress'));
+  await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+
+  await setSort(page, 'Backlog', 'Title');
+  await expect(column(page, 'Backlog').getByText('Celeste')).toHaveCount(0);
+  await expect(column(page, 'Backlog').getByText('Hades')).toBeVisible();
 });

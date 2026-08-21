@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
 import { gameDetail, journalServer, logEntry } from '../test/games';
 import { renderWithProviders } from '../test/render';
+import { server } from '../test/server';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Rating' });
 const notes = () => screen.getByRole('textbox', { name: 'Notes' });
@@ -166,5 +168,37 @@ describe('EntryDrawer', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('re-fills the form when the pass changes underneath it', async () => {
+    // A drag edits the current entry in place, so its id does not change — and the form seeds
+    // its inputs once, from whatever the entry said when it mounted. Keying the form on the id
+    // alone meant a game dragged to Playing still showed an empty Started when you reopened it.
+    let asked = 0;
+    server.use(
+      http.get('/api/games/:id', () => {
+        asked += 1;
+        return HttpResponse.json(
+          gameDetail({
+            logEntries: [
+              logEntry({
+                id: 9,
+                status: asked === 1 ? 'Backlog' : 'InProgress',
+                startedAt: asked === 1 ? null : '2026-08-21T16:00:00+00:00',
+              }),
+            ],
+          }),
+        );
+      }),
+    );
+
+    const { queryClient } = open();
+    expect(await screen.findByLabelText('Started')).toHaveValue('');
+
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['games', 3003] });
+    });
+
+    await waitFor(() => expect(started()).toHaveValue('2026-08-21'));
   });
 });

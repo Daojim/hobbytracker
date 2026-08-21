@@ -34,3 +34,13 @@ export const BOARD_STATUSES: readonly LogStatus[] = [
  */
 export const yearFor = (status: LogStatus, year: number | undefined) =>
   status === 'Completed' ? year : undefined;
+
+/**
+ * One title's journal: the game and every pass logged against it, as `getGame` answers it.
+ *
+ * Here rather than in `journal/` because the board writes to it as well as reads it — a drag
+ * stamps `started_at` and can insert a whole new entry, so the drawer's copy has to be dropped
+ * when one lands. Spelled in one place for the same reason `columnKey` is: two hooks holding
+ * the same key by hand is how one of them quietly stops matching.
+ */
+export const gameKey = (mediaId: number) => ['games', mediaId] as const;

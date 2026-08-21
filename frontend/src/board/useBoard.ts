@@ -11,7 +11,7 @@ import {
 } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { reorderColumn, transition } from '../api/library';
-import { BOARD_STATUSES, columnKey, yearFor } from './keys';
+import { BOARD_STATUSES, columnKey, gameKey, yearFor } from './keys';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
 
 export interface BoardView {
@@ -120,9 +120,17 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // entry, which changes both the count and the dates the card shows. So both columns are
     // refetched rather than patched, and the optimistic write only has to hold for the moment
     // between letting go and the answer arriving.
-    onSettled: (_data, _error, { from, to }) => {
-      void queryClient.invalidateQueries({ queryKey: keyFor(from) });
-      void queryClient.invalidateQueries({ queryKey: keyFor(to) });
+    //
+    // By the column *prefix*, not by `keyFor`. A column has one cache entry per sort and year,
+    // and the exact key only reaches the one on screen — look at Backlog by title, drag a card
+    // out of it in manual order, and the title ordering keeps that card for the full staleTime.
+    //
+    // And `['games', mediaId]`, which is what the drawer reads: a transition stamps started_at
+    // and can insert an entry, so leaving it cached showed the pass as it was before the drag.
+    onSettled: (_data, _error, { mediaId, from, to }) => {
+      void queryClient.invalidateQueries({ queryKey: ['library', hobby, from] });
+      void queryClient.invalidateQueries({ queryKey: ['library', hobby, to] });
+      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
     },
   });
 
@@ -151,6 +159,8 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       }
     },
 
+    // The exact key, unlike the move above: this writes `position`, and `manual` is the only
+    // ordering that reads it. The other three are server-side views a reordering cannot change.
     onSettled: (_data, _error, { status }) => {
       void queryClient.invalidateQueries({ queryKey: keyFor(status) });
     },

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGame } from '../api/games';
 import { ApiError } from '../api/client';
 import { updateLogEntry } from '../api/logEntries';
+import { gameKey } from '../board/keys';
 import type { UpdateLogEntry } from '../api/types';
 
 /**
@@ -14,7 +15,7 @@ export function useJournalEntry(mediaId: number) {
   const queryClient = useQueryClient();
 
   const game = useQuery({
-    queryKey: ['games', mediaId],
+    queryKey: gameKey(mediaId),
     queryFn: () => getGame(mediaId),
   });
 
@@ -26,7 +27,7 @@ export function useJournalEntry(mediaId: number) {
       // The card behind the drawer carries the rating and the dates, so the board has to hear
       // about this as well as the drawer.
       void queryClient.invalidateQueries({ queryKey: ['library'] });
-      void queryClient.invalidateQueries({ queryKey: ['games', mediaId] });
+      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
     },
   });
 
