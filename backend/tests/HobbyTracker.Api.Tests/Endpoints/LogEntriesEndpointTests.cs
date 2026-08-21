@@ -12,6 +12,110 @@ namespace HobbyTracker.Api.Tests.Endpoints;
 [Collection(DatabaseCollection.Name)]
 public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : DatabaseTestBase(postgres)
 {
+    // ------------------------------------------------- when it was written down
+
+    [Fact]
+    public async Task An_entry_records_the_moment_it_was_written()
+    {
+        var mediaId = await GivenGameAsync();
+
+        var created = await ReadAsync<LogEntryDto>(await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Backlog, null, null, null, null)));
+
+        // Every entry has this, including a backlog one carrying neither other timestamp.
+        created.LoggedAt.ShouldBe(Clock.UtcNow);
+        (await EntryAsync(created.Id)).LoggedAt.ShouldBe(Clock.UtcNow);
+    }
+
+    [Fact]
+    public async Task A_caller_cannot_choose_when_an_entry_was_written()
+    {
+        var mediaId = await GivenGameAsync();
+
+        // loggedAt is absent from the request contract, so this is an unknown property rather
+        // than a rejected one. The point is which value lands in the row.
+        var response = await Client.PostAsJsonAsync("/api/log-entries", new
+        {
+            mediaId,
+            status = "Backlog",
+            loggedAt = "2001-01-01T00:00:00Z",
+        }, Json, Ct);
+
+        (await ReadAsync<LogEntryDto>(response)).LoggedAt.ShouldBe(Clock.UtcNow);
+    }
+
+    [Fact]
+    public async Task Replacing_an_entry_does_not_move_when_it_was_written()
+    {
+        var mediaId = await GivenGameAsync();
+        var created = await ReadAsync<LogEntryDto>(await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Backlog, null, null, null, null)));
+
+        // PUT clears everything the body leaves out — but loggedAt is not the caller's to
+        // clear, any more than the id is.
+        Clock.UtcNow = Clock.UtcNow.AddDays(3);
+        await Client.PutAsJsonAsync(
+            $"/api/log-entries/{created.Id}",
+            new UpdateLogEntryRequest(LogStatus.InProgress, null, null, null, null),
+            Json,
+            Ct);
+
+        (await EntryAsync(created.Id)).LoggedAt.ShouldBe(created.LoggedAt);
+    }
+
+    // ---------------------------------------------------- times without an offset
+
+    [Fact]
+    public async Task A_bare_date_means_midnight_here_not_midnight_in_utc()
+    {
+        var mediaId = await GivenGameAsync();
+
+        // What a curl by hand looks like, and what any client thinking in dates will send.
+        // Read as UTC this is 7pm on the 2nd here — the same off-by-one this whole change
+        // exists to remove, reintroduced through the API instead of through the clock.
+        var response = await Client.PostAsJsonAsync("/api/log-entries", new
+        {
+            mediaId,
+            status = "InProgress",
+            startedAt = "2026-03-03",
+        }, Json, Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        (await ReadAsync<LogEntryDto>(response)).StartedAt.ShouldBe(Eastern(2026, 3, 3, 0, 0));
+    }
+
+    [Fact]
+    public async Task A_time_with_no_offset_is_read_here_too()
+    {
+        var mediaId = await GivenGameAsync();
+
+        var response = await Client.PostAsJsonAsync("/api/log-entries", new
+        {
+            mediaId,
+            status = "InProgress",
+            startedAt = "2026-08-20T21:30:00",
+        }, Json, Ct);
+
+        (await ReadAsync<LogEntryDto>(response)).StartedAt.ShouldBe(Eastern(2026, 8, 20, 21, 30));
+    }
+
+    [Fact]
+    public async Task An_explicit_offset_is_believed()
+    {
+        var mediaId = await GivenGameAsync();
+
+        // Someone who says what they mean gets what they said, wherever they are.
+        var response = await Client.PostAsJsonAsync("/api/log-entries", new
+        {
+            mediaId,
+            status = "InProgress",
+            startedAt = "2026-08-20T21:30:00+09:00",
+        }, Json, Ct);
+
+        (await ReadAsync<LogEntryDto>(response)).StartedAt
+            .ShouldBe(new DateTimeOffset(2026, 8, 20, 12, 30, 0, TimeSpan.Zero));
+    }
+
     // ------------------------------------------------------------------ create
 
     [Fact]
@@ -20,7 +124,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync("Hollow Knight");
 
         var response = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.InProgress, null, "starting over", new DateOnly(2026, 8, 1), null));
+            mediaId, LogStatus.InProgress, null, "starting over", Eastern(2026, 8, 1), null));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
 
@@ -43,9 +147,9 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var first = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Completed, 9.0m, "first run", null, new DateOnly(2024, 3, 1)));
+            mediaId, LogStatus.Completed, 9.0m, "first run", null, Eastern(2024, 3, 1)));
         var second = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.InProgress, null, "replay", new DateOnly(2026, 8, 1), null));
+            mediaId, LogStatus.InProgress, null, "replay", Eastern(2026, 8, 1), null));
 
         // Replays are the point. Nothing here is a uniqueness conflict.
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -114,7 +218,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
 
         var response = await PostAsync(new CreateLogEntryRequest(
             mediaId, LogStatus.Completed, null, null,
-            new DateOnly(2026, 8, 20), new DateOnly(2026, 7, 1)));
+            Eastern(2026, 8, 20), Eastern(2026, 7, 1)));
 
         // The database would refuse this too, but as a 500. Catch it as a 400 first.
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -219,7 +323,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
             $"/api/log-entries/{entryId}",
             new UpdateLogEntryRequest(
                 LogStatus.Completed, 9.5m, "stuck the landing",
-                new DateOnly(2026, 7, 2), new DateOnly(2026, 8, 19)),
+                Eastern(2026, 7, 2), Eastern(2026, 8, 19)),
             Json,
             Ct);
 
@@ -229,7 +333,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         updated.Status.ShouldBe(LogStatus.Completed);
         updated.Rating.ShouldBe(9.5m);
         updated.Notes.ShouldBe("stuck the landing");
-        updated.DateCompleted.ShouldBe(new DateOnly(2026, 8, 19));
+        updated.CompletedAt.ShouldBe(Eastern(2026, 8, 19));
     }
 
     [Fact]
@@ -238,7 +342,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
         var entryId = await GivenLogEntryAsync(
             mediaId, LogStatus.Completed, rating: 9.0m, notes: "loved it",
-            dateStarted: new DateOnly(2026, 1, 1), dateCompleted: new DateOnly(2026, 2, 1));
+            startedAt: Eastern(2026, 1, 1), completedAt: Eastern(2026, 2, 1));
 
         var response = await Client.PutAsync(
             $"/api/log-entries/{entryId}",
@@ -253,8 +357,8 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         updated.Status.ShouldBe(LogStatus.Backlog);
         updated.Rating.ShouldBeNull();
         updated.Notes.ShouldBeNull();
-        updated.DateStarted.ShouldBeNull();
-        updated.DateCompleted.ShouldBeNull();
+        updated.StartedAt.ShouldBeNull();
+        updated.CompletedAt.ShouldBeNull();
     }
 
     [Fact]
@@ -314,4 +418,8 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
 
     private async Task<PagedResult<LogEntryDto>> GetPageAsync(string url) =>
         await ReadAsync<PagedResult<LogEntryDto>>(await Client.GetAsync(url, Ct));
+
+    /// <summary>Reads the row itself, rather than trusting the response to describe it.</summary>
+    private Task<LogEntry> EntryAsync(int id) =>
+        WithDbAsync(db => db.LogEntries.SingleAsync(entry => entry.Id == id, Ct));
 }

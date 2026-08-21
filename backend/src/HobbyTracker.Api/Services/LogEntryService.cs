@@ -1,6 +1,7 @@
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
+using HobbyTracker.Api.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 
 namespace HobbyTracker.Api.Services;
@@ -29,7 +30,7 @@ public interface ILogEntryService
 /// user_id is left null throughout. The column is nullable until auth lands in a later phase,
 /// at which point existing rows get backfilled and the column tightened.
 /// </summary>
-public sealed class LogEntryService(HobbyTrackerDbContext db) : ILogEntryService
+public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock clock) : ILogEntryService
 {
     public async Task<PagedResult<LogEntryDto>> ListAsync(
         int? mediaId, LogStatus? status, int? page, int? pageSize, CancellationToken cancellationToken)
@@ -90,8 +91,16 @@ public sealed class LogEntryService(HobbyTrackerDbContext db) : ILogEntryService
             Status = request.Status,
             Rating = request.Rating,
             Notes = request.Notes,
-            DateStarted = request.DateStarted,
-            DateCompleted = request.DateCompleted,
+            StartedAt = request.StartedAt,
+            CompletedAt = request.CompletedAt,
+
+            // Server-stamped, never taken from the request: this records that the entry was
+            // written, which is not something a caller is in a position to assert.
+            LoggedAt = clock.Now,
+
+            // Top of its column, so a title you just added is the first thing you see rather
+            // than something you have to scroll for.
+            Position = await BoardPositions.TopOfColumnAsync(db, request.Status, cancellationToken),
         };
 
         db.LogEntries.Add(entry);
@@ -118,8 +127,8 @@ public sealed class LogEntryService(HobbyTrackerDbContext db) : ILogEntryService
         entry.Status = request.Status;
         entry.Rating = request.Rating;
         entry.Notes = request.Notes;
-        entry.DateStarted = request.DateStarted;
-        entry.DateCompleted = request.DateCompleted;
+        entry.StartedAt = request.StartedAt;
+        entry.CompletedAt = request.CompletedAt;
 
         await db.SaveChangesAsync(cancellationToken);
 

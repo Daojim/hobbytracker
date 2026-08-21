@@ -18,6 +18,26 @@ builder.Services.AddDbContext<HobbyTrackerDbContext>(options => options
     // tables keep their `_lu` suffix.
     .UseSnakeCaseNamingConvention());
 
+// ---------------------------------------------------------------------- time
+// Injected rather than read from DateTime.UtcNow at the point of use, so the rules that stamp
+// dates onto a log entry can be tested at a chosen instant instead of at whatever moment the
+// suite happens to run.
+builder.Services.AddSingleton<TimeProvider>(TimeProvider.System);
+
+// The journal records days in one configured zone, not in UTC. Validated at startup for the
+// same reason the IGDB credentials are: an unresolvable zone id should fail at boot naming the
+// setting, not surface later as dates that are quietly a day out.
+builder.Services.AddOptions<JournalOptions>()
+    .Bind(builder.Configuration.GetSection(JournalOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(
+        options => TimeZoneInfo.TryFindSystemTimeZoneById(options.TimeZone, out _),
+        "Journal:TimeZone must be a time zone id .NET can resolve, e.g. 'America/New_York'.")
+    .ValidateOnStart();
+builder.Services.AddSingleton<IJournalClock, JournalClock>();
+builder.Services
+    .AddSingleton<IConfigureOptions<Microsoft.AspNetCore.Mvc.JsonOptions>, ConfigureJournalJson>();
+
 // ----------------------------------------------------------- IGDB integration
 builder.Services.AddOptions<IgdbOptions>()
     .Bind(builder.Configuration.GetSection(IgdbOptions.SectionName))

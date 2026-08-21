@@ -19,5 +19,5 @@ public sealed record LibraryItemDto(
     /// <summary>How many times this has been logged. Greater than one means replays.</summary>
     int EntryCount,
     decimal? LatestRating,
-    /// <summary>Completion date of the latest entry, or its start date if unfinished.</summary>
-    DateOnly? LastActivity);
+    /// <summary>When the latest entry finished, or when it started if it has not.</summary>
+    DateTimeOffset? LastActivity);

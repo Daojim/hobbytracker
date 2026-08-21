@@ -5,13 +5,66 @@ follow. It doubles as a portfolio piece, so structure and explainability count a
 working code — prefer the version that is easy to justify in a review over the version that is
 merely shorter.
 
+## Where things stand
+
+**Backend complete, 132 tests green. Frontend scaffolded: API client done and tested, board
+components are the current job.**
+
+Currently on branch **`kanban-board`**, five commits ahead of `main` and pushed to
+github.com/Daojim/hobbytracker. Working tree clean; no PR opened yet.
+
+Two plans, both worth reading before touching this:
+`C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original Phase 3
+plan; `i-had-a-previous-melodic-nebula.md` beside it is the timezone and timestamp work that
+interrupted it. Steps 1 and 2 below are done.
+
+1. ~~Scaffold `frontend/`~~ — Vite 8 + React 19 + TS, Tailwind v4, TanStack Query, react-router.
+2. ~~API client + Vitest tests~~ — `src/api/` mirrors `Contracts/`, 32 tests over MSW.
+3. **Board components, then the drag.** `npm i @dnd-kit/core @dnd-kit/sortable` first — not
+   installed yet, deliberately, so the scaffold carries nothing it does not use. `BoardPage`
+   already establishes the query key shape (`['library', 'games', status]`) and fetches each
+   column separately, which is what makes the year picker narrow Completed alone. The pieces
+   still to build: `Column`, `Card`, `SortSelect`, a year picker above Completed only, and a
+   `useBoard` hook holding the drag handlers. `transition()` and `reorderColumn()` in
+   `src/api/library.ts` are done and tested — a drag calls the first, a reorder within a column
+   calls the second with the whole column top-first.
+4. **Playwright drag specs, written red first.** Not installed yet either. The drag is the
+   feature, so it gets a real browser: jsdom has no layout and no pointer events, so dnd-kit
+   assertions there pass and fail for the wrong reasons. Seed through the API, never IGDB, so no
+   test reaches the network.
+5. **Search page.** `searchGames()` and `addToBacklog()` are already built and tested; the page
+   is a debounced input over the first and a button over the second.
+
+`BoardPage` and `SearchPage` are placeholders. The board one is real enough to prove the wiring
+end to end — TanStack Query, the API client, the Vite proxy, and Eastern rendering — and should
+be replaced wholesale, not extended.
+
+Decisions already made with the user, **settled — do not reopen**:
+
+| | |
+|---|---|
+| Shape | Vite + React + TS SPA, client routing. Not Next.js |
+| Scope | `/board` and `/search` only. No detail page or year-review page yet |
+| Columns | Backlog · Playing · Completed, plus Dropped as a muted 4th, collapsed by default |
+| Dropped | close button on a card; drag out of the Dropped column to un-drop |
+| Close button | **hidden on Completed and Dropped cards** — meaningless on both |
+| Year picker | above the Completed column only; Backlog and Playing ignore it |
+| Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
+| Libraries | TanStack Query, dnd-kit, Tailwind v4 |
+| Dev wiring | Vite proxy `/api` → `:5201`. **No CORS change needed or wanted** |
+| Testing | Vitest + RTL + MSW for logic and components; Playwright for the drag |
+| Timezone | `America/New_York`, server-configured, DST-following. See **Time** |
+| Timestamps | `started_at` / `completed_at` / `logged_at` are instants, not dates |
+
+Working method the user asked for and has held to since Phase 2: **write the failing test
+first, show it red, then implement.** Not implementation followed by an offer to add tests.
 ## Stack
 
 | | |
 |---|---|
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
-| Frontend | React + TypeScript — **Phase 3, not built yet** |
+| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query — **Phase 3, in progress** |
 | External data | IGDB v4 (games), authenticated through Twitch |
 
 Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
@@ -24,7 +77,14 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 ├── docker-compose.yml    local Postgres 17
 ├── global.json           opts dotnet test into Microsoft.Testing.Platform
 ├── CLAUDE.md             this file
-├── frontend/             empty until Phase 3
+├── frontend/             Vite + React + TS SPA
+│   ├── vite.config.ts    /api proxy to :5201, and the Vitest config
+│   └── src/
+│       ├── api/          one module per resource, mirroring Contracts/
+│       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
+│       ├── board/        BoardPage — placeholder, replace wholesale
+│       ├── search/       SearchPage — placeholder
+│       └── test/         MSW server and setup
 └── backend/
     ├── HobbyTracker.slnx
     ├── Directory.Packages.props   ALL package versions live here (central management)
@@ -40,7 +100,7 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
     │   ├── Services/                 orchestration (IGDB → database → DTO)
     │   ├── Contracts/                what the API accepts and returns
     │   ├── Controllers/
-    │   └── Infrastructure/           cross-cutting (exception handling)
+    │   └── Infrastructure/           cross-cutting (exception handling, journal clock, JSON)
     └── tests/HobbyTracker.Api.Tests/
         ├── Infrastructure/           container fixture, host factory, fakes
         ├── Data/  Services/  Integrations/  Endpoints/
@@ -67,6 +127,9 @@ dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTra
 
 dotnet ef database update --project backend/src/HobbyTracker.Api --startup-project backend/src/HobbyTracker.Api
 dotnet run --project backend/src/HobbyTracker.Api   # http://localhost:5201
+
+# Frontend. Needs the API running for anything to load; the proxy expects it on :5201.
+cd frontend && npm install && npm run dev     # http://localhost:5173
 ```
 
 `docker compose exec db psql -U admin -d hobbytracker` for a shell. Credentials are
@@ -86,7 +149,8 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 132 tests
+cd frontend && npm test                             # frontend, 32 tests
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -112,6 +176,13 @@ Choices worth not re-litigating:
 - **Shouldly, not FluentAssertions** — v8+ of the latter is Xceed-owned and "all rights
   reserved".
 
+The frontend suite is Vitest over **MSW**, with no handlers registered by default and
+`onUnhandledRequest: 'error'` — a request the test did not state is a failure, not a silent
+pass-through. It covers the API client's URL building and error handling, and `lib/time`'s
+pinning to the journal zone. Component and drag coverage arrives with the board itself: RTL for
+components, Playwright for the drag, because drag-and-drop in jsdom has no real layout or pointer
+events and passes for the wrong reasons.
+
 Working method: **write the failing test first.** The Phase 2 endpoints were driven that way,
 and the backfill suite over Phase 1 code was written before any of them, so the harness was
 proven against behaviour already known to work rather than going green on its first run.
@@ -128,7 +199,7 @@ is how the lookup tables keep their `_lu` suffix.
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
 | `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `hltb_main_story_hours`, `hltb_id` |
-| `log_entries` | `id`, `user_id`, `media_id`, `status`, `rating`, `notes`, `date_started`, `date_completed` |
+| `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `notes`, `started_at`, `completed_at`, `logged_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
 
@@ -185,6 +256,61 @@ The two TPT tables get `PK_media` / `PK_games` while every other primary key is 
 TPT tables. Left alone deliberately: EF only uses constraint names when generating migrations,
 so renaming them behind EF's back would make a future `DROP CONSTRAINT` fail. Not worth it.
 
+## Time
+
+The app records days in **`America/New_York`**, configured as `Journal:TimeZone` in
+`appsettings.json` and validated at startup the same way the IGDB credentials are — an
+unresolvable zone id fails the boot naming the setting, rather than silently falling back to UTC.
+It is an IANA id, not a fixed offset, so Eastern is UTC-4 in summer and UTC-5 in winter without
+anyone having to remember which.
+
+**Why not UTC.** UTC rolls over at 8pm Eastern in summer and 7pm in winter, so every game
+finished in the evening — which is most of them — was stamped with tomorrow's date. That was a
+four-to-five hour hole in every day the app is actually used.
+
+The rule that keeps the rest simple: **an instant is stored as an instant, and a zone is applied
+only where a human or a calendar question is involved.** So:
+
+- `started_at`, `completed_at` and `logged_at` are `timestamptz` holding absolute moments.
+  `users.created_at` and the Twitch token expiry are instants too and were always fine.
+- The transition rules stamp `IJournalClock.Now` and never ask what day it is.
+- The zone is applied in exactly three places: `?year=`, `GET /api/library/years`, and the UI.
+
+`IJournalClock` (`Infrastructure/JournalClock.cs`) wraps `TimeProvider` plus the zone. It exists
+so the date rules have something to ask and something a test can stop — `FrozenTimeProvider` in
+the test harness is swapped in by `ApiFactory` exactly as `FakeIgdbClient` is.
+
+**`logged_at` is server-stamped and absent from the request contracts.** It records that an entry
+was written, which is not something a caller is in a position to assert — the same reasoning that
+keeps `mediaId` off the PUT body. It has a `now()` default so a row written by hand in psql is
+still valid, but `LogEntryService` sets it explicitly on every insert it makes.
+
+### Two traps this cost a while to find
+
+- **Npgsql will only write a `DateTimeOffset` with offset 0 to `timestamptz`.** Anything else
+  throws `ArgumentException` — not a validation error, a 500. The offset is not stored regardless,
+  since the column holds an instant, so everything is normalised to UTC at the boundary. This is
+  why `JournalTimestampConverter` exists and why `FirstInstantOf` and the test helper `Eastern()`
+  both end in `.ToUniversalTime()`.
+- **`System.Text.Json` reads a bare `"2026-03-03"` into a `DateTimeOffset` as midnight *UTC*** —
+  7pm on the 2nd here, which is the original bug walking back in through the API.
+  `JournalTimestampConverter` reads any value carrying neither `Z` nor `±hh:mm` as that wall-clock
+  moment *here*, and passes explicit offsets through untouched.
+
+**The year filter is a range, not an `EXTRACT`.** `date_part('year', completed_at)` on a
+`timestamptz` reads the session's timezone, so the same query would answer differently depending
+on how the connection was opened, and a game finished at 8pm on New Year's Eve would count toward
+the following year. `LibraryService.SpanOf` turns a year into `[Jan 1 here, next Jan 1 here)` and
+compares instants, which is both correct and index-friendly.
+`CompletionYearsAsync` cannot do that — it needs a year per row — so it selects the completed
+instants and groups them in C#. Postgres can only localise a `timestamptz` through `AT TIME ZONE`,
+which is `STABLE` rather than `IMMUTABLE` and so cannot be indexed or put in a generated column.
+At personal-catalogue scale that is a few hundred rows.
+
+**docker-compose sets `timezone=America/New_York` on the server**, so `psql` renders timestamps in
+Eastern and what you read there matches what the app shows. That is convenience only — nothing is
+correct because of it, and removing it breaks nothing.
+
 ## IGDB integration
 
 IGDB v4 is authenticated through Twitch's client-credentials flow. Base URL
@@ -225,7 +351,10 @@ Two IGDB quirks the code depends on:
 | `GET /api/log-entries/{id}` | |
 | `PUT /api/log-entries/{id}` | full replacement |
 | `DELETE /api/log-entries/{id}` | |
-| `GET /api/library?hobby=&status=&page=&pageSize=` | your collection |
+| `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
+| `GET /api/library/years?hobby=` | years with completions, newest first |
+| `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
+| `PUT /api/library/order` | store one column's manual ranking |
 
 **Search** queries IGDB, upserts every result into `media` + `games`, and returns them **in
 IGDB's relevance order** (the database has no idea that ordering exists). It hits IGDB on every
@@ -241,7 +370,7 @@ everything ever typed into a search box. `/api/library` joins to `log_entries` a
 titles you actually recorded something about — one row per title regardless of replays, carrying
 `currentStatus`, `entryCount` and `latestRating`. Do not "fix" it to list all of `media`.
 
-**`currentStatus` is the most recent entry's status**, ordered `date_started DESC NULLS LAST,
+**`currentStatus` is the most recent entry's status**, ordered `started_at DESC NULLS LAST,
 id DESC`: a replay under way beats an old completion, a dated entry beats an undated one, and
 the id breaks ties. `?status=` filters on that, not on "has ever been" — a game completed in
 2024 and being replayed now appears under `InProgress` and must not also appear under
@@ -258,31 +387,86 @@ foreign-key violation would be a 500). `dateCompleted < dateStarted` is caught b
 most one decimal place** — `numeric(3,1)` *rounds* 8.75 to 8.8 rather than rejecting it, so
 accepting two places would mean the response reporting a rating the database does not hold.
 
-Two mapping traps, both of which fail loudly rather than silently:
+List endpoints return `PagedResult<T>` — `{ items, total, page, pageSize }`. Search does not: it
+returns a bare array of whatever IGDB ranked, capped by `limit`.
 
+### Board semantics
+
+`POST /api/library/{mediaId}/status` is what dragging a card calls. The caller names only a
+target column; which entry gets touched and which dates get set is decided server-side, so no
+client has to know which entry is current.
+
+| Latest entry is | Target | Effect |
+|---|---|---|
+| not Completed | `Backlog` | edit in place; **clear both timestamps** |
+| not Completed | `InProgress` | edit in place; set `started_at` = now *only if null*; clear `completed_at` |
+| not Completed | `Completed` | edit in place; set `completed_at` = now |
+| not Completed | `Dropped` | edit in place; **leave timestamps alone** |
+| **Completed** | anything else | **insert a new entry** at the top of the target column |
+| same as target | — | no-op |
+
+**Leaving `Completed` inserts rather than edits.** Replaying a game finished in 2024 must not
+overwrite that completion — preserving it is the entire reason the schema allows several entries
+per title, and editing in place would destroy the record silently, on a gesture as casual as a
+drag. `StatusTransitionTests` covers every row above; do not "simplify" this into a plain update.
+
+`InProgress` sets `started_at` only when null, so picking a dropped game back up keeps the moment
+you actually started it. Every timestamp is an instant, stamped from `IJournalClock.Now`; which
+calendar day that turns out to be is a question only the reader asks. See **Time**.
+
+**Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries
+take `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just
+added appears on top and nothing gets renumbered. `PUT /api/library/order` takes the whole column
+top-first rather than a move-and-index: idempotent, no off-by-one arithmetic, and ids that have
+since left the column are ignored rather than rejected, because a loaded board can legitimately
+be one drag out of date.
+
+**Sorting never writes.** `sort` ∈ `manual` (default) · `added` · `title` · `rating` are
+read-only views that leave `position` untouched — which is what lets the UI enable dragging only
+in manual mode and still guarantee the ranking survives a look at the alphabetical order.
+`sort=hours` deliberately does not exist while `hltb_main_story_hours` is null on every row.
+
+### Traps, all of which have bitten already
+
+- **Project board rows with member-init, not a constructor.** EF Core can decompose
+  `new BoardRow { A = ..., B = ... }` and push later `Where`/`OrderBy` into SQL; a positional
+  record is opaque to it and every filter on the projected latest entry fails to translate.
+  It surfaces as an *empty library*, not an obvious error. See `LibraryService.BoardQuery`.
+- **`LibraryService.BoardQuery` and `LatestEntryFor` must order identically.** If they drift,
+  the board moves one entry and then displays a different one.
 - Validation attributes go on record **primary-constructor parameters**, not `[property:]`
   targets. MVC throws `InvalidOperationException` rather than skipping them.
 - `LogStatus` needs `JsonStringEnumConverter` (registered in `Program.cs`) to travel as
   `"Completed"` rather than `2`.
-
-List endpoints return `PagedResult<T>` — `{ items, total, page, pageSize }`. Search does not: it
-returns a bare array of whatever IGDB ranked, capped by `limit`.
+- Timestamps have their own set, in **Time** above: Npgsql accepts only offset-0 `DateTimeOffset`
+  values, `System.Text.Json` reads a bare date as UTC, and `date_part` on a `timestamptz` follows
+  the session's timezone. All three fail quietly or as a 500 rather than as anything informative.
 
 ## Phases
 
 - **Phase 1 — done.** Schema + migration, IGDB integration, `GET /api/games`.
 - **Phase 2 — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
-- **Phase 3.** Google/Discord OAuth and JWT issuance.
-- **Phase 4.** React + TypeScript frontend.
-- **Phase 5.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
+- **Phase 3 — in progress.** Kanban board frontend. Backend done (transitions, ordering, year
+  filtering, and the Eastern timezone/timestamp work). Frontend scaffolded with its API client
+  and tests; board components, drag wiring, Playwright and the search page remain.
+- **Phase 4.** Google/Discord OAuth and JWT issuance.
+- **Phase 5.** Game detail page and the year-in-review page.
+- **Phase 6.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
+- **Later.** HowLongToBeat ingestion, which also unlocks `sort=hours` on the board.
 
-**Auth was deliberately moved behind logging.** The original plan had it in Phase 2, but
-`log_entries.user_id` is already nullable, so the journal works without a line of auth, and
-sequencing auth first would have left the app unable to do its job throughout. When auth lands:
-backfill `user_id` on existing rows, flip the column to `NOT NULL`, and scope every query in
-`LogEntryService` and `LibraryService` to the current user. Treat the nullable `user_id` as
-temporary, not as a design decision.
+**Auth keeps being deliberately deferred, twice now.** The original brief had it in Phase 2.
+`log_entries.user_id` is already nullable, so both the journal and the board work without a
+line of auth, and sequencing auth first would have left the app unable to do its job while it
+was built. This is a considered choice, not an oversight — do not propose bringing it forward
+without asking.
+
+When auth does land: backfill `user_id` on existing rows, flip the column to `NOT NULL`, and
+scope every query in `LogEntryService` and `LibraryService` to the current user. Treat the
+nullable `user_id` as temporary, not as a design decision.
+
+The board is built hobby-parameterised (`/api/library?hobby=games`) even though only games
+exist, so Phase 6's boards are a routing change rather than a rewrite.
 
 Not built yet, on purpose: auth of any kind, any hobby table besides `Games`, HowLongToBeat
 ingestion (the `hltb_*` columns exist so that pass is a backfill, not a migration).

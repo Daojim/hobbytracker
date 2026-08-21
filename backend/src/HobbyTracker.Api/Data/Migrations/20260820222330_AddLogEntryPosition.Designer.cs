@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using HobbyTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HobbyTracker.Api.Data.Migrations
 {
     [DbContext(typeof(HobbyTrackerDbContext))]
-    partial class HobbyTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260820222330_AddLogEntryPosition")]
+    partial class AddLogEntryPosition
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -129,15 +132,13 @@ namespace HobbyTracker.Api.Data.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<DateTimeOffset?>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at");
+                    b.Property<DateOnly?>("DateCompleted")
+                        .HasColumnType("date")
+                        .HasColumnName("date_completed");
 
-                    b.Property<DateTimeOffset>("LoggedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("logged_at")
-                        .HasDefaultValueSql("now()");
+                    b.Property<DateOnly?>("DateStarted")
+                        .HasColumnType("date")
+                        .HasColumnName("date_started");
 
                     b.Property<int>("MediaId")
                         .HasColumnType("integer")
@@ -156,10 +157,6 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasPrecision(3, 1)
                         .HasColumnType("numeric(3,1)")
                         .HasColumnName("rating");
-
-                    b.Property<DateTimeOffset?>("StartedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -182,9 +179,9 @@ namespace HobbyTracker.Api.Data.Migrations
 
                     b.ToTable("log_entries", null, t =>
                         {
-                            t.HasCheckConstraint("ck_log_entries_rating_range", "rating IS NULL OR (rating >= 1.0 AND rating <= 10.0)");
+                            t.HasCheckConstraint("ck_log_entries_date_order", "date_started IS NULL OR date_completed IS NULL OR date_completed >= date_started");
 
-                            t.HasCheckConstraint("ck_log_entries_timestamp_order", "started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at");
+                            t.HasCheckConstraint("ck_log_entries_rating_range", "rating IS NULL OR (rating >= 1.0 AND rating <= 10.0)");
                         });
                 });
 

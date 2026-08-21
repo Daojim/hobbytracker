@@ -46,7 +46,7 @@ $ curl "localhost:5201/api/library"
     "currentStatus": "InProgress",
     "entryCount": 2,
     "latestRating": null,
-    "lastActivity": "2026-08-15"
+    "lastActivity": "2026-08-15T23:47:00+00:00"
   }],
   "total": 1, "page": 1, "pageSize": 25
 }
@@ -55,6 +55,9 @@ $ curl "localhost:5201/api/library"
 That game was completed in June and is being replayed now. `currentStatus` reflects the
 *current* pass, so it appears under `?status=InProgress` and **not** under `?status=Completed`,
 even though a completed entry sits in its history.
+
+Timestamps are instants, and the app records days in `America/New_York` — see **Time** in
+`CLAUDE.md`. A value sent without an offset is read as that wall-clock moment there, not as UTC.
 
 ### Endpoints
 

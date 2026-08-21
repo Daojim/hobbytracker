@@ -12,9 +12,13 @@ namespace HobbyTracker.Api.Tests.Infrastructure;
 /// Boots the real API pipeline in-process against the test container.
 ///
 /// Everything below the HTTP boundary is production code — real controllers, real DI, real EF,
-/// real migrations. Only two things are swapped: where the database is, and IGDB.
+/// real migrations. Only three things are swapped: where the database is, IGDB, and the clock.
 /// </summary>
-public sealed class ApiFactory(PostgresFixture postgres, FakeIgdbClient igdb)
+public sealed class ApiFactory(
+    PostgresFixture postgres,
+    FakeIgdbClient igdb,
+    TimeProvider clock,
+    string timeZone = "America/New_York")
     : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -34,12 +38,21 @@ public sealed class ApiFactory(PostgresFixture postgres, FakeIgdbClient igdb)
                 // that would read them.
                 ["Igdb:ClientId"] = "test-client-id",
                 ["Igdb:ClientSecret"] = "test-client-secret",
+
+                // Pinned rather than inherited from appsettings.json, so the dates these tests
+                // assert on cannot be moved by an edit to a file they never mention.
+                ["Journal:TimeZone"] = timeZone,
             }));
 
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IIgdbClient>();
             services.AddSingleton<IIgdbClient>(igdb);
+
+            // Stopped, so "today" is whatever the test says it is. Without this, every
+            // assertion about a stamped date is really an assertion about the wall clock.
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton(clock);
         });
     }
 }
