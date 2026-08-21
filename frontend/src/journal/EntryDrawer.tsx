@@ -168,6 +168,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               // the drawer, which a drag does without changing its id. See `entrySeed`.
               key={entrySeed(current)}
               entry={current}
+              platforms={detail.platforms}
               saving={save.isPending}
               serverErrors={fieldErrors}
               onSave={(update) => save.mutate({ entryId: current.id, update })}
@@ -176,7 +177,9 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
             <DeletePass
               label="Delete this pass"
               warning={
-                onlyPass ? `The only pass — deleting it takes ${detail.title} off your board.` : null
+                onlyPass
+                  ? `The only pass — deleting it takes ${detail.title} off your board.`
+                  : null
               }
               {...deleteProps(current.id)}
             />

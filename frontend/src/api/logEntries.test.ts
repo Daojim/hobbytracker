@@ -11,6 +11,7 @@ const entry: LogEntry = {
   status: 'InProgress',
   rating: null,
   notes: null,
+  platform: null,
   startedAt: '2026-08-21T01:30:00+00:00',
   completedAt: null,
   loggedAt: '2026-08-21T01:30:00+00:00',
@@ -103,6 +104,22 @@ describe('updateLogEntry', () => {
     await updateLogEntry(1, { status: 'Completed', rating: 9.5, notes: null });
 
     expect(body).toEqual({ status: 'Completed', rating: 9.5, notes: null });
+  });
+
+  it('sends the platform, which pick() has to be told about by hand', async () => {
+    // pick() whitelists field names, so a field added to the type and not to that list is
+    // silently never sent — and nothing fails to compile to say so.
+    let body: unknown;
+    server.use(
+      http.put('/api/log-entries/1', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(entry);
+      }),
+    );
+
+    await updateLogEntry(1, { status: 'InProgress', platform: 'Switch' });
+
+    expect(body).toEqual({ status: 'InProgress', platform: 'Switch' });
   });
 });
 

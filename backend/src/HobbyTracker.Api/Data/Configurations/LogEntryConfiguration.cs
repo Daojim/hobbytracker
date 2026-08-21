@@ -32,6 +32,10 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
 
         builder.Property(e => e.Notes).HasMaxLength(4000);
 
+        // Free text, not a lookup: IGDB names platforms and the UI offers that list, but the
+        // list is theirs to change and a stored value has to outlive it. See LogEntry.Platform.
+        builder.Property(e => e.Platform).HasMaxLength(100);
+
         // Mirrors users.created_at: the database can fill this in, so a row written by hand in
         // psql is still a valid row. The service sets it from the journal clock on every insert
         // it makes, so the default is a backstop rather than the normal path.

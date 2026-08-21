@@ -220,3 +220,19 @@ test('deleting the only pass takes the title off the board', async ({ page, requ
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(card(page, 'Celeste')).toHaveCount(0);
 });
+
+test('the platform you played on is recorded against that pass', async ({ page, request }) => {
+  await seed(request, 'Hollow Knight', 'InProgress');
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  // The choices are the game's own, which is why the stub gives it more than one.
+  await page.getByLabel('Platform').selectOption('Switch');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  // Stored, not merely on screen — the column is new and the migration has to have landed.
+  await page.reload();
+  await openJournal(page, 'Hollow Knight');
+  await expect(page.getByLabel('Platform')).toHaveValue('Switch');
+});

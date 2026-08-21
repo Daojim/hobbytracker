@@ -60,6 +60,7 @@ describe('EntryDrawer', () => {
       status: 'InProgress',
       rating: 8.5,
       notes: 'hard but fair',
+      platform: null,
       startedAt: null,
       completedAt: null,
     });
@@ -354,5 +355,47 @@ describe('EntryDrawer', () => {
 
     expect(await screen.findByText('That pass is already gone.')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('offers the platforms the game came out on, and no platform at all', async () => {
+    // Already loaded by getGame, so there is no second request to make for this.
+    journalServer({ detail: gameDetail({ platforms: ['PC', 'Switch'] }) });
+
+    open();
+
+    const platform = await screen.findByRole('combobox', { name: 'Platform' });
+    expect([...platform.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
+      'Not recorded',
+      'PC',
+      'Switch',
+    ]);
+  });
+
+  it('keeps a platform the game no longer lists', async () => {
+    // IGDB's data changes. Dropping a value that was true when it was written, on a save the
+    // reader made about something else entirely, is not a correction.
+    journalServer({
+      detail: gameDetail({
+        platforms: ['PC', 'Switch'],
+        logEntries: [logEntry({ id: 9, platform: 'Wii U' })],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByRole('combobox', { name: 'Platform' })).toHaveValue('Wii U');
+  });
+
+  it('sends the platform you chose', async () => {
+    const journal = journalServer({ detail: gameDetail({ platforms: ['PC', 'Switch'] }) });
+
+    open();
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Platform' }),
+      'Switch',
+    );
+    await userEvent.click(save());
+
+    await waitFor(() => expect(journal.saved[0]?.body['platform']).toBe('Switch'));
   });
 });
