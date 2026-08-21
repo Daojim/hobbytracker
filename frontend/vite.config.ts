@@ -13,7 +13,9 @@ export default defineConfig({
     // to satisfy a dev-server port would be answering a question nobody has asked yet.
     proxy: {
       '/api': {
-        target: 'http://localhost:5201',
+        // Overridden by the Playwright harness, which runs its own API on a neighbouring port
+        // against a throwaway database, so a test run cannot touch the games you actually logged.
+        target: process.env.VITE_API_TARGET ?? 'http://localhost:5201',
         changeOrigin: true,
       },
     },
@@ -23,5 +25,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Playwright's specs match Vitest's default pattern and would otherwise be collected here,
+    // where there is no browser to run them in.
+    exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
   },
 });
