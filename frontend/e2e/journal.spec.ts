@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
-import { card, column, drag, openJournal, seed, setSort, today, todayOnCard } from './support/board';
+import {
+  card,
+  column,
+  drag,
+  openJournal,
+  seed,
+  setSort,
+  today,
+  todayOnCard,
+} from './support/board';
 
 /**
  * Journalling a title from the board.
