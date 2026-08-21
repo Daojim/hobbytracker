@@ -257,13 +257,102 @@ describe('EntryDrawer', () => {
 
     open();
     await screen.findByRole('button', { name: 'Save' });
+    const dialog = screen.getByRole('dialog');
 
-    const close = screen.getByRole('button', { name: 'Close' });
-    save().focus();
-    await userEvent.tab();
-    expect(close).toHaveFocus();
+    // More presses than the panel has controls, so this exercises the wrap and not merely the
+    // walk — and it says the invariant rather than naming whichever control happens to be last.
+    for (let press = 0; press < 12; press += 1) {
+      await userEvent.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
 
     await userEvent.tab({ shift: true });
-    expect(save()).toHaveFocus();
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('asks before it deletes a pass', async () => {
+    // A drag to Completed and back leaves ×2 forever, so this had to exist — but it is the one
+    // control in the drawer that destroys something, and a mis-click should cost a second click
+    // rather than a playthrough.
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 9 }), logEntry({ id: 7, status: 'Completed' })],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(journal.deleted).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+
+  it('deletes the current pass once it is confirmed', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 9 }), logEntry({ id: 7, status: 'Completed' })],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    await waitFor(() => expect(journal.deleted).toEqual([9]));
+  });
+
+  it('deletes an earlier pass, naming which one it would take', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9 }),
+          logEntry({ id: 7, status: 'Completed', completedAt: '2024-11-02T18:00:00+00:00' }),
+        ],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Delete the Completed pass from Nov 2, 2024' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    await waitFor(() => expect(journal.deleted).toEqual([7]));
+  });
+
+  it('says when deleting the last pass would take the title off the board', async () => {
+    // The library is titles you have logged something against, so the last pass leaving means
+    // the card leaves with it. That is worth saying before it happens, not after.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 9 })] }) });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(screen.getByText(/takes Hollow Knight off your board/)).toBeInTheDocument();
+  });
+
+  it('closes once the last pass is gone', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 9 })] }) });
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    // There is nothing left for it to show, and the card behind it has gone too.
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('says so when a delete fails rather than looking like it worked', async () => {
+    journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 9 })] }),
+      deleteStatus: 404,
+    });
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    expect(await screen.findByText('That pass is already gone.')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

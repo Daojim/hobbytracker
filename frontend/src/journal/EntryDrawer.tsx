@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { formatJournalDate } from '../lib/time';
 import { EntryForm } from './EntryForm';
 import { entrySeed } from './fields';
@@ -30,9 +30,12 @@ export interface EntryDrawerProps {
  * rendered a rating that could never be set. This is where they become real.
  */
 export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
-  const { game, save, fieldErrors } = useJournalEntry(mediaId);
+  const { game, save, remove, fieldErrors } = useJournalEntry(mediaId);
   const titleId = useId();
   const panel = useRef<HTMLElement>(null);
+  // Which pass has been asked about, if any. One at a time, and by id rather than a flag,
+  // because every row in the history carries the same control.
+  const [confirming, setConfirming] = useState<number | null>(null);
 
   // The keyboard follows the drawer in. Without this the focus is still on the board behind,
   // and the first Tab walks the columns rather than the form that just opened.
@@ -81,6 +84,31 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
   // fourth copy of an ordering that has already drifted once.
   const current = detail?.logEntries[0];
   const earlier = detail?.logEntries.slice(1) ?? [];
+  const onlyPass = detail !== undefined && detail.logEntries.length === 1;
+
+  function deletePass(entryId: number) {
+    // Read before the mutation, because by the time it answers the refetch has already changed
+    // what the drawer is holding.
+    const wasTheLast = onlyPass;
+
+    remove.mutate(entryId, {
+      onSuccess: () => {
+        setConfirming(null);
+        if (wasTheLast) {
+          onClose();
+        }
+      },
+    });
+  }
+
+  const deleteProps = (entryId: number) => ({
+    confirming: confirming === entryId,
+    busy: remove.isPending,
+    error: remove.error === null ? null : remove.error.message,
+    onAsk: () => setConfirming(entryId),
+    onCancel: () => setConfirming(null),
+    onConfirm: () => deletePass(entryId),
+  });
 
   return (
     <>
@@ -130,7 +158,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
           </p>
         )}
 
-        {current !== undefined && (
+        {current !== undefined && detail !== undefined && (
           <>
             <p className="text-sm text-neutral-500">{STATUS_LABEL[current.status]}</p>
 
@@ -143,6 +171,14 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               saving={save.isPending}
               serverErrors={fieldErrors}
               onSave={(update) => save.mutate({ entryId: current.id, update })}
+            />
+
+            <DeletePass
+              label="Delete this pass"
+              warning={
+                onlyPass ? `The only pass — deleting it takes ${detail.title} off your board.` : null
+              }
+              {...deleteProps(current.id)}
             />
           </>
         )}
@@ -171,6 +207,14 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
                       ★ {entry.rating.toFixed(1)}
                     </span>
                   )}
+                  <DeletePass
+                    // Named rather than a bare "Delete", because every row carries one and a
+                    // reader who cannot see which row it sits on would hear the same word over
+                    // and over.
+                    label={labelFor(entry)}
+                    warning={null}
+                    {...deleteProps(entry.id)}
+                  />
                 </li>
               ))}
             </ul>
@@ -184,4 +228,78 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
 /** When the pass ended, or when it started if it never did. Mirrors the card's `lastActivity`. */
 function whenOf(entry: LogEntry): string | null {
   return formatJournalDate(entry.completedAt ?? entry.startedAt);
+}
+
+interface DeletePassProps {
+  /** What this button would delete, said in full for anyone who cannot see where it sits. */
+  label: string;
+  /** What deleting costs beyond the pass itself, when it costs anything. */
+  warning: string | null;
+  confirming: boolean;
+  busy: boolean;
+  error: string | null;
+  onAsk: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
+/**
+ * Deleting one pass, with the confirm inline.
+ *
+ * Not `window.confirm`: it cannot be worded past the browser's own phrasing, cannot be styled,
+ * and has to be stubbed in every test that walks past it.
+ */
+function DeletePass({
+  label,
+  warning,
+  confirming,
+  busy,
+  error,
+  onAsk,
+  onCancel,
+  onConfirm,
+}: DeletePassProps) {
+  if (!confirming) {
+    return (
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onAsk}
+        className="self-start rounded text-xs text-neutral-500 hover:text-red-600"
+      >
+        Delete
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex flex-wrap items-baseline gap-2 text-xs">
+      {warning !== null && <span className="text-neutral-500">{warning}</span>}
+
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={busy}
+        className="rounded font-medium text-red-600 hover:underline disabled:opacity-50"
+      >
+        {busy ? 'Deleting…' : 'Really delete?'}
+      </button>
+
+      <button type="button" onClick={onCancel} className="rounded text-neutral-500 hover:underline">
+        Cancel
+      </button>
+
+      {error !== null && (
+        <span role="alert" className="text-red-600">
+          {error}
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Which pass a delete button in the history would take, for a reader who cannot see the row. */
+function labelFor(entry: LogEntry): string {
+  const when = whenOf(entry);
+  return `Delete the ${STATUS_LABEL[entry.status]} pass${when === null ? '' : ` from ${when}`}`;
 }

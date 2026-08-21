@@ -104,10 +104,13 @@ export interface JournalFixture {
   detail?: GameDetail;
   /** Answers the save with a field error instead, for the unhappy path. */
   saveErrors?: Record<string, string[]>;
+  /** Answers the delete with this status instead, for the unhappy path. */
+  deleteStatus?: number;
 }
 
-export function journalServer({ detail, saveErrors }: JournalFixture = {}) {
+export function journalServer({ detail, saveErrors, deleteStatus }: JournalFixture = {}) {
   const saved: { id: number; body: Record<string, unknown> }[] = [];
+  const deleted: number[] = [];
 
   server.use(
     http.get('/api/games/:id', () => HttpResponse.json(detail ?? gameDetail())),
@@ -125,7 +128,19 @@ export function journalServer({ detail, saveErrors }: JournalFixture = {}) {
       saved.push({ id: Number(params['id']), body });
       return HttpResponse.json(logEntry({ id: Number(params['id']) }));
     }),
+
+    http.delete('/api/log-entries/:id', ({ params }) => {
+      if (deleteStatus !== undefined) {
+        return HttpResponse.json(
+          { title: 'Not Found', detail: 'That pass is already gone.', status: deleteStatus },
+          { status: deleteStatus },
+        );
+      }
+
+      deleted.push(Number(params['id']));
+      return new HttpResponse(null, { status: 204 });
+    }),
   );
 
-  return { saved };
+  return { saved, deleted };
 }

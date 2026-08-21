@@ -177,3 +177,46 @@ test('clicking away from the drawer closes it, and so does Escape', async ({ pag
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+test('a pass added by a mistaken drag can be taken back', async ({ page, request }) => {
+  // The gap this closes: drag to Completed and back and the card says ×2 forever, because
+  // leaving Completed inserts an entry rather than editing one. Nothing could remove it.
+  await seed(request, 'Hollow Knight', 'Completed', {
+    startedAt: '2024-01-10',
+    completedAt: '2024-11-02',
+  });
+  await page.reload();
+
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+  await expect(
+    card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
+  ).toBeVisible();
+
+  await openJournal(page, 'Hollow Knight');
+  await page.getByRole('button', { name: 'Delete this pass' }).click();
+  await page.getByRole('button', { name: 'Really delete?' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  // Back where it was, with the 2024 completion untouched — which is the whole point of the
+  // schema keeping several entries per title.
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
+  await expect(card(page, 'Hollow Knight')).toContainText('Nov 2, 2024');
+  await expect(
+    card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
+  ).toHaveCount(0);
+});
+
+test('deleting the only pass takes the title off the board', async ({ page, request }) => {
+  // The library is titles you have logged something against, so the last pass leaving takes
+  // the card with it. The drawer would otherwise be left describing nothing.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('button', { name: 'Delete this pass' }).click();
+  await expect(page.getByText(/takes Celeste off your board/)).toBeVisible();
+  await page.getByRole('button', { name: 'Really delete?' }).click();
+
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(card(page, 'Celeste')).toHaveCount(0);
+});
