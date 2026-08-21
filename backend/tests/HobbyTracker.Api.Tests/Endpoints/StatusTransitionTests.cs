@@ -290,6 +290,63 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         (await MoveAsync(999_999, LogStatus.InProgress)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
+    [Fact]
+    public async Task A_finished_game_sent_back_to_the_backlog_stays_there()
+    {
+        // The ordinary route to Completed is Backlog -> Playing -> Completed, so a completion
+        // almost always carries a start date. The Backlog entry that supersedes it has neither
+        // date by rule, and an ordering that preferred a dated entry would keep answering
+        // "Completed" -- leaving the card where it was and adding another orphan entry on
+        // every retry.
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
+
+        var item = await ReadAsync<LibraryItemDto>(await MoveAsync(mediaId, LogStatus.Backlog));
+
+        item.CurrentStatus.ShouldBe(LogStatus.Backlog);
+        (await GetColumnAsync(LogStatus.Backlog)).Items.ShouldHaveSingleItem()
+            .MediaId.ShouldBe(mediaId);
+        (await GetColumnAsync(LogStatus.Completed)).Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_finished_game_that_is_dropped_stays_dropped()
+    {
+        // Dropped leaves timestamps alone, so the new entry has none at all -- the same shape
+        // as the Backlog case above, and broken the same way.
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
+
+        var item = await ReadAsync<LibraryItemDto>(await MoveAsync(mediaId, LogStatus.Dropped));
+
+        item.CurrentStatus.ShouldBe(LogStatus.Dropped);
+        (await GetColumnAsync(LogStatus.Dropped)).Items.ShouldHaveSingleItem()
+            .MediaId.ShouldBe(mediaId);
+        (await GetColumnAsync(LogStatus.Completed)).Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Dropping_a_finished_game_twice_does_not_pile_up_entries()
+    {
+        // The consequence of the bug above rather than a restatement of it: while the board
+        // still reads "Completed", every further drag looks like leaving Completed again and
+        // inserts one more entry.
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
+
+        await MoveAsync(mediaId, LogStatus.Backlog);
+        await MoveAsync(mediaId, LogStatus.Backlog);
+
+        // The second move is a no-op: the game is already in the column it names.
+        (await EntriesAsync(mediaId)).Count.ShouldBe(2);
+    }
+
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync(
             $"/api/library/{mediaId}/status", new StatusTransitionRequest(status), Json, Ct);

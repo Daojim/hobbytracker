@@ -6,9 +6,12 @@ import { libraryItem } from '../test/library';
 import { renderWithProviders } from '../test/render';
 import type { LogStatus } from '../api/types';
 
-function renderCard(item = libraryItem(), onDrop = vi.fn()) {
-  const view = renderWithProviders(<Card item={item} onDrop={onDrop} draggable />, { dnd: true });
-  return { ...view, onDrop };
+function renderCard(item = libraryItem(), onDrop = vi.fn(), onOpen = vi.fn()) {
+  const view = renderWithProviders(
+    <Card item={item} onDrop={onDrop} onOpen={onOpen} draggable />,
+    { dnd: true },
+  );
+  return { ...view, onDrop, onOpen };
 }
 
 describe('Card', () => {
@@ -68,6 +71,16 @@ describe('Card', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Drop Celeste' }));
 
     expect(onDrop).toHaveBeenCalledExactlyOnceWith(42);
+  });
+
+  it('opens the title it names', async () => {
+    // A button rather than a click handler on the card, so the journal is reachable by keyboard
+    // and does not depend on a pointer gesture the drag is already listening for.
+    const { onOpen } = renderCard(libraryItem({ mediaId: 42, title: 'Celeste' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Celeste' }));
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(42);
   });
 
   it('shows cover art when there is any, and falls back to an initial when there is not', () => {

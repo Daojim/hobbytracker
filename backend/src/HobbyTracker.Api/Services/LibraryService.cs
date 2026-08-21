@@ -201,29 +201,37 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
             EntryCount = media.LogEntries.Count(),
 
             // "Current" state comes from the most recent entry: a replay under way beats an old
-            // completion. Ordering is started_at DESC NULLS LAST, id DESC — an entry that
-            // says when it happened is better evidence than a later one that does not, and the
-            // id breaks ties among undated entries.
+            // completion. Ordering is logged_at DESC, id DESC: a pass is current because it
+            // was recorded most recently, not because it happens to carry a date.
+            //
+            // This used to prefer a dated entry over an undated one, which read well and was
+            // wrong. Leaving Completed for Backlog or Dropped writes an entry with no dates by
+            // rule, so it could never outrank the completion it replaced — the card sprang
+            // back to Completed and every retry added another orphan entry.
+            //
+            // logged_at is server-stamped on every insert and NOT NULL with a now() default,
+            // so it is always there to order by. The id breaks ties, which is not a detail:
+            // several entries written in the same instant is exactly what a test fixture on a
+            // stopped clock produces.
             //
             // EF turns this nested First() into a LATERAL join rather than N queries.
             //
-            // Kept in step with LatestEntryFor below: if the two ever disagree, the board will
-            // move one entry and then display a different one.
+            // Kept in step with LatestEntryFor below and with GameCatalogService.GetAsync: if
+            // they disagree, the board moves one entry and then displays a different one.
             Latest = media.LogEntries
-                .OrderBy(entry => entry.StartedAt == null)
-                .ThenByDescending(entry => entry.StartedAt)
+                .OrderByDescending(entry => entry.LoggedAt)
                 .ThenByDescending(entry => entry.Id)
                 .First(),
         });
 
     /// <summary>
     /// The entry the board considers current, as a tracked entity. Must order identically to
-    /// the projection in <see cref="BoardQuery"/>.
+    /// the projection in <see cref="BoardQuery"/> and to the entry list in
+    /// <c>GameCatalogService.GetAsync</c>.
     /// </summary>
     private IQueryable<LogEntry> LatestEntryFor(int mediaId) => db.LogEntries
         .Where(entry => entry.MediaId == mediaId)
-        .OrderBy(entry => entry.StartedAt == null)
-        .ThenByDescending(entry => entry.StartedAt)
+        .OrderByDescending(entry => entry.LoggedAt)
         .ThenByDescending(entry => entry.Id);
 
     /// <summary>

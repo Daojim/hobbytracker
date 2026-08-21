@@ -3,6 +3,7 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BoardPage } from './BoardPage';
 import { boardServer, libraryItem } from '../test/library';
+import { gameDetail, journalServer, logEntry } from '../test/games';
 import { renderWithProviders } from '../test/render';
 
 describe('BoardPage', () => {
@@ -41,6 +42,21 @@ describe('BoardPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show Dropped' }));
 
     expect(await screen.findByText('Anthem')).toBeInTheDocument();
+  });
+
+  it('opens the journal for the card you asked about', async () => {
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] } });
+    journalServer({
+      detail: gameDetail({ title: 'Celeste', logEntries: [logEntry({ id: 7, rating: 8.5 })] }),
+    });
+
+    renderWithProviders(<BoardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+
+    // The drawer sits over the board rather than replacing it — the columns are still there.
+    expect(await screen.findByRole('button', { name: 'Close' })).toBeInTheDocument();
+    expect(await screen.findByRole('spinbutton', { name: 'Rating' })).toHaveValue(8.5);
+    expect(screen.getByRole('heading', { name: 'Backlog 1' })).toBeInTheDocument();
   });
 
   it('refetches only the column whose sort changed', async () => {

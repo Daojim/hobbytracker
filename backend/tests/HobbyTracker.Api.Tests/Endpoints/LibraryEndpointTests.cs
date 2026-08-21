@@ -75,7 +75,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
-    public async Task Falls_back_to_insertion_order_when_entries_have_no_dates()
+    public async Task Breaks_a_tie_on_insertion_order_when_two_passes_share_an_instant()
     {
         var mediaId = await GivenGameAsync();
 
@@ -84,11 +84,14 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library")).Items.ShouldHaveSingleItem();
 
+        // Both entries are stamped from the stopped clock, so logged_at cannot separate them
+        // and the id has to. That is not a contrived case: it is what every fixture in this
+        // suite looks like, so the tie-break carries the whole ordering here.
         item.CurrentStatus.ShouldBe(LogStatus.Dropped);
     }
 
     [Fact]
-    public async Task Prefers_a_dated_entry_over_an_undated_one()
+    public async Task An_undated_pass_still_wins_when_it_was_recorded_later()
     {
         var mediaId = await GivenGameAsync();
 
@@ -97,9 +100,32 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library")).Items.ShouldHaveSingleItem();
 
-        // Ordering is started_at DESC NULLS LAST, id DESC: an entry that says when it
-        // happened is better evidence of current state than a later one that does not.
-        item.CurrentStatus.ShouldBe(LogStatus.InProgress);
+        // Ordering is logged_at DESC, id DESC. This once read the other way -- a dated entry
+        // was taken as better evidence than a later undated one -- and it was wrong: putting a
+        // game you had started back into the backlog writes an entry with no dates by rule, so
+        // the board went on insisting you were still playing it.
+        item.CurrentStatus.ShouldBe(LogStatus.Backlog);
+    }
+
+    [Fact]
+    public async Task The_board_and_the_game_detail_agree_about_which_pass_is_current()
+    {
+        // Three places order a title's entries -- the board projection, the transition lookup,
+        // and game detail. CLAUDE.md already warns that the first two drifting apart means the
+        // board moves one entry and displays another; a third consumer makes that warning
+        // cheap to ignore, so it is pinned here instead.
+        var mediaId = await GivenGameAsync();
+
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed,
+            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library")).Items.ShouldHaveSingleItem();
+        var detail = await ReadAsync<GameDetailDto>(
+            await Client.GetAsync($"/api/games/{mediaId}", Ct));
+
+        detail.LogEntries.Count.ShouldBe(2);
+        detail.LogEntries[0].Status.ShouldBe(item.CurrentStatus);
     }
 
     [Fact]

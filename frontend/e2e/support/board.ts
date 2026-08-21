@@ -65,6 +65,17 @@ export function card(page: Page, title: string): Locator {
 }
 
 /**
+ * Opens a title's journal.
+ *
+ * exact, because Playwright matches an accessible name by substring: a bare "Celeste" also
+ * finds the card's "Drop Celeste" button, and the failure then reads as a strict-mode
+ * violation rather than as the near-miss it actually is.
+ */
+export async function openJournal(page: Page, title: string): Promise<void> {
+  await card(page, title).getByRole('button', { name: title, exact: true }).click();
+}
+
+/**
  * The gesture itself.
  *
  * dnd-kit tracks pointer movement rather than the HTML5 drag events, so a single jump from

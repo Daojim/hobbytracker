@@ -54,6 +54,29 @@ describe('apiJson', () => {
     expect((error as ApiError).message).toContain('completedAt cannot be earlier than startedAt.');
   });
 
+  it('keeps the field a validation error was about, not just its text', async () => {
+    // A form wants to put "at most one decimal place" against the rating box rather than at the
+    // top of the drawer. The message is still built from these, so nothing that reads it breaks.
+    server.use(
+      http.put('/api/log-entries/1', () =>
+        HttpResponse.json(
+          {
+            title: 'One or more validation errors occurred.',
+            status: 400,
+            errors: { rating: ['Rating must be between 1.0 and 10.0.'] },
+          },
+          { status: 400 },
+        ),
+      ),
+    );
+
+    const error = (await apiJson('/api/log-entries/1', { method: 'PUT', body: {} }).catch(
+      (thrown: unknown) => thrown,
+    )) as ApiError;
+
+    expect(error.fieldErrors).toEqual({ rating: ['Rating must be between 1.0 and 10.0.'] });
+  });
+
   it('reports a 404 without pretending it parsed a body', async () => {
     server.use(http.get('/api/games/999', () => new HttpResponse(null, { status: 404 })));
 

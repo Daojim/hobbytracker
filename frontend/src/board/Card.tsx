@@ -14,10 +14,12 @@ export interface CardFaceProps {
   item: LibraryItem;
   /** Moves the title to Dropped. Omitted by the drag preview, which is not clickable. */
   onDrop?: (mediaId: number) => void;
+  /** Opens the journal for this title. Omitted by the drag preview for the same reason. */
+  onOpen?: (mediaId: number) => void;
 }
 
 /** Everything a card shows. Shared with the drag preview, which must not be a second sortable. */
-export function CardFace({ item, onDrop }: CardFaceProps) {
+export function CardFace({ item, onDrop, onOpen }: CardFaceProps) {
   const lastActivity = formatJournalDate(item.lastActivity);
 
   return (
@@ -36,8 +38,25 @@ export function CardFace({ item, onDrop }: CardFaceProps) {
 
       <div className="min-w-0 flex-1">
         {/* A heading, not a paragraph: each card names a thing, and it gives both test layers
-            a way to read a column's contents in order without reaching for a test id. */}
-        <h3 className="font-medium break-words">{item.title}</h3>
+            a way to read a column's contents in order without reaching for a test id.
+
+            The title is the way into the journal, and it is a button so that works from the
+            keyboard too. Stopping the pointer here keeps the press from also being read as the
+            start of a drag — the same guard the drop button needs. */}
+        <h3 className="font-medium break-words">
+          {onOpen === undefined ? (
+            item.title
+          ) : (
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={() => onOpen(item.mediaId)}
+              className="text-left hover:underline"
+            >
+              {item.title}
+            </button>
+          )}
+        </h3>
 
         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
           {item.latestRating !== null && (
@@ -78,11 +97,12 @@ export const CARD_CLASS =
 export interface CardProps {
   item: LibraryItem;
   onDrop: (mediaId: number) => void;
+  onOpen: (mediaId: number) => void;
   /** False outside `manual` sort, where a drag would imply a ranking the API will not store. */
   draggable: boolean;
 }
 
-export function Card({ item, onDrop, draggable }: CardProps) {
+export function Card({ item, onDrop, onOpen, draggable }: CardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.mediaId,
     // Read back by the drag handlers: a drop needs to know which column the card came from, and
@@ -106,7 +126,7 @@ export function Card({ item, onDrop, draggable }: CardProps) {
         isDragging ? 'opacity-40' : ''
       }`}
     >
-      <CardFace item={item} onDrop={onDrop} />
+      <CardFace item={item} onDrop={onDrop} onOpen={onOpen} />
     </li>
   );
 }

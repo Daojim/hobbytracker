@@ -71,11 +71,15 @@ public sealed class GameCatalogService(
             return null;
         }
 
+        // logged_at DESC, id DESC — the same order the board decides "current" by, so the
+        // first entry here *is* the pass the board is showing. A detail view that ordered by
+        // anything else would offer to edit one entry while the card reported another.
         var entries = await db.LogEntries
             .AsNoTracking()
             .Include(entry => entry.Media)
             .Where(entry => entry.MediaId == mediaId)
-            .OrderByDescending(entry => entry.Id)
+            .OrderByDescending(entry => entry.LoggedAt)
+            .ThenByDescending(entry => entry.Id)
             .ToListAsync(cancellationToken);
 
         return GameDetailDto.From(game, entries);
