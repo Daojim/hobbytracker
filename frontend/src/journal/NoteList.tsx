@@ -170,7 +170,11 @@ function NoteRow({
           >
             Save note
           </button>
-          <button type="button" onClick={onDone} className="rounded text-neutral-500 hover:underline">
+          <button
+            type="button"
+            onClick={onDone}
+            className="rounded text-neutral-500 hover:underline"
+          >
             Cancel
           </button>
         </span>

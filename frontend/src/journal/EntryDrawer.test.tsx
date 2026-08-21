@@ -405,7 +405,11 @@ describe('EntryDrawer', () => {
             id: 7,
             notes: [
               note({ id: 9, body: 'finally beat radiance' }),
-              note({ id: 8, body: 'stuck on watcher knights', writtenAt: '2026-08-19T23:02:00+00:00' }),
+              note({
+                id: 8,
+                body: 'stuck on watcher knights',
+                writtenAt: '2026-08-19T23:02:00+00:00',
+              }),
             ],
           }),
         ],
@@ -497,6 +501,8 @@ describe('EntryDrawer', () => {
     await userEvent.type(finished.getByRole('textbox', { name: 'New note' }), 'remembered later');
     await userEvent.click(finished.getByRole('button', { name: 'Add note' }));
 
-    await waitFor(() => expect(journal.written).toEqual([{ entryId: 7, body: 'remembered later' }]));
+    await waitFor(() =>
+      expect(journal.written).toEqual([{ entryId: 7, body: 'remembered later' }]),
+    );
   });
 });
