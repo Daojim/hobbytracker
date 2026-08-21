@@ -8,15 +8,33 @@ merely shorter.
 ## Where things stand
 
 **The board phase is complete, and the journal now reaches it.** Backend 136 tests, frontend 108
-Vitest tests, 17 Playwright specs — all green. Next up is HowLongToBeat.
+Vitest tests, 17 Playwright specs — all green.
 
 Currently on branch **`journal-drawer`**, off `main` at the merge of PR #4. Every step below is
 done.
 
-Three plans, all worth reading before touching this:
+> ### Read this first: the drawer is not finished
+>
+> Jimmy used the drawer and found five gaps between it and what he wanted. **They come before
+> HowLongToBeat.** All five are decided and written up, with the reasoning, in
+> `C:\Users\jimmy\.claude\plans\look-at-claude-md-and-radiant-wreath.md` — read that file before
+> starting any of them. In short:
+>
+> 1. **A drag leaves the drawer stale.** `useBoard` never invalidates `['games', mediaId]`, and
+>    `staleTime` is 30s, so Started can look empty after dragging to Playing. A real bug in
+>    shipped code, and the smallest fix here.
+> 2. **Clicking outside should close it.** Plus Escape, and make it a proper dialog.
+> 3. **No way to delete a pass.** A mistaken drag to Completed and back leaves ×2 forever.
+>    `deleteLogEntry()` is built, tested and has never been called.
+> 4. **No platform on a pass.** New `log_entries.platform`, chosen from the game's IGDB list.
+> 5. **Notes are wrong.** They are meant to be dated journal entries you add to and read back,
+>    not one box that overwrites itself. A `notes` child table; the column is migrated in and
+>    dropped. The largest of the five, and a contract break — its own session.
+
+Four plans, all worth reading before touching this:
 `C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original board
 plan; `i-had-a-previous-melodic-nebula.md` beside it is the timezone and timestamp work that
-interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the board components and the drag.
+interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the five items above.
 
 1. ~~Scaffold `frontend/`~~ — Vite 8 + React 19 + TS, Tailwind v4, TanStack Query, react-router.
 2. ~~API client + Vitest tests~~ — `src/api/` mirrors `Contracts/`, 32 tests over MSW.
@@ -547,7 +565,9 @@ the list is shuffled.
 - **The board — done.** Kanban board frontend: transitions, manual ordering, year filtering and
   the Eastern timezone work on the backend; components, the drag, the search page and the
   journal drawer on the front, with Playwright specs against a real browser.
-- **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below.
+- **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below. **The five
+  drawer items in "Where things stand" come first** — they are unfinished board-phase work, not a
+  reordering of the phases.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
