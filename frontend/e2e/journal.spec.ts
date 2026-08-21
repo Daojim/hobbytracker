@@ -159,3 +159,21 @@ test('a drag reaches the ordering you are not looking at', async ({ page, reques
   await expect(column(page, 'Backlog').getByText('Celeste')).toHaveCount(0);
   await expect(column(page, 'Backlog').getByText('Hades')).toBeVisible();
 });
+
+test('clicking away from the drawer closes it, and so does Escape', async ({ page, request }) => {
+  // jsdom has no layout, so it cannot say whether the backdrop really covers the board — only
+  // that a click on it calls onClose. This clicks where a column is and lets the browser
+  // decide what receives it.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  await page.mouse.click(40, 400);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await openJournal(page, 'Celeste');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});

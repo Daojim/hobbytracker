@@ -201,4 +201,69 @@ describe('EntryDrawer', () => {
 
     await waitFor(() => expect(started()).toHaveValue('2026-08-21'));
   });
+
+  it('is a dialog, named by the title it is about', async () => {
+    journalServer();
+
+    open();
+
+    expect(await screen.findByRole('dialog', { name: 'Hollow Knight' })).toHaveAttribute(
+      'aria-modal',
+      'true',
+    );
+  });
+
+  it('takes focus when it opens', async () => {
+    journalServer();
+
+    open();
+
+    // Otherwise the keyboard is still on the board behind, and the first Tab walks the columns.
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus());
+  });
+
+  it('closes when the backdrop is clicked', async () => {
+    journalServer();
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByRole('presentation'));
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('closes on Escape', async () => {
+    journalServer();
+
+    const { onClose } = open();
+    await screen.findByRole('dialog');
+    await userEvent.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('stays open when the panel itself is clicked', async () => {
+    journalServer();
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByText('Hollow Knight'));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps Tab inside itself', async () => {
+    // aria-modal promises a screen reader that the board behind is inert. Letting the keyboard
+    // walk out onto it would make that promise false for everyone who reads it by tabbing.
+    journalServer();
+
+    open();
+    await screen.findByRole('button', { name: 'Save' });
+
+    const close = screen.getByRole('button', { name: 'Close' });
+    save().focus();
+    await userEvent.tab();
+    expect(close).toHaveFocus();
+
+    await userEvent.tab({ shift: true });
+    expect(save()).toHaveFocus();
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BoardPage } from './BoardPage';
 import { boardServer, libraryItem } from '../test/library';
@@ -77,5 +77,20 @@ describe('BoardPage', () => {
       .poll(() => board.queriesFor('Backlog').map((query) => query.get('sort')))
       .toEqual(['manual', 'title']);
     expect(board.queriesFor('InProgress')).toHaveLength(playingBefore);
+  });
+
+  it('hands focus back to the card when the drawer closes', async () => {
+    // Storing the id rather than the element, because refetches remount the card while the
+    // drawer is open and the node captured at open time is usually detached by now.
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] } });
+    journalServer({ detail: gameDetail({ title: 'Celeste' }) });
+
+    renderWithProviders(<BoardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Celeste' })).toHaveFocus(),
+    );
   });
 });
