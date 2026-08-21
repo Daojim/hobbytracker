@@ -75,22 +75,29 @@ async function request(path: string, options: RequestOptions): Promise<Response>
   });
 
   if (!response.ok) {
-    throw new ApiError(await describe(response), response.status);
+    const problem = await readProblem(response);
+    throw new ApiError(describe(problem, response.status), response.status, problem?.errors ?? {});
   }
 
   return response;
 }
 
-/** Reads the problem details if there are any, and falls back to the status if not. */
-async function describe(response: Response): Promise<string> {
-  const problem = await readProblem(response);
-
+/**
+ * The message to show, built from the field errors when there are any.
+ *
+ * The errors themselves now travel on the ApiError as well. The third constructor argument has
+ * been there from the start and nothing ever passed it, so `fieldErrors` was always empty —
+ * invisible, because the message is assembled from the same errors. A form is the first caller
+ * that wants them separately, to put "at most one decimal place" against the rating box rather
+ * than at the top of the drawer.
+ */
+function describe(problem: ProblemDetails | null, status: number): string {
   const fieldMessages = Object.values(problem?.errors ?? {}).flat();
   if (fieldMessages.length > 0) {
     return fieldMessages.join(' ');
   }
 
-  return problem?.detail ?? problem?.title ?? `Request failed with status ${response.status}.`;
+  return problem?.detail ?? problem?.title ?? `Request failed with status ${status}.`;
 }
 
 async function readProblem(response: Response): Promise<ProblemDetails | null> {

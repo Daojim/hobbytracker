@@ -7,10 +7,10 @@ merely shorter.
 
 ## Where things stand
 
-**The board phase is complete.** Backend 132 tests, frontend 82 Vitest tests, 11 Playwright
-specs — all green. Next up is HowLongToBeat.
+**The board phase is complete, and the journal now reaches it.** Backend 136 tests, frontend 108
+Vitest tests, 17 Playwright specs — all green. Next up is HowLongToBeat.
 
-Currently on branch **`search-page`**, off `main` at the merge of PR #3. Every step below is
+Currently on branch **`journal-drawer`**, off `main` at the merge of PR #4. Every step below is
 done.
 
 Three plans, all worth reading before touching this:
@@ -26,6 +26,8 @@ interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the board component
 4. ~~The drag, and Playwright specs written red first~~ — dnd-kit, 8 specs in `frontend/e2e/`.
 5. ~~Search page~~ — a 300ms debounced input over `searchGames()`, and a button over
    `addToBacklog()`.
+6. ~~Journalling from the board~~ — a drawer over the board for rating, notes and date
+   correction, plus the earlier passes read-only. See **Journalling** below.
 
 **Two things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
@@ -89,6 +91,7 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── board/        the board. keys.ts owns the query key; useBoard owns the writes
+│       ├── journal/      the drawer over the board — rating, notes, dates, earlier passes
 │       ├── search/       SearchPage + SearchResult, over a debounced IGDB search
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
@@ -155,9 +158,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 132 tests
-cd frontend && npm test                             # frontend, 82 tests
-cd frontend && npm run test:e2e                     # 11 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 136 tests
+cd frontend && npm test                             # frontend, 108 tests
+cd frontend && npm run test:e2e                     # 17 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -401,11 +404,27 @@ everything ever typed into a search box. `/api/library` joins to `log_entries` a
 titles you actually recorded something about — one row per title regardless of replays, carrying
 `currentStatus`, `entryCount` and `latestRating`. Do not "fix" it to list all of `media`.
 
-**`currentStatus` is the most recent entry's status**, ordered `started_at DESC NULLS LAST,
-id DESC`: a replay under way beats an old completion, a dated entry beats an undated one, and
-the id breaks ties. `?status=` filters on that, not on "has ever been" — a game completed in
-2024 and being replayed now appears under `InProgress` and must not also appear under
-`Completed`. EF turns the nested `First()` into a LATERAL join, not N queries.
+**`currentStatus` is the most recent entry's status**, ordered `logged_at DESC, id DESC`: a pass
+is current because it was recorded most recently, not because it happens to carry a date.
+`?status=` filters on that, not on "has ever been" — a game completed in 2024 and being replayed
+now appears under `InProgress` and must not also appear under `Completed`. EF turns the nested
+`First()` into a LATERAL join, not N queries.
+
+This used to read `started_at DESC NULLS LAST, id DESC`, on the reasoning that an entry saying
+when it happened is better evidence than a later one that does not. **That was a bug**, and an
+ordinary-path one: leaving Completed for Backlog or Dropped writes an entry with no dates by
+rule, so it could never outrank the completion it replaced. The card sprang back to Completed
+and every retry added another orphan entry. Only Completed → Playing escaped it, because that
+rule stamps `started_at`. `logged_at` is server-stamped on every insert and `NOT NULL` with a
+`now()` default, so it is always there to order by; `id` breaks ties, which is not a footnote —
+fixtures on a stopped clock share one `logged_at`, so the tie-break carries the whole ordering
+in the test suite.
+
+**Three places order a title's entries** and all three must agree: `LibraryService.BoardQuery`,
+`LibraryService.LatestEntryFor`, and `GameCatalogService.GetAsync`. The last one used to order by
+`id DESC` alone, which meant the drawer could offer to edit one entry while the card reported
+another. `LibraryEndpointTests.The_board_and_the_game_detail_agree_about_which_pass_is_current`
+pins it so a future drift fails loudly.
 
 **Updates are `PUT`, not `PATCH`**: a field absent from the body is *cleared*. That is the whole
 reason for choosing PUT — PATCH cannot distinguish "clear the rating" from "leave it alone"
@@ -473,6 +492,48 @@ in manual mode and still guarantee the ranking survives a look at the alphabetic
   values, `System.Text.Json` reads a bare date as UTC, and `date_part` on a `timestamptz` follows
   the session's timezone. All three fail quietly or as a 500 rather than as anything informative.
 
+## Journalling
+
+The board moves a title between columns; the drawer is where you say anything *about* it. Click a
+card's title and it slides in over the board — rating, notes, and the two dates, plus every
+earlier pass read-only.
+
+It exists because the journal was finished as an API and unreachable as an app: log-entry CRUD
+was built and tested, and the only thing the frontend ever called was `addToBacklog`. The card
+had rendered a rating behind a star since the board shipped, and nothing could set one.
+
+**Loaded with `getGame`**, which answers with the game and every entry in one request — the shape
+it was built for. `logEntries[0]` *is* the pass the board is showing, because the endpoint now
+shares the board's ordering; the drawer does not re-derive it.
+
+Decisions worth not re-litigating:
+
+- **No status control.** Dragging is the gesture that changes a column, and the rules about which
+  entry that touches and which timestamps it stamps live on the server. A second way in would
+  need its own copy of all of it.
+- **Earlier passes are read-only.** A finished playthrough is a record of something that
+  happened; the schema goes to real trouble to keep it, and an editable field here would undo
+  that with a keystroke. Correcting one is a psql job until there is a reason for more.
+- **The form submits every field, every time.** `PUT` means an absent field is *cleared* — that
+  is the whole reason it is PUT — so sending only what changed would wipe the notes whenever
+  somebody edited a rating. `pick()` in `src/api/logEntries.ts` drops `undefined` but keeps
+  `null`, which is what makes "cleared" expressible at all.
+- **An untouched date goes back as the instant it arrived as.** The input shows a day, the column
+  holds a moment. Re-deriving the value from the day on screen would move a 21:30 start to
+  midnight — silent loss on a save the user made about something else. Only an edited field is
+  sent as a bare date, which the server reads as that wall-clock moment here. `dateFieldValue` in
+  `src/journal/fields.ts`.
+- **The rating is validated on the input text, not the parsed number.** `8.75 * 10` is not
+  exactly `87.5` in binary floating point, so counting decimal places arithmetically is a way to
+  accept the one value the rule exists to reject. Mirrors `RatingAttribute` word for word.
+- **`noValidate` on the form.** `step="0.1"` stays for the spinner and the mobile keypad, but
+  native validation silently refuses to submit an 8.75 and shows a bubble that cannot be worded,
+  styled or tested — and *why* two decimal places are refused is the part worth saying.
+
+`ApiError.fieldErrors` is populated at last. The third constructor argument had been there from
+the start and nothing ever passed it, so it was always `{}` — invisible, because the message is
+assembled from the same errors. The form is the first caller that wants them per-field.
+
 ## Phases
 
 Phases are referred to **by name, not by number**, anywhere outside this list. The order has now
@@ -481,10 +542,11 @@ invalidated every "by Phase 4" scattered through the code. "once movies exist" s
 the list is shuffled.
 
 - **Schema and search — done.** Schema + migration, IGDB integration, `GET /api/games`.
-- **The journal — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
+- **The journal — done.** Log-entry CRUD, library and game-detail reads, and the test suite. Its
+  UI arrived later, with the board — see **Journalling**.
 - **The board — done.** Kanban board frontend: transitions, manual ordering, year filtering and
-  the Eastern timezone work on the backend; components, the drag, and the search page on the
-  front, with Playwright specs against a real browser.
+  the Eastern timezone work on the backend; components, the drag, the search page and the
+  journal drawer on the front, with Playwright specs against a real browser.
 - **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.

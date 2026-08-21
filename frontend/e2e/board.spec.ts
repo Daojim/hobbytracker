@@ -127,6 +127,9 @@ test('sorting is a view, and leaves the ranking alone', async ({ page, request }
   await seed(request, 'Celeste', 'Backlog');
   await page.reload();
 
+  // Waited for rather than read straight after the reload: an eager snapshot can catch the
+  // board mid-load and compare the ending order against an empty array.
+  await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(2);
   const before = await titlesIn(page, 'Backlog');
 
   await column(page, 'Backlog')

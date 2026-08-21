@@ -11,7 +11,14 @@ function renderColumn(
   props: Partial<Parameters<typeof Column>[0]> & { status: LogStatus; label: string },
 ) {
   return renderWithProviders(
-    <Column hobby="games" sort="manual" onSortChange={vi.fn()} onDrop={vi.fn()} {...props} />,
+    <Column
+      hobby="games"
+      sort="manual"
+      onSortChange={vi.fn()}
+      onDrop={vi.fn()}
+      onOpen={vi.fn()}
+      {...props}
+    />,
     { dnd: true },
   );
 }

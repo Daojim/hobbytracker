@@ -27,6 +27,13 @@ const dateTimeFormat = new Intl.DateTimeFormat('en-US', {
   minute: '2-digit',
 });
 
+const inputDateFormat = new Intl.DateTimeFormat('en-CA', {
+  timeZone: JOURNAL_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 /** The day an instant falls on here. Null in, null out — an absent timestamp is not "today". */
 export function formatJournalDate(instant: string | null): string | null {
   return instant === null ? null : dateFormat.format(new Date(instant));
@@ -50,4 +57,16 @@ export function journalYear(instant: string): number {
   }).format(new Date(instant));
 
   return Number(year);
+}
+
+/**
+ * The day an instant fell on here, as `YYYY-MM-DD` for an `<input type="date">`.
+ *
+ * Deliberately not `toISOString().slice(0, 10)`, which reads UTC: an evening here is already
+ * tomorrow there, so a form populated that way would offer to "correct" a date that was right,
+ * and saving it would move the day. `en-CA` formats as YYYY-MM-DD, which is the shape the
+ * element wants and the shape the API reads back as a wall-clock moment here.
+ */
+export function journalDateInput(instant: string | null): string {
+  return instant === null ? '' : inputDateFormat.format(new Date(instant));
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatJournalDate, formatJournalDateTime, journalYear } from './time';
+import { formatJournalDate, formatJournalDateTime, journalDateInput, journalYear } from './time';
 
 // The API hands back instants. Turning one into "what day was that" is a question about a
 // timezone, and the answer has to be the same one the server gives — otherwise the board says a
@@ -43,5 +43,16 @@ describe('journal time', () => {
   it('passes a missing timestamp through rather than inventing one', () => {
     expect(formatJournalDate(null)).toBeNull();
     expect(formatJournalDateTime(null)).toBeNull();
+  });
+
+  it('fills a date input with the day the instant fell on here', () => {
+    // <input type="date"> wants YYYY-MM-DD, and toISOString().slice(0, 10) would give the UTC
+    // day — which for an evening here is tomorrow, the original bug walking back in.
+    expect(journalDateInput(thursdayEvening)).toBe('2026-08-20');
+    expect(journalDateInput('2026-01-01T02:30:00+00:00')).toBe('2025-12-31');
+  });
+
+  it('has nothing to put in the input when there is no timestamp', () => {
+    expect(journalDateInput(null)).toBe('');
   });
 });

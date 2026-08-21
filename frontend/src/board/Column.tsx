@@ -25,6 +25,7 @@ export interface ColumnProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onDrop: (mediaId: number) => void;
+  onOpen: (mediaId: number) => void;
 }
 
 export function Column({
@@ -38,6 +39,7 @@ export function Column({
   collapsed = false,
   onToggleCollapse,
   onDrop,
+  onOpen,
 }: ColumnProps) {
   const headingId = useId();
 
@@ -102,6 +104,7 @@ export function Column({
                   key={item.mediaId}
                   item={item}
                   onDrop={onDrop}
+                  onOpen={onOpen}
                   // Every other mode is a read-only view. Offering a drag there would promise a
                   // ranking the API is not going to store.
                   draggable={sort === 'manual'}

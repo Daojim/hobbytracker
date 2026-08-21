@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { CARD_CLASS, CardFace } from './Card';
 import { Column } from './Column';
+import { EntryDrawer } from '../journal/EntryDrawer';
 import { useBoard } from './useBoard';
 import { yearFor } from './keys';
 import type { LibrarySort, LogStatus } from '../api/types';
@@ -37,6 +38,8 @@ export function BoardPage() {
   const [year, setYear] = useState<number | undefined>(undefined);
   // Dropped is a record, not a queue. It starts out of the way and opens when asked for.
   const [droppedOpen, setDroppedOpen] = useState(false);
+  // Which title's journal is open, if any. One at a time: the drawer covers the board.
+  const [journalFor, setJournalFor] = useState<number | null>(null);
 
   const board = useBoard({ hobby: HOBBY, sorts, year });
 
@@ -66,6 +69,7 @@ export function BoardPage() {
                 status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
               }
               onDrop={(mediaId) => board.drop(mediaId, status)}
+              onOpen={setJournalFor}
             />
           ))}
         </div>
@@ -85,6 +89,10 @@ export function BoardPage() {
           )}
         </DragOverlay>
       </DndContext>
+
+      {journalFor !== null && (
+        <EntryDrawer mediaId={journalFor} onClose={() => setJournalFor(null)} />
+      )}
     </main>
   );
 }

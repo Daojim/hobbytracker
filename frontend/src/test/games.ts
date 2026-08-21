@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { server } from './server';
 import { libraryItem } from './library';
-import type { Game, LogEntry, PagedResult } from '../api/types';
+import type { Game, GameDetail, LogEntry, PagedResult } from '../api/types';
 
 /** A game as search returns it — the catalogue's shape, not the board's. */
 export function game(overrides: Partial<Game> = {}): Game {
@@ -72,4 +72,60 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
   );
 
   return { searches, added };
+}
+
+export function logEntry(overrides: Partial<LogEntry> = {}): LogEntry {
+  return {
+    id: 1,
+    mediaId: 3003,
+    mediaTitle: 'Hollow Knight',
+    status: 'InProgress',
+    rating: null,
+    notes: null,
+    startedAt: null,
+    completedAt: null,
+    loggedAt: '2026-08-21T15:00:00+00:00',
+    ...overrides,
+  };
+}
+
+export function gameDetail(overrides: Partial<GameDetail> = {}): GameDetail {
+  return {
+    ...game(),
+    hltbId: null,
+    // Ordered logged_at DESC, id DESC by the API, so the first entry is the pass the board is
+    // showing. The drawer takes it as given rather than re-deriving the rule a third time.
+    logEntries: [logEntry()],
+    ...overrides,
+  };
+}
+
+export interface JournalFixture {
+  detail?: GameDetail;
+  /** Answers the save with a field error instead, for the unhappy path. */
+  saveErrors?: Record<string, string[]>;
+}
+
+export function journalServer({ detail, saveErrors }: JournalFixture = {}) {
+  const saved: { id: number; body: Record<string, unknown> }[] = [];
+
+  server.use(
+    http.get('/api/games/:id', () => HttpResponse.json(detail ?? gameDetail())),
+
+    http.put('/api/log-entries/:id', async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+
+      if (saveErrors !== undefined) {
+        return HttpResponse.json(
+          { title: 'One or more validation errors occurred.', status: 400, errors: saveErrors },
+          { status: 400 },
+        );
+      }
+
+      saved.push({ id: Number(params['id']), body });
+      return HttpResponse.json(logEntry({ id: Number(params['id']) }));
+    }),
+  );
+
+  return { saved };
 }
