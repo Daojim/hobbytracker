@@ -7,37 +7,33 @@ merely shorter.
 
 ## Where things stand
 
-**Backend complete, 132 tests green. Frontend scaffolded: API client done and tested, board
-components are the current job.**
+**Backend complete, 132 tests green. The board is built and draggable: 65 Vitest tests and 8
+Playwright drag specs green. The search page is the current job.**
 
-Currently on branch **`kanban-board`**, five commits ahead of `main` and pushed to
-github.com/Daojim/hobbytracker. Working tree clean; no PR opened yet.
+Currently on branch **`board-components`**, branched off `hltb-priority` rather than `main` —
+that branch's phase-reorder commit touches the same paragraphs this work does, and PR #2 was
+open for it at the time. Steps 1 to 4 below are done.
 
-Two plans, both worth reading before touching this:
+Three plans, all worth reading before touching this:
 `C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original board
 plan; `i-had-a-previous-melodic-nebula.md` beside it is the timezone and timestamp work that
-interrupted it. Steps 1 and 2 below are done.
+interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the board components and the drag.
 
 1. ~~Scaffold `frontend/`~~ — Vite 8 + React 19 + TS, Tailwind v4, TanStack Query, react-router.
 2. ~~API client + Vitest tests~~ — `src/api/` mirrors `Contracts/`, 32 tests over MSW.
-3. **Board components, then the drag.** `npm i @dnd-kit/core @dnd-kit/sortable` first — not
-   installed yet, deliberately, so the scaffold carries nothing it does not use. `BoardPage`
-   already establishes the query key shape (`['library', 'games', status]`) and fetches each
-   column separately, which is what makes the year picker narrow Completed alone. The pieces
-   still to build: `Column`, `Card`, `SortSelect`, a year picker above Completed only, and a
-   `useBoard` hook holding the drag handlers. `transition()` and `reorderColumn()` in
-   `src/api/library.ts` are done and tested — a drag calls the first, a reorder within a column
-   calls the second with the whole column top-first.
-4. **Playwright drag specs, written red first.** Not installed yet either. The drag is the
-   feature, so it gets a real browser: jsdom has no layout and no pointer events, so dnd-kit
-   assertions there pass and fail for the wrong reasons. Seed through the API, never IGDB, so no
-   test reaches the network.
+3. ~~Board components~~ — `Column`, `Card`, `SortSelect`, `YearPicker`, and `useBoard` holding
+   the writes. Each column fetches itself, which is what makes the year picker narrow Completed
+   alone and a sort on one column cost nothing on the other three.
+4. ~~The drag, and Playwright specs written red first~~ — dnd-kit, 8 specs in `frontend/e2e/`.
 5. **Search page.** `searchGames()` and `addToBacklog()` are already built and tested; the page
-   is a debounced input over the first and a button over the second.
+   is a debounced input over the first and a button over the second. `SearchPage` is still the
+   placeholder and should be replaced wholesale, not extended.
 
-`BoardPage` and `SearchPage` are placeholders. The board one is real enough to prove the wiring
-end to end — TanStack Query, the API client, the Vite proxy, and Eastern rendering — and should
-be replaced wholesale, not extended.
+**The column query key is `['library', hobby, status, { sort, year }]`** — see
+`frontend/src/board/keys.ts`, which is the only place it is spelled out. The sort and the year
+belong in the key and not just in the request: leaving them out serves the previous ordering
+from cache and corrects itself only on the next refetch, which is a board showing one order
+while claiming another. `useBoard` builds the same key to write into, so the two cannot drift.
 
 Decisions already made with the user, **settled — do not reopen**:
 
@@ -50,9 +46,11 @@ Decisions already made with the user, **settled — do not reopen**:
 | Close button | **hidden on Completed and Dropped cards** — meaningless on both |
 | Year picker | above the Completed column only; Backlog and Playing ignore it |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
+| Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
 | Dev wiring | Vite proxy `/api` → `:5201`. **No CORS change needed or wanted** |
 | Testing | Vitest + RTL + MSW for logic and components; Playwright for the drag |
+| E2E harness | Real API and real Postgres on a **separate `hobbytracker_e2e` database**, with IGDB stubbed. See **Tests** |
 | Timezone | `America/New_York`, server-configured, DST-following. See **Time** |
 | Timestamps | `started_at` / `completed_at` / `logged_at` are instants, not dates |
 
@@ -64,7 +62,7 @@ first, show it red, then implement.** Not implementation followed by an offer to
 |---|---|
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
-| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query — **the board, in progress** |
+| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit — **the board, done** |
 | External data | IGDB v4 (games), authenticated through Twitch |
 
 Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
@@ -79,12 +77,14 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 ├── CLAUDE.md             this file
 ├── frontend/             Vite + React + TS SPA
 │   ├── vite.config.ts    /api proxy to :5201, and the Vitest config
+│   ├── playwright.config.ts  starts the stub, the API and Vite itself
+│   ├── e2e/              drag specs, plus the IGDB stub and database helpers
 │   └── src/
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
-│       ├── board/        BoardPage — placeholder, replace wholesale
+│       ├── board/        the board. keys.ts owns the query key; useBoard owns the writes
 │       ├── search/       SearchPage — placeholder
-│       └── test/         MSW server and setup
+│       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── HobbyTracker.slnx
     ├── Directory.Packages.props   ALL package versions live here (central management)
@@ -150,7 +150,8 @@ dotnet ef migrations add <Name> \
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 132 tests
-cd frontend && npm test                             # frontend, 32 tests
+cd frontend && npm test                             # frontend, 65 tests
+cd frontend && npm run test:e2e                     # the drag, 8 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -178,10 +179,33 @@ Choices worth not re-litigating:
 
 The frontend suite is Vitest over **MSW**, with no handlers registered by default and
 `onUnhandledRequest: 'error'` — a request the test did not state is a failure, not a silent
-pass-through. It covers the API client's URL building and error handling, and `lib/time`'s
-pinning to the journal zone. Component and drag coverage arrives with the board itself: RTL for
-components, Playwright for the drag, because drag-and-drop in jsdom has no real layout or pointer
-events and passes for the wrong reasons.
+pass-through. It covers the API client's URL building and error handling, `lib/time`'s pinning to
+the journal zone, and the board's components. `src/test/library.ts` stubs a whole board in one
+call, because a component test would otherwise have to state four column requests and the year
+list before it could assert anything at all.
+
+**The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit
+assertion there passes or fails for reasons unrelated to whether dragging a card works.
+`npm run test:e2e` starts three servers itself — no manual setup beyond `docker compose up -d db`:
+
+- **An IGDB stub** (`e2e/support/igdb-stub.mjs`) on :5399. `Igdb:BaseUrl` and `Igdb:TokenUrl` are
+  plain options, so pointing them at it needs no production code — and it is what makes "seed
+  through the API, never IGDB" possible at all, since `media` rows are *only* ever written by a
+  search. Specs seed the way a person does: search, then `POST /api/log-entries`.
+- **The API** on :5202 under `ASPNETCORE_ENVIRONMENT=E2E`, so `appsettings.Development.json` and
+  user-secrets do not load and real IGDB credentials cannot leak into a run — the same guard
+  `ApiFactory` gets from its "Testing" environment. `--no-launch-profile` matters: without it
+  `launchSettings.json` pins :5201 and quietly wins over `ASPNETCORE_URLS`.
+- **Vite** on :5174 with `VITE_API_TARGET` pointed at :5202.
+
+The migration is chained into the API's command rather than run from `globalSetup`, because
+Playwright starts its web servers *first* — the API would be answering readiness checks from a
+database that did not exist yet.
+
+**A separate `hobbytracker_e2e` database, on purpose.** The specs truncate between cases, and the
+development database holds the games you actually logged. One environment variable makes it
+impossible for a test run to delete your backlog. Truncation leaves `hobby_lu` and `source_lu`
+standing, exactly as Respawn does in the backend suite and for the same reason.
 
 Working method: **write the failing test first.** The journal endpoints were driven that way,
 and the backfill suite over the schema-and-search code was written before any of them, so the
@@ -453,8 +477,8 @@ the list is shuffled.
 - **Schema and search — done.** Schema + migration, IGDB integration, `GET /api/games`.
 - **The journal — done.** Log-entry CRUD, library and game-detail reads, and the test suite.
 - **The board — in progress.** Kanban board frontend. Backend done (transitions, ordering, year
-  filtering, and the Eastern timezone/timestamp work). Frontend scaffolded with its API client
-  and tests; board components, drag wiring, Playwright and the search page remain.
+  filtering, and the Eastern timezone/timestamp work). The board itself is done: components, the
+  drag, and Playwright specs against a real browser. **Only the search page remains.**
 - **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.

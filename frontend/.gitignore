@@ -4,3 +4,9 @@ node_modules/
 *.local
 .vite/
 *.tsbuildinfo
+
+# Playwright artefacts. The browsers themselves live outside the repo.
+playwright-report/
+test-results/
+blob-report/
+.playwright/

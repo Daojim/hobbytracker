@@ -1,24 +1,45 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Link } from 'react-router';
-import { listColumn } from '../api/library';
-import { formatJournalDateTime } from '../lib/time';
-import type { LogStatus } from '../api/types';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
+import { CARD_CLASS, CardFace } from './Card';
+import { Column } from './Column';
+import { useBoard } from './useBoard';
+import { yearFor } from './keys';
+import type { LibrarySort, LogStatus } from '../api/types';
 
 /**
- * Placeholder. The real board is four columns with dnd-kit wiring, a per-column sort, and a year
- * picker above Completed only — the next session's work.
+ * The games board.
  *
- * What is here proves the wiring end to end: TanStack Query, the API client, the Vite proxy, and
- * that timestamps render in the journal's zone rather than the browser's.
+ * Hobby-parameterised even though games are the only hobby there is, so movies and books are a
+ * routing change rather than a rewrite. Each column fetches itself, which is what makes a sort
+ * or a year on one of them cost nothing on the other three.
  */
-const COLUMNS: { status: LogStatus; label: string }[] = [
+const HOBBY = 'games';
+
+const COLUMNS: readonly { status: LogStatus; label: string }[] = [
   { status: 'Backlog', label: 'Backlog' },
   { status: 'InProgress', label: 'Playing' },
   { status: 'Completed', label: 'Completed' },
   { status: 'Dropped', label: 'Dropped' },
 ];
 
+const ALL_MANUAL: Record<LogStatus, LibrarySort> = {
+  Backlog: 'manual',
+  InProgress: 'manual',
+  Completed: 'manual',
+  Dropped: 'manual',
+};
+
 export function BoardPage() {
+  // Per column, not board-wide: Completed is worth reading by rating while Backlog stays in the
+  // order you put it in.
+  const [sorts, setSorts] = useState<Record<LogStatus, LibrarySort>>(ALL_MANUAL);
+  const [year, setYear] = useState<number | undefined>(undefined);
+  // Dropped is a record, not a queue. It starts out of the way and opens when asked for.
+  const [droppedOpen, setDroppedOpen] = useState(false);
+
+  const board = useBoard({ hobby: HOBBY, sorts, year });
+
   return (
     <main className="min-h-screen bg-neutral-50 p-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
       <header className="mb-6 flex items-baseline gap-4">
@@ -28,51 +49,38 @@ export function BoardPage() {
         </Link>
       </header>
 
-      <div className="grid gap-4 md:grid-cols-4">
-        {COLUMNS.map((column) => (
-          <Column key={column.status} status={column.status} label={column.label} />
-        ))}
-      </div>
+      <DndContext {...board.dnd}>
+        <div className="grid items-start gap-4 md:grid-cols-4">
+          {COLUMNS.map(({ status, label }) => (
+            <Column
+              key={status}
+              hobby={HOBBY}
+              status={status}
+              label={label}
+              sort={sorts[status]}
+              onSortChange={(sort) => setSorts((current) => ({ ...current, [status]: sort }))}
+              year={yearFor(status, year)}
+              onYearChange={status === 'Completed' ? setYear : undefined}
+              collapsed={status === 'Dropped' ? !droppedOpen : undefined}
+              onToggleCollapse={
+                status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
+              }
+              onDrop={(mediaId) => board.drop(mediaId, status)}
+            />
+          ))}
+        </div>
+
+        {/* What the cursor carries. A card cannot follow the pointer out of its own column and
+            stay in the list, and a second sortable with the same id would be ambiguous to
+            dnd-kit — so the overlay wears the card's face without being one. */}
+        <DragOverlay>
+          {board.dragging !== null && (
+            <div className={`${CARD_CLASS} cursor-grabbing shadow-lg`}>
+              <CardFace item={board.dragging} />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
     </main>
-  );
-}
-
-function Column({ status, label }: { status: LogStatus; label: string }) {
-  const { data, isPending, error } = useQuery({
-    queryKey: ['library', 'games', status],
-    queryFn: () => listColumn({ hobby: 'games', status }),
-  });
-
-  return (
-    <section
-      className={`rounded-lg border p-3 ${
-        status === 'Dropped'
-          ? 'border-neutral-200 opacity-60 dark:border-neutral-800'
-          : 'border-neutral-300 dark:border-neutral-700'
-      }`}
-    >
-      <h2 className="mb-3 text-sm font-medium tracking-wide uppercase">
-        {label} {data !== undefined && <span className="text-neutral-500">{data.total}</span>}
-      </h2>
-
-      {isPending && <p className="text-sm text-neutral-500">Loading…</p>}
-      {error !== null && <p className="text-sm text-red-600">{error.message}</p>}
-
-      <ul className="flex flex-col gap-2">
-        {data?.items.map((item) => (
-          <li
-            key={item.mediaId}
-            className="rounded border border-neutral-200 bg-white p-2 text-sm dark:border-neutral-800 dark:bg-neutral-900"
-          >
-            <p className="font-medium">{item.title}</p>
-            {item.lastActivity !== null && (
-              <p className="text-xs text-neutral-500">{formatJournalDateTime(item.lastActivity)}</p>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {data?.items.length === 0 && <p className="text-sm text-neutral-500">Nothing here yet.</p>}
-    </section>
   );
 }
