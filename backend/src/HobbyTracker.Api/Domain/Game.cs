@@ -17,7 +17,7 @@ public class Game : Media
     public List<string> Developers { get; set; } = [];
 
     /// <summary>
-    /// Main-story completion time from HowLongToBeat. Not populated in Phase 1 — the column
+    /// Main-story completion time from HowLongToBeat. Not populated yet — the column
     /// exists so the later HLTB pass is a backfill rather than a migration.
     /// </summary>
     public decimal? HltbMainStoryHours { get; set; }

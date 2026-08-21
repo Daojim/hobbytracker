@@ -38,7 +38,7 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
         builder.Property(e => e.LoggedAt).HasDefaultValueSql("now()");
 
         // SetNull rather than Cascade: deleting an account should not erase the journal, and
-        // UserId is nullable already while auth is still Phase 2 work.
+        // UserId is nullable already while auth is still ahead of us.
         builder.HasOne(e => e.User)
             .WithMany(u => u.LogEntries)
             .HasForeignKey(e => e.UserId)

@@ -6,7 +6,7 @@ using Microsoft.Extensions.Options;
 namespace HobbyTracker.Api.Tests.Integrations;
 
 /// <summary>
-/// Covers the recovery path that Phase 1 shipped unverified: a token that dies earlier than
+/// Covers the recovery path the IGDB work shipped unverified: a token that dies earlier than
 /// Twitch advertised. Forcing a genuine 401 out of IGDB is not something a test can arrange,
 /// which is exactly why it needs a stubbed transport.
 /// </summary>

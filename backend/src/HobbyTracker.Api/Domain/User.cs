@@ -10,7 +10,7 @@ public class User
 
     public required string DisplayName { get; set; }
 
-    /// <summary>Coarse authorization role, e.g. "user" or "admin". Unused until Phase 2.</summary>
+    /// <summary>Coarse authorization role, e.g. "user" or "admin". Unused until auth lands.</summary>
     public string Role { get; set; } = "user";
 
     public DateTimeOffset CreatedAt { get; set; }
