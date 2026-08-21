@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
-import { gameDetail, journalServer, logEntry } from '../test/games';
+import { gameDetail, journalServer, logEntry, note } from '../test/games';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Rating' });
-const notes = () => screen.getByRole('textbox', { name: 'Notes' });
 const started = () => screen.getByLabelText('Started');
 const save = () => screen.getByRole('button', { name: 'Save' });
 
@@ -25,7 +24,6 @@ describe('EntryDrawer', () => {
           logEntry({
             id: 7,
             rating: 8.5,
-            notes: 'hard but fair',
             startedAt: '2026-08-21T01:30:00+00:00',
           }),
         ],
@@ -36,7 +34,6 @@ describe('EntryDrawer', () => {
 
     expect(await screen.findByRole('heading', { name: 'Celeste' })).toBeInTheDocument();
     expect(rating()).toHaveValue(8.5);
-    expect(notes()).toHaveValue('hard but fair');
     // 01:30 UTC is the evening before here, and the input has to agree with the card.
     expect(started()).toHaveValue('2026-08-20');
   });
@@ -46,7 +43,7 @@ describe('EntryDrawer', () => {
     // changed would wipe the notes every time someone edited a rating.
     const journal = journalServer({
       detail: gameDetail({
-        logEntries: [logEntry({ id: 7, status: 'InProgress', notes: 'hard but fair' })],
+        logEntries: [logEntry({ id: 7, status: 'InProgress' })],
       }),
     });
 
@@ -59,7 +56,6 @@ describe('EntryDrawer', () => {
     expect(journal.saved[0]?.body).toEqual({
       status: 'InProgress',
       rating: 8.5,
-      notes: 'hard but fair',
       platform: null,
       startedAt: null,
       completedAt: null,
@@ -157,7 +153,7 @@ describe('EntryDrawer', () => {
     open();
 
     expect(await screen.findByText('Earlier passes')).toBeInTheDocument();
-    expect(screen.getByText('Nov 2, 2024')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Completed Nov 2, 2024' })).toBeInTheDocument();
     // One form, for the current pass. The history is a record, not a set of inputs.
     expect(screen.getAllByRole('spinbutton', { name: 'Rating' })).toHaveLength(1);
   });
@@ -397,5 +393,116 @@ describe('EntryDrawer', () => {
     await userEvent.click(save());
 
     await waitFor(() => expect(journal.saved[0]?.body['platform']).toBe('Switch'));
+  });
+
+  it("lists a pass's notes newest first, with the time of day", async () => {
+    // The API orders them and the drawer does not re-sort. The time is the part of a journal
+    // worth reading back — "beat it at 9:30pm" is the entry; the date alone is a filing label.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({
+            id: 7,
+            notes: [
+              note({ id: 9, body: 'finally beat radiance' }),
+              note({
+                id: 8,
+                body: 'stuck on watcher knights',
+                writtenAt: '2026-08-19T23:02:00+00:00',
+              }),
+            ],
+          }),
+        ],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByText('Aug 20, 2026, 9:30 PM')).toBeInTheDocument();
+
+    const written = screen.getAllByRole('listitem').map((item) => item.textContent ?? '');
+    expect(written[0]).toContain('finally beat radiance');
+    expect(written[1]).toContain('stuck on watcher knights');
+  });
+
+  it('writes a note against the pass it was typed under', async () => {
+    const journal = journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    await userEvent.type(await screen.findByRole('textbox', { name: 'New note' }), 'radiance');
+    await userEvent.click(screen.getByRole('button', { name: 'Add note' }));
+
+    await waitFor(() => expect(journal.written).toEqual([{ entryId: 7, body: 'radiance' }]));
+    // Cleared, or the next note starts with the last one still in the box.
+    expect(screen.getByRole('textbox', { name: 'New note' })).toHaveValue('');
+  });
+
+  it('rewrites a note', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'wathcer knights' })] })],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Edit the note from Aug 20, 2026, 9:30 PM' }),
+    );
+
+    const box = screen.getByRole('textbox', { name: 'Note from Aug 20, 2026, 9:30 PM' });
+    await userEvent.clear(box);
+    await userEvent.type(box, 'watcher knights');
+    await userEvent.click(screen.getByRole('button', { name: 'Save note' }));
+
+    await waitFor(() => expect(journal.rewritten).toEqual([{ id: 9, body: 'watcher knights' }]));
+  });
+
+  it('asks before deleting a note', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9 })] })],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Delete the note from Aug 20, 2026, 9:30 PM' }),
+    );
+
+    expect(journal.dropped).toEqual([]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+    await waitFor(() => expect(journal.dropped).toEqual([9]));
+  });
+
+  it("reads an earlier pass's notes, and can still add to it", async () => {
+    // Remembering something later about a playthrough that is over is a real thing to want. The
+    // box is a click away rather than open, or the history is a column of identical write boxes.
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9, status: 'InProgress' }),
+          logEntry({
+            id: 7,
+            status: 'Completed',
+            completedAt: '2024-11-02T18:00:00+00:00',
+            notes: [note({ id: 4, body: 'what a finish' })],
+          }),
+        ],
+      }),
+    });
+
+    open();
+
+    const finished = within(await screen.findByRole('region', { name: 'Completed Nov 2, 2024' }));
+    expect(finished.getByText('what a finish')).toBeInTheDocument();
+
+    await userEvent.click(finished.getByRole('button', { name: 'Add a note' }));
+    await userEvent.type(finished.getByRole('textbox', { name: 'New note' }), 'remembered later');
+    await userEvent.click(finished.getByRole('button', { name: 'Add note' }));
+
+    await waitFor(() =>
+      expect(journal.written).toEqual([{ entryId: 7, body: 'remembered later' }]),
+    );
   });
 });

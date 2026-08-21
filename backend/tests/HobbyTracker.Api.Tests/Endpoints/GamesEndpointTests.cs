@@ -152,6 +152,24 @@ public sealed class GamesEndpointTests(PostgresFixture postgres) : DatabaseTestB
     }
 
     [Fact]
+    public async Task Carries_each_pass_notes_so_the_drawer_needs_one_request()
+    {
+        // The trap this guards: an entry loaded without .Include(e => e.Notes) maps to a DTO
+        // reporting no notes at all — silently, with nothing failing to compile. This is the
+        // path the journal drawer actually loads.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+
+        await Client.PostAsJsonAsync(
+            $"/api/log-entries/{entryId}/notes", new NoteRequest("hard but fair"), Json, Ct);
+
+        var game = await ReadAsync<GameDetailDto>(
+            await Client.GetAsync($"/api/games/{mediaId}", Ct));
+
+        game.LogEntries.Single().Notes.Single().Body.ShouldBe("hard but fair");
+    }
+
+    [Fact]
     public async Task Returns_a_game_with_no_entries_as_an_empty_list()
     {
         var mediaId = await GivenGameAsync("Never Played");

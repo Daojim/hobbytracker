@@ -10,7 +10,7 @@ const entry: LogEntry = {
   mediaTitle: 'Celeste',
   status: 'InProgress',
   rating: null,
-  notes: null,
+  notes: [],
   platform: null,
   startedAt: '2026-08-21T01:30:00+00:00',
   completedAt: null,
@@ -101,9 +101,9 @@ describe('updateLogEntry', () => {
       }),
     );
 
-    await updateLogEntry(1, { status: 'Completed', rating: 9.5, notes: null });
+    await updateLogEntry(1, { status: 'Completed', rating: 9.5, platform: null });
 
-    expect(body).toEqual({ status: 'Completed', rating: 9.5, notes: null });
+    expect(body).toEqual({ status: 'Completed', rating: 9.5, platform: null });
   });
 
   it('sends the platform, which pick() has to be told about by hand', async () => {

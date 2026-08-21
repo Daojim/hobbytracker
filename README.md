@@ -67,6 +67,8 @@ Timestamps are instants, and the app records days in `America/New_York` — see 
 | `GET /api/games/{id}` | one game plus everything logged against it |
 | `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
 | `GET PUT DELETE /api/log-entries/{id}` | |
+| `POST /api/log-entries/{entryId}/notes` | write a note against a pass |
+| `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date |
 | `GET /api/library?hobby=&status=` | your collection |
 
 ## Stack
@@ -141,9 +143,9 @@ the operation the app hits most.
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 139 tests
-cd frontend && npm test                             # frontend, 126 tests
-cd frontend && npm run test:e2e                     # 23 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 155 tests
+cd frontend && npm test                             # frontend, 134 tests
+cd frontend && npm run test:e2e                     # 26 specs in a real browser
 ```
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
@@ -165,7 +167,7 @@ its first run.
 - [x] Schema, IGDB integration, game search
 - [x] Journal, library, and the test suite
 - [x] React + TypeScript frontend — the kanban board and its drag, search, and the journal drawer
-- [ ] Notes as dated journal entries rather than one box that overwrites itself
+- [x] Notes as dated journal entries rather than one box that overwrites itself
 - [ ] HowLongToBeat completion times — the `hltb_*` columns exist so that pass is a backfill
 - [ ] Google/Discord OAuth and JWT — `log_entries.user_id` is nullable until then, deliberately:
       the column already existed, so the journal shipped without waiting on auth

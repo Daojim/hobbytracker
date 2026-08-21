@@ -16,6 +16,10 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     public DbSet<Game> Games => Set<Game>();
 
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
+
+    /// <summary>What was written during a pass. Child of log_entries, cascade deleted.</summary>
+    public DbSet<Note> Notes => Set<Note>();
+
     public DbSet<User> Users => Set<User>();
     public DbSet<AuthIdentity> AuthIdentities => Set<AuthIdentity>();
 

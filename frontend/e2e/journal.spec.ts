@@ -9,6 +9,7 @@ import {
   setSort,
   today,
   todayOnCard,
+  writeNote,
 } from './support/board';
 
 /**
@@ -244,4 +245,89 @@ test('the platform you played on is recorded against that pass', async ({ page, 
   await page.reload();
   await openJournal(page, 'Hollow Knight');
   await expect(page.getByLabel('Platform')).toHaveValue('Switch');
+});
+
+test('notes stack up on a pass instead of overwriting each other', async ({ page, request }) => {
+  // The bug this whole table exists to fix: one column meant a journal you could only overwrite.
+  await seed(request, 'Hollow Knight', 'InProgress');
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  await writeNote(page, 'stuck on watcher knights');
+  await writeNote(page, 'finally beat radiance');
+
+  // Reloaded, because "both are on screen" and "both are stored" are different claims.
+  await page.reload();
+  await openJournal(page, 'Hollow Knight');
+
+  await expect(page.getByText('stuck on watcher knights')).toBeVisible();
+  await expect(page.getByText('finally beat radiance')).toBeVisible();
+
+  // Newest first, matching every other list in this app.
+  // Scoped to the drawer: the board's cards behind it are list items too, and its "Playing"
+  // column would answer to the same region name as the pass.
+  const bodies = await page.getByRole('dialog').getByRole('listitem').allTextContents();
+  expect(bodies[0]).toContain('finally beat radiance');
+  expect(bodies[1]).toContain('stuck on watcher knights');
+});
+
+test('a note can be fixed and another taken back', async ({ page, request }) => {
+  await seed(request, 'Celeste', 'InProgress');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await writeNote(page, 'wathcer knights');
+  await writeNote(page, 'a typo I will regret');
+
+  await page.getByRole('button', { name: /^Edit the note from/ }).last().click();
+  const box = page.getByRole('textbox', { name: /^Note from/ });
+  await box.fill('watcher knights');
+  await page.getByRole('button', { name: 'Save note' }).click();
+
+  // Waited for, not assumed: the rewritten body can only be on screen once the refetch lands,
+  // and clicking before then means clicking a node React is in the middle of replacing.
+  await expect(page.getByText('watcher knights')).toBeVisible();
+
+  await page.getByRole('button', { name: /^Delete the note from/ }).first().click();
+  await page.getByRole('button', { name: 'Really delete?' }).click();
+
+  // Gone from the screen before reloading, or the navigation cancels the request that removes it.
+  await expect(page.getByText('a typo I will regret')).toHaveCount(0);
+
+  await page.reload();
+  await openJournal(page, 'Celeste');
+
+  await expect(page.getByText('watcher knights')).toBeVisible();
+  await expect(page.getByText('a typo I will regret')).toHaveCount(0);
+});
+
+test('a replay starts empty and the finished pass keeps what you wrote', async ({
+  page,
+  request,
+}) => {
+  // A note belongs to the pass it was written during, which is the whole reason it hangs off the
+  // entry rather than the title. Only a real stack can show the two halves of that at once.
+  await seed(request, 'Hollow Knight', 'Completed', {
+    startedAt: '2024-01-10',
+    completedAt: '2024-11-02',
+  });
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  await writeNote(page, 'what a finish');
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+  await expect(
+    card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
+  ).toBeVisible();
+
+  await openJournal(page, 'Hollow Knight');
+
+  const finished = page.getByRole('region', { name: 'Completed Nov 2, 2024' });
+  await expect(finished.getByText('what a finish')).toBeVisible();
+
+  // And the pass just started has nothing on it yet.
+  const started = page.getByRole('region', { name: 'Playing', exact: true });
+  await expect(started.getByText('what a finish')).toHaveCount(0);
 });

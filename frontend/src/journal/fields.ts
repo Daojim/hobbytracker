@@ -66,6 +66,6 @@ export function dateFieldValue(input: string, original: string | null): string |
  * save of your own, or after a drag — and the drawer covers the board while it is open.
  */
 export function entrySeed(entry: LogEntry): string {
-  return [entry.id, entry.rating, entry.notes, entry.platform, entry.startedAt, entry.completedAt]
+  return [entry.id, entry.rating, entry.platform, entry.startedAt, entry.completedAt]
     .join('|');
 }

@@ -34,5 +34,7 @@ export function psql(sql: string, database = E2E_DATABASE): string {
  * rather than as an empty table.
  */
 export function resetDatabase(): void {
-  psql('TRUNCATE log_entries, games, media RESTART IDENTITY CASCADE;');
+  // notes is named rather than left to CASCADE. Postgres reaches it either way through its
+  // foreign key, but saying so keeps this list an honest inventory of what a run destroys.
+  psql('TRUNCATE notes, log_entries, games, media RESTART IDENTITY CASCADE;');
 }

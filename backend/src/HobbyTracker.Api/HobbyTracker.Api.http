@@ -42,7 +42,6 @@ Content-Type: application/json
   "mediaId": 1,
   "status": "Completed",
   "rating": 9.6,
-  "notes": "held up better than I expected",
   "platform": "Switch",
   "startedAt": "2026-07-02",
   "completedAt": "2026-08-19"
@@ -99,3 +98,22 @@ Accept: application/json
 
 ### OpenAPI document (Development only).
 GET {{HobbyTracker.Api_HostAddress}}/openapi/v1.json
+
+### Write a note against a pass. An append, never an overwrite — that is the whole point.
+POST {{HobbyTracker.Api_HostAddress}}/api/log-entries/1/notes
+Content-Type: application/json
+
+{
+  "body": "finally beat radiance"
+}
+
+### Fix a typo in one. Its date does not move.
+PUT {{HobbyTracker.Api_HostAddress}}/api/notes/1
+Content-Type: application/json
+
+{
+  "body": "finally beat the Radiance"
+}
+
+### Take one back.
+DELETE {{HobbyTracker.Api_HostAddress}}/api/notes/1

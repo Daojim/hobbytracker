@@ -204,7 +204,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         var mediaId = await GivenGameAsync(title, externalId);
         await Client.PostAsJsonAsync(
             "/api/log-entries",
-            new CreateLogEntryRequest(mediaId, LogStatus.Backlog, null, null, null, null, null),
+            new CreateLogEntryRequest(mediaId, LogStatus.Backlog, null, null, null, null),
             Json,
             Ct);
         return mediaId;
@@ -216,7 +216,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         var mediaId = await GivenGameAsync(title, externalId);
         await Client.PostAsJsonAsync(
             "/api/log-entries",
-            new CreateLogEntryRequest(mediaId, LogStatus.Completed, rating, null, null, null, completedOn),
+            new CreateLogEntryRequest(mediaId, LogStatus.Completed, rating, null, null, completedOn),
             Json,
             Ct);
         return mediaId;

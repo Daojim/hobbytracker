@@ -7,37 +7,20 @@ merely shorter.
 
 ## Where things stand
 
-**The board phase is complete, and four of the five drawer gaps are closed.** Backend 139 tests,
-frontend 126 Vitest tests, 23 Playwright specs — all green.
+**The board phase is complete, and so is the drawer — all five gaps are closed.** Backend 155
+tests, frontend 134 Vitest tests, 26 Playwright specs — all green.
 
-Currently on branch **`drawer-gaps`**, off `main` at the merge of PR #5. Every step below is done,
-and so are drawer items 1–4.
+Currently on branch **`journal-notes`**, off `main` at the merge of PR #6. Every step below is
+done, and the journal is now a journal: several dated notes per pass, which is what the whole
+drawer existed to make possible.
 
-> ### Read this first: notes are still wrong
->
-> Jimmy used the drawer and found five gaps between it and what he wanted. **They come before
-> HowLongToBeat.** Four are done — see **Journalling**. The fifth is left, and it is the largest:
->
-> **Notes are meant to be dated journal entries you add to and read back, not one box that
-> overwrites itself.** A `notes` child table of `log_entries`, cascade delete, with `written_at`
-> server-stamped and absent from the request contract for the same reason `logged_at` is. The
-> `log_entries.notes` column is migrated into it and **dropped**. Notes travel with the entry on
-> `LogEntryDto`, so `getGame` still answers in one request; writes get
-> `POST /api/log-entries/{entryId}/notes` and `PUT`/`DELETE /api/notes/{id}`.
->
-> It is a **contract break**: `notes` leaves `CreateLogEntryRequest` and `UpdateLogEntryRequest`,
-> which means removing it from `pick()` in `src/api/logEntries.ts` and from `EntryForm`, or the
-> PUT sends a field the API no longer binds. The migration must copy before it drops, and `Down`
-> cannot restore more than one note per pass — say so rather than pretending otherwise.
->
-> Decided and written up, with the reasoning, in
-> `C:\Users\jimmy\.claude\plans\look-at-claude-md-and-radiant-wreath.md` §5. Read that first.
+**HowLongToBeat is next**, and nothing is holding it up any more. See **Phases**.
 
 Five plans, all worth reading before touching this:
 `C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original board
 plan; `i-had-a-previous-melodic-nebula.md` beside it is the timezone and timestamp work that
-interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the five drawer items;
-`i-want-to-continue-wiggly-toucan.md` is how the first four of them were built.
+interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the five drawer gaps and the
+reasoning behind each; `i-want-to-continue-wiggly-toucan.md` is how they were built.
 
 1. ~~Scaffold `frontend/`~~ — Vite 8 + React 19 + TS, Tailwind v4, TanStack Query, react-router.
 2. ~~API client + Vitest tests~~ — `src/api/` mirrors `Contracts/`, 32 tests over MSW.
@@ -50,7 +33,9 @@ interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the five drawer ite
 6. ~~Journalling from the board~~ — a drawer over the board for rating, notes and date
    correction, plus the earlier passes read-only. See **Journalling** below.
 7. ~~Four of the five drawer gaps~~ — the stale-after-a-drag caching bug, the drawer becoming a
-   real dialog, deleting a pass, and the platform a pass was played on. Notes are what is left.
+   real dialog, deleting a pass, and the platform a pass was played on.
+8. ~~Notes become dated journal entries~~ — a `notes` child table, the column migrated in and
+   dropped, and a note list per pass in the drawer. The last of the five, and the contract break.
 
 **Two things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
@@ -122,7 +107,7 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── board/        the board. keys.ts owns the query key; useBoard owns the writes
-│       ├── journal/      the drawer over the board — rating, notes, dates, earlier passes
+│       ├── journal/      the drawer over the board — rating, platform, dates, notes, earlier passes
 │       ├── search/       SearchPage + SearchResult, over a debounced IGDB search
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
@@ -189,9 +174,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 139 tests
-cd frontend && npm test                             # frontend, 126 tests
-cd frontend && npm run test:e2e                     # 23 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 155 tests
+cd frontend && npm test                             # frontend, 134 tests
+cd frontend && npm run test:e2e                     # 26 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -264,7 +249,8 @@ is how the lookup tables keep their `_lu` suffix.
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
 | `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `hltb_main_story_hours`, `hltb_id` |
-| `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `notes`, `platform`, `started_at`, `completed_at`, `logged_at` |
+| `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `platform`, `started_at`, `completed_at`, `logged_at` |
+| `notes` | `id`, `log_entry_id`, `body`, `written_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
 
@@ -312,6 +298,12 @@ renames the column in `media` too and leaves the base table with no `id` at all.
   and the server accepts anything up to 100 characters: IGDB's data changes, and a value that was
   true when it was written has to outlive the list it was chosen from. A pass inserted by a drag
   out of Completed gets a null platform rather than inheriting the last one.
+- **Notes are rows, not a column.** `log_entries.notes` was one nullable text field, so writing a
+  second thought destroyed the first — which is not a journal. `written_at` is server-stamped like
+  `logged_at` and **does not move when a note is rewritten**: the date is when you wrote it, not
+  when you last fixed a typo. Cascade delete, because a note belongs to the pass it was written
+  during. The migration that carried the column across gave each note its entry's `logged_at`,
+  that being the only honest date available for text with none of its own.
 - **`rating` is `numeric(3,1)`, 1.0–10.0**, enforced by a check constraint. Decimal on purpose:
   8.5 and 9.6 are the point.
 - **Lookup ids are fixed constants**, `ValueGeneratedNever()` + `HasData`. They are part of the
@@ -422,6 +414,8 @@ Two IGDB quirks the code depends on:
 | `GET /api/log-entries/{id}` | |
 | `PUT /api/log-entries/{id}` | full replacement |
 | `DELETE /api/log-entries/{id}` | |
+| `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
+| `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date |
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
 | `GET /api/library/years?hobby=` | years with completions, newest first |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
@@ -532,8 +526,8 @@ in manual mode and still guarantee the ranking survives a look at the alphabetic
 ## Journalling
 
 The board moves a title between columns; the drawer is where you say anything *about* it. Click a
-card's title and it slides in over the board — rating, platform, notes and the two dates, plus
-every earlier pass, whose fields are read-only but which can be deleted.
+card's title and it slides in over the board — rating, platform and the two dates, a list of dated
+notes, and every earlier pass with its own notes below it.
 
 It exists because the journal was finished as an API and unreachable as an app: log-entry CRUD
 was built and tested, and the only thing the frontend ever called was `addToBacklog`. The card
@@ -548,11 +542,13 @@ Decisions worth not re-litigating:
 - **No status control.** Dragging is the gesture that changes a column, and the rules about which
   entry that touches and which timestamps it stamps live on the server. A second way in would
   need its own copy of all of it.
-- **Earlier passes' *fields* are read-only; the pass itself can be deleted.** A finished
-  playthrough is a record of something that happened, the schema goes to real trouble to keep it,
-  and an editable field here would undo that with a keystroke. Deleting is the deliberate
-  exception: a pass that never happened — the ×2 a mistaken drag to Completed and back leaves
-  behind — is not a record worth keeping. Correcting a field on one is still a psql job.
+- **An earlier pass's *fields* are read-only; its *notes* are not, and the pass itself can be
+  deleted.** A finished playthrough is a record of something that happened, the schema goes to
+  real trouble to keep it, and an editable date here would undo that with a keystroke. The two
+  exceptions are deliberate and different: a note is yours to fix, because a journal with a typo
+  frozen into it helps nobody; and a pass that never happened — the ×2 a mistaken drag to
+  Completed and back leaves behind — is not a record worth keeping. Correcting a *field* on a
+  finished pass is still a psql job.
 - **Deleting confirms inline**, a Delete that becomes "Really delete?" beside a Cancel. Not
   `window.confirm`, which cannot be worded past the browser's own phrasing, cannot be styled, and
   has to be stubbed in every test that walks past it. Each button in the history names the pass it
@@ -571,9 +567,23 @@ Decisions worth not re-litigating:
   loaded, no second request — plus a blank "Not recorded". A stored value that list no longer
   mentions stays in it and stays selected. See the schema note on `log_entries.platform`.
 - **The form submits every field, every time.** `PUT` means an absent field is *cleared* — that
-  is the whole reason it is PUT — so sending only what changed would wipe the notes whenever
-  somebody edited a rating. `pick()` in `src/api/logEntries.ts` drops `undefined` but keeps
-  `null`, which is what makes "cleared" expressible at all.
+  is the whole reason it is PUT — so sending only what changed would wipe the rating whenever
+  somebody corrected a date. Notes are outside it — each is its own row and its own write,
+  so this form cannot clear them and does not try. `pick()` in `src/api/logEntries.ts` drops
+  `undefined` but keeps `null`, which is what makes "cleared" expressible at all.
+- **Each pass is a labelled region**, which is how `Column` already solves several
+  identically-named controls on one screen, and what lets a test or a screen reader say *which*
+  pass it means. The compose box is open on the pass you are on and a click behind "Add a note" on
+  one that is over — notes can be added to any pass, including a finished one, but a write box on
+  every row of the history would drown it.
+- **A note's controls name it by its timestamp**, for the same reason a pass's delete names the
+  pass: several rows carrying the same two words is nothing to a reader who cannot see them.
+- **Notes carry the time of day**, through `formatJournalDateTime` — built and tested since the
+  timezone work and called by nothing until now. "Beat it at 9:30 PM" is the entry worth reading
+  back; the date alone is a filing label.
+- **Writing a note invalidates only `gameKey(mediaId)`.** Unlike a save or a pass delete, nothing
+  a note does shows on the card — no rating, no count of passes, no date — so the board has
+  nothing to hear about.
 - **The form is keyed on the values it was seeded from**, not on the entry's id — `entrySeed` in
   `src/journal/fields.ts`. `useState` reads its initial value once, and a transition *edits the
   current entry in place* rather than adding one, so the id holds still while the values change
@@ -609,10 +619,11 @@ the list is shuffled.
   UI arrived later, with the board — see **Journalling**.
 - **The board — done.** Kanban board frontend: transitions, manual ordering, year filtering and
   the Eastern timezone work on the backend; components, the drag, the search page and the
-  journal drawer on the front, with Playwright specs against a real browser.
-- **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below. **The five
-  drawer items in "Where things stand" come first** — they are unfinished board-phase work, not a
-  reordering of the phases.
+  journal drawer on the front, with Playwright specs against a real browser. The five gaps found
+  by using the drawer — staleness, the dialog, deleting a pass, per-pass platform, and notes as
+  dated entries — were unfinished board-phase work and are all closed.
+- **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below. **Next, with
+  nothing ahead of it.**
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from

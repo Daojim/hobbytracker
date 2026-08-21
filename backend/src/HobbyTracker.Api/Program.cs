@@ -66,6 +66,7 @@ builder.Services.AddHttpClient<IIgdbClient, IgdbClient>((serviceProvider, client
 
 builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
+builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 
 // ------------------------------------------------------------------------ web

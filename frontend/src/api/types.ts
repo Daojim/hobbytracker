@@ -60,13 +60,26 @@ export interface GameDetail extends Game {
   logEntries: LogEntry[];
 }
 
+/**
+ * One thing written down during a pass. Several per pass is the point: this replaced a single
+ * text field, where writing a second thought destroyed the first.
+ */
+export interface Note {
+  id: number;
+  logEntryId: number;
+  body: string;
+  /** An instant. Stamped when you wrote it, and rewriting the body does not move it. */
+  writtenAt: string;
+}
+
 export interface LogEntry {
   id: number;
   mediaId: number;
   mediaTitle: string;
   status: LogStatus;
   rating: number | null;
-  notes: string | null;
+  /** Everything written during this pass, newest first. */
+  notes: Note[];
   /** What it was played on. Free text: IGDB names the platforms, but its list is not the record. */
   platform: string | null;
   /** Instants. A value sent without an offset is read as Eastern by the server. */
@@ -81,7 +94,6 @@ export interface CreateLogEntry {
   mediaId: number;
   status: LogStatus;
   rating?: number | null;
-  notes?: string | null;
   platform?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;

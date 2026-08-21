@@ -37,7 +37,13 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
     {
         var (normalisedPage, normalisedSize) = Paging.Normalise(page, pageSize);
 
-        var query = db.LogEntries.AsNoTracking().Include(entry => entry.Media).AsQueryable();
+        // Notes are on the DTO, so they have to be loaded: an entry read without this maps to
+        // a DTO reporting no notes at all, silently, with nothing failing to compile.
+        var query = db.LogEntries
+            .AsNoTracking()
+            .Include(entry => entry.Media)
+            .Include(entry => entry.Notes)
+            .AsQueryable();
 
         if (mediaId is { } media)
         {
@@ -68,6 +74,7 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
         var entry = await db.LogEntries
             .AsNoTracking()
             .Include(e => e.Media)
+            .Include(e => e.Notes)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         return entry is null ? null : LogEntryDto.From(entry);
@@ -90,7 +97,6 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
             Media = media,
             Status = request.Status,
             Rating = request.Rating,
-            Notes = request.Notes,
             Platform = request.Platform,
             StartedAt = request.StartedAt,
             CompletedAt = request.CompletedAt,
@@ -115,6 +121,7 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
     {
         var entry = await db.LogEntries
             .Include(e => e.Media)
+            .Include(e => e.Notes)
             .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
 
         if (entry is null)
@@ -127,7 +134,6 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
         // between "unset this" and "leave it alone".
         entry.Status = request.Status;
         entry.Rating = request.Rating;
-        entry.Notes = request.Notes;
         entry.Platform = request.Platform;
         entry.StartedAt = request.StartedAt;
         entry.CompletedAt = request.CompletedAt;
