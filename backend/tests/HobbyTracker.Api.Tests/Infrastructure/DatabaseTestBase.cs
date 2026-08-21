@@ -149,7 +149,8 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
         decimal? rating = null,
         DateTimeOffset? startedAt = null,
         DateTimeOffset? completedAt = null,
-        string? notes = null) => WithDbAsync(async db =>
+        string? notes = null,
+        string? platform = null) => WithDbAsync(async db =>
         {
             var entry = new LogEntry
             {
@@ -157,6 +158,7 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
                 Status = status,
                 Rating = rating,
                 Notes = notes,
+                Platform = platform,
                 StartedAt = startedAt,
                 CompletedAt = completedAt,
 

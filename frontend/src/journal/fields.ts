@@ -1,4 +1,5 @@
 import { journalDateInput } from '../lib/time';
+import type { LogEntry } from '../api/types';
 
 /**
  * The two form fields whose rules are worth stating away from the markup.
@@ -50,4 +51,21 @@ export function dateFieldValue(input: string, original: string | null): string |
   }
 
   return input === '' ? null : input;
+}
+
+/**
+ * What a form seeded from this entry would be holding — its id, and the four values the inputs
+ * are filled from.
+ *
+ * Used as the form's React key. `useState` reads its initial value once, and a transition
+ * *edits the current entry in place* rather than adding one, so keying on the id alone left a
+ * game just dragged to Playing showing an empty Started when you reopened it. The id is still
+ * in there so that opening a different pass with identical values is still a fresh form.
+ *
+ * The cost is that a refetch landing mid-edit discards what was typed. It can only land after a
+ * save of your own, or after a drag — and the drawer covers the board while it is open.
+ */
+export function entrySeed(entry: LogEntry): string {
+  return [entry.id, entry.rating, entry.notes, entry.platform, entry.startedAt, entry.completedAt]
+    .join('|');
 }

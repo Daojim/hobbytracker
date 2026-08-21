@@ -91,6 +91,7 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
             Status = request.Status,
             Rating = request.Rating,
             Notes = request.Notes,
+            Platform = request.Platform,
             StartedAt = request.StartedAt,
             CompletedAt = request.CompletedAt,
 
@@ -127,6 +128,7 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
         entry.Status = request.Status;
         entry.Rating = request.Rating;
         entry.Notes = request.Notes;
+        entry.Platform = request.Platform;
         entry.StartedAt = request.StartedAt;
         entry.CompletedAt = request.CompletedAt;
 

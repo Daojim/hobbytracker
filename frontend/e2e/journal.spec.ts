@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
-import { card, column, drag, openJournal, seed } from './support/board';
+import {
+  card,
+  column,
+  drag,
+  openJournal,
+  seed,
+  setSort,
+  today,
+  todayOnCard,
+} from './support/board';
 
 /**
  * Journalling a title from the board.
@@ -115,4 +124,124 @@ test('a card still drags even though its title opens the journal', async ({ page
   await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
   // The gesture moved a card and did not also open anything.
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+});
+
+test('the drawer catches up with a drag', async ({ page, request }) => {
+  // A drag sets started_at server-side, and the drawer reads a different query from the one the
+  // drag invalidates. With staleTime at 30s, open-close-drag-reopen inside that window served
+  // the pre-drag entry, so Started looked empty on a game that had just been started.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByLabel('Started')).toHaveValue('');
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await drag(page, card(page, 'Celeste'), column(page, 'InProgress'));
+
+  // Waited for rather than the card merely arriving: a backlog entry carries no dates, so the
+  // date on its face can only have come from the refetch. Clicking before that lands means
+  // clicking a node React is in the middle of replacing, and the click never becomes one.
+  await expect(card(page, 'Celeste')).toContainText(todayOnCard());
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByLabel('Started')).toHaveValue(today());
+});
+
+test('a drag reaches the ordering you are not looking at', async ({ page, request }) => {
+  // The same missed invalidation one level over: a column's key carries its sort, so only the
+  // ordering on screen was refetched and any other cached ordering of it kept the moved card.
+  await seed(request, 'Celeste', 'Backlog');
+  await seed(request, 'Hades', 'Backlog');
+  await page.reload();
+
+  // Look at Title first, so that ordering is in the cache and has something to go stale. Then
+  // back to My order, which is the only mode a drag is offered in.
+  await setSort(page, 'Backlog', 'Title');
+  await expect(column(page, 'Backlog').getByText('Celeste')).toBeVisible();
+  await setSort(page, 'Backlog', 'My order');
+
+  await drag(page, card(page, 'Celeste'), column(page, 'InProgress'));
+  await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+
+  await setSort(page, 'Backlog', 'Title');
+  await expect(column(page, 'Backlog').getByText('Celeste')).toHaveCount(0);
+  await expect(column(page, 'Backlog').getByText('Hades')).toBeVisible();
+});
+
+test('clicking away from the drawer closes it, and so does Escape', async ({ page, request }) => {
+  // jsdom has no layout, so it cannot say whether the backdrop really covers the board — only
+  // that a click on it calls onClose. This clicks where a column is and lets the browser
+  // decide what receives it.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  await page.mouse.click(40, 400);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await openJournal(page, 'Celeste');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('a pass added by a mistaken drag can be taken back', async ({ page, request }) => {
+  // The gap this closes: drag to Completed and back and the card says ×2 forever, because
+  // leaving Completed inserts an entry rather than editing one. Nothing could remove it.
+  await seed(request, 'Hollow Knight', 'Completed', {
+    startedAt: '2024-01-10',
+    completedAt: '2024-11-02',
+  });
+  await page.reload();
+
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+  await expect(
+    card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
+  ).toBeVisible();
+
+  await openJournal(page, 'Hollow Knight');
+  await page.getByRole('button', { name: 'Delete this pass' }).click();
+  await page.getByRole('button', { name: 'Really delete?' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  // Back where it was, with the 2024 completion untouched — which is the whole point of the
+  // schema keeping several entries per title.
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
+  await expect(card(page, 'Hollow Knight')).toContainText('Nov 2, 2024');
+  await expect(
+    card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
+  ).toHaveCount(0);
+});
+
+test('deleting the only pass takes the title off the board', async ({ page, request }) => {
+  // The library is titles you have logged something against, so the last pass leaving takes
+  // the card with it. The drawer would otherwise be left describing nothing.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('button', { name: 'Delete this pass' }).click();
+  await expect(page.getByText(/takes Celeste off your board/)).toBeVisible();
+  await page.getByRole('button', { name: 'Really delete?' }).click();
+
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(card(page, 'Celeste')).toHaveCount(0);
+});
+
+test('the platform you played on is recorded against that pass', async ({ page, request }) => {
+  await seed(request, 'Hollow Knight', 'InProgress');
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  // The choices are the game's own, which is why the stub gives it more than one.
+  await page.getByLabel('Platform').selectOption('Switch');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  // Stored, not merely on screen — the column is new and the migration has to have landed.
+  await page.reload();
+  await openJournal(page, 'Hollow Knight');
+  await expect(page.getByLabel('Platform')).toHaveValue('Switch');
 });

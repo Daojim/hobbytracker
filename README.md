@@ -141,11 +141,15 @@ the operation the app hits most.
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 139 tests
+cd frontend && npm test                             # frontend, 126 tests
+cd frontend && npm run test:e2e                     # 23 specs in a real browser
 ```
 
-88 tests, under ten seconds. Testcontainers starts a throwaway Postgres, so the suite neither
-needs nor touches the development database.
+The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
+neither needs nor touches the development database. The end-to-end specs drive a real browser
+against the real API, on a separate `hobbytracker_e2e` database with IGDB stubbed — the drag
+needs layout and pointer events, which jsdom has neither of.
 
 Against real Postgres rather than an in-memory provider, because what is worth testing here is
 Postgres-specific: the partial unique index behind upsert idempotency, the `23505` the upsert
@@ -160,11 +164,12 @@ its first run.
 
 - [x] Schema, IGDB integration, game search
 - [x] Journal, library, and the test suite
+- [x] React + TypeScript frontend — the kanban board and its drag, search, and the journal drawer
+- [ ] Notes as dated journal entries rather than one box that overwrites itself
+- [ ] HowLongToBeat completion times — the `hltb_*` columns exist so that pass is a backfill
 - [ ] Google/Discord OAuth and JWT — `log_entries.user_id` is nullable until then, deliberately:
       the column already existed, so the journal shipped without waiting on auth
-- [ ] React + TypeScript frontend
 - [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration
-- [ ] HowLongToBeat completion times — the `hltb_*` columns exist so that pass is a backfill
 
 Architecture and schema notes for anyone (or anything) working in the repo live in
 [CLAUDE.md](CLAUDE.md).

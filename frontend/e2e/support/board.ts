@@ -102,3 +102,31 @@ export async function drag(page: Page, from: Locator, to: Locator): Promise<void
   await page.mouse.move(target.x + target.width / 2, target.y + 60, { steps: 5 });
   await page.mouse.up();
 }
+
+/**
+ * Today, in the two shapes the app writes a day in.
+ *
+ * `toISOString().slice(0, 10)` would answer in UTC and hand this suite tomorrow's date every
+ * evening after 8pm — the exact bug the Eastern journal zone exists to remove. These mirror
+ * `journalDateInput` and `formatJournalDate` in `src/lib/time.ts`.
+ */
+export function today(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+}
+
+/** The same day as a card renders it — "Aug 21, 2026". */
+export function todayOnCard(): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date());
+}
+
+/** Changes one column's ordering. The control names the column it orders. */
+export async function setSort(page: Page, status: LogStatus, mode: string): Promise<void> {
+  await page
+    .getByRole('combobox', { name: `${COLUMN_LABEL[status]} order` })
+    .selectOption({ label: mode });
+}

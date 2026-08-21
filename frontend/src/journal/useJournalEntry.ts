@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGame } from '../api/games';
 import { ApiError } from '../api/client';
-import { updateLogEntry } from '../api/logEntries';
+import { deleteLogEntry, updateLogEntry } from '../api/logEntries';
+import { gameKey } from '../board/keys';
 import type { UpdateLogEntry } from '../api/types';
 
 /**
@@ -14,7 +15,7 @@ export function useJournalEntry(mediaId: number) {
   const queryClient = useQueryClient();
 
   const game = useQuery({
-    queryKey: ['games', mediaId],
+    queryKey: gameKey(mediaId),
     queryFn: () => getGame(mediaId),
   });
 
@@ -26,13 +27,26 @@ export function useJournalEntry(mediaId: number) {
       // The card behind the drawer carries the rating and the dates, so the board has to hear
       // about this as well as the drawer.
       void queryClient.invalidateQueries({ queryKey: ['library'] });
-      void queryClient.invalidateQueries({ queryKey: ['games', mediaId] });
+      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+    },
+  });
+
+  const remove = useMutation({
+    mutationFn: (entryId: number) => deleteLogEntry(entryId),
+
+    onSuccess: () => {
+      // A pass leaving changes the count on the card, and can take the card with it: the
+      // library is titles you have logged something against, so the last one going means the
+      // title is no longer one of them.
+      void queryClient.invalidateQueries({ queryKey: ['library'] });
+      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
     },
   });
 
   return {
     game,
     save,
+    remove,
     /** Which field the API objected to, rather than only that it objected. */
     fieldErrors: save.error instanceof ApiError ? save.error.fieldErrors : {},
   };

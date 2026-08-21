@@ -5,6 +5,8 @@ import type { LogEntry, UpdateLogEntry } from '../api/types';
 
 export interface EntryFormProps {
   entry: LogEntry;
+  /** What the game came out on. Already loaded by getGame, so this costs no extra request. */
+  platforms: string[];
   saving: boolean;
   /** What the API objected to, keyed by field, so it can be shown where it belongs. */
   serverErrors: Record<string, string[]>;
@@ -18,15 +20,23 @@ export interface EntryFormProps {
  * columns, and the rules about which entry that touches and which timestamps it stamps live on
  * the server — a second way in would need its own copy of all of it.
  */
-export function EntryForm({ entry, saving, serverErrors, onSave }: EntryFormProps) {
+export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: EntryFormProps) {
   const ids = useId();
   const [rating, setRating] = useState(entry.rating === null ? '' : String(entry.rating));
   const [notes, setNotes] = useState(entry.notes ?? '');
+  const [platform, setPlatform] = useState(entry.platform ?? '');
   const [started, setStarted] = useState(journalDateInput(entry.startedAt));
   const [completed, setCompleted] = useState(journalDateInput(entry.completedAt));
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const messageFor = (field: string) => errors[field] ?? serverErrors[field]?.join(' ');
+
+  // IGDB's list, plus whatever is already recorded when that list has stopped mentioning it.
+  // Dropping a stored value on a save the reader made about something else is not a correction.
+  const options =
+    entry.platform === null || platforms.includes(entry.platform)
+      ? platforms
+      : [...platforms, entry.platform];
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -57,6 +67,7 @@ export function EntryForm({ entry, saving, serverErrors, onSave }: EntryFormProp
       status: entry.status,
       rating: parsed.value ?? null,
       notes: notes.trim() === '' ? null : notes.trim(),
+      platform: platform === '' ? null : platform,
       startedAt: dateFieldValue(started, entry.startedAt),
       completedAt: dateFieldValue(completed, entry.completedAt),
     });
@@ -79,6 +90,22 @@ export function EntryForm({ entry, saving, serverErrors, onSave }: EntryFormProp
           onChange={(event) => setRating(event.target.value)}
           className="w-24 rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
         />
+      </Field>
+
+      <Field id={`${ids}-platform`} label="Platform" message={messageFor('platform')}>
+        <select
+          id={`${ids}-platform`}
+          value={platform}
+          onChange={(event) => setPlatform(event.target.value)}
+          className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+        >
+          <option value="">Not recorded</option>
+          {options.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
       </Field>
 
       <Field id={`${ids}-notes`} label="Notes" message={messageFor('notes')}>

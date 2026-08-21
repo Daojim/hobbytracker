@@ -10,6 +10,16 @@ import type { LibraryItem, LogStatus } from '../api/types';
  */
 const DROPPABLE_FROM: readonly LogStatus[] = ['Backlog', 'InProgress'];
 
+/**
+ * A stable handle on the button that opens a title's journal.
+ *
+ * The drawer has to hand focus back to it on the way out, and by then the card has usually been
+ * remounted by a refetch — so the element captured at open time is a detached node. An id
+ * survives that; a reference does not. Only the real card carries it: the drag preview renders
+ * the title as plain text, so there is never a second element with the same id.
+ */
+export const cardTitleId = (mediaId: number) => `card-title-${mediaId}`;
+
 export interface CardFaceProps {
   item: LibraryItem;
   /** Moves the title to Dropped. Omitted by the drag preview, which is not clickable. */
@@ -49,6 +59,7 @@ export function CardFace({ item, onDrop, onOpen }: CardFaceProps) {
           ) : (
             <button
               type="button"
+              id={cardTitleId(item.mediaId)}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={() => onOpen(item.mediaId)}
               className="text-left hover:underline"

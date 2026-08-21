@@ -16,18 +16,20 @@ const PORT = Number(process.env.STUB_PORT ?? 5399);
 
 /** Ids are fixed, because a second search for the same title must upsert, not insert. */
 const CATALOGUE = [
-  { id: 3001, name: 'Celeste', platform: 'PC', developer: 'Extremely OK Games' },
-  { id: 3002, name: 'Hades', platform: 'PC', developer: 'Supergiant Games' },
-  { id: 3003, name: 'Hollow Knight', platform: 'PC', developer: 'Team Cherry' },
-  { id: 3004, name: 'Outer Wilds', platform: 'PC', developer: 'Mobius Digital' },
-  { id: 3005, name: 'Anthem', platform: 'PC', developer: 'BioWare' },
-  { id: 3006, name: 'Stardew Valley', platform: 'PC', developer: 'ConcernedApe' },
+  { id: 3001, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games' },
+  { id: 3002, name: 'Hades', platforms: ['PC', 'Switch'], developer: 'Supergiant Games' },
+  { id: 3003, name: 'Hollow Knight', platforms: ['PC', 'Switch'], developer: 'Team Cherry' },
+  { id: 3004, name: 'Outer Wilds', platforms: ['PC', 'Xbox'], developer: 'Mobius Digital' },
+  { id: 3005, name: 'Anthem', platforms: ['PC'], developer: 'BioWare' },
+  { id: 3006, name: 'Stardew Valley', platforms: ['PC', 'Switch'], developer: 'ConcernedApe' },
 ];
 
 const asIgdbGame = (game) => ({
   id: game.id,
   name: game.name,
-  platforms: [{ id: 6, name: game.platform }],
+  // A list, because IGDB returns one — a single-platform stub cannot show that the drawer's
+  // choices come from the game rather than from somewhere else.
+  platforms: game.platforms.map((name, index) => ({ id: 6 + index, name })),
   involved_companies: [
     { developer: true, publisher: false, company: { id: game.id + 9000, name: game.developer } },
   ],

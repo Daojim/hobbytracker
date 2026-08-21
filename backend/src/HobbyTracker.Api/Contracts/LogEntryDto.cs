@@ -14,6 +14,10 @@ public sealed record LogEntryDto(
     LogStatus Status,
     decimal? Rating,
     string? Notes,
+
+    /// <summary>What it was played on. See <see cref="LogEntry.Platform"/>.</summary>
+    string? Platform,
+
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt,
 
@@ -27,6 +31,7 @@ public sealed record LogEntryDto(
         entry.Status,
         entry.Rating,
         entry.Notes,
+        entry.Platform,
         entry.StartedAt,
         entry.CompletedAt,
         entry.LoggedAt);
@@ -44,6 +49,7 @@ public sealed record CreateLogEntryRequest(
     LogStatus Status,
     [Rating] decimal? Rating,
     [MaxLength(4000)] string? Notes,
+    [MaxLength(100)] string? Platform,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt) : IValidatableObject
 {
@@ -63,6 +69,7 @@ public sealed record UpdateLogEntryRequest(
     LogStatus Status,
     [Rating] decimal? Rating,
     [MaxLength(4000)] string? Notes,
+    [MaxLength(100)] string? Platform,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt) : IValidatableObject
 {

@@ -67,6 +67,8 @@ export interface LogEntry {
   status: LogStatus;
   rating: number | null;
   notes: string | null;
+  /** What it was played on. Free text: IGDB names the platforms, but its list is not the record. */
+  platform: string | null;
   /** Instants. A value sent without an offset is read as Eastern by the server. */
   startedAt: string | null;
   completedAt: string | null;
@@ -80,6 +82,7 @@ export interface CreateLogEntry {
   status: LogStatus;
   rating?: number | null;
   notes?: string | null;
+  platform?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
 }

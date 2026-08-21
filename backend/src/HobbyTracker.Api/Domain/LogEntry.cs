@@ -30,6 +30,17 @@ public class LogEntry
     public string? Notes { get; set; }
 
     /// <summary>
+    /// What this pass was played on. Chosen in the UI from the platforms IGDB lists for the
+    /// game, but deliberately not checked against them: that list changes, and refusing a value
+    /// that was true when it was written would be worse than keeping one IGDB has forgotten.
+    ///
+    /// Per pass rather than per title, and not the same thing as <see cref="Game.Platforms"/>:
+    /// that is what a game came out on, this is where you actually played it, and a replay
+    /// years later is often somewhere else.
+    /// </summary>
+    public string? Platform { get; set; }
+
+    /// <summary>
     /// When this pass began. An instant rather than a date — this was a DateOnly, and the
     /// argument for that was "started on the 3rd" having no meaningful time of day. True of a
     /// start you half-remember; false of the moment you finally beat something at 11:47pm, which

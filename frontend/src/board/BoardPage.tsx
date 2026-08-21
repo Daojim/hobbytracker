@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { CARD_CLASS, CardFace } from './Card';
+import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column } from './Column';
 import { EntryDrawer } from '../journal/EntryDrawer';
 import { useBoard } from './useBoard';
@@ -40,8 +40,22 @@ export function BoardPage() {
   const [droppedOpen, setDroppedOpen] = useState(false);
   // Which title's journal is open, if any. One at a time: the drawer covers the board.
   const [journalFor, setJournalFor] = useState<number | null>(null);
+  // Which card it was opened from, so the keyboard can be handed back to it on the way out.
+  const openedFrom = useRef<number | null>(null);
 
   const board = useBoard({ hobby: HOBBY, sorts, year });
+
+  // Focus goes back to the card the drawer was opened from — by id, not by a stored element.
+  // Refetches remount the card while the drawer is open, so a reference kept from then would
+  // point at a node no longer in the document.
+  useEffect(() => {
+    if (journalFor !== null || openedFrom.current === null) {
+      return;
+    }
+
+    document.getElementById(cardTitleId(openedFrom.current))?.focus();
+    openedFrom.current = null;
+  }, [journalFor]);
 
   return (
     <main className="min-h-screen bg-neutral-50 p-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -69,7 +83,10 @@ export function BoardPage() {
                 status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
               }
               onDrop={(mediaId) => board.drop(mediaId, status)}
-              onOpen={setJournalFor}
+              onOpen={(mediaId) => {
+                openedFrom.current = mediaId;
+                setJournalFor(mediaId);
+              }}
             />
           ))}
         </div>

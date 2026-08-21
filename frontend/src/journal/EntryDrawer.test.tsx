@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
 import { gameDetail, journalServer, logEntry } from '../test/games';
 import { renderWithProviders } from '../test/render';
+import { server } from '../test/server';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Rating' });
 const notes = () => screen.getByRole('textbox', { name: 'Notes' });
@@ -58,6 +60,7 @@ describe('EntryDrawer', () => {
       status: 'InProgress',
       rating: 8.5,
       notes: 'hard but fair',
+      platform: null,
       startedAt: null,
       completedAt: null,
     });
@@ -166,5 +169,233 @@ describe('EntryDrawer', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('re-fills the form when the pass changes underneath it', async () => {
+    // A drag edits the current entry in place, so its id does not change — and the form seeds
+    // its inputs once, from whatever the entry said when it mounted. Keying the form on the id
+    // alone meant a game dragged to Playing still showed an empty Started when you reopened it.
+    let asked = 0;
+    server.use(
+      http.get('/api/games/:id', () => {
+        asked += 1;
+        return HttpResponse.json(
+          gameDetail({
+            logEntries: [
+              logEntry({
+                id: 9,
+                status: asked === 1 ? 'Backlog' : 'InProgress',
+                startedAt: asked === 1 ? null : '2026-08-21T16:00:00+00:00',
+              }),
+            ],
+          }),
+        );
+      }),
+    );
+
+    const { queryClient } = open();
+    expect(await screen.findByLabelText('Started')).toHaveValue('');
+
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['games', 3003] });
+    });
+
+    await waitFor(() => expect(started()).toHaveValue('2026-08-21'));
+  });
+
+  it('is a dialog, named by the title it is about', async () => {
+    journalServer();
+
+    open();
+
+    expect(await screen.findByRole('dialog', { name: 'Hollow Knight' })).toHaveAttribute(
+      'aria-modal',
+      'true',
+    );
+  });
+
+  it('takes focus when it opens', async () => {
+    journalServer();
+
+    open();
+
+    // Otherwise the keyboard is still on the board behind, and the first Tab walks the columns.
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus());
+  });
+
+  it('closes when the backdrop is clicked', async () => {
+    journalServer();
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByRole('presentation'));
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('closes on Escape', async () => {
+    journalServer();
+
+    const { onClose } = open();
+    await screen.findByRole('dialog');
+    await userEvent.keyboard('{Escape}');
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('stays open when the panel itself is clicked', async () => {
+    journalServer();
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByText('Hollow Knight'));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('keeps Tab inside itself', async () => {
+    // aria-modal promises a screen reader that the board behind is inert. Letting the keyboard
+    // walk out onto it would make that promise false for everyone who reads it by tabbing.
+    journalServer();
+
+    open();
+    await screen.findByRole('button', { name: 'Save' });
+    const dialog = screen.getByRole('dialog');
+
+    // More presses than the panel has controls, so this exercises the wrap and not merely the
+    // walk — and it says the invariant rather than naming whichever control happens to be last.
+    for (let press = 0; press < 12; press += 1) {
+      await userEvent.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+
+    await userEvent.tab({ shift: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('asks before it deletes a pass', async () => {
+    // A drag to Completed and back leaves ×2 forever, so this had to exist — but it is the one
+    // control in the drawer that destroys something, and a mis-click should cost a second click
+    // rather than a playthrough.
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 9 }), logEntry({ id: 7, status: 'Completed' })],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(journal.deleted).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+  });
+
+  it('deletes the current pass once it is confirmed', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 9 }), logEntry({ id: 7, status: 'Completed' })],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    await waitFor(() => expect(journal.deleted).toEqual([9]));
+  });
+
+  it('deletes an earlier pass, naming which one it would take', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9 }),
+          logEntry({ id: 7, status: 'Completed', completedAt: '2024-11-02T18:00:00+00:00' }),
+        ],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Delete the Completed pass from Nov 2, 2024' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    await waitFor(() => expect(journal.deleted).toEqual([7]));
+  });
+
+  it('says when deleting the last pass would take the title off the board', async () => {
+    // The library is titles you have logged something against, so the last pass leaving means
+    // the card leaves with it. That is worth saying before it happens, not after.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 9 })] }) });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(screen.getByText(/takes Hollow Knight off your board/)).toBeInTheDocument();
+  });
+
+  it('closes once the last pass is gone', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 9 })] }) });
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    // There is nothing left for it to show, and the card behind it has gone too.
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('says so when a delete fails rather than looking like it worked', async () => {
+    journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 9 })] }),
+      deleteStatus: 404,
+    });
+
+    const { onClose } = open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really delete?' }));
+
+    expect(await screen.findByText('That pass is already gone.')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('offers the platforms the game came out on, and no platform at all', async () => {
+    // Already loaded by getGame, so there is no second request to make for this.
+    journalServer({ detail: gameDetail({ platforms: ['PC', 'Switch'] }) });
+
+    open();
+
+    const platform = await screen.findByRole('combobox', { name: 'Platform' });
+    expect([...platform.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
+      'Not recorded',
+      'PC',
+      'Switch',
+    ]);
+  });
+
+  it('keeps a platform the game no longer lists', async () => {
+    // IGDB's data changes. Dropping a value that was true when it was written, on a save the
+    // reader made about something else entirely, is not a correction.
+    journalServer({
+      detail: gameDetail({
+        platforms: ['PC', 'Switch'],
+        logEntries: [logEntry({ id: 9, platform: 'Wii U' })],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByRole('combobox', { name: 'Platform' })).toHaveValue('Wii U');
+  });
+
+  it('sends the platform you chose', async () => {
+    const journal = journalServer({ detail: gameDetail({ platforms: ['PC', 'Switch'] }) });
+
+    open();
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Platform' }),
+      'Switch',
+    );
+    await userEvent.click(save());
+
+    await waitFor(() => expect(journal.saved[0]?.body['platform']).toBe('Switch'));
   });
 });
