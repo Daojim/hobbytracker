@@ -10,8 +10,8 @@ merely shorter.
 **Backend complete, 132 tests green. Frontend scaffolded: API client done and tested, board
 components are the current job.**
 
-Currently on branch **`kanban-board`**, ahead of `main` with uncommitted work. `main` is pushed
-to github.com/Daojim/hobbytracker.
+Currently on branch **`kanban-board`**, five commits ahead of `main` and pushed to
+github.com/Daojim/hobbytracker. Working tree clean; no PR opened yet.
 
 Two plans, both worth reading before touching this:
 `C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original Phase 3
@@ -20,10 +20,20 @@ interrupted it. Steps 1 and 2 below are done.
 
 1. ~~Scaffold `frontend/`~~ — Vite 8 + React 19 + TS, Tailwind v4, TanStack Query, react-router.
 2. ~~API client + Vitest tests~~ — `src/api/` mirrors `Contracts/`, 32 tests over MSW.
-3. Board components, then the drag wiring. `dnd-kit` is **not installed yet** — deliberately, so
-   the scaffold contains nothing it does not use.
-4. Playwright drag specs — written red first. Also not installed yet.
-5. Search page.
+3. **Board components, then the drag.** `npm i @dnd-kit/core @dnd-kit/sortable` first — not
+   installed yet, deliberately, so the scaffold carries nothing it does not use. `BoardPage`
+   already establishes the query key shape (`['library', 'games', status]`) and fetches each
+   column separately, which is what makes the year picker narrow Completed alone. The pieces
+   still to build: `Column`, `Card`, `SortSelect`, a year picker above Completed only, and a
+   `useBoard` hook holding the drag handlers. `transition()` and `reorderColumn()` in
+   `src/api/library.ts` are done and tested — a drag calls the first, a reorder within a column
+   calls the second with the whole column top-first.
+4. **Playwright drag specs, written red first.** Not installed yet either. The drag is the
+   feature, so it gets a real browser: jsdom has no layout and no pointer events, so dnd-kit
+   assertions there pass and fail for the wrong reasons. Seed through the API, never IGDB, so no
+   test reaches the network.
+5. **Search page.** `searchGames()` and `addToBacklog()` are already built and tested; the page
+   is a debounced input over the first and a button over the second.
 
 `BoardPage` and `SearchPage` are placeholders. The board one is real enough to prove the wiring
 end to end — TanStack Query, the API client, the Vite proxy, and Eastern rendering — and should
