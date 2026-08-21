@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
-import { completionYears, listColumn, reorderColumn, transition } from './library';
+import { completionYears, libraryMediaIds, listColumn, reorderColumn, transition } from './library';
 import type { LibraryItem, PagedResult } from './types';
 
 const item: LibraryItem = {
@@ -100,5 +100,34 @@ describe('reorderColumn', () => {
     ).resolves.toBeUndefined();
 
     expect(seen.body).toEqual({ hobby: 'games', status: 'Backlog', mediaIds: [3, 1, 2] });
+  });
+});
+
+describe('libraryMediaIds', () => {
+  it('walks every page, because a capped answer would offer to add a title twice', async () => {
+    const pages: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/library', ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        pages.push(query);
+
+        const items =
+          query.get('page') === '1'
+            ? Array.from({ length: 100 }, (_, index) => ({ ...item, mediaId: index + 1 }))
+            : [{ ...item, mediaId: 101 }];
+
+        return HttpResponse.json({ items, total: 101, page: 1, pageSize: 100 });
+      }),
+    );
+
+    await expect(libraryMediaIds('games')).resolves.toHaveLength(101);
+    expect(pages.map((query) => query.get('page'))).toEqual(['1', '2']);
+  });
+
+  it('stops as soon as it has them all', async () => {
+    const seen = capture('get', '/api/library', page);
+
+    await expect(libraryMediaIds('games')).resolves.toEqual([14]);
+    expect(new URLSearchParams(seen.url).get('hobby')).toBe('games');
   });
 });
