@@ -138,6 +138,51 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         (await WithDbAsync(db => db.LogEntries.CountAsync(Ct))).ShouldBe(0);
     }
 
+
+    [Fact]
+    public async Task Deleting_a_log_entry_removes_its_notes_and_leaves_the_title_alone()
+    {
+        // A note belongs to the pass it was written during. Un-logging a pass should take its
+        // notes with it — and should not take the title out of the catalog.
+        var mediaId = await GivenAGameAsync();
+
+        var entryId = await WithDbAsync(async db =>
+        {
+            var entry = new LogEntry { MediaId = mediaId, Status = LogStatus.InProgress };
+            entry.Notes.Add(new Note { Body = "stuck on watcher knights" });
+            entry.Notes.Add(new Note { Body = "finally beat radiance" });
+
+            db.LogEntries.Add(entry);
+            await db.SaveChangesAsync(Ct);
+            return entry.Id;
+        });
+
+        (await WithDbAsync(db => db.Notes.CountAsync(Ct))).ShouldBe(2);
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Remove(await db.LogEntries.SingleAsync(e => e.Id == entryId, Ct));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.Notes.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Rejects_a_note_longer_than_the_column()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var entry = new LogEntry { MediaId = mediaId, Status = LogStatus.InProgress };
+            entry.Notes.Add(new Note { Body = new string('x', 4001) });
+
+            db.LogEntries.Add(entry);
+            await db.SaveChangesAsync(Ct);
+        }));
+    }
     [Fact]
     public async Task Media_can_exist_without_game_detail()
     {

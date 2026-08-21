@@ -30,8 +30,6 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
         // 1.0–10.0, one decimal place.
         builder.Property(e => e.Rating).HasPrecision(3, 1);
 
-        builder.Property(e => e.Notes).HasMaxLength(4000);
-
         // Free text, not a lookup: IGDB names platforms and the UI offers that list, but the
         // list is theirs to change and a stored value has to outlive it. See LogEntry.Platform.
         builder.Property(e => e.Platform).HasMaxLength(100);

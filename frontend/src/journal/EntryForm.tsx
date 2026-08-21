@@ -23,7 +23,6 @@ export interface EntryFormProps {
 export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: EntryFormProps) {
   const ids = useId();
   const [rating, setRating] = useState(entry.rating === null ? '' : String(entry.rating));
-  const [notes, setNotes] = useState(entry.notes ?? '');
   const [platform, setPlatform] = useState(entry.platform ?? '');
   const [started, setStarted] = useState(journalDateInput(entry.startedAt));
   const [completed, setCompleted] = useState(journalDateInput(entry.completedAt));
@@ -61,12 +60,12 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
     }
 
     // Every field, every time. The API takes PUT rather than PATCH precisely so that an absent
-    // field means "cleared" — sending only what changed here would wipe the notes whenever
-    // somebody edited a rating.
+    // field means "cleared" — sending only what changed would wipe the rating whenever somebody
+    // corrected a date. Notes are not among them any more: each one is its own row and its own
+    // write, so this form cannot clear them and does not try.
     onSave({
       status: entry.status,
       rating: parsed.value ?? null,
-      notes: notes.trim() === '' ? null : notes.trim(),
       platform: platform === '' ? null : platform,
       startedAt: dateFieldValue(started, entry.startedAt),
       completedAt: dateFieldValue(completed, entry.completedAt),
@@ -106,16 +105,6 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
             </option>
           ))}
         </select>
-      </Field>
-
-      <Field id={`${ids}-notes`} label="Notes" message={messageFor('notes')}>
-        <textarea
-          id={`${ids}-notes`}
-          rows={4}
-          value={notes}
-          onChange={(event) => setNotes(event.target.value)}
-          className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-        />
       </Field>
 
       <div className="flex gap-3">

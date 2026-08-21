@@ -13,7 +13,9 @@ public sealed record LogEntryDto(
     string MediaTitle,
     LogStatus Status,
     decimal? Rating,
-    string? Notes,
+
+    /// <summary>Everything written during this pass, newest first.</summary>
+    IReadOnlyList<NoteDto> Notes,
 
     /// <summary>What it was played on. See <see cref="LogEntry.Platform"/>.</summary>
     string? Platform,
@@ -30,7 +32,15 @@ public sealed record LogEntryDto(
         entry.Media?.Title ?? string.Empty,
         entry.Status,
         entry.Rating,
-        entry.Notes,
+        // Newest first, here rather than in each query: four places load entries, and an
+        // ordering repeated four times is an ordering that drifts. This app has already paid
+        // for that lesson once, with which pass the board calls current.
+        [
+            .. entry.Notes
+                .OrderByDescending(note => note.WrittenAt)
+                .ThenByDescending(note => note.Id)
+                .Select(NoteDto.From),
+        ],
         entry.Platform,
         entry.StartedAt,
         entry.CompletedAt,
@@ -48,7 +58,6 @@ public sealed record CreateLogEntryRequest(
     [Range(1, int.MaxValue)] int MediaId,
     LogStatus Status,
     [Rating] decimal? Rating,
-    [MaxLength(4000)] string? Notes,
     [MaxLength(100)] string? Platform,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt) : IValidatableObject
@@ -68,7 +77,6 @@ public sealed record CreateLogEntryRequest(
 public sealed record UpdateLogEntryRequest(
     LogStatus Status,
     [Rating] decimal? Rating,
-    [MaxLength(4000)] string? Notes,
     [MaxLength(100)] string? Platform,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt) : IValidatableObject

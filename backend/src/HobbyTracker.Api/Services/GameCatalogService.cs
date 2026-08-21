@@ -77,6 +77,7 @@ public sealed class GameCatalogService(
         var entries = await db.LogEntries
             .AsNoTracking()
             .Include(entry => entry.Media)
+            .Include(entry => entry.Notes)
             .Where(entry => entry.MediaId == mediaId)
             .OrderByDescending(entry => entry.LoggedAt)
             .ThenByDescending(entry => entry.Id)

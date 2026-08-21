@@ -27,7 +27,13 @@ public class LogEntry
     /// <summary>1.0–10.0 to one decimal place (numeric(3,1)). Null until rated.</summary>
     public decimal? Rating { get; set; }
 
-    public string? Notes { get; set; }
+    /// <summary>
+    /// Everything written down during this pass, newest first once it reaches a DTO.
+    ///
+    /// This was a single nullable column, and that is the bug it exists to fix: a journal you
+    /// can only overwrite is not a journal. See <see cref="Note"/>.
+    /// </summary>
+    public ICollection<Note> Notes { get; set; } = [];
 
     /// <summary>
     /// What this pass was played on. Chosen in the UI from the platforms IGDB lists for the

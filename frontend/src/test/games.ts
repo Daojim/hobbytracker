@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { server } from './server';
 import { libraryItem } from './library';
-import type { Game, GameDetail, LogEntry, PagedResult } from '../api/types';
+import type { Game, GameDetail, LogEntry, Note, PagedResult } from '../api/types';
 
 /** A game as search returns it — the catalogue's shape, not the board's. */
 export function game(overrides: Partial<Game> = {}): Game {
@@ -63,7 +63,7 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
         mediaTitle: 'Hollow Knight',
         status: 'Backlog',
         rating: null,
-        notes: null,
+        notes: [],
         platform: null,
         startedAt: null,
         completedAt: null,
@@ -75,6 +75,17 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
   return { searches, added };
 }
 
+/** One thing written during a pass. Dated in the evening here, which is the next day in UTC. */
+export function note(overrides: Partial<Note> = {}): Note {
+  return {
+    id: 5,
+    logEntryId: 1,
+    body: 'finally beat radiance',
+    writtenAt: '2026-08-21T01:30:00+00:00',
+    ...overrides,
+  };
+}
+
 export function logEntry(overrides: Partial<LogEntry> = {}): LogEntry {
   return {
     id: 1,
@@ -82,7 +93,7 @@ export function logEntry(overrides: Partial<LogEntry> = {}): LogEntry {
     mediaTitle: 'Hollow Knight',
     status: 'InProgress',
     rating: null,
-    notes: null,
+    notes: [],
     platform: null,
     startedAt: null,
     completedAt: null,
@@ -113,6 +124,9 @@ export interface JournalFixture {
 export function journalServer({ detail, saveErrors, deleteStatus }: JournalFixture = {}) {
   const saved: { id: number; body: Record<string, unknown> }[] = [];
   const deleted: number[] = [];
+  const written: { entryId: number; body: string }[] = [];
+  const rewritten: { id: number; body: string }[] = [];
+  const dropped: number[] = [];
 
   server.use(
     http.get('/api/games/:id', () => HttpResponse.json(detail ?? gameDetail())),
@@ -142,7 +156,26 @@ export function journalServer({ detail, saveErrors, deleteStatus }: JournalFixtu
       deleted.push(Number(params['id']));
       return new HttpResponse(null, { status: 204 });
     }),
+
+    http.post('/api/log-entries/:entryId/notes', async ({ params, request }) => {
+      const { body } = (await request.json()) as { body: string };
+      written.push({ entryId: Number(params['entryId']), body });
+
+      return HttpResponse.json(note({ body }), { status: 201 });
+    }),
+
+    http.put('/api/notes/:id', async ({ params, request }) => {
+      const { body } = (await request.json()) as { body: string };
+      rewritten.push({ id: Number(params['id']), body });
+
+      return HttpResponse.json(note({ id: Number(params['id']), body }));
+    }),
+
+    http.delete('/api/notes/:id', ({ params }) => {
+      dropped.push(Number(params['id']));
+      return new HttpResponse(null, { status: 204 });
+    }),
   );
 
-  return { saved, deleted };
+  return { saved, deleted, written, rewritten, dropped };
 }

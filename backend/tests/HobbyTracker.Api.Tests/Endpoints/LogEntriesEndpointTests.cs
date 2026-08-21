@@ -20,7 +20,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var created = await ReadAsync<LogEntryDto>(await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Backlog, null, null, null, null, null)));
+            mediaId, LogStatus.Backlog, null, null, null, null)));
 
         // Every entry has this, including a backlog one carrying neither other timestamp.
         created.LoggedAt.ShouldBe(Clock.UtcNow);
@@ -49,14 +49,14 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
     {
         var mediaId = await GivenGameAsync();
         var created = await ReadAsync<LogEntryDto>(await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Backlog, null, null, null, null, null)));
+            mediaId, LogStatus.Backlog, null, null, null, null)));
 
         // PUT clears everything the body leaves out — but loggedAt is not the caller's to
         // clear, any more than the id is.
         Clock.UtcNow = Clock.UtcNow.AddDays(3);
         await Client.PutAsJsonAsync(
             $"/api/log-entries/{created.Id}",
-            new UpdateLogEntryRequest(LogStatus.InProgress, null, null, null, null, null),
+            new UpdateLogEntryRequest(LogStatus.InProgress, null, null, null, null),
             Json,
             Ct);
 
@@ -124,7 +124,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync("Hollow Knight");
 
         var response = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.InProgress, null, "starting over", null, Eastern(2026, 8, 1), null));
+            mediaId, LogStatus.InProgress, null, null, Eastern(2026, 8, 1), null));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
 
@@ -147,9 +147,9 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var first = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Completed, 9.0m, "first run", null, null, Eastern(2024, 3, 1)));
+            mediaId, LogStatus.Completed, 9.0m, null, null, Eastern(2024, 3, 1)));
         var second = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.InProgress, null, "replay", null, Eastern(2026, 8, 1), null));
+            mediaId, LogStatus.InProgress, null, null, Eastern(2026, 8, 1), null));
 
         // Replays are the point. Nothing here is a uniqueness conflict.
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -161,7 +161,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
     public async Task Rejects_an_entry_against_a_game_that_does_not_exist()
     {
         var response = await PostAsync(new CreateLogEntryRequest(
-            999_999, LogStatus.Backlog, null, null, null, null, null));
+            999_999, LogStatus.Backlog, null, null, null, null));
 
         // A bare foreign-key violation would surface as a 500. This is the caller's mistake.
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -176,7 +176,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var response = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Completed, rating, null, null, null, null));
+            mediaId, LogStatus.Completed, rating, null, null, null));
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -187,7 +187,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var response = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Completed, 8.75m, null, null, null, null));
+            mediaId, LogStatus.Completed, 8.75m, null, null, null));
 
         // numeric(3,1) would round this to 8.8 and report success, leaving the response
         // disagreeing with the stored value. Refusing is the honest answer.
@@ -205,7 +205,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var response = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Completed, rating, null, null, null, null));
+            mediaId, LogStatus.Completed, rating, null, null, null));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
         (await ReadAsync<LogEntryDto>(response)).Rating.ShouldBe(rating);
@@ -217,7 +217,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var response = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.Completed, null, null, null,
+            mediaId, LogStatus.Completed, null, null,
             Eastern(2026, 8, 20), Eastern(2026, 7, 1)));
 
         // The database would refuse this too, but as a 500. Catch it as a 400 first.
@@ -317,12 +317,12 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
     public async Task Replacing_an_entry_updates_every_field()
     {
         var mediaId = await GivenGameAsync();
-        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress, notes: "playing");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
 
         var response = await Client.PutAsJsonAsync(
             $"/api/log-entries/{entryId}",
             new UpdateLogEntryRequest(
-                LogStatus.Completed, 9.5m, "stuck the landing", null,
+                LogStatus.Completed, 9.5m, null,
                 Eastern(2026, 7, 2), Eastern(2026, 8, 19)),
             Json,
             Ct);
@@ -332,7 +332,6 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var updated = await ReadAsync<LogEntryDto>(response);
         updated.Status.ShouldBe(LogStatus.Completed);
         updated.Rating.ShouldBe(9.5m);
-        updated.Notes.ShouldBe("stuck the landing");
         updated.CompletedAt.ShouldBe(Eastern(2026, 8, 19));
     }
 
@@ -341,7 +340,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
     {
         var mediaId = await GivenGameAsync();
         var entryId = await GivenLogEntryAsync(
-            mediaId, LogStatus.Completed, rating: 9.0m, notes: "loved it",
+            mediaId, LogStatus.Completed, rating: 9.0m,
             startedAt: Eastern(2026, 1, 1), completedAt: Eastern(2026, 2, 1));
 
         var response = await Client.PutAsync(
@@ -356,7 +355,6 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var updated = await ReadAsync<LogEntryDto>(response);
         updated.Status.ShouldBe(LogStatus.Backlog);
         updated.Rating.ShouldBeNull();
-        updated.Notes.ShouldBeNull();
         updated.StartedAt.ShouldBeNull();
         updated.CompletedAt.ShouldBeNull();
     }
@@ -366,7 +364,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
     {
         var response = await Client.PutAsJsonAsync(
             "/api/log-entries/999999",
-            new UpdateLogEntryRequest(LogStatus.Backlog, null, null, null, null, null),
+            new UpdateLogEntryRequest(LogStatus.Backlog, null, null, null, null),
             Json,
             Ct);
 
@@ -381,7 +379,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
 
         var response = await Client.PutAsJsonAsync(
             $"/api/log-entries/{entryId}",
-            new UpdateLogEntryRequest(LogStatus.Completed, 11m, null, null, null, null),
+            new UpdateLogEntryRequest(LogStatus.Completed, 11m, null, null, null),
             Json,
             Ct);
 
@@ -396,7 +394,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         var mediaId = await GivenGameAsync();
 
         var created = await ReadAsync<LogEntryDto>(await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.InProgress, null, null, "Switch", null, null)));
+            mediaId, LogStatus.InProgress, null, "Switch", null, null)));
 
         created.Platform.ShouldBe("Switch");
         (await EntryAsync(created.Id)).Platform.ShouldBe("Switch");
@@ -411,7 +409,7 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
         // Absent means cleared, the same contract every other field on this body has.
         await Client.PutAsJsonAsync(
             $"/api/log-entries/{entryId}",
-            new UpdateLogEntryRequest(LogStatus.InProgress, null, null, null, null, null),
+            new UpdateLogEntryRequest(LogStatus.InProgress, null, null, null, null),
             Json,
             Ct);
 
@@ -425,10 +423,48 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
 
         // A 400, not the 500 a bare column-length violation would surface as.
         var response = await PostAsync(new CreateLogEntryRequest(
-            mediaId, LogStatus.InProgress, null, null, new string('x', 101), null, null));
+            mediaId, LogStatus.InProgress, null, new string('x', 101), null, null));
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    // ------------------------------------------------- notes travel with the entry
+
+    [Fact]
+    public async Task Listing_entries_carries_their_notes()
+    {
+        // Every read path that maps a LogEntryDto has to load the notes, and one that forgets
+        // reports an entry with none — silently, with nothing failing to compile. There is one
+        // of these per path for that reason.
+        var mediaId = await GivenGameAsync();
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+        await WriteNoteAsync(entryId, "hard but fair");
+
+        var page = await GetPageAsync($"/api/log-entries?mediaId={mediaId}");
+
+        page.Items.Single().Notes.Single().Body.ShouldBe("hard but fair");
+    }
+
+    [Fact]
+    public async Task Replacing_an_entry_answers_with_its_notes_still_attached()
+    {
+        var mediaId = await GivenGameAsync();
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+        await WriteNoteAsync(entryId, "hard but fair");
+
+        // Notes are no longer a field on this body, so a PUT cannot clear them — and the
+        // response has to say so rather than looking like it just wiped them.
+        var response = await Client.PutAsJsonAsync(
+            $"/api/log-entries/{entryId}",
+            new UpdateLogEntryRequest(LogStatus.Completed, 9.5m, null, null, null),
+            Json,
+            Ct);
+
+        (await ReadAsync<LogEntryDto>(response)).Notes.Single().Body.ShouldBe("hard but fair");
+    }
+
+    private Task<HttpResponseMessage> WriteNoteAsync(int entryId, string body) =>
+        Client.PostAsJsonAsync($"/api/log-entries/{entryId}/notes", new NoteRequest(body), Json, Ct);
 
     // ------------------------------------------------------------------ delete
 

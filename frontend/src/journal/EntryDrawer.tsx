@@ -1,8 +1,11 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { formatJournalDate } from '../lib/time';
+import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm } from './EntryForm';
+import { NoteList } from './NoteList';
 import { entrySeed } from './fields';
 import { useJournalEntry } from './useJournalEntry';
+import { useNotes } from './useNotes';
 import type { LogEntry, LogStatus } from '../api/types';
 
 /** "Playing" is what a person calls it; `InProgress` is what the protocol calls it. */
@@ -110,6 +113,19 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
     onConfirm: () => deletePass(entryId),
   });
 
+  const notes = useNotes(mediaId);
+  const noteError = [notes.write.error, notes.rewrite.error, notes.remove.error].find(
+    (failure) => failure !== null,
+  );
+
+  const noteProps = (entryId: number) => ({
+    busy: notes.write.isPending || notes.rewrite.isPending || notes.remove.isPending,
+    error: noteError?.message ?? null,
+    onWrite: (body: string) => notes.write.mutate({ entryId, body }),
+    onRewrite: (noteId: number, body: string) => notes.rewrite.mutate({ noteId, body }),
+    onDelete: (noteId: number) => notes.remove.mutate(noteId),
+  });
+
   return (
     <>
       {/* Presentation rather than aria-hidden: `aria-modal` on the panel is already what tells
@@ -159,13 +175,11 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
         )}
 
         {current !== undefined && detail !== undefined && (
-          <>
-            <p className="text-sm text-neutral-500">{STATUS_LABEL[current.status]}</p>
-
+          <PassSection entry={current} heading={STATUS_LABEL[current.status]}>
             <EntryForm
               // Remounts when a different card is opened, so the inputs reload rather than
-              // keeping the last title's half-typed notes — and when this pass changes underneath
-              // the drawer, which a drag does without changing its id. See `entrySeed`.
+              // keeping the last title's half-typed rating — and when this pass changes
+              // underneath the drawer, which a drag does without changing its id. See entrySeed.
               key={entrySeed(current)}
               entry={current}
               platforms={detail.platforms}
@@ -174,7 +188,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               onSave={(update) => save.mutate({ entryId: current.id, update })}
             />
 
-            <DeletePass
+            <ConfirmDelete
               label="Delete this pass"
               warning={
                 onlyPass
@@ -183,48 +197,84 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               }
               {...deleteProps(current.id)}
             />
-          </>
+
+            <NoteList notes={current.notes} composeOpen {...noteProps(current.id)} />
+          </PassSection>
         )}
 
         {earlier.length > 0 && (
           <section className="mt-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
-            {/* Read-only on purpose. A finished playthrough is a record of something that
-                happened, and the schema goes to some trouble to keep it — offering to edit it
-                here would undo that with a keystroke. */}
+            {/* A finished pass's own fields are read-only. It is a record of something that
+                happened, and the schema goes to some trouble to keep it — offering to edit the
+                dates here would undo that with a keystroke.
+
+                Its notes are not, and neither is the pass itself. A note is yours to fix, and a
+                pass that never happened is not a record worth keeping. */}
             <h3 className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
               Earlier passes
             </h3>
-            <ul className="flex flex-col gap-2 text-sm">
+
+            <div className="flex flex-col gap-4">
               {earlier.map((entry) => (
-                <li key={entry.id} className="flex flex-wrap items-baseline gap-2">
-                  <span>{STATUS_LABEL[entry.status]}</span>
-                  {whenOf(entry) !== null && (
-                    <span className="text-xs text-neutral-500">{whenOf(entry)}</span>
-                  )}
-                  {entry.rating !== null && (
-                    <span
-                      role="img"
-                      aria-label={`Rated ${entry.rating.toFixed(1)} out of 10`}
-                      className="text-xs text-neutral-500"
-                    >
-                      ★ {entry.rating.toFixed(1)}
-                    </span>
-                  )}
-                  <DeletePass
-                    // Named rather than a bare "Delete", because every row carries one and a
-                    // reader who cannot see which row it sits on would hear the same word over
-                    // and over.
-                    label={labelFor(entry)}
-                    warning={null}
-                    {...deleteProps(entry.id)}
-                  />
-                </li>
+                <PassSection key={entry.id} entry={entry} heading={headingFor(entry)}>
+                  <div className="flex flex-wrap items-baseline gap-2 text-sm">
+                    {entry.rating !== null && (
+                      <span
+                        role="img"
+                        aria-label={`Rated ${entry.rating.toFixed(1)} out of 10`}
+                        className="text-xs text-neutral-500"
+                      >
+                        ★ {entry.rating.toFixed(1)}
+                      </span>
+                    )}
+                    {entry.platform !== null && (
+                      <span className="text-xs text-neutral-500">{entry.platform}</span>
+                    )}
+                    <ConfirmDelete
+                      // Named rather than a bare "Delete", because every pass carries one and a
+                      // reader who cannot see which one it sits on would hear the same word over
+                      // and over.
+                      label={labelFor(entry)}
+                      warning={null}
+                      {...deleteProps(entry.id)}
+                    />
+                  </div>
+
+                  <NoteList notes={entry.notes} composeOpen={false} {...noteProps(entry.id)} />
+                </PassSection>
               ))}
-            </ul>
+            </div>
           </section>
         )}
       </aside>
     </>
+  );
+}
+
+interface PassSectionProps {
+  entry: LogEntry;
+  /** What the pass is called, and what names the region a screen reader can jump to. */
+  heading: string;
+  children: ReactNode;
+}
+
+/**
+ * One pass and everything about it.
+ *
+ * A labelled region rather than a list item, which is how `Column` already solves the same
+ * problem — several passes on one screen, each carrying identically-named controls, and tests
+ * and screen readers both needing to say which one they mean.
+ */
+function PassSection({ entry, heading, children }: PassSectionProps) {
+  const headingId = `pass-${entry.id}`;
+
+  return (
+    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+      <p id={headingId} className="text-sm text-neutral-500">
+        {heading}
+      </p>
+      {children}
+    </section>
   );
 }
 
@@ -233,74 +283,11 @@ function whenOf(entry: LogEntry): string | null {
   return formatJournalDate(entry.completedAt ?? entry.startedAt);
 }
 
-interface DeletePassProps {
-  /** What this button would delete, said in full for anyone who cannot see where it sits. */
-  label: string;
-  /** What deleting costs beyond the pass itself, when it costs anything. */
-  warning: string | null;
-  confirming: boolean;
-  busy: boolean;
-  error: string | null;
-  onAsk: () => void;
-  onCancel: () => void;
-  onConfirm: () => void;
+/** What names an earlier pass's region: "Completed Nov 2, 2024", or just its status. */
+function headingFor(entry: LogEntry): string {
+  const when = whenOf(entry);
+  return when === null ? STATUS_LABEL[entry.status] : `${STATUS_LABEL[entry.status]} ${when}`;
 }
-
-/**
- * Deleting one pass, with the confirm inline.
- *
- * Not `window.confirm`: it cannot be worded past the browser's own phrasing, cannot be styled,
- * and has to be stubbed in every test that walks past it.
- */
-function DeletePass({
-  label,
-  warning,
-  confirming,
-  busy,
-  error,
-  onAsk,
-  onCancel,
-  onConfirm,
-}: DeletePassProps) {
-  if (!confirming) {
-    return (
-      <button
-        type="button"
-        aria-label={label}
-        onClick={onAsk}
-        className="self-start rounded text-xs text-neutral-500 hover:text-red-600"
-      >
-        Delete
-      </button>
-    );
-  }
-
-  return (
-    <span className="flex flex-wrap items-baseline gap-2 text-xs">
-      {warning !== null && <span className="text-neutral-500">{warning}</span>}
-
-      <button
-        type="button"
-        onClick={onConfirm}
-        disabled={busy}
-        className="rounded font-medium text-red-600 hover:underline disabled:opacity-50"
-      >
-        {busy ? 'Deleting…' : 'Really delete?'}
-      </button>
-
-      <button type="button" onClick={onCancel} className="rounded text-neutral-500 hover:underline">
-        Cancel
-      </button>
-
-      {error !== null && (
-        <span role="alert" className="text-red-600">
-          {error}
-        </span>
-      )}
-    </span>
-  );
-}
-
 /** Which pass a delete button in the history would take, for a reader who cannot see the row. */
 function labelFor(entry: LogEntry): string {
   const when = whenOf(entry);

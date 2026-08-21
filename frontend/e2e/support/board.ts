@@ -130,3 +130,10 @@ export async function setSort(page: Page, status: LogStatus, mode: string): Prom
     .getByRole('combobox', { name: `${COLUMN_LABEL[status]} order` })
     .selectOption({ label: mode });
 }
+
+/** Writes a note on whichever pass has its compose box open — the current one, by default. */
+export async function writeNote(page: Page, body: string): Promise<void> {
+  await page.getByRole('textbox', { name: 'New note' }).fill(body);
+  await page.getByRole('button', { name: 'Add note' }).click();
+  await expect(page.getByText(body)).toBeVisible();
+}
