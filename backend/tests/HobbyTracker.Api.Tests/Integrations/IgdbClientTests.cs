@@ -39,6 +39,47 @@ public sealed class IgdbClientTests
         // Developers are a flag on the involvement join, not a field on the game.
         request.Body.ShouldContain("involved_companies.developer");
         request.Body.ShouldContain("involved_companies.company.name");
+
+        // Genres colour the board. IGDB names them from a fixed vocabulary, so the strings that
+        // come back are the ones frontend/src/board/genres.ts matches on.
+        request.Body.ShouldContain("genres.name");
+    }
+
+
+    [Fact]
+    public async Task Builds_a_by_id_query_body_for_the_backfill()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        await client.GetGamesAsync([740, 741], Ct);
+
+        var request = stub.Requests.ShouldHaveSingleItem();
+        request.Method.ShouldBe(HttpMethod.Post);
+        request.Uri!.AbsolutePath.ShouldBe("/v4/games");
+
+        // A where clause, not a search: this asks for known ids, so there is no relevance
+        // ranking to preserve and nothing for IGDB to guess at.
+        request.Body.ShouldNotBeNull();
+        request.Body.ShouldContain("where id = (740,741);");
+        request.Body.ShouldNotContain("search");
+
+        // The same fields as a search, so a refreshed row carries everything a searched one does.
+        request.Body.ShouldContain("genres.name");
+        request.Body.ShouldContain("cover.image_id");
+    }
+
+    [Fact]
+    public async Task Asks_igdb_nothing_when_there_are_no_ids_to_refresh()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        (await client.GetGamesAsync([], Ct)).ShouldBeEmpty();
+
+        // `where id = ();` is a parse error, and asking a service that never agreed to serve us
+        // for nothing at all is rude twice over.
+        stub.Requests.ShouldBeEmpty();
     }
 
     [Theory]
@@ -69,6 +110,7 @@ public sealed class IgdbClientTests
                 "name": "Halo: Combat Evolved",
                 "cover": { "id": 1, "image_id": "co2r2r" },
                 "platforms": [ { "id": 11, "name": "Xbox" }, { "id": 6, "name": "PC (Microsoft Windows)" } ],
+                "genres": [ { "id": 5, "name": "Shooter" }, { "id": 31, "name": "Adventure" } ],
                 "involved_companies": [
                   { "id": 1, "developer": true,  "company": { "id": 5, "name": "Bungie" } },
                   { "id": 2, "developer": false, "company": { "id": 9, "name": "Microsoft Game Studios" } }
@@ -89,6 +131,7 @@ public sealed class IgdbClientTests
         // InvolvedCompanies. Without it these silently deserialize as null.
         game.Cover!.ImageId.ShouldBe("co2r2r");
         game.Platforms!.Select(p => p.Name).ShouldBe(["Xbox", "PC (Microsoft Windows)"]);
+        game.Genres!.Select(g => g.Name).ShouldBe(["Shooter", "Adventure"]);
         game.InvolvedCompanies!.Count.ShouldBe(2);
         game.InvolvedCompanies.Single(c => c.Developer).Company!.Name.ShouldBe("Bungie");
     }

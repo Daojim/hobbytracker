@@ -100,6 +100,7 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
             Platform = request.Platform,
             StartedAt = request.StartedAt,
             CompletedAt = request.CompletedAt,
+            HoursPlayed = request.HoursPlayed,
 
             // Server-stamped, never taken from the request: this records that the entry was
             // written, which is not something a caller is in a position to assert.
@@ -137,6 +138,7 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
         entry.Platform = request.Platform;
         entry.StartedAt = request.StartedAt;
         entry.CompletedAt = request.CompletedAt;
+        entry.HoursPlayed = request.HoursPlayed;
 
         await db.SaveChangesAsync(cancellationToken);
 

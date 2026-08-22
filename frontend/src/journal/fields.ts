@@ -8,6 +8,17 @@ import type { LogEntry } from '../api/types';
 /** Mirrors RatingAttribute on the server, word for word, so both sides say the same thing. */
 export const RATING_RULE = 'Rating must be between 1.0 and 10.0, with at most one decimal place.';
 
+
+/**
+ * Where the slider's handle rests when nothing has been rated.
+ *
+ * A range input has no empty state — it always holds a number — so "not rated" is carried by the
+ * text box being blank and by the slider's aria-valuetext, not by the handle's position. It sits
+ * at the bottom of the scale rather than the middle because a handle in the middle reads as a
+ * deliberate 5.5.
+ */
+export const UNRATED_THUMB = 1;
+
 export type ParsedRating =
   | { value: number | null; error?: undefined }
   | { value?: undefined; error: string };
@@ -37,6 +48,45 @@ export function parseRating(input: string): ParsedRating {
   return value >= 1 && value <= 10 ? { value } : { error: RATING_RULE };
 }
 
+
+/** Mirrors PlaytimeHoursAttribute on the server, so both sides refuse the same numbers. */
+export const HOURS_RULE =
+  'Hours played must be greater than 0 and at most 999.99, with at most two decimal places.';
+
+/**
+ * Reads the hours box.
+ *
+ * Tested against the text for the same reason as {@link parseRating}, one decimal place further
+ * out: the column is numeric(5,2) and Postgres rounds rather than refusing, so a 12.345 counted
+ * arithmetically would be accepted and then stored as something else. The ceiling is a separate
+ * failure — overflowing numeric(5,2) throws rather than rounding.
+ */
+export function parseHours(input: string): ParsedRating {
+  const trimmed = input.trim();
+
+  // Empty is "not recorded", and is how a number already written down is taken back. Not nought:
+  // nought hours played is not a fact about anything.
+  if (trimmed === '') {
+    return { value: null };
+  }
+
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+    return { error: HOURS_RULE };
+  }
+
+  const value = Number(trimmed);
+  return value > 0 && value <= 999.99 ? { value } : { error: HOURS_RULE };
+}
+
+/**
+ * How long something took, for reading rather than editing.
+ *
+ * Trailing noughts are dropped because the column's two decimal places are there for 12.25, not
+ * to make every whole number claim a precision nobody entered.
+ */
+export function formatHours(hours: number | null): string | null {
+  return hours === null ? null : `${Number(hours.toFixed(2))} h`;
+}
 /**
  * What to send for a date field.
  *
@@ -66,6 +116,13 @@ export function dateFieldValue(input: string, original: string | null): string |
  * save of your own, or after a drag — and the drawer covers the board while it is open.
  */
 export function entrySeed(entry: LogEntry): string {
-  return [entry.id, entry.rating, entry.platform, entry.startedAt, entry.completedAt]
+  return [
+    entry.id,
+    entry.rating,
+    entry.platform,
+    entry.hoursPlayed,
+    entry.startedAt,
+    entry.completedAt,
+  ]
     .join('|');
 }

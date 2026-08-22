@@ -10,7 +10,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { reorderColumn, transition } from '../api/library';
+import { removeCurrentPass, reorderColumn, transition } from '../api/library';
 import { BOARD_STATUSES, columnKey, gameKey, yearFor } from './keys';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
 
@@ -166,6 +166,24 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     },
   });
 
+  /**
+   * Closing a Backlog card. Deliberately not optimistic, unlike `move`: a drag has to feel
+   * instant, but this already took two clicks and a confirm, and matching the drawer's delete is
+   * simpler than a rollback nothing is waiting on.
+   */
+  const remove = useMutation({
+    mutationFn: (mediaId: number) => removeCurrentPass(mediaId),
+
+    // The whole hobby, not the column prefix a move settles with. A move names both columns it
+    // touches; this one does not know where the title lands until the server has answered —
+    // deleting a Backlog pass laid over a 2024 completion puts the card in Completed, which is
+    // a column nobody mentioned.
+    onSettled: (_data, _error, mediaId) => {
+      void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
+      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+    },
+  });
+
   const sensors = useSensors(
     // Without a distance, the press that opens a card's drop button is read as the beginning of
     // a drag and the click never lands.
@@ -228,8 +246,12 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
   }
 
   return {
-    /** The close button. `from` is the column the card is sitting in, which is its status. */
+    /**
+     * The close button on Playing. `from` is the column the card sits in, which is its status.
+     */
     drop: (mediaId: number, from: LogStatus) => move.mutate({ mediaId, from, to: 'Dropped' }),
+    /** The close button on Backlog, where the pass goes rather than moving to Dropped. */
+    remove: (mediaId: number) => remove.mutate(mediaId),
     /** The card under the cursor, so the drag has something to follow. */
     dragging,
     dnd: {

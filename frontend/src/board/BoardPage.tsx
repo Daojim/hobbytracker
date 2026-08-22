@@ -40,6 +40,12 @@ export function BoardPage() {
   const [droppedOpen, setDroppedOpen] = useState(false);
   // Which title's journal is open, if any. One at a time: the drawer covers the board.
   const [journalFor, setJournalFor] = useState<number | null>(null);
+  // Which card is asking to be removed, if any. Held here rather than in the card because a
+  // refetch remounts cards — the same fact that makes focus go back to the drawer's opener by
+  // id rather than by a stored element — and a confirm that closes itself when a background
+  // refetch lands is one nobody can trust. One at a time, as the drawer's deletes are.
+  const [removingFor, setRemovingFor] = useState<number | null>(null);
+
   // Which card it was opened from, so the keyboard can be handed back to it on the way out.
   const openedFrom = useRef<number | null>(null);
 
@@ -83,6 +89,15 @@ export function BoardPage() {
                 status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
               }
               onDrop={(mediaId) => board.drop(mediaId, status)}
+              removal={{
+                mediaId: removingFor,
+                onAsk: setRemovingFor,
+                onCancel: () => setRemovingFor(null),
+                onConfirm: (mediaId) => {
+                  setRemovingFor(null);
+                  board.remove(mediaId);
+                },
+              }}
               onOpen={(mediaId) => {
                 openedFrom.current = mediaId;
                 setJournalFor(mediaId);

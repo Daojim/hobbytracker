@@ -30,7 +30,7 @@ test('rating a game from the board puts the rating on its card', async ({ page, 
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await page.getByRole('spinbutton', { name: 'Rating' }).fill('8.5');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Close' }).click();
 
@@ -52,12 +52,92 @@ test('a rating the column would round is refused before it is sent', async ({ pa
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await page.getByRole('spinbutton', { name: 'Rating' }).fill('8.75');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.75');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(page.getByRole('alert')).toContainText('one decimal place');
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toHaveCount(0);
+});
+
+
+test('the rating slider answers to the keyboard, a tenth at a time', async ({ page, request }) => {
+  // jsdom has no slider to press: the arrow keys a range input answers to are the browser's,
+  // not ours, and "it comes for free" is only true if something checks.
+  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8 });
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('slider', { name: 'Rating' }).focus();
+  for (let nudge = 0; nudge < 5; nudge += 1) {
+    await page.keyboard.press('ArrowRight');
+  }
+
+  await expect(page.getByRole('spinbutton', { name: 'Exact rating' })).toHaveValue('8.5');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(
+    card(page, 'Celeste').getByRole('img', { name: 'Rated 8.5 out of 10' }),
+  ).toBeVisible();
+});
+
+test('clearing a rating takes it off the card', async ({ page, request }) => {
+  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8.5 });
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('button', { name: 'Clear rating' }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toBeHidden();
+
+  // Cleared, not merely blanked on screen: PUT sends the null that empties the column.
+  await page.reload();
+  await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toBeHidden();
+});
+
+
+test('a card names the genre it is coloured by, picking the specific one', async ({
+  page,
+  request,
+}) => {
+  // Hollow Knight is Adventure, Platform and Indie at IGDB. Indie is not painted at all and
+  // Adventure describes half the catalogue, so the card should read Platform.
+  await seed(request, 'Hollow Knight', 'Backlog');
+  await page.reload();
+
+  await expect(card(page, 'Hollow Knight').getByText('Platform')).toBeVisible();
+});
+
+test('choosing a genre in the drawer recolours the card', async ({ page, request }) => {
+  await seed(request, 'Hollow Knight', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  await page.getByLabel('Genre').selectOption('Adventure');
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(card(page, 'Hollow Knight').getByText('Adventure')).toBeVisible();
+  await expect(card(page, 'Hollow Knight').getByText('Platform')).toBeHidden();
+
+  // Against the game, so it survives a reload and would survive a replay.
+  await page.reload();
+  await expect(card(page, 'Hollow Knight').getByText('Adventure')).toBeVisible();
+});
+
+test('a refresh brings genres to a title that predates them', async ({ page, request }) => {
+  // media rows are only ever written by a search, so a column added to the schema is empty on
+  // the library you already have. This is what the backfill is for.
+  const mediaId = await seed(request, 'Celeste', 'Backlog');
+  await request.post('/api/games/refresh');
+
+  await page.reload();
+  await expect(card(page, 'Celeste').getByText('Platform')).toBeVisible();
+
+  const refreshed = await request.get(`/api/games/${mediaId}`);
+  expect(((await refreshed.json()) as { genres: string[] }).genres).toEqual(['Indie', 'Platform']);
 });
 
 test('a corrected start date shows on the card', async ({ page, request }) => {
@@ -229,6 +309,28 @@ test('deleting the only pass takes the title off the board', async ({ page, requ
 
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(card(page, 'Celeste')).toHaveCount(0);
+});
+
+
+test('how long a pass took is recorded against that pass', async ({ page, request }) => {
+  // Per pass, like the platform: a replay is not the same length as the first run, and the
+  // number worth putting beside HowLongToBeat's estimate is what this playthrough took.
+  await seed(request, 'Celeste', 'Completed', {
+    startedAt: '2026-08-01',
+    completedAt: '2026-08-10',
+  });
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByText('No HowLongToBeat estimate yet')).toBeVisible();
+
+  await page.getByLabel('Hours played').fill('31.5');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.reload();
+  await openJournal(page, 'Celeste');
+  await expect(page.getByLabel('Hours played')).toHaveValue('31.5');
 });
 
 test('the platform you played on is recorded against that pass', async ({ page, request }) => {

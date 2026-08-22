@@ -11,6 +11,7 @@ const entry: LogEntry = {
   status: 'InProgress',
   rating: null,
   notes: [],
+  hoursPlayed: null,
   platform: null,
   startedAt: '2026-08-21T01:30:00+00:00',
   completedAt: null,
@@ -120,6 +121,22 @@ describe('updateLogEntry', () => {
     await updateLogEntry(1, { status: 'InProgress', platform: 'Switch' });
 
     expect(body).toEqual({ status: 'InProgress', platform: 'Switch' });
+  });
+
+  it('sends the hours, which pick() has to be told about by hand as well', async () => {
+    // The same hazard as the platform above, and the reason this test has a twin: a new field
+    // reaches the type and the form and still never reaches the wire.
+    let body: unknown;
+    server.use(
+      http.put('/api/log-entries/1', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(entry);
+      }),
+    );
+
+    await updateLogEntry(1, { status: 'Completed', hoursPlayed: 31.5 });
+
+    expect(body).toEqual({ status: 'Completed', hoursPlayed: 31.5 });
   });
 });
 

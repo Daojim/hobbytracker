@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
@@ -7,7 +7,8 @@ import { gameDetail, journalServer, logEntry, note } from '../test/games';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 
-const rating = () => screen.getByRole('spinbutton', { name: 'Rating' });
+const rating = () => screen.getByRole('spinbutton', { name: 'Exact rating' });
+const slider = () => screen.getByRole('slider', { name: 'Rating' });
 const started = () => screen.getByLabelText('Started');
 const save = () => screen.getByRole('button', { name: 'Save' });
 
@@ -48,7 +49,7 @@ describe('EntryDrawer', () => {
     });
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '8.5');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
     await userEvent.click(save());
 
     await waitFor(() => expect(journal.saved).toHaveLength(1));
@@ -57,9 +58,88 @@ describe('EntryDrawer', () => {
       status: 'InProgress',
       rating: 8.5,
       platform: null,
+      hoursPlayed: null,
       startedAt: null,
       completedAt: null,
     });
+  });
+
+  it('rates by slider, and the box follows', async () => {
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    open();
+    // A range input ignores userEvent.type: it has no text to receive. fireEvent is how a drag
+    // reaches it, which is what the pointer does in a real browser.
+    fireEvent.change(await screen.findByRole('slider', { name: 'Rating' }), {
+      target: { value: '8.5' },
+    });
+
+    expect(rating()).toHaveValue(8.5);
+
+    await userEvent.click(save());
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body['rating']).toBe(8.5);
+  });
+
+  it('rates by the box, and the handle follows', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.3');
+
+    expect(slider()).toHaveValue('8.3');
+  });
+
+  it('leaves the handle where it was while a rating is half-typed', async () => {
+    // "8." and "8.75" are both refused by the rule, and deriving the handle from the text would
+    // throw it to the far left on each of them on the way to 8.7 — a jump nobody asked for.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    const box = await screen.findByRole('spinbutton', { name: 'Exact rating' });
+    await userEvent.type(box, '8');
+    expect(slider()).toHaveValue('8');
+
+    await userEvent.type(box, '.');
+    expect(slider()).toHaveValue('8');
+
+    await userEvent.type(box, '75');
+    expect(slider()).toHaveValue('8.7');
+  });
+
+  it('says a pass is unrated rather than announcing a 1.0 nobody chose', async () => {
+    // A range input always holds a value, so "not rated" has to be said out loud — otherwise
+    // the handle parked at the low end reads as the lowest possible score.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, rating: null })] }) });
+
+    open();
+
+    expect(await screen.findByRole('slider', { name: 'Rating' })).toHaveAttribute(
+      'aria-valuetext',
+      'Not rated',
+    );
+    expect(rating()).toHaveValue(null);
+    expect(screen.queryByRole('button', { name: 'Clear rating' })).not.toBeInTheDocument();
+  });
+
+  it('clears back to unrated, and sends that as null', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'InProgress', rating: 8.5 })],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Clear rating' }));
+
+    expect(rating()).toHaveValue(null);
+    expect(slider()).toHaveAttribute('aria-valuetext', 'Not rated');
+
+    await userEvent.click(save());
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body['rating']).toBeNull();
   });
 
   it('gives an untouched date back as the instant it was, not as midnight', async () => {
@@ -70,7 +150,7 @@ describe('EntryDrawer', () => {
     });
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '9');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
     await userEvent.click(save());
 
     await waitFor(() => expect(journal.saved).toHaveLength(1));
@@ -99,7 +179,7 @@ describe('EntryDrawer', () => {
     const journal = journalServer();
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '8.75');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.75');
     await userEvent.click(save());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/one decimal place/);
@@ -125,7 +205,7 @@ describe('EntryDrawer', () => {
     journalServer({ saveErrors: { rating: ['Rating must be between 1.0 and 10.0.'] } });
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '9');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
     await userEvent.click(save());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -155,7 +235,8 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText('Earlier passes')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Completed Nov 2, 2024' })).toBeInTheDocument();
     // One form, for the current pass. The history is a record, not a set of inputs.
-    expect(screen.getAllByRole('spinbutton', { name: 'Rating' })).toHaveLength(1);
+    expect(screen.getAllByRole('slider', { name: 'Rating' })).toHaveLength(1);
+    expect(screen.getAllByRole('spinbutton', { name: 'Exact rating' })).toHaveLength(1);
   });
 
   it('closes when asked', async () => {
@@ -351,6 +432,149 @@ describe('EntryDrawer', () => {
 
     expect(await screen.findByText('That pass is already gone.')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('records how long a pass took, and sends it', async () => {
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'Completed' })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('Hours played'), '31.5');
+    await userEvent.click(save());
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body['hoursPlayed']).toBe(31.5);
+  });
+
+  it('refuses hours the column would round, without asking the server', async () => {
+    const journal = journalServer();
+
+    open();
+    await userEvent.type(await screen.findByLabelText('Hours played'), '12.345');
+    await userEvent.click(save());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/two decimal places/);
+    expect(journal.saved).toHaveLength(0);
+  });
+
+
+  it('shows what an earlier pass took, alongside what it was rated', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9, status: 'InProgress' }),
+          logEntry({
+            id: 7,
+            status: 'Completed',
+            rating: 9.6,
+            hoursPlayed: 42.5,
+            completedAt: '2024-11-02T18:00:00+00:00',
+          }),
+        ],
+      }),
+    });
+
+    open();
+
+    const pass = await screen.findByRole('region', { name: 'Completed Nov 2, 2024' });
+    expect(within(pass).getByText('42.5 h')).toBeInTheDocument();
+  });
+
+  it('says there is no HowLongToBeat estimate yet rather than showing nothing', async () => {
+    // The column has been on the wire since the schema shipped and null on every row. Saying so
+    // is the honest state until the HowLongToBeat pass fills it in.
+    journalServer({
+      detail: gameDetail({ hltbMainStoryHours: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+
+    expect(await screen.findByText(/No HowLongToBeat estimate yet/)).toBeInTheDocument();
+  });
+
+  it('puts your hours next to the main story, and the difference between them', async () => {
+    journalServer({
+      detail: gameDetail({
+        hltbMainStoryHours: 24.5,
+        logEntries: [logEntry({ id: 7, hoursPlayed: 31 })],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByText(/Main story: 24.5 h/)).toBeInTheDocument();
+    expect(screen.getByText(/you: 31 h/)).toBeInTheDocument();
+    expect(screen.getByText(/\+6.5/)).toBeInTheDocument();
+  });
+
+  it('offers the game genres, and an automatic option naming what it would pick', async () => {
+    // Naming the automatic pick is what makes the blank option mean something. "Not recorded"
+    // would be a lie: null here means "use the automatic one", not "no genre".
+    journalServer({
+      detail: gameDetail({
+        genres: ['Adventure', 'Indie', 'Platform'],
+        primaryGenre: null,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
+
+    open();
+
+    const select = await screen.findByLabelText('Genre');
+    expect(select).toHaveValue('');
+    expect(
+      within(select).getByRole('option', { name: 'Automatic — Platform' }),
+    ).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Adventure' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Indie' })).toBeInTheDocument();
+  });
+
+  it('says the automatic pick is none when it does not paint any of them', async () => {
+    journalServer({
+      detail: gameDetail({ genres: ['Indie'], primaryGenre: null, logEntries: [logEntry()] }),
+    });
+
+    open();
+
+    expect(
+      within(await screen.findByLabelText('Genre')).getByRole('option', {
+        name: 'Automatic — none',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps a chosen genre the game no longer lists', async () => {
+    journalServer({
+      detail: gameDetail({
+        genres: ['Platform'],
+        primaryGenre: 'Metroidvania',
+        logEntries: [logEntry()],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByLabelText('Genre')).toHaveValue('Metroidvania');
+  });
+
+  it('writes the genre against the game, not the pass', async () => {
+    // A property of the title: what kind of game it is does not change between playthroughs
+    // the way the platform you played it on does. So it saves on its own, not with the form.
+    const journal = journalServer({
+      detail: gameDetail({
+        id: 3003,
+        genres: ['Adventure', 'Platform'],
+        primaryGenre: null,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
+
+    open();
+    await userEvent.selectOptions(await screen.findByLabelText('Genre'), 'Adventure');
+
+    await waitFor(() => expect(journal.genresSet).toHaveLength(1));
+    expect(journal.genresSet[0]).toEqual({ mediaId: 3003, genre: 'Adventure' });
   });
 
   it('offers the platforms the game came out on, and no platform at all', async () => {

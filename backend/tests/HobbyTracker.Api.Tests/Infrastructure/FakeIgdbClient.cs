@@ -42,6 +42,29 @@ public sealed class FakeIgdbClient : IIgdbClient
         return Task.FromResult<IReadOnlyList<IgdbGame>>([.. results.Take(limit)]);
     }
 
+
+    /// <summary>Every set of ids the backfill asked for, in order.</summary>
+    public List<int[]> IdLookups { get; } = [];
+
+    /// <summary>Canned results per IGDB id, for the backfill path.</summary>
+    public Dictionary<int, IgdbGame> ById { get; } = [];
+
+    public Task<IReadOnlyList<IgdbGame>> GetGamesAsync(
+        IEnumerable<int> ids, CancellationToken cancellationToken)
+    {
+        var wanted = ids.ToArray();
+        IdLookups.Add(wanted);
+
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        return Task.FromResult<IReadOnlyList<IgdbGame>>(
+            [.. wanted.Where(ById.ContainsKey).Select(id => ById[id])]);
+    }
+
     public void SetResults(string search, params IgdbGame[] games) =>
         Results[search] = [.. games];
 
@@ -51,12 +74,14 @@ public sealed class FakeIgdbClient : IIgdbClient
         string name,
         string? coverImageId = null,
         string[]? platforms = null,
-        string[]? developers = null) => new()
+        string[]? developers = null,
+        string[]? genres = null) => new()
         {
             Id = id,
             Name = name,
             Cover = coverImageId is null ? null : new IgdbCover { ImageId = coverImageId },
             Platforms = [.. (platforms ?? []).Select(p => new IgdbPlatform { Name = p })],
+            Genres = [.. (genres ?? []).Select(g => new IgdbGenre { Name = g })],
             InvolvedCompanies =
             [
                 .. (developers ?? []).Select(d => new IgdbInvolvedCompany

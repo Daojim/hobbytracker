@@ -49,4 +49,40 @@ public class GamesController(IGameCatalogService catalog) : ControllerBase
         var game = await catalog.GetAsync(id, cancellationToken);
         return game is null ? NotFound() : Ok(game);
     }
+
+    /// <summary>
+    /// Re-fetches every IGDB-sourced title on your board and re-applies IGDB's metadata.
+    ///
+    /// A maintenance action rather than a feature, and deliberately without a button: media
+    /// rows are only ever written by a search, so a field added to the schema stays null on
+    /// the library you already have until something goes and asks. This is that something.
+    /// </summary>
+    [HttpPost("refresh")]
+    [ProducesResponseType<RefreshResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<ActionResult<RefreshResult>> Refresh(CancellationToken cancellationToken)
+    {
+        var refreshed = await catalog.RefreshLibraryAsync(cancellationToken);
+        return Ok(new RefreshResult(refreshed));
+    }
+
+    /// <summary>
+    /// Chooses which genre stands for a game on the board, or clears the choice with a null.
+    ///
+    /// A property of the title, not of a pass: what kind of game something is does not change
+    /// between playthroughs the way the platform you played it on does. Any string is accepted,
+    /// not only one of the game's own genres — see <see cref="SetGenreRequest"/>.
+    /// </summary>
+    [HttpPut("{mediaId:int}/genre")]
+    [ProducesResponseType<GameDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GameDetailDto>> SetGenre(
+        int mediaId, SetGenreRequest request, CancellationToken cancellationToken)
+    {
+        var game = await catalog.SetPrimaryGenreAsync(
+            mediaId, request.Genre, cancellationToken);
+
+        return game is null ? NotFound() : Ok(game);
+    }
 }

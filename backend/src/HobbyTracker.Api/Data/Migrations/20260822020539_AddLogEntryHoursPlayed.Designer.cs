@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using HobbyTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HobbyTracker.Api.Data.Migrations
 {
     [DbContext(typeof(HobbyTrackerDbContext))]
-    partial class HobbyTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260822020539_AddLogEntryHoursPlayed")]
+    partial class AddLogEntryHoursPlayed
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -361,11 +364,6 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("text[]")
                         .HasColumnName("developers");
 
-                    b.PrimitiveCollection<List<string>>("Genres")
-                        .IsRequired()
-                        .HasColumnType("text[]")
-                        .HasColumnName("genres");
-
                     b.Property<int?>("HltbId")
                         .HasColumnType("integer")
                         .HasColumnName("hltb_id");
@@ -379,11 +377,6 @@ namespace HobbyTracker.Api.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text[]")
                         .HasColumnName("platforms");
-
-                    b.Property<string>("PrimaryGenre")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("primary_genre");
 
                     b.ToTable("games", null, t =>
                         {

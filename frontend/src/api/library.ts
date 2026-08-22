@@ -44,6 +44,18 @@ export function transition(mediaId: number, status: LogStatus): Promise<LibraryI
   });
 }
 
+/**
+ * Takes a title off the board by deleting its current pass. What closing a Backlog card does.
+ *
+ * Which pass that is gets decided server-side, for the same reason `transition` decides it: a
+ * board row carries no entry id, and one read from a card rendered a moment ago can already be
+ * naming a pass that stopped being current. A title whose only pass this was leaves the board;
+ * one with an older completion underneath goes back to showing that.
+ */
+export function removeCurrentPass(mediaId: number): Promise<void> {
+  return apiVoid(`/api/library/${mediaId}/current`, { method: 'DELETE' });
+}
+
 /** Stores a column's manual ranking. Send the whole column, top first. */
 export function reorderColumn(order: ReorderColumn): Promise<void> {
   return apiVoid('/api/library/order', { method: 'PUT', body: order });

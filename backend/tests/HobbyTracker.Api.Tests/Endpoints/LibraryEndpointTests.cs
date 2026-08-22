@@ -2,6 +2,7 @@ using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace HobbyTracker.Api.Tests.Endpoints;
 
@@ -203,6 +204,40 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         // A naive join would return the same game three times.
         page.Total.ShouldBe(1);
         page.Items.ShouldHaveSingleItem().EntryCount.ShouldBe(3);
+    }
+
+    [Fact]
+    public async Task A_board_row_carries_the_games_genres_and_the_chosen_one()
+    {
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        await WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(g => g.Id == mediaId, Ct);
+            game.Genres = ["Adventure", "Indie", "Platform"];
+            game.PrimaryGenre = "Platform";
+            await db.SaveChangesAsync(Ct);
+        });
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.Genres.ShouldBe(["Adventure", "Indie", "Platform"]);
+        item.PrimaryGenre.ShouldBe("Platform");
+    }
+
+    [Fact]
+    public async Task A_board_row_for_something_that_is_not_a_game_has_no_genres()
+    {
+        // Genres live on the games table, so the projection reaches them through a TPT downcast
+        // — a LEFT JOIN that answers null for a media row with no detail table behind it. The
+        // board is games-only today; this is what stops it breaking on the day it is not.
+        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Some Film");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
+
+        item.Genres.ShouldBeNull();
+        item.PrimaryGenre.ShouldBeNull();
     }
 
     private async Task<PagedResult<LibraryItemDto>> GetPageAsync(string url) =>

@@ -1,14 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
-import type { LibraryItem, LogStatus } from '../api/types';
-
-/**
- * Dropping something you have finished means nothing, and dropping something already dropped is
- * a no-op that would still cost a request. The button is absent on both rather than disabled —
- * a control that is never usable is not a control.
- */
-const DROPPABLE_FROM: readonly LogStatus[] = ['Backlog', 'InProgress'];
+import { genreStripe, resolveGenre } from './genres';
+import type { LibraryItem } from '../api/types';
 
 /**
  * A stable handle on the button that opens a title's journal.
@@ -20,20 +14,70 @@ const DROPPABLE_FROM: readonly LogStatus[] = ['Backlog', 'InProgress'];
  */
 export const cardTitleId = (mediaId: number) => `card-title-${mediaId}`;
 
+/**
+ * Removing a title, in the same three parts the drawer's deletes use.
+ *
+ * The `confirming` flag is passed in rather than held here because a refetch remounts cards —
+ * the same fact that makes the drawer hand focus back by id rather than by a stored element —
+ * and a confirm that quietly closes itself when a background refetch lands is one nobody can
+ * trust. Holding it above the board also means only one card can be asking at a time.
+ */
+export interface CardRemoval {
+  confirming: boolean;
+  onAsk: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}
+
 export interface CardFaceProps {
   item: LibraryItem;
-  /** Moves the title to Dropped. Omitted by the drag preview, which is not clickable. */
+  /** Moves the title to Dropped. Offered on Playing only. Omitted by the drag preview. */
   onDrop?: (mediaId: number) => void;
+  /** Deleting the current pass. Offered on Backlog only. Omitted by the drag preview. */
+  removal?: CardRemoval;
   /** Opens the journal for this title. Omitted by the drag preview for the same reason. */
   onOpen?: (mediaId: number) => void;
 }
 
 /** Everything a card shows. Shared with the drag preview, which must not be a second sortable. */
-export function CardFace({ item, onDrop, onOpen }: CardFaceProps) {
+export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
   const lastActivity = formatJournalDate(item.lastActivity);
+
+  // The chosen genre, or the one the game would be painted as. The stripe is decoration and the
+  // name beside the rating is the information — ten hues is past what colour alone can carry.
+  const genre = resolveGenre(item.genres, item.primaryGenre);
+  const stripe = genreStripe(genre);
+
+  // What the close corner does is not the same thing in every column. Dropped is a record of a
+  // game you started and gave up on: the right ending for one you were playing, and the wrong
+  // one for a game you never began, which would be claiming a playthrough that never happened.
+  // So Backlog deletes the pass instead — and the title goes with it when that was its only
+  // one. Completed and Dropped get neither: finishing something cannot be given up on, and
+  // dropping something already dropped is a no-op that would still cost a request. Absent
+  // rather than disabled, because a control that is never usable is not a control.
+  const droppable = onDrop !== undefined && item.currentStatus === 'InProgress';
+  const removable = removal !== undefined && item.currentStatus === 'Backlog';
+  const confirming = removable && removal.confirming;
+
+  // Both warnings name the title, which is what lets the confirm buttons stay two plain words:
+  // anyone reading the card in order has just been told which one it means.
+  const warning =
+    item.entryCount > 1
+      ? `Only this pass. ${item.title} stays, showing the one before it.`
+      : `Takes ${item.title} off your board.`;
 
   return (
     <>
+      {/* Always rendered, transparent when there is nothing to paint: a stripe that vanished
+          would shift an ungenred card's contents twelve pixels left of its neighbours' and make
+          a mixed column look ragged. A child of CardFace rather than a class on CARD_CLASS, so
+          the drag preview wears it too without a second call site knowing about genres. */}
+      <span
+        aria-hidden="true"
+        data-genre-stripe=""
+        className={`w-1 shrink-0 self-stretch rounded-full ${stripe ?? 'bg-transparent'}`}
+      />
+
       {item.coverUrl === null ? (
         <span
           aria-hidden="true"
@@ -52,7 +96,7 @@ export function CardFace({ item, onDrop, onOpen }: CardFaceProps) {
 
             The title is the way into the journal, and it is a button so that works from the
             keyboard too. Stopping the pointer here keeps the press from also being read as the
-            start of a drag — the same guard the drop button needs. */}
+            start of a drag — the same guard the close button needs. */}
         <h3 className="font-medium break-words">
           {onOpen === undefined ? (
             item.title
@@ -69,30 +113,60 @@ export function CardFace({ item, onDrop, onOpen }: CardFaceProps) {
           )}
         </h3>
 
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
-          {item.latestRating !== null && (
-            <span role="img" aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}>
-              ★ {item.latestRating.toFixed(1)}
-            </span>
-          )}
-          {item.entryCount > 1 && (
-            <span role="img" aria-label={`${item.entryCount} playthroughs`}>
-              ×{item.entryCount}
-            </span>
-          )}
-          {lastActivity !== null && <span>{lastActivity}</span>}
-        </div>
+        {/* The confirm takes the metadata row's place rather than sitting under it, so a card
+            asking a question does not also resize the column it is in. */}
+        {confirming ? (
+          <span
+            onPointerDown={(event) => event.stopPropagation()}
+            className="mt-1 flex flex-wrap items-baseline gap-2 text-xs"
+          >
+            <span className="text-neutral-500">{warning}</span>
+
+            <button
+              type="button"
+              onClick={() => removal?.onConfirm()}
+              className="rounded font-medium text-red-600 hover:underline"
+            >
+              Really remove?
+            </button>
+
+            <button
+              type="button"
+              onClick={() => removal?.onCancel()}
+              className="rounded text-neutral-500 hover:underline"
+            >
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+            {item.latestRating !== null && (
+              <span role="img" aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}>
+                ★ {item.latestRating.toFixed(1)}
+              </span>
+            )}
+            {item.entryCount > 1 && (
+              <span role="img" aria-label={`${item.entryCount} playthroughs`}>
+                ×{item.entryCount}
+              </span>
+            )}
+            {genre !== null && <span>{genre}</span>}
+            {lastActivity !== null && <span>{lastActivity}</span>}
+          </div>
+        )}
       </div>
 
-      {onDrop !== undefined && DROPPABLE_FROM.includes(item.currentStatus) && (
+      {(droppable || removable) && !confirming && (
         <button
           type="button"
-          aria-label={`Drop ${item.title}`}
+          aria-label={
+            removable ? `Remove ${item.title} from your board` : `Drop ${item.title}`
+          }
           // Without this the card's drag listeners see the press first. The pointer sensor's
           // activation distance already stops a click becoming a drag; this stops the press
           // being claimed at all.
           onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => onDrop(item.mediaId)}
+          onClick={() => (removable ? removal.onAsk() : onDrop?.(item.mediaId))}
           className="h-5 w-5 shrink-0 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
         >
           ×
@@ -108,12 +182,13 @@ export const CARD_CLASS =
 export interface CardProps {
   item: LibraryItem;
   onDrop: (mediaId: number) => void;
+  removal: CardRemoval;
   onOpen: (mediaId: number) => void;
   /** False outside `manual` sort, where a drag would imply a ranking the API will not store. */
   draggable: boolean;
 }
 
-export function Card({ item, onDrop, onOpen, draggable }: CardProps) {
+export function Card({ item, onDrop, removal, onOpen, draggable }: CardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.mediaId,
     // Read back by the drag handlers: a drop needs to know which column the card came from, and
@@ -137,7 +212,7 @@ export function Card({ item, onDrop, onOpen, draggable }: CardProps) {
         isDragging ? 'opacity-40' : ''
       }`}
     >
-      <CardFace item={item} onDrop={onDrop} onOpen={onOpen} />
+      <CardFace item={item} onDrop={onDrop} removal={removal} onOpen={onOpen} />
     </li>
   );
 }

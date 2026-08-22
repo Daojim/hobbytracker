@@ -273,6 +273,36 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         backlog.Items[0].Title.ShouldBe("Replayed");
     }
 
+    [Fact]
+    public async Task A_replay_starts_with_none_of_the_last_run_s_hours()
+    {
+        // What a finished pass took is a fact about that pass, like the platform it was played
+        // on. Carrying either forward onto a fresh entry would be inventing a record.
+        var mediaId = await GivenGameAsync("Celeste");
+        await WithDbAsync(async db =>
+        {
+            var finished = new LogEntry
+            {
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                LoggedAt = Clock.UtcNow,
+                CompletedAt = Eastern(2024, 3, 2),
+                HoursPlayed = 31.5m,
+                Platform = "Switch",
+            };
+
+            db.LogEntries.Add(finished);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await MoveAsync(mediaId, LogStatus.InProgress);
+
+        var replay = (await EntriesAsync(mediaId)).Last();
+        replay.Status.ShouldBe(LogStatus.InProgress);
+        replay.HoursPlayed.ShouldBeNull();
+        replay.Platform.ShouldBeNull();
+    }
+
     // ------------------------------------------------------------------ errors
 
     [Fact]

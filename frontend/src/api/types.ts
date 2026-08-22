@@ -42,6 +42,10 @@ export interface LibraryItem {
   latestRating: number | null;
   /** An instant, or null. Render it through `lib/time`, never `new Date(...).getFullYear()`. */
   lastActivity: string | null;
+  /** The game's IGDB genres. Null for a row that is not a game. */
+  genres: string[] | null;
+  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  primaryGenre: string | null;
 }
 
 export interface Game {
@@ -50,6 +54,9 @@ export interface Game {
   coverUrl: string | null;
   platforms: string[];
   developers: string[];
+  genres: string[];
+  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  primaryGenre: string | null;
   externalId: string | null;
   source: string;
   hltbMainStoryHours: number | null;
@@ -82,6 +89,8 @@ export interface LogEntry {
   notes: Note[];
   /** What it was played on. Free text: IGDB names the platforms, but its list is not the record. */
   platform: string | null;
+  /** How long this pass took you, in hours. Null until recorded. */
+  hoursPlayed: number | null;
   /** Instants. A value sent without an offset is read as Eastern by the server. */
   startedAt: string | null;
   completedAt: string | null;
@@ -95,6 +104,7 @@ export interface CreateLogEntry {
   status: LogStatus;
   rating?: number | null;
   platform?: string | null;
+  hoursPlayed?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;
 }

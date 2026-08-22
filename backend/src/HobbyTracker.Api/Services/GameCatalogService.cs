@@ -17,6 +17,22 @@ public interface IGameCatalogService
 
     /// <summary>Returns null when no game with that media id exists.</summary>
     Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Chooses the genre that stands for a game, or clears the choice back to the automatic
+    /// pick. Null when no game with that media id exists.
+    /// </summary>
+    Task<GameDetailDto?> SetPrimaryGenreAsync(
+        int mediaId, string? genre, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Re-fetches every IGDB-sourced title on the board and re-applies IGDB's metadata.
+    ///
+    /// The library, not the catalog: searching upserts every result, so `media` accumulates
+    /// whatever has ever been typed into a search box, and asking IGDB about all of it would be
+    /// slow and rude to a service that never agreed to serve us.
+    /// </summary>
+    Task<int> RefreshLibraryAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -84,6 +100,67 @@ public sealed class GameCatalogService(
             .ToListAsync(cancellationToken);
 
         return GameDetailDto.From(game, entries);
+    }
+
+    public async Task<GameDetailDto?> SetPrimaryGenreAsync(
+        int mediaId, string? genre, CancellationToken cancellationToken)
+    {
+        var game = await db.Games
+            .FirstOrDefaultAsync(candidate => candidate.Id == mediaId, cancellationToken);
+
+        if (game is null)
+        {
+            return null;
+        }
+
+        // Blank and absent are the same thing here: both mean "go back to the automatic pick",
+        // and storing an empty string would be a third state nothing knows how to read.
+        game.PrimaryGenre = string.IsNullOrWhiteSpace(genre) ? null : genre.Trim();
+        await db.SaveChangesAsync(cancellationToken);
+
+        return await GetAsync(mediaId, cancellationToken);
+    }
+
+    /// <summary>IGDB caps a response at 500, so ask for at most that many at a time.</summary>
+    private const int RefreshBatchSize = 500;
+
+    public async Task<int> RefreshLibraryAsync(CancellationToken cancellationToken)
+    {
+        // Only titles something has been logged against, and only ones IGDB can be asked about.
+        var wanted = await db.Games
+            .Where(game => game.SourceId == SeedData.Sources.Igdb
+                           && game.ExternalId != null
+                           && game.LogEntries.Any())
+            .Select(game => game.ExternalId!)
+            .ToListAsync(cancellationToken);
+
+        var ids = wanted
+            .Select(external => int.TryParse(external, CultureInfo.InvariantCulture, out var id)
+                ? id
+                : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+
+        var refreshed = 0;
+
+        foreach (var batch in ids.Chunk(RefreshBatchSize))
+        {
+            var results = await igdb.GetGamesAsync(batch, cancellationToken);
+            if (results.Count == 0)
+            {
+                continue;
+            }
+
+            // Straight back through the upsert every search uses, so a refreshed row and a
+            // searched one are written by the same code — including its care about what IGDB
+            // does not own. A title IGDB no longer returns is simply not in the results, and
+            // keeps whatever was last known about it.
+            var stored = await UpsertAsync(results, cancellationToken);
+            refreshed += stored.Count;
+        }
+
+        return refreshed;
     }
 
     /// <summary>
@@ -157,9 +234,10 @@ public sealed class GameCatalogService(
     }
 
     /// <summary>
-    /// Copies IGDB-owned fields onto the entity. Deliberately leaves the hltb_* columns
-    /// alone: HowLongToBeat has no official API, so those are hand-entered and must survive
-    /// every refresh from IGDB.
+    /// Copies IGDB-owned fields onto the entity. Deliberately leaves the hltb_* columns and
+    /// primary_genre alone: HowLongToBeat has no official API, and which genre stands for a game
+    /// is a choice — both are authored here rather than at IGDB, and must survive every refresh
+    /// from it.
     /// </summary>
     private static void ApplyMetadata(IgdbGame source, Game target)
     {
@@ -182,6 +260,16 @@ public sealed class GameCatalogService(
                 .Where(company => company.Developer
                                   && !string.IsNullOrWhiteSpace(company.Company?.Name))
                 .Select(company => company.Company!.Name!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Order(StringComparer.OrdinalIgnoreCase)
+        ];
+
+        target.Genres =
+        [
+            .. (source.Genres ?? [])
+                .Select(genre => genre.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => name!)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .Order(StringComparer.OrdinalIgnoreCase)
         ];

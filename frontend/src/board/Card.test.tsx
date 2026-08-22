@@ -1,18 +1,37 @@
 import { describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Card } from './Card';
+import { Card, type CardRemoval } from './Card';
 import { libraryItem } from '../test/library';
 import { renderWithProviders } from '../test/render';
 import type { LogStatus } from '../api/types';
 
-function renderCard(item = libraryItem(), onDrop = vi.fn(), onOpen = vi.fn()) {
+/**
+ * `removal.confirming` is a prop rather than card state, so the two halves are exercised
+ * separately: clicking the corner asks, and being the card asked about renders the confirm.
+ */
+function renderCard(
+  item = libraryItem(),
+  confirming = false,
+  onDrop = vi.fn(),
+  onOpen = vi.fn(),
+) {
+  const removal: CardRemoval = {
+    confirming,
+    onAsk: vi.fn(),
+    onCancel: vi.fn(),
+    onConfirm: vi.fn(),
+  };
+
   const view = renderWithProviders(
-    <Card item={item} onDrop={onDrop} onOpen={onOpen} draggable />,
+    <Card item={item} onDrop={onDrop} removal={removal} onOpen={onOpen} draggable />,
     { dnd: true },
   );
-  return { ...view, onDrop, onOpen };
+  return { ...view, onDrop, onOpen, removal };
 }
+
+const removeButton = (title = 'Celeste') =>
+  screen.getByRole('button', { name: `Remove ${title} from your board` });
 
 describe('Card', () => {
   it('names the title', () => {
@@ -50,27 +69,125 @@ describe('Card', () => {
     expect(screen.queryByRole('img', { name: /playthrough/ })).not.toBeInTheDocument();
   });
 
-  it.each<LogStatus>(['Backlog', 'InProgress'])('offers a drop button on %s', (currentStatus) => {
-    renderCard(libraryItem({ title: 'Celeste', currentStatus }));
+
+  it('names the genre it is painted as, so the colour never has to be learned', () => {
+    // Ten hues is past what anyone can reliably tell apart, and past what colour-vision
+    // deficiency leaves separable at all. The stripe is decoration; this is the information.
+    renderCard(libraryItem({ genres: ['Adventure', 'Indie', 'Platform'], primaryGenre: null }));
+
+    expect(screen.getByText('Platform')).toBeInTheDocument();
+  });
+
+  it('is painted as the genre you chose, not the one it would have picked', () => {
+    renderCard(libraryItem({ genres: ['Adventure', 'Platform'], primaryGenre: 'Adventure' }));
+
+    expect(screen.getByText('Adventure')).toBeInTheDocument();
+    expect(screen.queryByText('Platform')).not.toBeInTheDocument();
+  });
+
+  it('keeps the stripe out of the accessibility tree, and the width the same without one', () => {
+    // Always rendered, transparent when there is nothing to paint: a stripe that disappeared
+    // would shift every ungenred card's contents twelve pixels left of its neighbours.
+    const painted = renderCard(libraryItem({ genres: ['Shooter'], primaryGenre: null }));
+    const stripe = painted.container.querySelector('[data-genre-stripe]');
+
+    expect(stripe).not.toBeNull();
+    expect(stripe).toHaveAttribute('aria-hidden', 'true');
+    expect(stripe).toHaveClass('bg-genre-shooter');
+    painted.unmount();
+
+    const bare = renderCard(libraryItem({ genres: ['Indie'], primaryGenre: null }));
+
+    expect(bare.container.querySelector('[data-genre-stripe]')).toHaveClass('bg-transparent');
+    expect(screen.queryByText('Indie')).not.toBeInTheDocument();
+  });
+
+  it('offers a drop button on Playing, where giving up on a game did happen', () => {
+    renderCard(libraryItem({ title: 'Celeste', currentStatus: 'InProgress' }));
 
     expect(screen.getByRole('button', { name: 'Drop Celeste' })).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Remove Celeste from your board' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers a remove button on Backlog, where there is nothing yet to give up on', () => {
+    // Dropped is a record of a game you started and abandoned. A game you never began has
+    // nothing to abandon, so closing it takes it off the board rather than moving it to a
+    // column that would claim you played it.
+    renderCard(libraryItem({ title: 'Celeste', currentStatus: 'Backlog' }));
+
+    expect(removeButton()).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Drop Celeste' })).not.toBeInTheDocument();
   });
 
   it.each<LogStatus>(['Completed', 'Dropped'])(
-    'hides the drop button on %s, where it would mean nothing',
+    'offers neither on %s, where both would mean nothing',
     (currentStatus) => {
       renderCard(libraryItem({ title: 'Celeste', currentStatus }));
 
       expect(screen.queryByRole('button', { name: 'Drop Celeste' })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: 'Remove Celeste from your board' }),
+      ).not.toBeInTheDocument();
     },
   );
 
   it('reports the title being dropped, not the position it was in', async () => {
-    const { onDrop } = renderCard(libraryItem({ mediaId: 42, title: 'Celeste' }));
+    const { onDrop } = renderCard(
+      libraryItem({ mediaId: 42, title: 'Celeste', currentStatus: 'InProgress' }),
+    );
 
     await userEvent.click(screen.getByRole('button', { name: 'Drop Celeste' }));
 
     expect(onDrop).toHaveBeenCalledExactlyOnceWith(42);
+  });
+
+  it('asks before it removes a title, because a delete is not one drag from undone', async () => {
+    // Dropping can be taken back by dragging the card out again. This cannot, so it does not
+    // happen on a single click, which is the reasoning the drawer's deletes already follow.
+    const { removal } = renderCard(libraryItem({ mediaId: 42, title: 'Celeste' }));
+
+    await userEvent.click(removeButton());
+
+    expect(removal.onAsk).toHaveBeenCalledOnce();
+    expect(removal.onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('removes the title once that is confirmed', async () => {
+    const { removal } = renderCard(libraryItem({ mediaId: 42, title: 'Celeste' }), true);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Really remove?' }));
+
+    expect(removal.onConfirm).toHaveBeenCalledOnce();
+  });
+
+  it('takes over the metadata row while it asks, and gives it back on cancel', async () => {
+    const asking = renderCard(libraryItem({ title: 'Celeste', latestRating: 8.5 }), true);
+    expect(screen.queryByRole('img', { name: 'Rated 8.5 out of 10' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(asking.removal.onCancel).toHaveBeenCalledOnce();
+    asking.unmount();
+
+    renderCard(libraryItem({ title: 'Celeste', latestRating: 8.5 }), false);
+    expect(screen.getByRole('img', { name: 'Rated 8.5 out of 10' })).toBeInTheDocument();
+  });
+
+  it('says the title is leaving the board when this is its only pass', () => {
+    renderCard(libraryItem({ title: 'Celeste', entryCount: 1 }), true);
+
+    expect(screen.getByText('Takes Celeste off your board.')).toBeInTheDocument();
+  });
+
+  it('says the earlier pass survives when there is one underneath', () => {
+    // A finished game dragged back to Backlog gets a fresh entry rather than overwriting the
+    // completion, so changing your mind about the replay leaves that completion standing.
+    renderCard(libraryItem({ title: 'Celeste', entryCount: 2 }), true);
+
+    expect(
+      screen.getByText('Only this pass. Celeste stays, showing the one before it.'),
+    ).toBeInTheDocument();
   });
 
   it('opens the title it names', async () => {

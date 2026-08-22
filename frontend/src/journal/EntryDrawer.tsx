@@ -3,7 +3,8 @@ import { formatJournalDate } from '../lib/time';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm } from './EntryForm';
 import { NoteList } from './NoteList';
-import { entrySeed } from './fields';
+import { automaticGenre } from '../board/genres';
+import { entrySeed, formatHours } from './fields';
 import { useJournalEntry } from './useJournalEntry';
 import { useNotes } from './useNotes';
 import type { LogEntry, LogStatus } from '../api/types';
@@ -33,8 +34,9 @@ export interface EntryDrawerProps {
  * rendered a rating that could never be set. This is where they become real.
  */
 export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
-  const { game, save, remove, fieldErrors } = useJournalEntry(mediaId);
+  const { game, save, remove, setGenre, fieldErrors } = useJournalEntry(mediaId);
   const titleId = useId();
+  const genreId = useId();
   const panel = useRef<HTMLElement>(null);
   // Which pass has been asked about, if any. One at a time, and by id rather than a flag,
   // because every row in the history carries the same control.
@@ -88,6 +90,15 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
   const current = detail?.logEntries[0];
   const earlier = detail?.logEntries.slice(1) ?? [];
   const onlyPass = detail !== undefined && detail.logEntries.length === 1;
+
+  // The game's own genres, plus whatever is already chosen when that list has stopped mentioning
+  // it. Exactly the platform select's rule, for exactly its reason.
+  const genreOptions =
+    detail === undefined || detail.primaryGenre === null
+      ? (detail?.genres ?? [])
+      : detail.genres.includes(detail.primaryGenre)
+        ? detail.genres
+        : [...detail.genres, detail.primaryGenre];
 
   function deletePass(entryId: number) {
     // Read before the mutation, because by the time it answers the refetch has already changed
@@ -174,6 +185,35 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
           </p>
         )}
 
+
+        {/* A property of the title, so it sits in the header describing the game rather than in
+            the form describing a pass — which submits one PUT to a different endpoint and would
+            otherwise be writing to two. Saves on change; there is nothing to hold back. */}
+        {detail !== undefined && (
+          <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+            <label htmlFor={genreId} className="font-medium">
+              Genre
+            </label>
+            <select
+              id={genreId}
+              value={detail.primaryGenre ?? ''}
+              onChange={(event) =>
+                setGenre.mutate(event.target.value === '' ? null : event.target.value)
+              }
+              className="rounded border border-neutral-300 bg-white px-1 py-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+            >
+              {/* Not "Not recorded": null here means "use the automatic pick", so the option
+                  says which one that is. */}
+              <option value="">{`Automatic — ${automaticGenre(detail.genres) ?? 'none'}`}</option>
+              {genreOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {current !== undefined && detail !== undefined && (
           <PassSection entry={current} heading={STATUS_LABEL[current.status]}>
             <EntryForm
@@ -183,6 +223,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               key={entrySeed(current)}
               entry={current}
               platforms={detail.platforms}
+              hltbMainStoryHours={detail.hltbMainStoryHours}
               saving={save.isPending}
               serverErrors={fieldErrors}
               onSave={(update) => save.mutate({ entryId: current.id, update })}
@@ -225,6 +266,11 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
                         className="text-xs text-neutral-500"
                       >
                         ★ {entry.rating.toFixed(1)}
+                      </span>
+                    )}
+                    {entry.hoursPlayed !== null && (
+                      <span className="text-xs text-neutral-500">
+                        {formatHours(entry.hoursPlayed)}
                       </span>
                     )}
                     {entry.platform !== null && (

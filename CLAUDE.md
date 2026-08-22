@@ -7,20 +7,22 @@ merely shorter.
 
 ## Where things stand
 
-**The board phase is complete, and so is the drawer — all five gaps are closed.** Backend 155
-tests, frontend 134 Vitest tests, 26 Playwright specs — all green.
+**The board is complete, the drawer's five gaps are closed, and so is the round of four things
+daily use turned up after them.** Backend 187 tests, frontend 177 Vitest tests, 34 Playwright
+specs — all green.
 
-Currently on branch **`journal-notes`**, off `main` at the merge of PR #6. Every step below is
-done, and the journal is now a journal: several dated notes per pass, which is what the whole
-drawer existed to make possible.
+Currently on branch **`living-with-the-board`**, off `journal-notes` — which is finished and
+still unmerged, so open its PR before this one. Every step below is done.
 
-**HowLongToBeat is next**, and nothing is holding it up any more. See **Phases**.
+**HowLongToBeat is next**, and nothing is holding it up. Its backfill rail is already built: see
+`POST /api/games/refresh` under **Genres and colour**.
 
-Five plans, all worth reading before touching this:
+Six plans, all worth reading before touching this:
 `C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original board
 plan; `i-had-a-previous-melodic-nebula.md` beside it is the timezone and timestamp work that
 interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the five drawer gaps and the
-reasoning behind each; `i-want-to-continue-wiggly-toucan.md` is how they were built.
+reasoning behind each; `i-want-to-continue-wiggly-toucan.md` is how they were built;
+`there-are-a-few-reflective-balloon.md` is the four that came after.
 
 1. ~~Scaffold `frontend/`~~ — Vite 8 + React 19 + TS, Tailwind v4, TanStack Query, react-router.
 2. ~~API client + Vitest tests~~ — `src/api/` mirrors `Contracts/`, 32 tests over MSW.
@@ -36,6 +38,9 @@ reasoning behind each; `i-want-to-continue-wiggly-toucan.md` is how they were bu
    real dialog, deleting a pass, and the platform a pass was played on.
 8. ~~Notes become dated journal entries~~ — a `notes` child table, the column migrated in and
    dropped, and a note list per pass in the drawer. The last of the five, and the contract break.
+9. ~~Four things using it turned up~~ — closing from Backlog removes a title rather than
+   dropping it, rating by slider, your own hours beside HowLongToBeat's, and genres colouring
+   the cards. See **Genres and colour**, and the phase of the same name.
 
 **Two things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
@@ -66,8 +71,8 @@ Decisions already made with the user, **settled — do not reopen**:
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
 | Scope | `/board` and `/search` only. No detail page or year-review page yet |
 | Columns | Backlog · Playing · Completed, plus Dropped as a muted 4th, collapsed by default |
-| Dropped | close button on a card; drag out of the Dropped column to un-drop |
-| Close button | **hidden on Completed and Dropped cards** — meaningless on both |
+| Dropped | close button on a **Playing** card; drag out of the Dropped column to un-drop |
+| Close button | On Backlog it **removes** the title; on Playing it drops. **Hidden on Completed and Dropped** |
 | Year picker | above the Completed column only; Backlog and Playing ignore it |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
@@ -164,6 +169,9 @@ cd frontend && npm install && npm run dev     # http://localhost:5173
 Startup **fails deliberately** if the IGDB credentials are missing (`ValidateOnStart`), naming
 the missing setting. That is the intended behaviour, not a bug to work around.
 
+After a migration adds a column IGDB owns, bring the library you already have up to date —
+`curl -X POST http://localhost:5201/api/games/refresh`. See **Genres and colour**.
+
 New migration:
 ```bash
 dotnet ef migrations add <Name> \
@@ -174,9 +182,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 155 tests
-cd frontend && npm test                             # frontend, 134 tests
-cd frontend && npm run test:e2e                     # 26 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 187 tests
+cd frontend && npm test                             # frontend, 177 tests
+cd frontend && npm run test:e2e                     # 34 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -248,8 +256,8 @@ is how the lookup tables keep their `_lu` suffix.
 | `hobby_lu` | `id`, `name` — games, movies, tv, anime, books, music |
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
-| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `hltb_main_story_hours`, `hltb_id` |
-| `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `platform`, `started_at`, `completed_at`, `logged_at` |
+| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `hltb_main_story_hours`, `hltb_id` |
+| `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `started_at`, `completed_at`, `logged_at` |
 | `notes` | `id`, `log_entry_id`, `body`, `written_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
@@ -304,6 +312,18 @@ renames the column in `media` too and leaves the base table with no `id` at all.
   when you last fixed a typo. Cascade delete, because a note belongs to the pass it was written
   during. The migration that carried the column across gave each note its entry's `logged_at`,
   that being the only honest date available for text with none of its own.
+- **`log_entries.hours_played` is per pass**, `numeric(5,2)`, for every reason `platform` is: a
+  replay is not the same length as the first run, and the number worth reading beside HLTB's
+  estimate is how long *this* playthrough took. Same precision as `hltb_main_story_hours`,
+  because comparing them is the point. Named "played" rather than "to complete" because a pass
+  can be `InProgress` or `Dropped`, where "to complete" would be a lie. A pass inserted by a drag
+  out of Completed starts with neither hours nor platform.
+- **`games.genres` is `text[]`, and `games.primary_genre` is the one you chose.** Null there
+  means "use the automatic pick", not "no genre" — which is why the drawer's blank option reads
+  *Automatic — Platform* rather than *Not recorded*. Free text up to 50 characters, not a value
+  constrained to the array beside it, on `log_entries.platform`'s reasoning exactly. `genres` is
+  stored alphabetically like the other two arrays; IGDB's ordering is not meaningfulness
+  ordering, and which one wins is decided on the client. See **Genres and colour**.
 - **`rating` is `numeric(3,1)`, 1.0–10.0**, enforced by a check constraint. Decimal on purpose:
   8.5 and 9.6 are the point.
 - **Lookup ids are fixed constants**, `ValueGeneratedNever()` + `HasData`. They are part of the
@@ -409,6 +429,8 @@ Two IGDB quirks the code depends on:
 |---|---|
 | `GET /api/games?search=&limit=` | search IGDB, upsert, return |
 | `GET /api/games/{id}` | one stored game plus its log entries |
+| `POST /api/games/refresh` | re-fetch every IGDB title on the board. Maintenance; no UI |
+| `PUT /api/games/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `GET /api/log-entries?mediaId=&status=&page=&pageSize=` | the journal, newest first |
 | `POST /api/log-entries` | record a pass through a title |
 | `GET /api/log-entries/{id}` | |
@@ -419,6 +441,7 @@ Two IGDB quirks the code depends on:
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
 | `GET /api/library/years?hobby=` | years with completions, newest first |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
+| `DELETE /api/library/{mediaId}/current` | take a title off the board — what closing a Backlog card calls |
 | `PUT /api/library/order` | store one column's manual ranking |
 
 **Search** queries IGDB, upserts every result into `media` + `games`, and returns them **in
@@ -495,6 +518,25 @@ drag. `StatusTransitionTests` covers every row above; do not "simplify" this int
 you actually started it. Every timestamp is an instant, stamped from `IJournalClock.Now`; which
 calendar day that turns out to be is a question only the reader asks. See **Time**.
 
+
+**Closing a Backlog card removes the title; closing a Playing card drops it.** Dropped is a
+record of a game you started and gave up on, so it is the right ending for one you were playing
+and the wrong one for one you never began — a Backlog card that moved there would be claiming a
+playthrough that never happened.
+
+`DELETE /api/library/{mediaId}/current` deletes the current pass and only that one, which covers
+both endings with a single rule: a title whose only pass that was leaves the board, because the
+library is titles you have logged something against; a title carrying a 2024 completion
+underneath goes back to showing it. Nothing checks whether it was the last pass — `BoardQuery`
+already filters on `LogEntries.Any()`, so that falls out. A new endpoint rather than reusing the
+log-entry delete because a board row holds no entry id, and one read from a card rendered a
+moment ago can already name a pass that stopped being current; the server re-reads.
+
+It confirms inline on the card, because a delete is not one drag from undone. **Which card is
+asking is held by `BoardPage`, not the card** — refetches remount cards, the same fact that makes
+focus go back to the drawer's opener by id — and holding it above the board also means only one
+card can be asking at a time, as the drawer's deletes already work.
+
 **Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries
 take `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just
 added appears on top and nothing gets renumbered. `PUT /api/library/order` takes the whole column
@@ -566,6 +608,29 @@ Decisions worth not re-litigating:
 - **The platform select offers the game's own list**, from `GameDetail.platforms` — already
   loaded, no second request — plus a blank "Not recorded". A stored value that list no longer
   mentions stays in it and stays selected. See the schema note on `log_entries.platform`.
+- **The rating is a slider plus a number box**, `step="0.1"` over 1.0–10.0. Stars were the
+  obvious alternative and reach nineteen values, which would quietly retire the decimal place
+  `numeric(3,1)` exists for. Two pieces of state for one value, in `EntryForm`: `rating` is the
+  value, still text so the 8.75 rule applies to what was typed; `thumb` is only where the handle
+  sits and **moves only when the text parses**, because typing 8.75 passes through `"8."` and
+  `"8.75"`, both refused, and a handle derived from the text would be thrown to the far left on
+  each of them on the way past. A range input has no empty state, so "not rated" is said out
+  loud — blank box, dimmed track, `aria-valuetext`, and a Clear button that is absent when there
+  is nothing to clear. The slider carries the field's label; the box is **"Exact rating"**,
+  because two controls on one value need two names. Native rather than `appearance-none`, which
+  removes the thumb and leaves nothing to grab, and `color-scheme: light dark` on `:root` so the
+  track follows the theme everything else already follows.
+- **Hours played sits beside HowLongToBeat's estimate**, and says *No HowLongToBeat estimate yet*
+  until that phase lands — `hltbMainStoryHours` has been on the wire since the schema shipped and
+  read by nothing until now. `parseHours` mirrors `PlaytimeHoursAttribute` on the text rather
+  than the float, one decimal place further out than the rating for the same reason; the 999.99
+  ceiling is a different failure, since overflowing `numeric(5,2)` throws rather than rounding.
+- **The genre select is in the header, not the form.** Genre belongs to the title and the form
+  submits one `PUT` to the log-entry endpoint, so putting it there would mean writing to two.
+  It saves on change. Its blank option names the automatic pick rather than saying "Not
+  recorded", because null means *use that one*. Labelled through `htmlFor`/`id` like every other
+  field — a wrapping `<label>` makes the select's accessible name absorb its own option text,
+  which made `getByLabel('Platform')` match two controls.
 - **The form submits every field, every time.** `PUT` means an absent field is *cleared* — that
   is the whole reason it is PUT — so sending only what changed would wipe the rating whenever
   somebody corrected a date. Notes are outside it — each is its own row and its own write,
@@ -607,6 +672,60 @@ Decisions worth not re-litigating:
 the start and nothing ever passed it, so it was always `{}` — invisible, because the message is
 assembled from the same errors. The form is the first caller that wants them per-field.
 
+## Genres and colour
+
+Cards carry a colour bar down their left edge, from IGDB's genres. `frontend/src/board/genres.ts`
+is **one ordered list doing both jobs**: the order decides which genre a game is painted as — the
+first entry it has wins — and each entry carries its own colour, so adding a genre is one line
+there and one token in `index.css`.
+
+**The ordering lives on the client on purpose.** A priority list on the server plus a palette here
+would be two orderings that must agree, which is the failure this codebase has already paid for
+once over which pass the board calls current. Here they are the same array.
+
+Ordered **specific before generic**, and deliberately short. `Indie`, `Arcade` and most of IGDB's
+twenty-odd are absent because they say almost nothing about what an evening with the game is
+like. Ten hues is already past what anyone with common colour-vision deficiency can separate,
+which is why **the card prints the genre's name as well as painting it** and why the stripe is
+`aria-hidden`. Match on the trimmed, lower-cased name, so IGDB renaming a parenthetical does not
+silently unpaint a genre.
+
+- **The stripe is a child of `CardFace`, not a class on `CARD_CLASS`.** `CardFace` is what the
+  drag preview wears, so a child reaches it free; a class on the box would need applying at two
+  call sites.
+- **It always renders, `bg-transparent` when there is nothing to paint.** A stripe that vanished
+  would shift an ungenred card's contents left of its neighbours' and make a mixed column ragged.
+- **Every colour sits in `L ∈ [0.48, 0.75]`**, the band that stays visible against both
+  `bg-white` and `dark:bg-neutral-900` — which is why none of them needs a `dark:` counterpart.
+  Lightness varies as well as hue, as a second axis of separation.
+- **Whole literal class names.** Tailwind v4 scans source text; `` `bg-genre-${x}` `` generates
+  nothing and the stripe silently renders transparent.
+- A chosen genre the palette does not paint still shows its **name**, with no colour. That is one
+  line away from being painted if it keeps happening.
+
+**`POST /api/games/refresh` is the backfill**, and it has no UI — a maintenance action of the
+same tier as fixing a bad `hltb_id` in psql:
+
+```bash
+curl -X POST http://localhost:5201/api/games/refresh
+```
+
+`media` rows are only ever written by a search, so a column added to the schema stays empty on
+the library you already have until something goes and asks. It re-fetches every IGDB-sourced
+title **in the library** — not the catalog, which accumulates every result of every search ever
+typed — through `IIgdbClient.GetGamesAsync`, a `where id = (…)` clause rather than a search,
+batched at 500. It runs straight back through the same upsert a search uses, so a refreshed row
+and a searched one are written by the same code, including its care about the columns IGDB does
+not own. A title IGDB no longer returns is simply absent from the results and keeps what was last
+known. **HowLongToBeat's backfill rides this same rail.**
+
+**Two traps this cost time to find.** EF scaffolds a `NOT NULL text[]` with no default, and
+Postgres refuses that on a table with rows in it — `23502`, proven against the real database
+before `defaultValueSql: "'{}'"` went in. And the board row reaches genres through a **TPT
+downcast added to the two terminal DTO projections only**; `BoardQuery` is untouched, because
+that projection is what every `Where` and `OrderBy` on `Latest` is pushed through and when it
+stops translating the symptom is an *empty library* rather than an error.
+
 ## Phases
 
 Phases are referred to **by name, not by number**, anywhere outside this list. The order has now
@@ -622,6 +741,10 @@ the list is shuffled.
   journal drawer on the front, with Playwright specs against a real browser. The five gaps found
   by using the drawer — staleness, the dialog, deleting a pass, per-pass platform, and notes as
   dated entries — were unfinished board-phase work and are all closed.
+- **Living with the board — done.** Four things daily use turned up once the drawer was finished:
+  closing from Backlog removes a title rather than dropping it, rating by slider, your own hours
+  beside HowLongToBeat's, and genres from IGDB colouring the cards. Unfinished board-phase work,
+  the same as the five drawer gaps, and it built HowLongToBeat's backfill rail a phase early.
 - **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below. **Next, with
   nothing ahead of it.**
 - **Auth.** Google/Discord OAuth and JWT issuance.
@@ -651,7 +774,7 @@ Decided with the user, **settled — do not reopen**:
 | Position | Straight after the board, ahead of auth. `sort=hours` lands with data behind it |
 | Numbers | **Main Story only.** Uses the column that exists; no migration, and `sort=hours` has one meaning |
 | Matching | Auto-accept above a confidence threshold; **below it, leave null** |
-| Fetching | On add to the board, plus a backfill pass for what is already there |
+| Fetching | On add to the board, plus a backfill pass for what is already there — the rail exists, see **Genres and colour** |
 
 It is genuinely a backfill: `games.hltb_main_story_hours` (`numeric(5,2)`) and `games.hltb_id`
 already exist, `GameDto` and `GameDetailDto` already expose them, and `GameCatalogService`
@@ -680,3 +803,7 @@ a lookup per result would be slow and rude to a service that never agreed to ser
 
 `sort=hours` stays absent from `LibrarySort` until this ships. A sort control that visibly does
 nothing is worse than an absent one.
+
+**`log_entries.hours_played` is not this number and does not unlock this sort.** Yours is how long
+*you* took on one pass; `sort=hours` means "how long does this take", which is a property of the
+title and still null on every row. `LibrarySort` stays as it is until HLTB ships.
