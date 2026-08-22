@@ -40,7 +40,7 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     // involved_companies.developer alongside the company name because IGDB has no "developer"
     // field on a game: involvement is a join carrying role flags, so we fetch both and filter.
     private const string SearchFields =
-        "fields id, name, cover.image_id, platforms.name, genres.name, " +
+        "fields id, name, first_release_date, cover.image_id, platforms.name, genres.name, " +
         "involved_companies.developer, involved_companies.company.name;";
 
     public Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(

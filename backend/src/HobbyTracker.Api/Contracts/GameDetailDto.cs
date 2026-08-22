@@ -20,6 +20,13 @@ public sealed record GameDetailDto(
     string? ExternalId,
     string Source,
     decimal? HltbMainStoryHours,
+    decimal? HltbMainExtraHours,
+    decimal? HltbCompletionistHours,
+
+    /// <summary>
+    /// HowLongToBeat's id, once matched or pinned. The drawer offers it for correction and
+    /// links out to it, which is how you check that it matched the game you meant.
+    /// </summary>
     int? HltbId,
     IReadOnlyList<LogEntryDto> LogEntries)
 {
@@ -34,6 +41,8 @@ public sealed record GameDetailDto(
         game.ExternalId,
         SeedData.Sources.NameFor(game.SourceId),
         game.HltbMainStoryHours,
+        game.HltbMainExtraHours,
+        game.HltbCompletionistHours,
         game.HltbId,
         [.. entries.Select(LogEntryDto.From)]);
 }

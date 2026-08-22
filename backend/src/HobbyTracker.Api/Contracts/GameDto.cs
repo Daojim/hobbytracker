@@ -24,7 +24,14 @@ public sealed record GameDto(
     string? PrimaryGenre,
     string? ExternalId,
     string Source,
-    decimal? HltbMainStoryHours)
+
+    /// <summary>
+    /// HowLongToBeat's three completion times, in hours. Any of them can be null on its own —
+    /// a game with a main-story time and no completionist time is ordinary, not an error.
+    /// </summary>
+    decimal? HltbMainStoryHours,
+    decimal? HltbMainExtraHours,
+    decimal? HltbCompletionistHours)
 {
     public static GameDto From(Game game) => new(
         game.Id,
@@ -36,7 +43,9 @@ public sealed record GameDto(
         game.PrimaryGenre,
         game.ExternalId,
         SeedData.Sources.NameFor(game.SourceId),
-        game.HltbMainStoryHours);
+        game.HltbMainStoryHours,
+        game.HltbMainExtraHours,
+        game.HltbCompletionistHours);
 }
 
 /// <summary>
