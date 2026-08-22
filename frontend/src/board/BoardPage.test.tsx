@@ -55,7 +55,7 @@ describe('BoardPage', () => {
 
     // The drawer sits over the board rather than replacing it — the columns are still there.
     expect(await screen.findByRole('button', { name: 'Close' })).toBeInTheDocument();
-    expect(await screen.findByRole('spinbutton', { name: 'Rating' })).toHaveValue(8.5);
+    expect(await screen.findByRole('spinbutton', { name: 'Exact rating' })).toHaveValue(8.5);
     expect(screen.getByRole('heading', { name: 'Backlog 1' })).toBeInTheDocument();
   });
 

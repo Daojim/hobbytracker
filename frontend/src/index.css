@@ -7,3 +7,12 @@
 @theme {
   --color-column-dropped: oklch(0.55 0.01 260);
 }
+
+/*
+ * Native controls — the rating slider, the date inputs, the selects — follow the OS theme only
+ * if the page says it has both. Without this the slider's track renders light on a dark drawer,
+ * which is the one part of a range input Tailwind cannot reach with a utility.
+ */
+:root {
+  color-scheme: light dark;
+}

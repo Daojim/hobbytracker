@@ -8,6 +8,17 @@ import type { LogEntry } from '../api/types';
 /** Mirrors RatingAttribute on the server, word for word, so both sides say the same thing. */
 export const RATING_RULE = 'Rating must be between 1.0 and 10.0, with at most one decimal place.';
 
+
+/**
+ * Where the slider's handle rests when nothing has been rated.
+ *
+ * A range input has no empty state — it always holds a number — so "not rated" is carried by the
+ * text box being blank and by the slider's aria-valuetext, not by the handle's position. It sits
+ * at the bottom of the scale rather than the middle because a handle in the middle reads as a
+ * deliberate 5.5.
+ */
+export const UNRATED_THUMB = 1;
+
 export type ParsedRating =
   | { value: number | null; error?: undefined }
   | { value?: undefined; error: string };

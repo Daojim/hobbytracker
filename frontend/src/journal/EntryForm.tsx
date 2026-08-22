@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { journalDateInput } from '../lib/time';
-import { RATING_RULE, dateFieldValue, parseRating } from './fields';
+import { RATING_RULE, UNRATED_THUMB, dateFieldValue, parseRating } from './fields';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
 
 export interface EntryFormProps {
@@ -22,11 +22,40 @@ export interface EntryFormProps {
  */
 export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: EntryFormProps) {
   const ids = useId();
+
+  // Two pieces of state for one value, on purpose. `rating` is the value — held as text, so the
+  // 8.75 rule can be applied to what was typed rather than to a float that has already lost the
+  // distinction. `thumb` is only where the handle sits, and it moves only when the text parses:
+  // typing 8.75 passes through "8." and "8.75", both refused, and a handle derived from the text
+  // would be thrown to the far left on each of them on the way past.
   const [rating, setRating] = useState(entry.rating === null ? '' : String(entry.rating));
+  const [thumb, setThumb] = useState(entry.rating ?? UNRATED_THUMB);
   const [platform, setPlatform] = useState(entry.platform ?? '');
   const [started, setStarted] = useState(journalDateInput(entry.startedAt));
   const [completed, setCompleted] = useState(journalDateInput(entry.completedAt));
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+
+  /** Dragging the slider. A step of 0.1 gives exactly the scale the column stores. */
+  function slide(value: number) {
+    setThumb(value);
+    setRating(value.toFixed(1));
+  }
+
+  /** Typing an exact value. The handle keeps up only while there is a number to keep up with. */
+  function type(text: string) {
+    setRating(text);
+
+    const parsed = parseRating(text);
+    if (parsed.value !== undefined && parsed.value !== null) {
+      setThumb(parsed.value);
+    }
+  }
+
+  function clearRating() {
+    setRating('');
+    setThumb(UNRATED_THUMB);
+  }
 
   const messageFor = (field: string) => errors[field] ?? serverErrors[field]?.join(' ');
 
@@ -79,16 +108,49 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
     // and the message that matters here is *why* two decimal places are refused.
     <form onSubmit={submit} noValidate className="flex flex-col gap-3">
       <Field id={`${ids}-rating`} label="Rating" message={messageFor('rating')}>
-        <input
-          id={`${ids}-rating`}
-          type="number"
-          step="0.1"
-          min="1"
-          max="10"
-          value={rating}
-          onChange={(event) => setRating(event.target.value)}
-          className="w-24 rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-        />
+        <div className="flex items-center gap-3">
+          {/* The slider carries the field's label, so it is the control a screen reader meets
+              first and the one arrow keys reach. aria-valuetext is what keeps an unrated pass
+              from being announced as the 1.0 the handle happens to be parked on. */}
+          <input
+            id={`${ids}-rating`}
+            type="range"
+            min="1"
+            max="10"
+            step="0.1"
+            value={thumb}
+            aria-valuetext={rating === '' ? 'Not rated' : rating}
+            onChange={(event) => slide(Number(event.target.value))}
+            className={`w-40 cursor-pointer accent-neutral-700 dark:accent-neutral-300 ${
+              rating === '' ? 'opacity-40' : ''
+            }`}
+          />
+
+          <input
+            type="number"
+            step="0.1"
+            min="1"
+            max="10"
+            aria-label="Exact rating"
+            placeholder="—"
+            value={rating}
+            onChange={(event) => type(event.target.value)}
+            className="w-16 rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          />
+
+          {/* Absent rather than disabled while there is nothing to clear, as the card's close
+              button is absent in the columns where it would mean nothing. */}
+          {rating !== '' && (
+            <button
+              type="button"
+              aria-label="Clear rating"
+              onClick={clearRating}
+              className="rounded text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </Field>
 
       <Field id={`${ids}-platform`} label="Platform" message={messageFor('platform')}>

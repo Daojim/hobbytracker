@@ -30,7 +30,7 @@ test('rating a game from the board puts the rating on its card', async ({ page, 
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await page.getByRole('spinbutton', { name: 'Rating' }).fill('8.5');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
   await page.getByRole('button', { name: 'Save' }).click();
   await page.getByRole('button', { name: 'Close' }).click();
 
@@ -52,12 +52,50 @@ test('a rating the column would round is refused before it is sent', async ({ pa
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await page.getByRole('spinbutton', { name: 'Rating' }).fill('8.75');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.75');
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(page.getByRole('alert')).toContainText('one decimal place');
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toHaveCount(0);
+});
+
+
+test('the rating slider answers to the keyboard, a tenth at a time', async ({ page, request }) => {
+  // jsdom has no slider to press: the arrow keys a range input answers to are the browser's,
+  // not ours, and "it comes for free" is only true if something checks.
+  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8 });
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('slider', { name: 'Rating' }).focus();
+  for (let nudge = 0; nudge < 5; nudge += 1) {
+    await page.keyboard.press('ArrowRight');
+  }
+
+  await expect(page.getByRole('spinbutton', { name: 'Exact rating' })).toHaveValue('8.5');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(
+    card(page, 'Celeste').getByRole('img', { name: 'Rated 8.5 out of 10' }),
+  ).toBeVisible();
+});
+
+test('clearing a rating takes it off the card', async ({ page, request }) => {
+  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8.5 });
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('button', { name: 'Clear rating' }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toBeHidden();
+
+  // Cleared, not merely blanked on screen: PUT sends the null that empties the column.
+  await page.reload();
+  await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toBeHidden();
 });
 
 test('a corrected start date shows on the card', async ({ page, request }) => {

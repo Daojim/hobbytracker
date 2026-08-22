@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
@@ -7,7 +7,8 @@ import { gameDetail, journalServer, logEntry, note } from '../test/games';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 
-const rating = () => screen.getByRole('spinbutton', { name: 'Rating' });
+const rating = () => screen.getByRole('spinbutton', { name: 'Exact rating' });
+const slider = () => screen.getByRole('slider', { name: 'Rating' });
 const started = () => screen.getByLabelText('Started');
 const save = () => screen.getByRole('button', { name: 'Save' });
 
@@ -48,7 +49,7 @@ describe('EntryDrawer', () => {
     });
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '8.5');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
     await userEvent.click(save());
 
     await waitFor(() => expect(journal.saved).toHaveLength(1));
@@ -62,6 +63,84 @@ describe('EntryDrawer', () => {
     });
   });
 
+  it('rates by slider, and the box follows', async () => {
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    open();
+    // A range input ignores userEvent.type: it has no text to receive. fireEvent is how a drag
+    // reaches it, which is what the pointer does in a real browser.
+    fireEvent.change(await screen.findByRole('slider', { name: 'Rating' }), {
+      target: { value: '8.5' },
+    });
+
+    expect(rating()).toHaveValue(8.5);
+
+    await userEvent.click(save());
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body['rating']).toBe(8.5);
+  });
+
+  it('rates by the box, and the handle follows', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.3');
+
+    expect(slider()).toHaveValue('8.3');
+  });
+
+  it('leaves the handle where it was while a rating is half-typed', async () => {
+    // "8." and "8.75" are both refused by the rule, and deriving the handle from the text would
+    // throw it to the far left on each of them on the way to 8.7 — a jump nobody asked for.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    const box = await screen.findByRole('spinbutton', { name: 'Exact rating' });
+    await userEvent.type(box, '8');
+    expect(slider()).toHaveValue('8');
+
+    await userEvent.type(box, '.');
+    expect(slider()).toHaveValue('8');
+
+    await userEvent.type(box, '75');
+    expect(slider()).toHaveValue('8.7');
+  });
+
+  it('says a pass is unrated rather than announcing a 1.0 nobody chose', async () => {
+    // A range input always holds a value, so "not rated" has to be said out loud — otherwise
+    // the handle parked at the low end reads as the lowest possible score.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, rating: null })] }) });
+
+    open();
+
+    expect(await screen.findByRole('slider', { name: 'Rating' })).toHaveAttribute(
+      'aria-valuetext',
+      'Not rated',
+    );
+    expect(rating()).toHaveValue(null);
+    expect(screen.queryByRole('button', { name: 'Clear rating' })).not.toBeInTheDocument();
+  });
+
+  it('clears back to unrated, and sends that as null', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'InProgress', rating: 8.5 })],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Clear rating' }));
+
+    expect(rating()).toHaveValue(null);
+    expect(slider()).toHaveAttribute('aria-valuetext', 'Not rated');
+
+    await userEvent.click(save());
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body['rating']).toBeNull();
+  });
+
   it('gives an untouched date back as the instant it was, not as midnight', async () => {
     const journal = journalServer({
       detail: gameDetail({
@@ -70,7 +149,7 @@ describe('EntryDrawer', () => {
     });
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '9');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
     await userEvent.click(save());
 
     await waitFor(() => expect(journal.saved).toHaveLength(1));
@@ -99,7 +178,7 @@ describe('EntryDrawer', () => {
     const journal = journalServer();
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '8.75');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.75');
     await userEvent.click(save());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/one decimal place/);
@@ -125,7 +204,7 @@ describe('EntryDrawer', () => {
     journalServer({ saveErrors: { rating: ['Rating must be between 1.0 and 10.0.'] } });
 
     open();
-    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Rating' }), '9');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
     await userEvent.click(save());
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -155,7 +234,8 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText('Earlier passes')).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Completed Nov 2, 2024' })).toBeInTheDocument();
     // One form, for the current pass. The history is a record, not a set of inputs.
-    expect(screen.getAllByRole('spinbutton', { name: 'Rating' })).toHaveLength(1);
+    expect(screen.getAllByRole('slider', { name: 'Rating' })).toHaveLength(1);
+    expect(screen.getAllByRole('spinbutton', { name: 'Exact rating' })).toHaveLength(1);
   });
 
   it('closes when asked', async () => {
