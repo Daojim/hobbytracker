@@ -130,9 +130,12 @@ test('closing a replay you thought better of gives the finished pass back', asyn
   await drag(page, card(page, 'Hollow Knight'), column(page, 'Backlog'));
   await expect(column(page, 'Backlog').getByText('Hollow Knight')).toBeVisible();
 
-  // Clicked without waiting for the board to settle, on purpose: the refetch that follows a
-  // drag remounts the card, and the confirm has to still be there afterwards. It is, because
-  // the board holds which card is asking rather than the card holding it itself.
+  // Waits for the refetch before clicking: the badge only appears once the server has answered,
+  // and clicking into a list that is still re-laying-out lands the press wherever the card used
+  // to be. That the confirm itself survives a refetch is Card.test.tsx's job, where the refetch
+  // can be controlled instead of raced.
+  await expect(card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' })).toBeVisible();
+
   await card(page, 'Hollow Knight')
     .getByRole('button', { name: 'Remove Hollow Knight from your board' })
     .click();

@@ -18,6 +18,8 @@ export const COLUMN_LABEL: Record<LogStatus, string> = {
 interface SeedOptions {
   startedAt?: string;
   completedAt?: string;
+  rating?: number;
+  hoursPlayed?: number;
 }
 
 /** Puts a title on the board and answers with its media id. */

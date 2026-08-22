@@ -1,12 +1,22 @@
 import { useId, useState } from 'react';
 import { journalDateInput } from '../lib/time';
-import { RATING_RULE, UNRATED_THUMB, dateFieldValue, parseRating } from './fields';
+import {
+  HOURS_RULE,
+  RATING_RULE,
+  UNRATED_THUMB,
+  dateFieldValue,
+  formatHours,
+  parseHours,
+  parseRating,
+} from './fields';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
 
 export interface EntryFormProps {
   entry: LogEntry;
   /** What the game came out on. Already loaded by getGame, so this costs no extra request. */
   platforms: string[];
+  /** HowLongToBeat's main-story estimate, for reading yours against. Null until it lands. */
+  hltbMainStoryHours: number | null;
   saving: boolean;
   /** What the API objected to, keyed by field, so it can be shown where it belongs. */
   serverErrors: Record<string, string[]>;
@@ -20,7 +30,14 @@ export interface EntryFormProps {
  * columns, and the rules about which entry that touches and which timestamps it stamps live on
  * the server — a second way in would need its own copy of all of it.
  */
-export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: EntryFormProps) {
+export function EntryForm({
+  entry,
+  platforms,
+  hltbMainStoryHours,
+  saving,
+  serverErrors,
+  onSave,
+}: EntryFormProps) {
   const ids = useId();
 
   // Two pieces of state for one value, on purpose. `rating` is the value — held as text, so the
@@ -31,6 +48,7 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
   const [rating, setRating] = useState(entry.rating === null ? '' : String(entry.rating));
   const [thumb, setThumb] = useState(entry.rating ?? UNRATED_THUMB);
   const [platform, setPlatform] = useState(entry.platform ?? '');
+  const [hours, setHours] = useState(entry.hoursPlayed === null ? '' : String(entry.hoursPlayed));
   const [started, setStarted] = useState(journalDateInput(entry.startedAt));
   const [completed, setCompleted] = useState(journalDateInput(entry.completedAt));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -59,6 +77,30 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
 
   const messageFor = (field: string) => errors[field] ?? serverErrors[field]?.join(' ');
 
+  /**
+   * Your hours read against HowLongToBeat's, which is the reason to write them down at all.
+   *
+   * hltb_main_story_hours has been on the wire since the schema shipped and null on every row,
+   * so the honest thing to say for now is that there is no estimate — not nothing at all, which
+   * reads as a missing feature rather than missing data.
+   */
+  const comparison = (() => {
+    const mine = parseHours(hours).value ?? null;
+
+    if (hltbMainStoryHours === null) {
+      return 'No HowLongToBeat estimate yet';
+    }
+
+    const estimate = `Main story: ${formatHours(hltbMainStoryHours)}`;
+    if (mine === null) {
+      return estimate;
+    }
+
+    const difference = Number((mine - hltbMainStoryHours).toFixed(2));
+    const sign = difference > 0 ? '+' : '';
+    return `${estimate} · you: ${formatHours(mine)} (${sign}${difference})`;
+  })();
+
   // IGDB's list, plus whatever is already recorded when that list has stopped mentioning it.
   // Dropping a stored value on a save the reader made about something else is not a correction.
   const options =
@@ -74,6 +116,11 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
 
     if (parsed.error !== undefined) {
       found['rating'] = RATING_RULE;
+    }
+
+    const playtime = parseHours(hours);
+    if (playtime.error !== undefined) {
+      found['hoursPlayed'] = HOURS_RULE;
     }
 
     // Both are the same YYYY-MM-DD shape here, so comparing the text compares the days. Caught
@@ -96,6 +143,7 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
       status: entry.status,
       rating: parsed.value ?? null,
       platform: platform === '' ? null : platform,
+      hoursPlayed: playtime.value ?? null,
       startedAt: dateFieldValue(started, entry.startedAt),
       completedAt: dateFieldValue(completed, entry.completedAt),
     });
@@ -150,6 +198,24 @@ export function EntryForm({ entry, platforms, saving, serverErrors, onSave }: En
               ×
             </button>
           )}
+        </div>
+      </Field>
+
+
+      <Field id={`${ids}-hours`} label="Hours played" message={messageFor('hoursPlayed')}>
+        <div className="flex flex-wrap items-baseline gap-3">
+          <input
+            id={`${ids}-hours`}
+            type="number"
+            step="0.1"
+            min="0"
+            placeholder="—"
+            value={hours}
+            onChange={(event) => setHours(event.target.value)}
+            className="w-24 rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          />
+
+          <span className="text-xs text-neutral-500">{comparison}</span>
         </div>
       </Field>
 

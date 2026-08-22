@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { dateFieldValue, parseRating } from './fields';
+import {
+  HOURS_RULE,
+  dateFieldValue,
+  formatHours,
+  parseHours,
+  parseRating,
+} from './fields';
 
 describe('dateFieldValue', () => {
   const instant = '2026-08-21T01:30:00+00:00'; // 21:30 on the 20th here
@@ -49,5 +55,45 @@ describe('parseRating', () => {
 
   it.each(['0.5', '11', '-2', 'abc'])('refuses %s', (input) => {
     expect(parseRating(input).error).toBeTruthy();
+  });
+});
+
+describe('parseHours', () => {
+  it('takes a length of time to two decimal places', () => {
+    expect(parseHours('31.5')).toEqual({ value: 31.5 });
+    expect(parseHours('12.25')).toEqual({ value: 12.25 });
+    expect(parseHours('8')).toEqual({ value: 8 });
+  });
+
+  it('reads empty as not recorded, which is not nought', () => {
+    expect(parseHours('')).toEqual({ value: null });
+    expect(parseHours('  ')).toEqual({ value: null });
+  });
+
+  it('refuses a third decimal place, which the column would round away', () => {
+    // numeric(5,2) stores 12.345 as 12.35, so accepting it means reporting back a number the
+    // database does not hold. The rating's rule, one place further out.
+    expect(parseHours('12.345').error).toBe(HOURS_RULE);
+  });
+
+  it.each(['0', '-3', '1000', 'abc', '1e3'])('refuses %s', (input) => {
+    expect(parseHours(input).error).toBe(HOURS_RULE);
+  });
+
+  it('accepts the largest number the column holds, and refuses the next one', () => {
+    expect(parseHours('999.99')).toEqual({ value: 999.99 });
+    expect(parseHours('1000').error).toBe(HOURS_RULE);
+  });
+});
+
+describe('formatHours', () => {
+  it('drops a trailing nought rather than writing 31.0 h', () => {
+    expect(formatHours(31)).toBe('31 h');
+    expect(formatHours(31.5)).toBe('31.5 h');
+    expect(formatHours(12.25)).toBe('12.25 h');
+  });
+
+  it('has nothing to say about a number that was never recorded', () => {
+    expect(formatHours(null)).toBeNull();
   });
 });

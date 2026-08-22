@@ -56,6 +56,17 @@ public class LogEntry
     /// Null until started. Stored as timestamptz: an absolute moment, rendered in whatever zone
     /// is being asked.
     /// </summary>
+
+    /// <summary>
+    /// How long this pass took, in hours. Null until recorded.
+    ///
+    /// Per pass rather than per title, for the same reason as <see cref="Platform"/>: a replay
+    /// is not the same length as the first run, and the number worth putting beside
+    /// HowLongToBeat's estimate is how long <em>this</em> playthrough took. numeric(5,2),
+    /// matching hltb_main_story_hours, because comparing the two is the whole point.
+    /// </summary>
+    public decimal? HoursPlayed { get; set; }
+
     public DateTimeOffset? StartedAt { get; set; }
 
     /// <summary>When this pass finished. Null until it does. See <see cref="StartedAt"/>.</summary>

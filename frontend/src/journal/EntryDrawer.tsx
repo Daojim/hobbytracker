@@ -3,7 +3,7 @@ import { formatJournalDate } from '../lib/time';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm } from './EntryForm';
 import { NoteList } from './NoteList';
-import { entrySeed } from './fields';
+import { entrySeed, formatHours } from './fields';
 import { useJournalEntry } from './useJournalEntry';
 import { useNotes } from './useNotes';
 import type { LogEntry, LogStatus } from '../api/types';
@@ -183,6 +183,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               key={entrySeed(current)}
               entry={current}
               platforms={detail.platforms}
+              hltbMainStoryHours={detail.hltbMainStoryHours}
               saving={save.isPending}
               serverErrors={fieldErrors}
               onSave={(update) => save.mutate({ entryId: current.id, update })}
@@ -225,6 +226,11 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
                         className="text-xs text-neutral-500"
                       >
                         ★ {entry.rating.toFixed(1)}
+                      </span>
+                    )}
+                    {entry.hoursPlayed !== null && (
+                      <span className="text-xs text-neutral-500">
+                        {formatHours(entry.hoursPlayed)}
                       </span>
                     )}
                     {entry.platform !== null && (

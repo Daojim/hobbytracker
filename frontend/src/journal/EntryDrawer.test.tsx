@@ -58,6 +58,7 @@ describe('EntryDrawer', () => {
       status: 'InProgress',
       rating: 8.5,
       platform: null,
+      hoursPlayed: null,
       startedAt: null,
       completedAt: null,
     });
@@ -431,6 +432,80 @@ describe('EntryDrawer', () => {
 
     expect(await screen.findByText('That pass is already gone.')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('records how long a pass took, and sends it', async () => {
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'Completed' })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('Hours played'), '31.5');
+    await userEvent.click(save());
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body['hoursPlayed']).toBe(31.5);
+  });
+
+  it('refuses hours the column would round, without asking the server', async () => {
+    const journal = journalServer();
+
+    open();
+    await userEvent.type(await screen.findByLabelText('Hours played'), '12.345');
+    await userEvent.click(save());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/two decimal places/);
+    expect(journal.saved).toHaveLength(0);
+  });
+
+
+  it('shows what an earlier pass took, alongside what it was rated', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9, status: 'InProgress' }),
+          logEntry({
+            id: 7,
+            status: 'Completed',
+            rating: 9.6,
+            hoursPlayed: 42.5,
+            completedAt: '2024-11-02T18:00:00+00:00',
+          }),
+        ],
+      }),
+    });
+
+    open();
+
+    const pass = await screen.findByRole('region', { name: 'Completed Nov 2, 2024' });
+    expect(within(pass).getByText('42.5 h')).toBeInTheDocument();
+  });
+
+  it('says there is no HowLongToBeat estimate yet rather than showing nothing', async () => {
+    // The column has been on the wire since the schema shipped and null on every row. Saying so
+    // is the honest state until the HowLongToBeat pass fills it in.
+    journalServer({
+      detail: gameDetail({ hltbMainStoryHours: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+
+    expect(await screen.findByText(/No HowLongToBeat estimate yet/)).toBeInTheDocument();
+  });
+
+  it('puts your hours next to the main story, and the difference between them', async () => {
+    journalServer({
+      detail: gameDetail({
+        hltbMainStoryHours: 24.5,
+        logEntries: [logEntry({ id: 7, hoursPlayed: 31 })],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByText(/Main story: 24.5 h/)).toBeInTheDocument();
+    expect(screen.getByText(/you: 31 h/)).toBeInTheDocument();
+    expect(screen.getByText(/\+6.5/)).toBeInTheDocument();
   });
 
   it('offers the platforms the game came out on, and no platform at all', async () => {

@@ -269,6 +269,25 @@ test('deleting the only pass takes the title off the board', async ({ page, requ
   await expect(card(page, 'Celeste')).toHaveCount(0);
 });
 
+
+test('how long a pass took is recorded against that pass', async ({ page, request }) => {
+  // Per pass, like the platform: a replay is not the same length as the first run, and the
+  // number worth putting beside HowLongToBeat's estimate is what this playthrough took.
+  await seed(request, 'Celeste', 'Completed', { startedAt: '2026-08-01', completedAt: '2026-08-10' });
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByText('No HowLongToBeat estimate yet')).toBeVisible();
+
+  await page.getByLabel('Hours played').fill('31.5');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.reload();
+  await openJournal(page, 'Celeste');
+  await expect(page.getByLabel('Hours played')).toHaveValue('31.5');
+});
+
 test('the platform you played on is recorded against that pass', async ({ page, request }) => {
   await seed(request, 'Hollow Knight', 'InProgress');
   await page.reload();

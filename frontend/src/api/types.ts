@@ -82,6 +82,8 @@ export interface LogEntry {
   notes: Note[];
   /** What it was played on. Free text: IGDB names the platforms, but its list is not the record. */
   platform: string | null;
+  /** How long this pass took you, in hours. Null until recorded. */
+  hoursPlayed: number | null;
   /** Instants. A value sent without an offset is read as Eastern by the server. */
   startedAt: string | null;
   completedAt: string | null;
@@ -95,6 +97,7 @@ export interface CreateLogEntry {
   status: LogStatus;
   rating?: number | null;
   platform?: string | null;
+  hoursPlayed?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;
 }

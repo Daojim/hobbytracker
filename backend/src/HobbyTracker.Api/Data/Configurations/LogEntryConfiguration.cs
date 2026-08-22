@@ -14,6 +14,13 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
                 "ck_log_entries_rating_range",
                 "rating IS NULL OR (rating >= 1.0 AND rating <= 10.0)");
 
+            // Nought hours played is not a fact, and numeric(5,2) stops at 999.99 — past which
+            // Postgres throws rather than rounding. Mirrors PlaytimeHoursAttribute, which
+            // catches both before a request ever reaches here.
+            table.HasCheckConstraint(
+                "ck_log_entries_hours_played_range",
+                "hours_played IS NULL OR (hours_played > 0 AND hours_played <= 999.99)");
+
             // A completion cannot precede its own start. Cheap to enforce here, and it
             // stops a UI bug from quietly writing nonsense into the history.
             table.HasCheckConstraint(
@@ -29,6 +36,10 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
 
         // 1.0–10.0, one decimal place.
         builder.Property(e => e.Rating).HasPrecision(3, 1);
+
+        // Up to 999.99 hours, to the nearest hundredth — the same shape as
+        // games.hltb_main_story_hours, which is the number this one gets compared against.
+        builder.Property(e => e.HoursPlayed).HasPrecision(5, 2);
 
         // Free text, not a lookup: IGDB names platforms and the UI offers that list, but the
         // list is theirs to change and a stored value has to outlive it. See LogEntry.Platform.

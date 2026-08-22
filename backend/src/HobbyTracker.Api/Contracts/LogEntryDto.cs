@@ -24,7 +24,10 @@ public sealed record LogEntryDto(
     DateTimeOffset? CompletedAt,
 
     /// <summary>When the entry was written down. Server-stamped; see <see cref="LogEntry.LoggedAt"/>.</summary>
-    DateTimeOffset LoggedAt)
+    DateTimeOffset LoggedAt,
+
+    /// <summary>How long this pass took you. See <see cref="LogEntry.HoursPlayed"/>.</summary>
+    decimal? HoursPlayed)
 {
     public static LogEntryDto From(LogEntry entry) => new(
         entry.Id,
@@ -44,7 +47,8 @@ public sealed record LogEntryDto(
         entry.Platform,
         entry.StartedAt,
         entry.CompletedAt,
-        entry.LoggedAt);
+        entry.LoggedAt,
+        entry.HoursPlayed);
 }
 
 /// <summary>
@@ -60,7 +64,8 @@ public sealed record CreateLogEntryRequest(
     [Rating] decimal? Rating,
     [MaxLength(100)] string? Platform,
     DateTimeOffset? StartedAt,
-    DateTimeOffset? CompletedAt) : IValidatableObject
+    DateTimeOffset? CompletedAt,
+    [PlaytimeHours] decimal? HoursPlayed) : IValidatableObject
 {
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
         LogEntryRules.TimestampOrder(StartedAt, CompletedAt);
@@ -79,7 +84,8 @@ public sealed record UpdateLogEntryRequest(
     [Rating] decimal? Rating,
     [MaxLength(100)] string? Platform,
     DateTimeOffset? StartedAt,
-    DateTimeOffset? CompletedAt) : IValidatableObject
+    DateTimeOffset? CompletedAt,
+    [PlaytimeHours] decimal? HoursPlayed) : IValidatableObject
 {
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
         LogEntryRules.TimestampOrder(StartedAt, CompletedAt);
