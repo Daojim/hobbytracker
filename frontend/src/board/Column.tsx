@@ -12,6 +12,17 @@ import type { LibrarySort, LogStatus } from '../api/types';
 /** The id a column droppable answers to, so a drop onto empty space still names a column. */
 export const droppableId = (status: LogStatus) => `column:${status}`;
 
+/**
+ * Removing a title, as the whole column sees it: which card is currently asking, and what to do
+ * about it. Held above the board rather than in each card — see {@link CardRemoval}.
+ */
+export interface ColumnRemoval {
+  mediaId: number | null;
+  onAsk: (mediaId: number) => void;
+  onCancel: () => void;
+  onConfirm: (mediaId: number) => void;
+}
+
 export interface ColumnProps {
   hobby: string;
   status: LogStatus;
@@ -25,6 +36,7 @@ export interface ColumnProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onDrop: (mediaId: number) => void;
+  removal: ColumnRemoval;
   onOpen: (mediaId: number) => void;
 }
 
@@ -39,6 +51,7 @@ export function Column({
   collapsed = false,
   onToggleCollapse,
   onDrop,
+  removal,
   onOpen,
 }: ColumnProps) {
   const headingId = useId();
@@ -104,6 +117,12 @@ export function Column({
                   key={item.mediaId}
                   item={item}
                   onDrop={onDrop}
+                  removal={{
+                    confirming: removal.mediaId === item.mediaId,
+                    onAsk: () => removal.onAsk(item.mediaId),
+                    onCancel: removal.onCancel,
+                    onConfirm: () => removal.onConfirm(item.mediaId),
+                  }}
                   onOpen={onOpen}
                   // Every other mode is a read-only view. Offering a drag there would promise a
                   // ranking the API is not going to store.

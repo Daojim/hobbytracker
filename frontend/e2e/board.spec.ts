@@ -94,6 +94,56 @@ test('the close button drops a game, and dragging it out picks it back up', asyn
     .toBe('InProgress');
 });
 
+
+test('closing a backlog game takes it off the board rather than dropping it', async ({
+  page,
+  request,
+}) => {
+  // Dropped records a game you started and gave up on. Nothing was started here, so there is
+  // nothing to record — the title goes, and the catalog keeps the game itself.
+  const mediaId = await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await card(page, 'Celeste').getByRole('button', { name: 'Remove Celeste from your board' }).click();
+  await expect(page.getByText('Takes Celeste off your board.')).toBeVisible();
+  await page.getByRole('button', { name: 'Really remove?' }).click();
+
+  await expect(card(page, 'Celeste')).toBeHidden();
+  await expect.poll(async () => (await entriesFor(request, mediaId)).length).toBe(0);
+
+  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  expect(await titlesIn(page, 'Dropped')).not.toContain('Celeste');
+});
+
+test('closing a replay you thought better of gives the finished pass back', async ({
+  page,
+  request,
+}) => {
+  // Dragging a finished game to Backlog inserts a fresh entry rather than editing the
+  // completion. Changing your mind has to undo exactly that much and no more.
+  const mediaId = await seed(request, 'Hollow Knight', 'Completed', {
+    startedAt: '2024-01-10',
+    completedAt: '2024-03-02',
+  });
+  await page.reload();
+
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'Backlog'));
+  await expect(column(page, 'Backlog').getByText('Hollow Knight')).toBeVisible();
+
+  // Clicked without waiting for the board to settle, on purpose: the refetch that follows a
+  // drag remounts the card, and the confirm has to still be there afterwards. It is, because
+  // the board holds which card is asking rather than the card holding it itself.
+  await card(page, 'Hollow Knight')
+    .getByRole('button', { name: 'Remove Hollow Knight from your board' })
+    .click();
+  await expect(page.getByText(/Only this pass\./)).toBeVisible();
+  await page.getByRole('button', { name: 'Really remove?' }).click();
+
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
+  await expect.poll(async () => (await entriesFor(request, mediaId)).length).toBe(1);
+  expect((await entriesFor(request, mediaId))[0]?.completedAt).not.toBeNull();
+});
+
 test('a reordered column stays reordered', async ({ page, request }) => {
   await seed(request, 'Celeste', 'Backlog');
   await seed(request, 'Hades', 'Backlog');

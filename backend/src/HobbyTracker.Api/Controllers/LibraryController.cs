@@ -75,6 +75,25 @@ public class LibraryController(ILibraryService library) : ControllerBase
     }
 
     /// <summary>
+    /// Takes a title off the board by deleting its current pass — what closing a Backlog card
+    /// does.
+    ///
+    /// Closing is not dropping. Dropped records a game you started and gave up on, so a title
+    /// you never began has nothing to abandon. Deleting the current pass covers both endings
+    /// with one rule: a title with a single pass leaves the board, and a title with an older
+    /// completion underneath goes back to showing that.
+    /// </summary>
+    [HttpDelete("{mediaId:int}/current")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveCurrentPass(
+        int mediaId, CancellationToken cancellationToken)
+    {
+        var removed = await library.RemoveCurrentPassAsync(mediaId, cancellationToken);
+        return removed ? NoContent() : NotFound();
+    }
+
+    /// <summary>
     /// Stores the manual ranking of one column, top first.
     ///
     /// Titles that have since moved out of the column are ignored rather than rejected — a

@@ -26,6 +26,17 @@ public interface ILibraryService
     Task<LibraryItemDto?> TransitionAsync(
         int mediaId, LogStatus target, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Deletes the title's current pass — what closing a Backlog card does. False when it has
+    /// never been logged.
+    ///
+    /// Which entry that is gets decided here rather than by the caller, for the same reason
+    /// <see cref="TransitionAsync"/> decides it: the board holds no entry id, and one read from
+    /// a card rendered a moment ago can already be pointing at a pass that stopped being
+    /// current.
+    /// </summary>
+    Task<bool> RemoveCurrentPassAsync(int mediaId, CancellationToken cancellationToken);
+
     Task ReorderAsync(ReorderRequest request, CancellationToken cancellationToken);
 }
 
@@ -158,6 +169,27 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
         }
 
         return await ItemAsync(mediaId, cancellationToken);
+    }
+
+    public async Task<bool> RemoveCurrentPassAsync(int mediaId, CancellationToken cancellationToken)
+    {
+        var latest = await LatestEntryFor(mediaId).FirstOrDefaultAsync(cancellationToken);
+        if (latest is null)
+        {
+            // In the catalog but not on the board — there is no pass to take off it.
+            return false;
+        }
+
+        // The current pass, and only that one. A mistaken drag to Completed and back leaves an
+        // entry recording nothing that happened, and that is worth taking back; the completion
+        // underneath it is a record of something that did, and is not.
+        //
+        // Nothing here asks whether this was the last pass. BoardQuery already filters on
+        // `media.LogEntries.Any()`, so a title with none left stops being on the board of its
+        // own accord — the library is titles you have logged something against.
+        db.LogEntries.Remove(latest);
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task ReorderAsync(ReorderRequest request, CancellationToken cancellationToken)

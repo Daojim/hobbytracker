@@ -16,6 +16,7 @@ function renderColumn(
       sort="manual"
       onSortChange={vi.fn()}
       onDrop={vi.fn()}
+      removal={{ mediaId: null, onAsk: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn() }}
       onOpen={vi.fn()}
       {...props}
     />,
