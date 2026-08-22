@@ -6,6 +6,26 @@
  */
 @theme {
   --color-column-dropped: oklch(0.55 0.01 260);
+
+  /*
+   * Genre colours for the board's left-edge stripes. See src/board/genres.ts, which holds the
+   * same ten in the order that decides which one a game is painted as.
+   *
+   * Every lightness sits in [0.48, 0.75] — the band that stays visible against both bg-white
+   * and dark:bg-neutral-900, which is why none of these needs a dark: counterpart. Lightness
+   * varies as well as hue because ten hues is past what anyone with common colour-vision
+   * deficiency can separate; the card prints the genre's name for the same reason.
+   */
+  --color-genre-rpg: oklch(0.55 0.18 295);
+  --color-genre-shooter: oklch(0.6 0.19 25);
+  --color-genre-platform: oklch(0.7 0.16 145);
+  --color-genre-fighting: oklch(0.7 0.16 60);
+  --color-genre-brawler: oklch(0.58 0.17 350);
+  --color-genre-racing: oklch(0.75 0.15 90);
+  --color-genre-strategy: oklch(0.55 0.15 255);
+  --color-genre-simulator: oklch(0.72 0.11 205);
+  --color-genre-puzzle: oklch(0.65 0.13 175);
+  --color-genre-adventure: oklch(0.5 0.06 40);
 }
 
 /*

@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
+import { genreStripe, resolveGenre } from './genres';
 import type { LibraryItem } from '../api/types';
 
 /**
@@ -42,6 +43,11 @@ export interface CardFaceProps {
 export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
   const lastActivity = formatJournalDate(item.lastActivity);
 
+  // The chosen genre, or the one the game would be painted as. The stripe is decoration and the
+  // name beside the rating is the information — ten hues is past what colour alone can carry.
+  const genre = resolveGenre(item.genres, item.primaryGenre);
+  const stripe = genreStripe(genre);
+
   // What the close corner does is not the same thing in every column. Dropped is a record of a
   // game you started and gave up on: the right ending for one you were playing, and the wrong
   // one for a game you never began, which would be claiming a playthrough that never happened.
@@ -62,6 +68,16 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
 
   return (
     <>
+      {/* Always rendered, transparent when there is nothing to paint: a stripe that vanished
+          would shift an ungenred card's contents twelve pixels left of its neighbours' and make
+          a mixed column look ragged. A child of CardFace rather than a class on CARD_CLASS, so
+          the drag preview wears it too without a second call site knowing about genres. */}
+      <span
+        aria-hidden="true"
+        data-genre-stripe=""
+        className={`w-1 shrink-0 self-stretch rounded-full ${stripe ?? 'bg-transparent'}`}
+      />
+
       {item.coverUrl === null ? (
         <span
           aria-hidden="true"
@@ -134,6 +150,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
                 ×{item.entryCount}
               </span>
             )}
+            {genre !== null && <span>{genre}</span>}
             {lastActivity !== null && <span>{lastActivity}</span>}
           </div>
         )}

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getGame } from '../api/games';
+import { getGame, setGameGenre } from '../api/games';
 import { ApiError } from '../api/client';
 import { deleteLogEntry, updateLogEntry } from '../api/logEntries';
 import { gameKey } from '../board/keys';
@@ -43,10 +43,23 @@ export function useJournalEntry(mediaId: number) {
     },
   });
 
+
+  const setGenre = useMutation({
+    mutationFn: (genre: string | null) => setGameGenre(mediaId, genre),
+
+    onSuccess: () => {
+      // Unlike a note, this does show on the card — it is the card's colour and the word beside
+      // its rating — so the board hears about it too.
+      void queryClient.invalidateQueries({ queryKey: ['library'] });
+      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+    },
+  });
+
   return {
     game,
     save,
     remove,
+    setGenre,
     /** Which field the API objected to, rather than only that it objected. */
     fieldErrors: save.error instanceof ApiError ? save.error.fieldErrors : {},
   };

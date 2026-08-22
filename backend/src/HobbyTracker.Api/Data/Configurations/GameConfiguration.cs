@@ -26,6 +26,10 @@ public class GameConfiguration : IEntityTypeConfiguration<Game>
         // no join table, and supplies the value comparer EF needs to detect edits.
         builder.Property(g => g.Platforms).HasColumnType("text[]");
         builder.Property(g => g.Developers).HasColumnType("text[]");
+        builder.Property(g => g.Genres).HasColumnType("text[]");
+
+        // Free text, not a value constrained to the array beside it. See Game.PrimaryGenre.
+        builder.Property(g => g.PrimaryGenre).HasMaxLength(50);
 
         // Up to 999.99 hours, to the nearest hundredth — HLTB reports one decimal place.
         builder.Property(g => g.HltbMainStoryHours).HasPrecision(5, 2);

@@ -69,6 +69,39 @@ describe('Card', () => {
     expect(screen.queryByRole('img', { name: /playthrough/ })).not.toBeInTheDocument();
   });
 
+
+  it('names the genre it is painted as, so the colour never has to be learned', () => {
+    // Ten hues is past what anyone can reliably tell apart, and past what colour-vision
+    // deficiency leaves separable at all. The stripe is decoration; this is the information.
+    renderCard(libraryItem({ genres: ['Adventure', 'Indie', 'Platform'], primaryGenre: null }));
+
+    expect(screen.getByText('Platform')).toBeInTheDocument();
+  });
+
+  it('is painted as the genre you chose, not the one it would have picked', () => {
+    renderCard(libraryItem({ genres: ['Adventure', 'Platform'], primaryGenre: 'Adventure' }));
+
+    expect(screen.getByText('Adventure')).toBeInTheDocument();
+    expect(screen.queryByText('Platform')).not.toBeInTheDocument();
+  });
+
+  it('keeps the stripe out of the accessibility tree, and the width the same without one', () => {
+    // Always rendered, transparent when there is nothing to paint: a stripe that disappeared
+    // would shift every ungenred card's contents twelve pixels left of its neighbours.
+    const painted = renderCard(libraryItem({ genres: ['Shooter'], primaryGenre: null }));
+    const stripe = painted.container.querySelector('[data-genre-stripe]');
+
+    expect(stripe).not.toBeNull();
+    expect(stripe).toHaveAttribute('aria-hidden', 'true');
+    expect(stripe).toHaveClass('bg-genre-shooter');
+    painted.unmount();
+
+    const bare = renderCard(libraryItem({ genres: ['Indie'], primaryGenre: null }));
+
+    expect(bare.container.querySelector('[data-genre-stripe]')).toHaveClass('bg-transparent');
+    expect(screen.queryByText('Indie')).not.toBeInTheDocument();
+  });
+
   it('offers a drop button on Playing, where giving up on a game did happen', () => {
     renderCard(libraryItem({ title: 'Celeste', currentStatus: 'InProgress' }));
 

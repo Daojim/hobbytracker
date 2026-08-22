@@ -42,6 +42,10 @@ export interface LibraryItem {
   latestRating: number | null;
   /** An instant, or null. Render it through `lib/time`, never `new Date(...).getFullYear()`. */
   lastActivity: string | null;
+  /** The game's IGDB genres. Null for a row that is not a game. */
+  genres: string[] | null;
+  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  primaryGenre: string | null;
 }
 
 export interface Game {
@@ -50,6 +54,9 @@ export interface Game {
   coverUrl: string | null;
   platforms: string[];
   developers: string[];
+  genres: string[];
+  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  primaryGenre: string | null;
   externalId: string | null;
   source: string;
   hltbMainStoryHours: number | null;

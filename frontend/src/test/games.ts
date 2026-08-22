@@ -11,6 +11,8 @@ export function game(overrides: Partial<Game> = {}): Game {
     coverUrl: null,
     platforms: ['PC', 'Switch'],
     developers: ['Team Cherry'],
+    genres: [],
+    primaryGenre: null,
     externalId: '3003',
     source: 'igdb',
     hltbMainStoryHours: null,
@@ -129,9 +131,17 @@ export function journalServer({ detail, saveErrors, deleteStatus }: JournalFixtu
   const written: { entryId: number; body: string }[] = [];
   const rewritten: { id: number; body: string }[] = [];
   const dropped: number[] = [];
+  const genresSet: { mediaId: number; genre: string | null }[] = [];
 
   server.use(
     http.get('/api/games/:id', () => HttpResponse.json(detail ?? gameDetail())),
+
+    http.put('/api/games/:mediaId/genre', async ({ params, request }) => {
+      const { genre } = (await request.json()) as { genre: string | null };
+      genresSet.push({ mediaId: Number(params['mediaId']), genre });
+
+      return HttpResponse.json({ ...(detail ?? gameDetail()), primaryGenre: genre });
+    }),
 
     http.put('/api/log-entries/:id', async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;
@@ -179,5 +189,5 @@ export function journalServer({ detail, saveErrors, deleteStatus }: JournalFixtu
     }),
   );
 
-  return { saved, deleted, written, rewritten, dropped };
+  return { saved, deleted, written, rewritten, dropped, genresSet };
 }

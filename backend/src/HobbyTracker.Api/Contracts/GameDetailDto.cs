@@ -13,6 +13,10 @@ public sealed record GameDetailDto(
     string? CoverUrl,
     IReadOnlyList<string> Platforms,
     IReadOnlyList<string> Developers,
+    IReadOnlyList<string> Genres,
+
+    /// <summary>The chosen primary genre, or null to use the automatic pick.</summary>
+    string? PrimaryGenre,
     string? ExternalId,
     string Source,
     decimal? HltbMainStoryHours,
@@ -25,6 +29,8 @@ public sealed record GameDetailDto(
         game.CoverUrl,
         game.Platforms,
         game.Developers,
+        game.Genres,
+        game.PrimaryGenre,
         game.ExternalId,
         SeedData.Sources.NameFor(game.SourceId),
         game.HltbMainStoryHours,

@@ -12,6 +12,8 @@ const celeste: Game = {
   developers: ['Extremely OK Games'],
   externalId: '7793',
   source: 'igdb',
+  genres: [],
+  primaryGenre: null,
   hltbMainStoryHours: null,
 };
 

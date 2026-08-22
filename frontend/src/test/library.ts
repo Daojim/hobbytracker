@@ -24,6 +24,8 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     entryCount: 1,
     latestRating: null,
     lastActivity: null,
+    genres: [],
+    primaryGenre: null,
     ...overrides,
   };
 }

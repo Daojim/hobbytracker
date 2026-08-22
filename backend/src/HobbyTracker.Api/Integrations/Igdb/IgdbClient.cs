@@ -10,6 +10,12 @@ public interface IIgdbClient
 {
     Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(
         string search, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Known games by IGDB id, for the backfill. Empty in, empty out — without asking IGDB.
+    /// </summary>
+    Task<IReadOnlyList<IgdbGame>> GetGamesAsync(
+        IEnumerable<int> ids, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -34,10 +40,10 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     // involved_companies.developer alongside the company name because IGDB has no "developer"
     // field on a game: involvement is a join carrying role flags, so we fetch both and filter.
     private const string SearchFields =
-        "fields id, name, cover.image_id, platforms.name, " +
+        "fields id, name, cover.image_id, platforms.name, genres.name, " +
         "involved_companies.developer, involved_companies.company.name;";
 
-    public async Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(
+    public Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(
         string search, int limit, CancellationToken cancellationToken)
     {
         var query = $"""
@@ -46,6 +52,39 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
             limit {limit};
             """;
 
+        return QueryAsync(query, cancellationToken);
+    }
+
+    /// <summary>
+    /// Fetches known games by IGDB id — what the backfill uses to bring existing rows up to
+    /// date after a new field is added.
+    ///
+    /// A where clause rather than a search: these ids are already known, so there is no
+    /// relevance ranking to preserve. The caller batches; IGDB caps a response at 500.
+    /// </summary>
+    public Task<IReadOnlyList<IgdbGame>> GetGamesAsync(
+        IEnumerable<int> ids, CancellationToken cancellationToken)
+    {
+        var wanted = ids.Distinct().ToList();
+
+        // `where id = ();` is a parse error, and there is nothing to ask about anyway.
+        if (wanted.Count == 0)
+        {
+            return Task.FromResult<IReadOnlyList<IgdbGame>>([]);
+        }
+
+        var query = $"""
+            {SearchFields}
+            where id = ({string.Join(',', wanted)});
+            limit {wanted.Count};
+            """;
+
+        return QueryAsync(query, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<IgdbGame>> QueryAsync(
+        string query, CancellationToken cancellationToken)
+    {
         logger.LogDebug("IGDB query: {Query}", query);
 
         using var content = new StringContent(query, Encoding.UTF8, "text/plain");

@@ -100,7 +100,14 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
                 row.Latest.Status,
                 row.EntryCount,
                 row.Latest.Rating,
-                row.Latest.CompletedAt ?? row.Latest.StartedAt))
+                row.Latest.CompletedAt ?? row.Latest.StartedAt,
+
+                // A TPT downcast, added here rather than in BoardQuery on purpose: that
+                // projection is what every Where and OrderBy on Latest is pushed through, and
+                // when it stops translating the symptom is an empty library rather than an
+                // error. This is terminal, so nothing filters on it afterwards.
+                (row.Media as Game)!.Genres,
+                (row.Media as Game)!.PrimaryGenre))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<LibraryItemDto>(items, total, normalisedPage, normalisedSize);
@@ -371,6 +378,8 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
                 row.Latest.Status,
                 row.EntryCount,
                 row.Latest.Rating,
-                row.Latest.CompletedAt ?? row.Latest.StartedAt))
+                row.Latest.CompletedAt ?? row.Latest.StartedAt,
+                (row.Media as Game)!.Genres,
+                (row.Media as Game)!.PrimaryGenre))
             .FirstOrDefaultAsync(cancellationToken);
 }

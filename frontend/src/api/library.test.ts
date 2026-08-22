@@ -13,6 +13,8 @@ const item: LibraryItem = {
   entryCount: 2,
   latestRating: null,
   lastActivity: '2026-08-21T01:30:00+00:00',
+  genres: [],
+  primaryGenre: null,
 };
 
 const page: PagedResult<LibraryItem> = { items: [item], total: 1, page: 1, pageSize: 25 };

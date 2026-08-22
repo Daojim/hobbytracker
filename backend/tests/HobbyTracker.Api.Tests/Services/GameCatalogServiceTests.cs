@@ -23,7 +23,8 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
         Igdb.SetResults("halo",
             FakeIgdbClient.Game(740, "Halo: Combat Evolved", "co2r2r",
                 platforms: ["Xbox", "PC (Microsoft Windows)"],
-                developers: ["Bungie"]));
+                developers: ["Bungie"],
+                genres: ["Shooter", "Adventure"]));
 
         await SearchAsync("halo");
 
@@ -39,6 +40,10 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
 
         game.Platforms.ShouldBe(["PC (Microsoft Windows)", "Xbox"]);
         game.Developers.ShouldBe(["Bungie"]);
+
+        // Alphabetical, like the other two arrays. IGDB's ordering is not meaningfulness
+        // ordering, and which genre colours the card is decided by our own list, not theirs.
+        game.Genres.ShouldBe(["Adventure", "Shooter"]);
     }
 
     [Fact]
@@ -94,6 +99,30 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
         game.Id.ShouldBe(originalId);
         game.Title.ShouldBe("Halo: Combat Evolved");
         game.Platforms.ShouldBe(["PC", "Xbox"]);
+    }
+
+    [Fact]
+    public async Task Refreshing_leaves_a_chosen_primary_genre_alone()
+    {
+        // The same reasoning as the hltb columns above: IGDB owns the genre list, but which of
+        // them colours the card is a choice the user made, and a re-search must not undo it.
+        Igdb.SetResults("halo", FakeIgdbClient.Game(740, "Halo", genres: ["Shooter", "Adventure"]));
+        await SearchAsync("halo");
+
+        await WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(Ct);
+            game.PrimaryGenre = "Adventure";
+            await db.SaveChangesAsync(Ct);
+        });
+
+        Igdb.SetResults("halo", FakeIgdbClient.Game(740, "Halo", genres: ["Shooter", "Indie"]));
+        await SearchAsync("halo");
+
+        var refreshed = await WithDbAsync(db => db.Games.SingleAsync(Ct));
+
+        refreshed.Genres.ShouldBe(["Indie", "Shooter"]);
+        refreshed.PrimaryGenre.ShouldBe("Adventure");
     }
 
     [Fact]

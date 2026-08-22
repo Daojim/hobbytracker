@@ -16,6 +16,7 @@ public sealed class IgdbGame
     public string? Name { get; set; }
     public IgdbCover? Cover { get; set; }
     public List<IgdbPlatform>? Platforms { get; set; }
+    public List<IgdbGenre>? Genres { get; set; }
     public List<IgdbInvolvedCompany>? InvolvedCompanies { get; set; }
 }
 
@@ -43,6 +44,16 @@ public sealed class IgdbInvolvedCompany
 }
 
 public sealed class IgdbCompany
+{
+    public int Id { get; set; }
+    public string? Name { get; set; }
+}
+
+/// <summary>
+/// One of IGDB's genres. A fixed vocabulary — "Role-playing (RPG)", "Platform", "Shooter" and
+/// about twenty more — which is what makes matching on the name workable at all.
+/// </summary>
+public sealed class IgdbGenre
 {
     public int Id { get; set; }
     public string? Name { get; set; }

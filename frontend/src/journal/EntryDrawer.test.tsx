@@ -508,6 +508,75 @@ describe('EntryDrawer', () => {
     expect(screen.getByText(/\+6.5/)).toBeInTheDocument();
   });
 
+  it('offers the game genres, and an automatic option naming what it would pick', async () => {
+    // Naming the automatic pick is what makes the blank option mean something. "Not recorded"
+    // would be a lie: null here means "use the automatic one", not "no genre".
+    journalServer({
+      detail: gameDetail({
+        genres: ['Adventure', 'Indie', 'Platform'],
+        primaryGenre: null,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
+
+    open();
+
+    const select = await screen.findByLabelText('Genre');
+    expect(select).toHaveValue('');
+    expect(
+      within(select).getByRole('option', { name: 'Automatic — Platform' }),
+    ).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Adventure' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'Indie' })).toBeInTheDocument();
+  });
+
+  it('says the automatic pick is none when it does not paint any of them', async () => {
+    journalServer({
+      detail: gameDetail({ genres: ['Indie'], primaryGenre: null, logEntries: [logEntry()] }),
+    });
+
+    open();
+
+    expect(
+      within(await screen.findByLabelText('Genre')).getByRole('option', {
+        name: 'Automatic — none',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps a chosen genre the game no longer lists', async () => {
+    journalServer({
+      detail: gameDetail({
+        genres: ['Platform'],
+        primaryGenre: 'Metroidvania',
+        logEntries: [logEntry()],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByLabelText('Genre')).toHaveValue('Metroidvania');
+  });
+
+  it('writes the genre against the game, not the pass', async () => {
+    // A property of the title: what kind of game it is does not change between playthroughs
+    // the way the platform you played it on does. So it saves on its own, not with the form.
+    const journal = journalServer({
+      detail: gameDetail({
+        id: 3003,
+        genres: ['Adventure', 'Platform'],
+        primaryGenre: null,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
+
+    open();
+    await userEvent.selectOptions(await screen.findByLabelText('Genre'), 'Adventure');
+
+    await waitFor(() => expect(journal.genresSet).toHaveLength(1));
+    expect(journal.genresSet[0]).toEqual({ mediaId: 3003, genre: 'Adventure' });
+  });
+
   it('offers the platforms the game came out on, and no platform at all', async () => {
     // Already loaded by getGame, so there is no second request to make for this.
     journalServer({ detail: gameDetail({ platforms: ['PC', 'Switch'] }) });

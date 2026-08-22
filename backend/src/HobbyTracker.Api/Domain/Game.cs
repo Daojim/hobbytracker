@@ -17,6 +17,24 @@ public class Game : Media
     public List<string> Developers { get; set; } = [];
 
     /// <summary>
+    /// IGDB's genres for this game, as a Postgres text[]. Stored alphabetically like
+    /// <see cref="Platforms"/>; which one is the primary is decided by the client's own
+    /// ordering, not by IGDB's.
+    /// </summary>
+    public List<string> Genres { get; set; } = [];
+
+    /// <summary>
+    /// The genre chosen to stand for this game, overriding the automatic pick. Null means "use
+    /// the automatic one", not "no genre".
+    ///
+    /// Free text rather than a value constrained to <see cref="Genres"/>, for the same reason
+    /// as <see cref="LogEntry.Platform"/>: IGDB's list is theirs to change, and a value that was
+    /// true when it was chosen has to outlive the list it was chosen from. Left alone by an IGDB
+    /// refresh, exactly as the hltb columns are.
+    /// </summary>
+    public string? PrimaryGenre { get; set; }
+
+    /// <summary>
     /// Main-story completion time from HowLongToBeat. Not populated yet — the column
     /// exists so the later HLTB pass is a backfill rather than a migration.
     /// </summary>
