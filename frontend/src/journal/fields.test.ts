@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   HOURS_RULE,
   dateFieldValue,
-  formatHours,
+  hltbTiers,
   parseHours,
   parseRating,
 } from './fields';
@@ -86,14 +86,39 @@ describe('parseHours', () => {
   });
 });
 
-describe('formatHours', () => {
-  it('drops a trailing nought rather than writing 31.0 h', () => {
-    expect(formatHours(31)).toBe('31 h');
-    expect(formatHours(31.5)).toBe('31.5 h');
-    expect(formatHours(12.25)).toBe('12.25 h');
+describe('hltbTiers', () => {
+  const game = {
+    hltbMainStoryHours: 27,
+    hltbMainExtraHours: 41.59,
+    hltbCompletionistHours: 65.6,
+  };
+
+  it("lists the three in HowLongToBeat's own order, under its own names", () => {
+    expect(hltbTiers(game)).toEqual([
+      { label: 'Main story', hours: 27 },
+      { label: 'Main + Extra', hours: 41.59 },
+      { label: 'Completionist', hours: 65.6 },
+    ]);
   });
 
-  it('has nothing to say about a number that was never recorded', () => {
-    expect(formatHours(null)).toBeNull();
+  it('leaves out a tier nobody has submitted a time for', () => {
+    // Ordinary, not an error: an obscure game often has a main-story time and nothing else.
+    // Rendering "Completionist —" would make missing data look like a broken row.
+    expect(hltbTiers({ ...game, hltbCompletionistHours: null })).toEqual([
+      { label: 'Main story', hours: 27 },
+      { label: 'Main + Extra', hours: 41.59 },
+    ]);
+  });
+
+  it('is empty when the title has never been matched', () => {
+    // What lets the drawer say "No HowLongToBeat estimate yet" from one condition rather than
+    // three, and say it only when there is genuinely nothing.
+    expect(
+      hltbTiers({
+        hltbMainStoryHours: null,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+      }),
+    ).toEqual([]);
   });
 });

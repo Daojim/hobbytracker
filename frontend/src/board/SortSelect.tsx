@@ -12,6 +12,9 @@ const MODES: readonly { value: LibrarySort; label: string }[] = [
   { value: 'added', label: 'Recently added' },
   { value: 'title', label: 'Title' },
   { value: 'rating', label: 'Rating' },
+  // HowLongToBeat's main-story estimate, shortest first. Named for what it answers rather than
+  // for the column behind it — "Hours" alone would read as the hours you have put in.
+  { value: 'hours', label: 'Time to beat' },
 ];
 
 export interface SortSelectProps {

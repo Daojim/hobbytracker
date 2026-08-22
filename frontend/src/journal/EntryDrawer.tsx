@@ -4,7 +4,8 @@ import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm } from './EntryForm';
 import { NoteList } from './NoteList';
 import { automaticGenre } from '../board/genres';
-import { entrySeed, formatHours } from './fields';
+import { entrySeed } from './fields';
+import { formatHours } from '../lib/hours';
 import { useJournalEntry } from './useJournalEntry';
 import { useNotes } from './useNotes';
 import type { LogEntry, LogStatus } from '../api/types';
@@ -223,7 +224,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               key={entrySeed(current)}
               entry={current}
               platforms={detail.platforms}
-              hltbMainStoryHours={detail.hltbMainStoryHours}
+              estimates={detail}
               saving={save.isPending}
               serverErrors={fieldErrors}
               onSave={(update) => save.mutate({ entryId: current.id, update })}

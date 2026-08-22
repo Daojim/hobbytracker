@@ -40,6 +40,23 @@ describe('Card', () => {
     expect(screen.getByText('Hollow Knight')).toBeInTheDocument();
   });
 
+  it('shows how long the game takes, marked as an estimate rather than as your own hours', () => {
+    // The tilde is doing real work. The drawer prints "31.5 h" for what a pass took you, so an
+    // unmarked number on a card would read as the same claim about a game you have not started.
+    renderCard(libraryItem({ title: 'Hollow Knight', hltbMainStoryHours: 27 }));
+
+    expect(screen.getByText('~27 h')).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'About 27 hours to finish' }),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about length for a title HowLongToBeat has not been matched to', () => {
+    renderCard(libraryItem({ hltbMainStoryHours: null }));
+
+    expect(screen.queryByText(/h$/)).not.toBeInTheDocument();
+  });
+
   it('shows a rating to one decimal, and nothing at all when unrated', () => {
     // 8.5 and 9.6 are the point of storing numeric(3,1) rather than an integer, so a card that
     // rounded to "9" would be throwing away the only reason the column has a decimal place.

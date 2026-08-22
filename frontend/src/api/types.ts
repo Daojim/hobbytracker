@@ -15,7 +15,7 @@
 export type LogStatus = 'Backlog' | 'InProgress' | 'Completed' | 'Dropped';
 
 /** `manual` is the default, and the only mode in which dragging to reorder means anything. */
-export type LibrarySort = 'manual' | 'added' | 'title' | 'rating';
+export type LibrarySort = 'manual' | 'added' | 'title' | 'rating' | 'hours';
 
 /** Every list endpoint returns this envelope. Search does not — see `searchGames`. */
 export interface PagedResult<T> {
@@ -46,6 +46,11 @@ export interface LibraryItem {
   genres: string[] | null;
   /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
   primaryGenre: string | null;
+  /**
+   * HowLongToBeat's main-story estimate, and only that one — a card has room for a number, not
+   * a table. Null for a row that is not a game, and for a game nothing has matched yet.
+   */
+  hltbMainStoryHours: number | null;
 }
 
 export interface Game {
@@ -59,7 +64,14 @@ export interface Game {
   primaryGenre: string | null;
   externalId: string | null;
   source: string;
+  /**
+   * HowLongToBeat's three completion times, in hours. Any one can be null on its own — an
+   * obscure title often has a main-story time and nothing else — and all three are null for a
+   * title nothing has matched confidently.
+   */
   hltbMainStoryHours: number | null;
+  hltbMainExtraHours: number | null;
+  hltbCompletionistHours: number | null;
 }
 
 export interface GameDetail extends Game {

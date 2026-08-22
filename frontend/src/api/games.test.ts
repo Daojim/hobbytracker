@@ -15,6 +15,8 @@ const celeste: Game = {
   genres: [],
   primaryGenre: null,
   hltbMainStoryHours: null,
+  hltbMainExtraHours: null,
+  hltbCompletionistHours: null,
 };
 
 describe('searchGames', () => {

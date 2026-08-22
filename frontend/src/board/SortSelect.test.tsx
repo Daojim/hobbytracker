@@ -5,13 +5,13 @@ import { render } from '@testing-library/react';
 import { SortSelect } from './SortSelect';
 
 describe('SortSelect', () => {
-  it('offers the four read-only views under names a person recognises', () => {
+  it('offers the read-only views under names a person recognises', () => {
     render(<SortSelect label="Backlog" value="manual" onChange={vi.fn()} />);
 
     const select = screen.getByRole('combobox', { name: 'Backlog order' });
     expect(
       [...select.querySelectorAll('option')].map((option) => option.textContent),
-    ).toEqual(['My order', 'Recently added', 'Title', 'Rating']);
+    ).toEqual(['My order', 'Recently added', 'Title', 'Rating', 'Time to beat']);
   });
 
   it('reports the wire value, not the label', async () => {

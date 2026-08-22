@@ -16,6 +16,8 @@ export function game(overrides: Partial<Game> = {}): Game {
     externalId: '3003',
     source: 'igdb',
     hltbMainStoryHours: null,
+    hltbMainExtraHours: null,
+    hltbCompletionistHours: null,
     ...overrides,
   };
 }

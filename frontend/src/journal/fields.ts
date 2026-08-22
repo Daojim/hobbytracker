@@ -78,14 +78,35 @@ export function parseHours(input: string): ParsedRating {
   return value > 0 && value <= 999.99 ? { value } : { error: HOURS_RULE };
 }
 
+export interface HltbTier {
+  label: string;
+  hours: number;
+}
+
 /**
- * How long something took, for reading rather than editing.
+ * HowLongToBeat's three estimates, in its order and under its names, with the ones nobody has
+ * submitted a time for left out.
  *
- * Trailing noughts are dropped because the column's two decimal places are there for 12.25, not
- * to make every whole number claim a precision nobody entered.
+ * Takes the game rather than three loose numbers on purpose: three nullable numbers in a row is
+ * exactly the argument list where two get swapped and nothing complains.
+ *
+ * Dropping the empty tiers rather than rendering them as a dash is what keeps missing data from
+ * reading as a broken row — a game with a main-story time and no completionist time is ordinary.
+ * It also gives the drawer one condition to check instead of three: an empty list is the whole
+ * of "never matched".
  */
-export function formatHours(hours: number | null): string | null {
-  return hours === null ? null : `${Number(hours.toFixed(2))} h`;
+export interface HltbEstimates {
+  hltbMainStoryHours: number | null;
+  hltbMainExtraHours: number | null;
+  hltbCompletionistHours: number | null;
+}
+
+export function hltbTiers(game: HltbEstimates): HltbTier[] {
+  return [
+    { label: 'Main story', hours: game.hltbMainStoryHours },
+    { label: 'Main + Extra', hours: game.hltbMainExtraHours },
+    { label: 'Completionist', hours: game.hltbCompletionistHours },
+  ].filter((tier): tier is HltbTier => tier.hours !== null);
 }
 /**
  * What to send for a date field.

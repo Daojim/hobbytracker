@@ -493,7 +493,43 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText(/No HowLongToBeat estimate yet/)).toBeInTheDocument();
   });
 
-  it('puts your hours next to the main story, and the difference between them', async () => {
+  it('shows all three of HowLongToBeat\'s estimates', async () => {
+  journalServer({
+    detail: gameDetail({
+      hltbMainStoryHours: 27,
+      hltbMainExtraHours: 41.59,
+      hltbCompletionistHours: 65.6,
+      logEntries: [logEntry({ id: 7 })],
+    }),
+  });
+
+  open();
+
+  expect(await screen.findByText('Main story: 27 h')).toBeInTheDocument();
+  expect(screen.getByText('Main + Extra: 41.59 h')).toBeInTheDocument();
+  expect(screen.getByText('Completionist: 65.6 h')).toBeInTheDocument();
+});
+
+it('leaves out a tier nobody has submitted a time for, rather than showing a gap', async () => {
+  // An obscure title with a main-story time and nothing else is ordinary. Printing
+  // "Completionist: —" would make that read as a broken row rather than as missing data.
+  journalServer({
+    detail: gameDetail({
+      hltbMainStoryHours: 27,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+      logEntries: [logEntry({ id: 7 })],
+    }),
+  });
+
+  open();
+
+  expect(await screen.findByText('Main story: 27 h')).toBeInTheDocument();
+  expect(screen.queryByText(/Completionist/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/No HowLongToBeat estimate yet/)).not.toBeInTheDocument();
+});
+
+it('puts your hours next to the main story, and the difference between them', async () => {
     journalServer({
       detail: gameDetail({
         hltbMainStoryHours: 24.5,

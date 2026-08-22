@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Tests.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 namespace HobbyTracker.Api.Tests.Endpoints;
 
@@ -197,7 +198,57 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         years.ShouldBe([2026]);
     }
 
+    [Fact]
+    public async Task Time_to_beat_puts_the_shortest_first_and_the_unknown_last()
+    {
+        // That the column comes back non-empty is half of what this asserts. The estimate lives
+        // on `games`, so ordering by it needs a TPT downcast — and when one of those fails to
+        // translate, the symptom is an empty column rather than an error that names itself.
+        await GivenBacklogWithEstimateAsync("Long", "1", 53.44m);
+        await GivenBacklogWithEstimateAsync("Short", "2", 8.32m);
+        await GivenBacklogWithEstimateAsync("Unmatched", "3", estimate: null);
+        await GivenBacklogWithEstimateAsync("Middling", "4", 27m);
+
+        var column = await GetColumnAsync(LogStatus.Backlog, LibrarySort.Hours);
+
+        // Shortest first: the question the sort answers is "what can I finish this weekend".
+        // Unknown last in the same spirit as an unrated title, rather than sorting as though
+        // a game nobody has timed takes no time at all.
+        column.Items.Select(item => item.Title)
+            .ShouldBe(["Short", "Middling", "Long", "Unmatched"]);
+    }
+
+    [Fact]
+    public async Task Sorting_by_time_to_beat_leaves_the_stored_ranking_alone()
+    {
+        // Every mode but manual is a read-only view. This is the promise that lets the board
+        // offer dragging in one mode only and still guarantee the ranking survives a look.
+        var first = await GivenBacklogWithEstimateAsync("Long", "1", 53.44m);
+        var second = await GivenBacklogWithEstimateAsync("Short", "2", 8.32m);
+        await ReorderAsync(LogStatus.Backlog, [first, second]);
+
+        await GetColumnAsync(LogStatus.Backlog, LibrarySort.Hours);
+
+        (await GetColumnAsync(LogStatus.Backlog)).Items.Select(item => item.Title)
+            .ShouldBe(["Long", "Short"]);
+    }
+
     // ----------------------------------------------------------------- helpers
+
+    private async Task<int> GivenBacklogWithEstimateAsync(
+        string title, string externalId, decimal? estimate)
+    {
+        var mediaId = await GivenBacklogAsync(title, externalId);
+
+        await WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            game.HltbMainStoryHours = estimate;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        return mediaId;
+    }
 
     private async Task<int> GivenBacklogAsync(string title, string externalId)
     {

@@ -19,4 +19,13 @@ public enum LibrarySort
 
     /// <summary>Highest rating first; unrated titles last.</summary>
     Rating,
+
+    /// <summary>
+    /// HowLongToBeat's main-story estimate, shortest first; titles with no estimate last.
+    ///
+    /// Main story alone, so the sort has exactly one meaning — "what can I finish this weekend".
+    /// Deliberately not log_entries.hours_played, which is how long *you* took on one pass: that
+    /// is a fact about a playthrough, where this is a property of the title.
+    /// </summary>
+    Hours,
 }
