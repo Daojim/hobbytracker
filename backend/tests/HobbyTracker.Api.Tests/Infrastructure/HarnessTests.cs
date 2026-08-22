@@ -85,7 +85,7 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         // The mirror of the test above. ValidateOnStart is only worth having if it actually
         // fails the boot: a zone id that quietly fell back to UTC would put every evening's
         // dates a day out with nothing anywhere looking broken.
-        await using var factory = new ApiFactory(Postgres, Igdb, Clock, timeZone: "Mars/Olympus_Mons");
+        await using var factory = new ApiFactory(Postgres, Igdb, Hltb, HltbQueue, Clock, timeZone: "Mars/Olympus_Mons");
 
         var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
 

@@ -30,7 +30,8 @@ public interface ILogEntryService
 /// user_id is left null throughout. The column is nullable until auth lands in a later phase,
 /// at which point existing rows get backfilled and the column tightened.
 /// </summary>
-public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock clock) : ILogEntryService
+public sealed class LogEntryService(
+    HobbyTrackerDbContext db, IJournalClock clock, IHltbQueue hltbQueue) : ILogEntryService
 {
     public async Task<PagedResult<LogEntryDto>> ListAsync(
         int? mediaId, LogStatus? status, int? page, int? pageSize, CancellationToken cancellationToken)
@@ -113,6 +114,13 @@ public sealed class LogEntryService(HobbyTrackerDbContext db, IJournalClock cloc
 
         db.LogEntries.Add(entry);
         await db.SaveChangesAsync(cancellationToken);
+
+        // Adding a title to the board is the one gesture that should produce HowLongToBeat's
+        // numbers without anybody running maintenance. Queued rather than fetched, so this reply
+        // does not wait on a site that has no obligation to answer quickly or at all — and only
+        // here, because the entries a drag out of Completed inserts are for a title that has
+        // already been asked about.
+        hltbQueue.Enqueue(media.Id);
 
         return LogEntryDto.From(entry);
     }

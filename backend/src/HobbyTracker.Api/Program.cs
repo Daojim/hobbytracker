@@ -99,6 +99,11 @@ builder.Services.AddHttpClient<IHltbClient, HltbClient>((serviceProvider, client
     })
     .AddHttpMessageHandler<HltbThrottleHandler>();
 
+// Titles wait here rather than in a request. See HltbQueue.
+builder.Services.AddSingleton<IHltbQueue, HltbQueue>();
+builder.Services.AddHostedService<HltbWorker>();
+
+builder.Services.AddScoped<IHltbService, HltbService>();
 builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
