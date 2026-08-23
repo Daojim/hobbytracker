@@ -129,10 +129,12 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
           >
             <span className="text-muted">{warning}</span>
 
+            {/* Filled rather than red text, for ConfirmDelete's reason: on Ember the accent is
+                red as well, and a destructive control must not be one hue away from a link. */}
             <button
               type="button"
               onClick={() => removal?.onConfirm()}
-              className="rounded font-medium text-danger hover:underline"
+              className="rounded bg-danger px-2 py-0.5 font-semibold text-danger-fg"
             >
               Really remove?
             </button>
@@ -140,7 +142,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             <button
               type="button"
               onClick={() => removal?.onCancel()}
-              className="rounded text-muted hover:underline"
+              className="rounded border border-line px-2 py-0.5 text-muted hover:bg-hover hover:text-fg"
             >
               Cancel
             </button>
@@ -148,7 +150,11 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
         ) : (
           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
             {item.latestRating !== null && (
-              <span role="img" aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}>
+              <span
+                role="img"
+                aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}
+                className="font-semibold text-rating"
+              >
                 ★ {item.latestRating.toFixed(1)}
               </span>
             )}
@@ -196,7 +202,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
 }
 
 export const CARD_CLASS =
-  'flex touch-none gap-2 rounded border border-line-soft bg-surface p-card text-sm';
+  'flex touch-none gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
 
 export interface CardProps {
   item: LibraryItem;

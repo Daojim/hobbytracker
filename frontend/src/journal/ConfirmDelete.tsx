@@ -45,16 +45,24 @@ export function ConfirmDelete({
     <span className="flex flex-wrap items-baseline gap-2 text-xs">
       {warning !== null && <span className="text-muted">{warning}</span>}
 
+      {/* Filled, not red text. Colour alone cannot carry "this destroys something": on Ember the
+          accent is red too, so a red word beside a red link is a distinction nobody should be
+          asked to make. The fill is a shape the accent never wears, and it survives being read
+          in greyscale — the same reasoning that makes the genre stripe print its own name. */}
       <button
         type="button"
         onClick={onConfirm}
         disabled={busy}
-        className="rounded font-medium text-danger hover:underline disabled:opacity-50"
+        className="rounded bg-danger px-2 py-0.5 font-semibold text-danger-fg disabled:opacity-50"
       >
         {busy ? 'Deleting…' : 'Really delete?'}
       </button>
 
-      <button type="button" onClick={onCancel} className="rounded text-muted hover:underline">
+      <button
+        type="button"
+        onClick={onCancel}
+        className="rounded border border-line px-2 py-0.5 text-muted hover:bg-hover hover:text-fg"
+      >
         Cancel
       </button>
 

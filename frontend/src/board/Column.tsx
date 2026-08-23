@@ -71,9 +71,9 @@ export function Column({
   return (
     <section
       aria-labelledby={headingId}
-      className={`flex min-h-24 flex-col rounded-lg border p-3 transition-colors ${
-        muted ? 'border-dropped/30 opacity-70' : 'border-line'
-      } ${isOver ? 'bg-drop' : ''}`}
+      className={`flex min-h-24 flex-col rounded-xl border p-3 transition-colors ${
+        muted ? 'border-dropped/30 opacity-70' : 'border-line-soft'
+      } ${isOver ? 'bg-drop' : 'bg-well'}`}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">

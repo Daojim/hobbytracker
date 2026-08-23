@@ -1,3 +1,4 @@
+@import '@fontsource-variable/public-sans';
 @import "tailwindcss";
 
 /*
@@ -35,6 +36,11 @@
   /* Carries its own alpha rather than taking a /opacity modifier: the drawer's backdrop is not
      "the foreground colour, faded" — on a dark theme that would be a white veil over the board. */
   --scrim: rgb(33 28 23 / 0.28);
+  --well: #f7f3ed;
+  --rating: #9a5a00;
+  --danger-fg: #fff6f4;
+  --card-shadow: 0 1px 2px rgb(33 28 23 / 0.07), 0 5px 14px rgb(33 28 23 / 0.055);
+  --card-line: transparent;
 }
 
 /*
@@ -60,6 +66,11 @@
     --drop: #24312d;
     --dropped: #6e645a;
     --scrim: rgb(0 0 0 / 0.6);
+    --well: #1c1815;
+    --rating: #ffc95c;
+    --danger-fg: #241a17;
+    --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px rgb(0 0 0 / 0.38);
+    --card-line: transparent;
   }
 }
 
@@ -80,6 +91,11 @@
   --drop: #24312d;
   --dropped: #6e645a;
   --scrim: rgb(0 0 0 / 0.6);
+  --well: #1c1815;
+  --rating: #ffc95c;
+  --danger-fg: #241a17;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px rgb(0 0 0 / 0.38);
+  --card-line: transparent;
 }
 
 /* ---- Console: cool and deep, so cover art and the genre stripes carry the colour. ---- */
@@ -99,6 +115,11 @@
   --drop: #16242b;
   --dropped: #5d6672;
   --scrim: rgb(0 0 0 / 0.65);
+  --well: #10131a;
+  --rating: #ffc95c;
+  --danger-fg: #10151c;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 16px rgb(0 0 0 / 0.4);
+  --card-line: #272d38;
 }
 
 /*
@@ -128,6 +149,11 @@
   --drop: #2a201d;
   --dropped: #6b625d;
   --scrim: rgb(0 0 0 / 0.62);
+  --well: #171514;
+  --rating: #ffc95c;
+  --danger-fg: #21120e;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.5), 0 6px 16px rgb(0 0 0 / 0.4);
+  --card-line: transparent;
 }
 
 /*
@@ -170,6 +196,12 @@
   --color-drop: var(--drop);
   --color-dropped: var(--dropped);
   --color-scrim: var(--scrim);
+  --color-well: var(--well);
+  --color-card-line: var(--card-line);
+  --color-rating: var(--rating);
+  --color-danger-fg: var(--danger-fg);
+
+  --shadow-card: var(--card-shadow);
 
   --spacing-card: var(--card-pad);
   --spacing-cardgap: var(--card-gap);
@@ -188,6 +220,10 @@
  * the card prints the genre's name for the same reason.
  */
 @theme {
+  /* Self-hosted rather than fetched from a font CDN: no third-party request on a
+     personal journal, and the board renders the same offline as on. */
+  --font-sans: 'Public Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
   --color-genre-rpg: oklch(0.55 0.18 295);
   --color-genre-shooter: oklch(0.6 0.19 25);
   --color-genre-platform: oklch(0.7 0.16 145);
