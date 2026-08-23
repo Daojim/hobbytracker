@@ -10,11 +10,11 @@ export interface SearchResultProps {
 
 export function SearchResult({ game, onBoard, adding, onAdd }: SearchResultProps) {
   return (
-    <li className="flex gap-3 rounded border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
+    <li className="flex gap-3 rounded border border-line-soft bg-surface p-3">
       {game.coverUrl === null ? (
         <span
           aria-hidden="true"
-          className="flex h-20 w-14 shrink-0 items-center justify-center rounded bg-neutral-100 text-2xl font-semibold text-neutral-400 dark:bg-neutral-800 dark:text-neutral-600"
+          className="flex h-20 w-14 shrink-0 items-center justify-center rounded bg-sunken text-2xl font-semibold text-muted"
         >
           {game.title.charAt(0)}
         </span>
@@ -26,21 +26,21 @@ export function SearchResult({ game, onBoard, adding, onAdd }: SearchResultProps
       <div className="min-w-0 flex-1">
         <h3 className="font-medium break-words">{game.title}</h3>
 
-        <div className="mt-1 space-y-0.5 text-xs text-neutral-500">
+        <div className="mt-1 space-y-0.5 text-xs text-muted">
           {game.platforms.length > 0 && <p>{game.platforms.join(', ')}</p>}
           {game.developers.length > 0 && <p>{game.developers.join(', ')}</p>}
         </div>
       </div>
 
       {onBoard ? (
-        <span className="self-center text-xs text-neutral-500">On your board</span>
+        <span className="self-center text-xs text-muted">On your board</span>
       ) : (
         <button
           type="button"
           disabled={adding}
           aria-label={`Add ${game.title} to backlog`}
           onClick={() => onAdd(game.id)}
-          className="h-8 shrink-0 self-center rounded border border-neutral-300 px-3 text-xs font-medium hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          className="h-8 shrink-0 self-center rounded border border-line px-3 text-xs font-medium hover:bg-hover disabled:opacity-50"
         >
           {adding ? 'Adding…' : 'Add to backlog'}
         </button>

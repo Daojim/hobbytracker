@@ -53,10 +53,10 @@ export function SearchPage() {
   const onBoard = new Set([...(library.data ?? []), ...justAdded]);
 
   return (
-    <main className="min-h-screen bg-neutral-50 p-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main className="min-h-screen bg-sunken p-6 text-fg">
       <header className="mb-6 flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold">Search</h1>
-        <Link to="/board" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+        <Link to="/board" className="text-sm text-accent hover:underline">
           Back to the board
         </Link>
       </header>
@@ -68,36 +68,36 @@ export function SearchPage() {
           value={term}
           onChange={(event) => setTerm(event.target.value)}
           placeholder="Hollow Knight, Celeste, Outer Wilds…"
-          className="w-full rounded border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          className="w-full rounded border border-line bg-surface px-3 py-2 text-sm"
         />
       </label>
 
       <div className="mt-6 max-w-xl">
         {settled === '' && (
-          <p className="text-sm text-neutral-500">Search for a game to put it on your board.</p>
+          <p className="text-sm text-muted">Search for a game to put it on your board.</p>
         )}
 
         {settled !== '' && results.isPending && (
-          <p className="text-sm text-neutral-500">Searching…</p>
+          <p className="text-sm text-muted">Searching…</p>
         )}
 
         {results.error !== null && (
           // The client keeps the API's distinction between "IGDB is unhappy" (502) and "this app
           // is broken" (500), so flattening it back into "something went wrong" here would throw
           // away the only part worth reading.
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {results.error.message}
           </p>
         )}
 
         {add.error !== null && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {add.error.message}
           </p>
         )}
 
         {results.data?.length === 0 && (
-          <p className="text-sm text-neutral-500">Nothing matched “{settled}”.</p>
+          <p className="text-sm text-muted">Nothing matched “{settled}”.</p>
         )}
 
         <ul className="flex flex-col gap-2">

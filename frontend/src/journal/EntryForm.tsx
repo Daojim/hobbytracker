@@ -188,7 +188,7 @@ export function EntryForm({
             value={thumb}
             aria-valuetext={rating === '' ? 'Not rated' : rating}
             onChange={(event) => slide(Number(event.target.value))}
-            className={`w-40 cursor-pointer accent-neutral-700 dark:accent-neutral-300 ${
+            className={`w-40 cursor-pointer accent-accent ${
               rating === '' ? 'opacity-40' : ''
             }`}
           />
@@ -202,7 +202,7 @@ export function EntryForm({
             placeholder="—"
             value={rating}
             onChange={(event) => type(event.target.value)}
-            className="w-16 rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="w-16 rounded border border-line bg-surface px-2 py-1 text-sm"
           />
 
           {/* Absent rather than disabled while there is nothing to clear, as the card's close
@@ -212,7 +212,7 @@ export function EntryForm({
               type="button"
               aria-label="Clear rating"
               onClick={clearRating}
-              className="rounded text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+              className="rounded text-xs text-muted hover:text-fg"
             >
               ×
             </button>
@@ -231,12 +231,12 @@ export function EntryForm({
             placeholder="—"
             value={hours}
             onChange={(event) => setHours(event.target.value)}
-            className="w-24 rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="w-24 rounded border border-line bg-surface px-2 py-1 text-sm"
           />
 
           {/* One span per tier rather than one assembled string: they wrap independently on a
               narrow drawer, and a test can name the tier it means. */}
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-neutral-500">
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted">
             {tiers.length === 0 ? (
               <span>No HowLongToBeat estimate yet</span>
             ) : (
@@ -262,7 +262,7 @@ export function EntryForm({
           id={`${ids}-platform`}
           value={platform}
           onChange={(event) => setPlatform(event.target.value)}
-          className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          className="rounded border border-line bg-surface px-2 py-1 text-sm"
         >
           <option value="">Not recorded</option>
           {options.map((name) => (
@@ -280,7 +280,7 @@ export function EntryForm({
             type="date"
             value={started}
             onChange={(event) => setStarted(event.target.value)}
-            className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="rounded border border-line bg-surface px-2 py-1 text-sm"
           />
         </Field>
 
@@ -290,7 +290,7 @@ export function EntryForm({
             type="date"
             value={completed}
             onChange={(event) => setCompleted(event.target.value)}
-            className="rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="rounded border border-line bg-surface px-2 py-1 text-sm"
           />
         </Field>
       </div>
@@ -299,7 +299,7 @@ export function EntryForm({
         <button
           type="submit"
           disabled={saving}
-          className="rounded border border-neutral-300 px-3 py-1 text-sm font-medium hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+          className="rounded border border-line px-3 py-1 text-sm font-medium hover:bg-hover disabled:opacity-50"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -313,7 +313,7 @@ export function EntryForm({
             role="status" so it is announced politely: a confirmation only sighted readers get is
             only half a confirmation, and this drawer is a real dialog for the same reason. */}
         {saved && !saving && (
-          <span role="status" className="text-sm text-green-700 dark:text-green-500">
+          <span role="status" className="text-sm text-ok">
             Saved
           </span>
         )}
@@ -335,12 +335,12 @@ function Field({
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+      <label htmlFor={id} className="text-xs font-medium text-muted">
         {label}
       </label>
       {children}
       {message !== undefined && (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="text-xs text-danger">
           {message}
         </p>
       )}

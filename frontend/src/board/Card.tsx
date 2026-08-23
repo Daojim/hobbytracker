@@ -82,7 +82,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
       {item.coverUrl === null ? (
         <span
           aria-hidden="true"
-          className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-neutral-100 text-lg font-semibold text-neutral-400 dark:bg-neutral-800 dark:text-neutral-600"
+          className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-sunken text-lg font-semibold text-muted"
         >
           {item.title.charAt(0)}
         </span>
@@ -127,12 +127,12 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             onPointerDown={(event) => event.stopPropagation()}
             className="mt-1 flex flex-wrap items-baseline gap-2 text-xs"
           >
-            <span className="text-neutral-500">{warning}</span>
+            <span className="text-muted">{warning}</span>
 
             <button
               type="button"
               onClick={() => removal?.onConfirm()}
-              className="rounded font-medium text-red-600 hover:underline"
+              className="rounded font-medium text-danger hover:underline"
             >
               Really remove?
             </button>
@@ -140,13 +140,13 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             <button
               type="button"
               onClick={() => removal?.onCancel()}
-              className="rounded text-neutral-500 hover:underline"
+              className="rounded text-muted hover:underline"
             >
               Cancel
             </button>
           </span>
         ) : (
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
             {item.latestRating !== null && (
               <span role="img" aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}>
                 ★ {item.latestRating.toFixed(1)}
@@ -186,7 +186,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
           // being claimed at all.
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => (removable ? removal.onAsk() : onDrop?.(item.mediaId))}
-          className="h-5 w-5 shrink-0 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          className="h-5 w-5 shrink-0 rounded text-muted hover:bg-hover hover:text-fg"
         >
           ×
         </button>
@@ -196,7 +196,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
 }
 
 export const CARD_CLASS =
-  'flex touch-none gap-2 rounded border border-neutral-200 bg-white p-2 text-sm dark:border-neutral-800 dark:bg-neutral-900';
+  'flex touch-none gap-2 rounded border border-line-soft bg-surface p-2 text-sm';
 
 export interface CardProps {
   item: LibraryItem;

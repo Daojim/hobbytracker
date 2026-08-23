@@ -34,7 +34,7 @@ export function ConfirmDelete({
         type="button"
         aria-label={label}
         onClick={onAsk}
-        className="self-start rounded text-xs text-neutral-500 hover:text-red-600"
+        className="self-start rounded text-xs text-muted hover:text-danger"
       >
         Delete
       </button>
@@ -43,23 +43,23 @@ export function ConfirmDelete({
 
   return (
     <span className="flex flex-wrap items-baseline gap-2 text-xs">
-      {warning !== null && <span className="text-neutral-500">{warning}</span>}
+      {warning !== null && <span className="text-muted">{warning}</span>}
 
       <button
         type="button"
         onClick={onConfirm}
         disabled={busy}
-        className="rounded font-medium text-red-600 hover:underline disabled:opacity-50"
+        className="rounded font-medium text-danger hover:underline disabled:opacity-50"
       >
         {busy ? 'Deleting…' : 'Really delete?'}
       </button>
 
-      <button type="button" onClick={onCancel} className="rounded text-neutral-500 hover:underline">
+      <button type="button" onClick={onCancel} className="rounded text-muted hover:underline">
         Cancel
       </button>
 
       {error !== null && (
-        <span role="alert" className="text-red-600">
+        <span role="alert" className="text-danger">
           {error}
         </span>
       )}

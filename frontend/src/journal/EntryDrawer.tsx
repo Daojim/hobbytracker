@@ -157,7 +157,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
       <div
         role="presentation"
         onClick={onClose}
-        className="fixed inset-0 z-10 bg-neutral-900/20 dark:bg-neutral-950/50"
+        className="fixed inset-0 z-10 bg-scrim"
       />
 
       <aside
@@ -166,7 +166,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-neutral-300 bg-white p-5 shadow-xl outline-none dark:border-neutral-700 dark:bg-neutral-900"
+        className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-xl outline-none"
       >
         <div className="flex items-start gap-3">
           <h2 id={titleId} className="flex-1 text-lg font-semibold">
@@ -176,20 +176,20 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
             type="button"
             aria-label="Close"
             onClick={onClose}
-            className="h-6 w-6 shrink-0 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+            className="h-6 w-6 shrink-0 rounded text-muted hover:bg-hover hover:text-fg"
           >
             ×
           </button>
         </div>
 
         {game.error !== null && (
-          <p role="alert" className="text-sm text-red-600">
+          <p role="alert" className="text-sm text-danger">
             {game.error.message}
           </p>
         )}
 
         {detail !== undefined && (
-          <p className="text-xs text-neutral-500">
+          <p className="text-xs text-muted">
             {[detail.platforms.join(', '), detail.developers.join(', ')]
               .filter((line) => line !== '')
               .join(' · ')}
@@ -201,7 +201,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
             the form describing a pass — which submits one PUT to a different endpoint and would
             otherwise be writing to two. Saves on change; there is nothing to hold back. */}
         {detail !== undefined && (
-          <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+          <div className="flex items-center gap-2 text-xs text-muted">
             <label htmlFor={genreId} className="font-medium">
               Genre
             </label>
@@ -211,7 +211,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               onChange={(event) =>
                 setGenre.mutate(event.target.value === '' ? null : event.target.value)
               }
-              className="rounded border border-neutral-300 bg-white px-1 py-0.5 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+              className="rounded border border-line bg-surface px-1 py-0.5 text-xs"
             >
               {/* Not "Not recorded": null here means "use the automatic pick", so the option
                   says which one that is. */}
@@ -276,14 +276,14 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
         )}
 
         {earlier.length > 0 && (
-          <section className="mt-2 border-t border-neutral-200 pt-3 dark:border-neutral-800">
+          <section className="mt-2 border-t border-line-soft pt-3">
             {/* A finished pass's own fields are read-only. It is a record of something that
                 happened, and the schema goes to some trouble to keep it — offering to edit the
                 dates here would undo that with a keystroke.
 
                 Its notes are not, and neither is the pass itself. A note is yours to fix, and a
                 pass that never happened is not a record worth keeping. */}
-            <h3 className="mb-2 text-xs font-medium tracking-wide text-neutral-500 uppercase">
+            <h3 className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">
               Earlier passes
             </h3>
 
@@ -295,18 +295,18 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
                       <span
                         role="img"
                         aria-label={`Rated ${entry.rating.toFixed(1)} out of 10`}
-                        className="text-xs text-neutral-500"
+                        className="text-xs text-muted"
                       >
                         ★ {entry.rating.toFixed(1)}
                       </span>
                     )}
                     {entry.hoursPlayed !== null && (
-                      <span className="text-xs text-neutral-500">
+                      <span className="text-xs text-muted">
                         {formatHours(entry.hoursPlayed)}
                       </span>
                     )}
                     {entry.platform !== null && (
-                      <span className="text-xs text-neutral-500">{entry.platform}</span>
+                      <span className="text-xs text-muted">{entry.platform}</span>
                     )}
                     <ConfirmDelete
                       // Named rather than a bare "Delete", because every pass carries one and a
@@ -348,7 +348,7 @@ function PassSection({ entry, heading, children }: PassSectionProps) {
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <p id={headingId} className="text-sm text-neutral-500">
+      <p id={headingId} className="text-sm text-muted">
         {heading}
       </p>
       {children}

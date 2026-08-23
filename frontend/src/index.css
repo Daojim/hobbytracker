@@ -1,21 +1,88 @@
 @import "tailwindcss";
 
 /*
- * Tailwind v4 is configured in CSS, not a tailwind.config.js — @theme is where tokens live.
- * Only the board's own vocabulary goes here; everything else is Tailwind's defaults.
+ * The palette, and the only place in the app that names a colour.
+ *
+ * Every value is a plain custom property redefined per theme, and `@theme inline` below turns
+ * each one into a utility. `inline` is the whole mechanism: without it a utility resolves to the
+ * value the theme variable held at build time, and a theme could not change it at runtime.
+ *
+ * This replaces 65 hand-written `dark:` twins spread across 15 components. Two halves of a pair
+ * sitting at the call site is the failure this codebase has already paid for once — two
+ * orderings that had to agree about which pass the board calls current, and quietly stopped.
+ * Here the two halves are one token, so they cannot drift.
+ */
+:root {
+  --surface: #fffdfa;
+  --sunken: #efe9e1;
+  --hover: #f1eae1;
+  --line: #e2dad0;
+  --line-soft: #ede5da;
+  --fg: #211c17;
+  --muted: #6b6058;
+  --accent: #1f6b5e;
+  --danger: #a8281f;
+  --ok: #1f6b3a;
+  --drop: #e3efea;
+  --dropped: #a89b8e;
+  /* Carries its own alpha rather than taking a /opacity modifier: the drawer's backdrop is not
+     "the foreground colour, faded" — on a dark theme that would be a white veil over the board. */
+  --scrim: rgb(33 28 23 / 0.28);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #221e1a;
+    --sunken: #16130f;
+    --hover: #2b2520;
+    --line: #332c25;
+    --line-soft: #29231d;
+    --fg: #efe8e0;
+    --muted: #a99c90;
+    --accent: #5fbfaa;
+    --danger: #ff8a78;
+    --ok: #6fcb8f;
+    --drop: #24312d;
+    --dropped: #6e645a;
+    --scrim: rgb(0 0 0 / 0.6);
+  }
+}
+
+/*
+ * Named for the job rather than the colour, so a theme can answer differently without any
+ * caller changing. `muted` in particular is not "grey": it is the second voice on a surface, and
+ * it carries a contrast promise — every theme's value clears 4.5:1 against its own `surface`.
+ * The old `text-neutral-500` was one value for both themes and managed 3.8:1 on the dark one,
+ * which is under AA for text this size and is what the card's whole metadata row was set in.
+ */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --color-drop: var(--drop);
+  --color-dropped: var(--dropped);
+  --color-scrim: var(--scrim);
+}
+
+/*
+ * Genre colours are content, not chrome: they say which genre a game is, so they mean the same
+ * thing whatever the app is wearing and are deliberately *not* per-theme. A plain `@theme`, so
+ * they resolve at build time like any other static token. See src/board/genres.ts, which holds
+ * the same ten in the order that decides which one a game is painted as.
+ *
+ * Every lightness sits in [0.48, 0.75] — the band that stays visible against every theme's
+ * surface, light or dark, which is why none of them needs a variant. Lightness varies as well as
+ * hue because ten hues is past what anyone with common colour-vision deficiency can separate;
+ * the card prints the genre's name for the same reason.
  */
 @theme {
-  --color-column-dropped: oklch(0.55 0.01 260);
-
-  /*
-   * Genre colours for the board's left-edge stripes. See src/board/genres.ts, which holds the
-   * same ten in the order that decides which one a game is painted as.
-   *
-   * Every lightness sits in [0.48, 0.75] — the band that stays visible against both bg-white
-   * and dark:bg-neutral-900, which is why none of these needs a dark: counterpart. Lightness
-   * varies as well as hue because ten hues is past what anyone with common colour-vision
-   * deficiency can separate; the card prints the genre's name for the same reason.
-   */
   --color-genre-rpg: oklch(0.55 0.18 295);
   --color-genre-shooter: oklch(0.6 0.19 25);
   --color-genre-platform: oklch(0.7 0.16 145);
@@ -32,6 +99,10 @@
  * Native controls — the rating slider, the date inputs, the selects — follow the OS theme only
  * if the page says it has both. Without this the slider's track renders light on a dark drawer,
  * which is the one part of a range input Tailwind cannot reach with a utility.
+ *
+ * It stays a pair while the palette still follows the OS. Once a theme can be *chosen*, this has
+ * to become one value per theme instead, or picking a dark theme under a light OS leaves the
+ * slider's track light on a dark drawer — the exact bug this line exists to prevent.
  */
 :root {
   color-scheme: light dark;

@@ -64,10 +64,10 @@ export function BoardPage() {
   }, [journalFor]);
 
   return (
-    <main className="min-h-screen bg-neutral-50 p-6 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <main className="min-h-screen bg-sunken p-6 text-fg">
       <header className="mb-6 flex items-baseline gap-4">
         <h1 className="text-2xl font-semibold">Games</h1>
-        <Link to="/search" className="text-sm text-blue-600 hover:underline dark:text-blue-400">
+        <Link to="/search" className="text-sm text-accent hover:underline">
           Add a game
         </Link>
       </header>

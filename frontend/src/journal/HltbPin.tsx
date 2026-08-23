@@ -70,7 +70,7 @@ export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
   }
 
   return (
-    <div className="flex flex-col gap-1 text-xs text-neutral-600 dark:text-neutral-400">
+    <div className="flex flex-col gap-1 text-xs text-muted">
       <div className="flex items-center gap-2">
         <label htmlFor={id} className="font-medium">
           HowLongToBeat ID
@@ -90,7 +90,7 @@ export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
               commit();
             }
           }}
-          className="w-24 rounded border border-neutral-300 bg-white px-1 py-0.5 text-xs disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900"
+          className="w-24 rounded border border-line bg-surface px-1 py-0.5 text-xs disabled:opacity-50"
         />
 
         {saving && <span>Checking…</span>}
@@ -100,7 +100,7 @@ export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
             href={`https://howlongtobeat.com/game/${hltbId}`}
             target="_blank"
             rel="noreferrer"
-            className="underline hover:text-neutral-900 dark:hover:text-neutral-200"
+            className="underline hover:text-fg"
           >
             View on HowLongToBeat
           </a>
@@ -109,7 +109,7 @@ export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
 
       {/* The local rule wins when it fires, because it is what stopped the request going. */}
       {(refusal ?? error) !== null && (
-        <p role="alert" className="text-red-600">
+        <p role="alert" className="text-danger">
           {refusal ?? error}
         </p>
       )}
