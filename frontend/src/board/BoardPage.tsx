@@ -7,6 +7,7 @@ import { Column } from './Column';
 import { EntryDrawer } from '../journal/EntryDrawer';
 import { useBoard } from './useBoard';
 import { yearFor } from './keys';
+import type { Hobby } from '../shell/hobbies';
 import type { LibrarySort, LogStatus } from '../api/types';
 
 /**
@@ -16,7 +17,7 @@ import type { LibrarySort, LogStatus } from '../api/types';
  * routing change rather than a rewrite. Each column fetches itself, which is what makes a sort
  * or a year on one of them cost nothing on the other three.
  */
-const HOBBY = 'games';
+const HOBBY: Hobby = 'games';
 
 const COLUMNS: readonly { status: LogStatus; label: string }[] = [
   { status: 'Backlog', label: 'Backlog' },
@@ -67,7 +68,7 @@ export function BoardPage() {
   return (
     <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
       <div className="mx-auto max-w-board">
-        <AppHeader title="Games" />
+        <AppHeader title="HobbyTracker" />
 
         {/* Above the board rather than on a screen of its own, so the column a title is
             about to land in is visible while you decide. */}
