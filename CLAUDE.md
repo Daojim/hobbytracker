@@ -14,14 +14,17 @@ that serves every leg of it.
 **PR #10 is merged** — a card drags from its title, a save in the drawer says so, and the e2e
 suite builds to its own output directory so it no longer needs your development server stopped.
 
-**The redesign is built, on branch `design-tokens`, cut from `main` after #10 merged.** Six
-commits, one per stage, each green on its own:
+**PR #11 is merged** — the redesign, in three commits cut from `main` after #10:
 
 1. **the token layer** — every colour behind a semantic name, all 66 `dark:` variants gone,
    proved by the whole suite passing untouched;
 2. **four themes and a density setting** behind one menu, top right;
 3. **the Shelf re-skin in Public Sans** — cards lift on shadow, columns became wells, the rating
-   turned amber, and destructive controls stopped relying on colour;
+   turned amber, and destructive controls stopped relying on colour.
+
+**The width, search and navigation work sits on top of it**, in three more commits, each green
+on its own — what living with the redesign at laptop widths turned up:
+
 4. **a board that works between 768 and 1600** — the cover stopped being stretched, and a card
    sizes itself from its column rather than from the window. See **The board at every width**;
 5. **search above the board** rather than on a screen of its own. See **Search on the board**;
@@ -46,10 +49,9 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished.** `design-tokens` is green and has no PR yet. It now carries the
-redesign plus the width, search and navigation work on top of it — six commits — and was left
-unopened for the user to say whether that is the whole branch. Two things worth knowing before
-a first run either way:
+**Nothing is half-finished.** The redesign is merged as #11, and the width, search and
+navigation work that followed it is green on `board-width-nav-and-search`. Two things worth
+knowing before a first run either way:
 
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
