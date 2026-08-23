@@ -14,22 +14,30 @@ that serves every leg of it.
 **PR #10 is merged** — a card drags from its title, a save in the drawer says so, and the e2e
 suite builds to its own output directory so it no longer needs your development server stopped.
 
-**The redesign is built, on branch `design-tokens`, cut from `main` after #10 merged.** Three
+**The redesign is built, on branch `design-tokens`, cut from `main` after #10 merged.** Six
 commits, one per stage, each green on its own:
 
 1. **the token layer** — every colour behind a semantic name, all 66 `dark:` variants gone,
    proved by the whole suite passing untouched;
 2. **four themes and a density setting** behind one menu, top right;
 3. **the Shelf re-skin in Public Sans** — cards lift on shadow, columns became wells, the rating
-   turned amber, and destructive controls stopped relying on colour.
+   turned amber, and destructive controls stopped relying on colour;
+4. **a board that works between 768 and 1600** — the cover stopped being stretched, and a card
+   sizes itself from its column rather than from the window. See **The board at every width**;
+5. **search above the board** rather than on a screen of its own. See **Search on the board**;
+6. **a hobby nav**, with the five that do not exist yet saying *Soon*. See **The hobby nav**.
 
-Everything is green and everything has been run: backend 251, frontend 269, Playwright 49. See
-**The redesign** for the whole of it, and for the two bugs it found on the way.
+Everything is green and everything has been run: backend 251, frontend 296, Playwright 58. See
+**The redesign** for the whole of it, and for the four bugs it found on the way.
 
-Seven plans. The current one is
-`C:\Users\jimmy\.claude\plans\for-the-next-part-delightful-alpaca.md`, and it is worth reading
-before touching HowLongToBeat — though see **What the plan got wrong** below, because three of
-its assumptions did not survive contact with the site. The earlier six are the board's:
+Nine plans. The current one is
+`C:\Users\jimmy\.claude\plans\read-claude-md-to-get-giggly-hoare.md` — the width, navigation
+and search work, and the three sections about it below are what it turned into.
+`fluffy-pondering-brook.md` is the redesign before it: tokens, four themes, the density
+setting and the Shelf re-skin.
+`for-the-next-part-delightful-alpaca.md` is worth reading before touching HowLongToBeat —
+though see **What the plan got wrong** below, because three of its assumptions did not survive
+contact with the site. The earlier five are the board's:
 `project-context-i-m-building-nifty-mango.md` is the original board plan;
 `i-had-a-previous-melodic-nebula.md` is the timezone and timestamp work that interrupted it;
 `look-at-claude-md-and-radiant-wreath.md` is the five drawer gaps and the reasoning behind each;
@@ -38,9 +46,10 @@ its assumptions did not survive contact with the site. The earlier six are the b
 
 ### Picking this up
 
-**Nothing is half-finished.** `design-tokens` is green and has no PR yet — the user has seen the
-themes and has more they want to add, so it was left for them to say what comes next rather than
-opened. Two things worth knowing before a first run either way:
+**Nothing is half-finished.** `design-tokens` is green and has no PR yet. It now carries the
+redesign plus the width, search and navigation work on top of it — six commits — and was left
+unopened for the user to say whether that is the whole branch. Two things worth knowing before
+a first run either way:
 
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
@@ -94,7 +103,7 @@ Decisions already made with the user, **settled — do not reopen**:
 | | |
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
-| Scope | `/board` and `/search` only. No detail page or year-review page yet |
+| Scope | **`/board` only.** Search is a bar on it, not a screen; `/search` redirects. No detail or year-review page yet |
 | Columns | Backlog · Playing · Completed, plus Dropped as a muted 4th, collapsed by default |
 | Dropped | close button on a **Playing** card; drag out of the Dropped column to un-drop |
 | Close button | On Backlog it **removes** the title; on Playing it drops. **Hidden on Completed and Dropped** |
@@ -141,8 +150,8 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       ├── board/        the board. keys.ts owns the query key, sensors.ts owns the drag's
 │       │                 activation distance, and useBoard owns the writes
 │       ├── journal/      the drawer over the board — rating, platform, dates, notes, earlier passes
-│       ├── search/       SearchPage + SearchResult, over a debounced IGDB search
-│       ├── shell/        AppHeader — one bar for both screens, so the menu reaches both
+│       ├── search/       BoardSearch + SearchResult — the bar and strip above the board
+│       ├── shell/        AppHeader and hobbies.ts — the bar, the nav, and the six slugs
 │       ├── theme/        the four themes, the two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
@@ -218,8 +227,8 @@ dotnet ef migrations add <Name> \
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
-cd frontend && npm test                             # frontend, 287 tests
-cd frontend && npm run test:e2e                     # 50 specs in a real browser
+cd frontend && npm test                             # frontend, 296 tests
+cd frontend && npm run test:e2e                     # 58 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -906,6 +915,10 @@ Decided with the user, **settled — do not reopen**:
 | Density | Comfortable / Compact, a setting rather than a decision |
 | Journal | **Drawer or modal**, also a setting. Same dialog either way |
 | Width | The board stops widening at 2000px and puts the pixels into the cards |
+| Columns | **Two across from 768px, four from 1280px.** Four at 768 left each one 168px |
+| Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
+| Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
+| Search | **A bar above the board**, results as a strip, present only once you have typed |
 
 The user's own words on red, which is the principle the whole theme layer is shaped around:
 
@@ -922,9 +935,11 @@ near-black surface a red has to sit fairly light to clear 4.5:1 at all**: `#ef44
 4.58 and `#e5484d` at 4.38, so the deeper, more saturated reds are simply not available here.
 That is a fact about the ground rather than a preference, and the contrast test is what says so.
 
-**The genre palette is unfinished and is with the user.** Three pairs are closer than the
-Strategy/RPG collision that prompted it — Platform/Puzzle worst at 0.095 in OKLab — so it is
-being picked rather than nudged. Do not adjust the ten by hand in the meantime.
+**The genre palette is settled**, repainted by the user against a live board. The set it
+replaced had three pairs under 0.10 apart in OKLab — Platform/Puzzle, Fighting/Racing and
+Simulator/Puzzle — which at a 4px stripe is the same colour twice. Measure before changing one:
+the arithmetic is written down beside the values in `index.css`, and the pair a person notices
+is rarely the closest pair. The floor is Strategy against Adventure at 0.087, known and accepted.
 
 ### How a theme works
 
@@ -996,6 +1011,112 @@ Each of these is invisible in development and each has a test that was checked b
   board, switches theme and writes PNGs is worth writing again whenever this area changes — it is
   what caught the unreadable chip. Do not commit it.
 
+### The board at every width
+
+Between 768px and 1600px the cards were squished and the cover art read as a thin sliver. That
+was **two defects stacked, and each hid the other**.
+
+**The cover was being stretched, not merely drawn small.** `CARD_CLASS` is a flex row with no
+`items-*`, so the default `align-items: stretch` took the cover's height — an `aspect-ratio` only
+decides a height when the height is free, and stretch takes it — and `object-cover` then cropped a
+vertical strip out of a portrait. The narrower the column, the more the title wrapped, the taller
+the card, the thinner the cover. Measured at 768px it was **40×95 for a box asking to be 5:7**.
+`items-start` is the whole fix. The genre stripe is unaffected because it asks for the full height
+itself with `self-stretch`.
+
+**And the size ladder had no rung where one was needed.** `--cover` stepped up at 1280 and 1920
+only, so everything from a phone to a 1279px laptop shared one 40px value — while four columns
+started at 768, which left each one 168px. After the well, the card, the stripe and the cover that
+is about **32px of title**, so every name became a stack of broken words.
+
+So the board turns four columns across at **1280** rather than 768, two before that, and the cover
+and the title size themselves in **`cqi` against the card**. Cover widths across 640–1920 went
+from a flat 40/48 to 80/72/80/80/58/67/75/80, and every ratio measures 1.40.
+
+- **`@container` is on `CARD_CLASS`, not on `Column`.** That class is what the drag preview wears,
+  and the preview renders outside every column — a container on the column would shrink a card at
+  the moment it was picked up. Same reasoning that puts the genre stripe inside `CardFace`.
+- **`--card-pad` and `--card-gap` deliberately did not join them.** Container query units resolve
+  against the nearest *ancestor* container, never the element's own, so a `cqi` in the card's own
+  padding would quietly measure the viewport — and it would be circular even if it worked, since
+  `cqi` reads the content box and the padding is what decides it. `--card-gap` is applied by the
+  column, outside every card, so it has no card container in scope either. Those two keep the
+  width ladder; the media queries at 1280 and 1920 are all that is left of it.
+- **The e2e suite had no viewport.** It was inheriting Chromium's 1280×720, which is exactly the
+  new four-column breakpoint and one scrollbar pixel from laying the board out as two. Pinned at
+  1440×900 in `playwright.config.ts`; `e2e/layout.spec.ts` overrides it per describe block.
+- **`e2e/layout.spec.ts` is the only layer that can check any of this.** jsdom has no box model,
+  so a height read there is whatever the stylesheet last said. The cover carries a `data-cover`
+  hook because an `<img alt="">` has no role — the same reason `data-genre-stripe` exists. The
+  stub omits covers on purpose, so what the spec measures is the placeholder, which wears the same
+  classes and had the same bug.
+
+The one thing left alone: at around 1280 the **Completed column's header wraps** its year picker
+and sort select onto a second line, so its cards start lower than its neighbours'. It is
+pre-existing, it clears by 1440, and it wraps as a tidy right-aligned pair. Truncating the control
+labels to avoid it would cost more than it saves.
+
+### Search on the board
+
+Search used to be its own screen, so adding a game was a round trip away from the thing you were
+adding it to. `BoardSearch` is a bar above the board now, and results arrive as a **horizontal
+strip** over it, so the column a title will land in is on screen while you decide.
+
+- **The strip is only there when there is something to show.** An idle box is a bar and nothing
+  else, so the board keeps its full height until you ask; it comes back when the box is cleared or
+  Escape is pressed.
+- **Escape is handled on the search, not on `document`.** The journal drawer already listens at
+  the document, and two listeners for one key is how they start disagreeing about which of them a
+  press was meant for.
+- **The strip is `aria-label`led, not headed.** `BoardPage.test.tsx` asserts the board's four
+  `<h2>`s as an exhaustive list, so a section heading here would have failed it. The landmark is
+  worth having; the `<h2>` is not.
+- **`BoardSearch` is tested on its own, never through `BoardPage`.** A result's title and a card's
+  title are both an `<h3>`, so "in the order IGDB ranked it" would be reading the board's cards
+  too if there were a board in the document.
+- **A result is a poster tile**, not a wide row: the strip runs sideways and a row turned on its
+  side is unreadable. Same 5:7 the cards use, fixed width so the tiles keep a rhythm.
+- **`/search` redirects to `/board`** rather than being dropped — the address outlived the page.
+- `e2e/support/board.ts`'s **`card()` is scoped to `[data-board]`** now. It was a bare
+  `getByRole('listitem')`, which a search result tile answers to; the failure would have been a
+  strict-mode violation in the `board`, `journal` and `hltb` specs rather than in search.
+
+One thing that was checked rather than assumed: MSW runs with `onUnhandledRequest: 'error'`, so
+the library-ids query the board now fires on mount could have failed every board test. It does
+not, because `boardServer()` already answers the status-less `GET /api/library` and search never
+fires while the box is empty.
+
+Everything worth not re-deriving about search itself is unchanged and still above: the 300ms
+debounce, `enabled: settled !== ''`, and `libraryMediaIds()` paging to the end.
+
+### The hobby nav
+
+`<nav aria-label="Hobbies">` under the header, built from `src/shell/hobbies.ts`. Adding movies is
+a `ready` flag there plus a route — the header itself does not change.
+
+- **The six slugs are copies of `SeedData.Apply`'s and must stay copies.** They are what `?hobby=`
+  is filtered on, and `LibraryController` answers **400** for anything not in `hobby_lu`. There is
+  no `/api/hobbies` to read them from, which is why `THEMES` is a literal list too.
+- **The five unbuilt ones are plain text**, not disabled links and not disabled buttons. There is
+  nothing behind them to operate, and a disabled control claims it would work under some other
+  condition — so there is nothing to focus and nothing announced as operable.
+- **Dim is `text-muted` and nothing further.** `opacity-60` was the first attempt and was wrong:
+  every theme's `--muted` is picked to clear 4.5:1 against its own surface, and fading it takes it
+  back under — silently, because `index.css.test.ts` checks the tokens rather than what a
+  component does to them afterwards. Each tab also says *Soon* in words, which is the rule the
+  destructive controls already follow.
+- **Games is a `NavLink`**, so `aria-current="page"` comes free and stays right once there is more
+  than one of them to be current. `boardPath()` is the one place that has to learn `/board/:hobby`
+  when the second hobby lands.
+- **The `h1` is the app now, not the hobby**, because the nav is what says which hobby you are on.
+- **Exactly one `SettingsMenu`, and it has to stay that way.** `useTheme` holds its state locally —
+  themes are CSS, so there is no provider — so a second menu would read storage once on mount and
+  then keep drawing the old choice. `AppHeader.test.tsx` pins it.
+
+`renderWithProviders` grew a **`route` option**, defaulting to `/board`. Its `MemoryRouter` had no
+`initialEntries`, so the location was always `/` and `aria-current` could not be asserted at all.
+That was the one place the test harness could not reach the behaviour being added.
+
 ## Phases
 
 Phases are referred to **by name, not by number**, anywhere outside this list. The order has now
@@ -1007,10 +1128,10 @@ the list is shuffled.
 - **The journal — done.** Log-entry CRUD, library and game-detail reads, and the test suite. Its
   UI arrived later, with the board — see **Journalling**.
 - **The board — done.** Kanban board frontend: transitions, manual ordering, year filtering and
-  the Eastern timezone work on the backend; components, the drag, the search page and the
-  journal drawer on the front, with Playwright specs against a real browser. The five gaps found
-  by using the drawer — staleness, the dialog, deleting a pass, per-pass platform, and notes as
-  dated entries — were unfinished board-phase work and are all closed.
+  the Eastern timezone work on the backend; components, the drag, search (a screen of its own at
+  the time) and the journal drawer on the front, with Playwright specs against a real browser.
+  The five gaps found by using the drawer — staleness, the dialog, deleting a pass, per-pass
+  platform, and notes as dated entries — were unfinished board-phase work and are all closed.
 - **Living with the board — done.** Four things daily use turned up once the drawer was finished:
   closing from Backlog removes a title rather than dropping it, rating by slider, your own hours
   beside HowLongToBeat's, and genres from IGDB colouring the cards. Unfinished board-phase work,
@@ -1023,8 +1144,10 @@ the list is shuffled.
   everything the spike established, and **What the stub is for** for why the specs are green
   for the right reason.
 - **The redesign — done.** Semantic tokens, four themes, a density setting and the Shelf
-  re-skin in Public Sans. The scope grew twice with the user: it began as tokens and appearance,
-  and gained themes, a settings menu, a density preference and a webfont. See **The redesign**.
+  re-skin in Public Sans, then a board that works at every width, search moved onto it, and a
+  hobby nav. The scope grew three times with the user: it began as tokens and appearance, gained
+  themes, a settings menu, a density preference and a webfont, and then gained the layout and
+  navigation work that living with it turned up. See **The redesign**.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
