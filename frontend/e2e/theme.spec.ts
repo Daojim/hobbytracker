@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { openJournal, seed } from './support/board';
+import { resetDatabase } from './support/database';
 
 /**
  * Choosing a theme, and it still being chosen next time.
@@ -9,6 +11,7 @@ import { expect, test } from '@playwright/test';
  */
 
 test.beforeEach(async ({ page }) => {
+  resetDatabase();
   await page.goto('/board');
 });
 
@@ -52,6 +55,39 @@ test('density is remembered too, and is always stamped', async ({ page }) => {
   await page.reload();
 
   await expect(page.locator('html')).toHaveAttribute('data-density', 'compact');
+});
+
+test('the journal opens where you asked it to, and is the same dialog either way', async ({
+  page,
+  request,
+}) => {
+  // Geometry is the only honest way to tell these apart. Both are one `role="dialog"` with the
+  // same contents and the same Escape, so anything else a spec could assert would pass in both
+  // modes and prove nothing about the setting.
+  await seed(request, 'Celeste', 'InProgress');
+  await page.reload();
+
+  const viewport = page.viewportSize()!;
+  const centreOf = (box: { x: number; width: number }) => box.x + box.width / 2;
+
+  await openJournal(page, 'Celeste');
+  const drawer = (await page.getByRole('dialog').boundingBox())!;
+  // Flush to the right edge, give or take a scrollbar.
+  expect(drawer.x + drawer.width).toBeGreaterThan(viewport.width - 20);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('radio', { name: 'Modal' }).click();
+  await page.keyboard.press('Escape');
+
+  await openJournal(page, 'Celeste');
+  const modal = (await page.getByRole('dialog').boundingBox())!;
+  expect(modal.x).toBeGreaterThan(20);
+  expect(Math.abs(centreOf(modal) - viewport.width / 2)).toBeLessThan(20);
+
+  // Still a dialog, and still closes the way it did.
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('System leaves no attribute, so the device keeps deciding', async ({ page }) => {

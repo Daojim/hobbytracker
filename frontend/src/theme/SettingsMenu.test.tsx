@@ -3,7 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../test/render';
 import { SettingsMenu } from './SettingsMenu';
-import { DENSITY_ATTRIBUTE, THEME_ATTRIBUTE } from './theme';
+import { DENSITY_ATTRIBUTE, JOURNAL_ATTRIBUTE, THEME_ATTRIBUTE } from './theme';
 
 const open = async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
@@ -14,6 +14,7 @@ describe('SettingsMenu', () => {
     localStorage.clear();
     document.documentElement.removeAttribute(THEME_ATTRIBUTE);
     document.documentElement.removeAttribute(DENSITY_ATTRIBUTE);
+    document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
   });
 
   it('keeps the panel shut until it is asked for', () => {
@@ -55,6 +56,17 @@ describe('SettingsMenu', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'System' }));
 
     expect(document.documentElement.hasAttribute(THEME_ATTRIBUTE)).toBe(false);
+  });
+
+  it('offers the journal as a drawer or a modal', async () => {
+    renderWithProviders(<SettingsMenu />);
+    await open();
+
+    expect(screen.getByRole('radio', { name: 'Drawer' })).toBeChecked();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Modal' }));
+
+    expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('modal');
   });
 
   it('closes on Escape and hands the keyboard back to the button', async () => {

@@ -4,13 +4,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DENSITY_ATTRIBUTE,
   DENSITY_KEY,
+  JOURNAL_ATTRIBUTE,
+  JOURNAL_KEY,
   THEME_ATTRIBUTE,
   THEME_KEY,
   applyDensity,
+  applyJournalView,
   applyTheme,
   readDensity,
+  readJournalView,
   readTheme,
   storeDensity,
+  storeJournalView,
   storeTheme,
 } from './theme';
 
@@ -19,6 +24,7 @@ describe('theme preferences', () => {
     localStorage.clear();
     document.documentElement.removeAttribute(THEME_ATTRIBUTE);
     document.documentElement.removeAttribute(DENSITY_ATTRIBUTE);
+    document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
     vi.restoreAllMocks();
   });
 
@@ -67,6 +73,24 @@ describe('theme preferences', () => {
 
     applyDensity('comfortable');
     expect(document.documentElement.getAttribute(DENSITY_ATTRIBUTE)).toBe('comfortable');
+  });
+
+  it('opens the journal in a drawer until told otherwise', () => {
+    expect(readJournalView()).toBe('drawer');
+
+    storeJournalView('modal');
+    expect(readJournalView()).toBe('modal');
+
+    localStorage.setItem(JOURNAL_KEY, 'sidebar');
+    expect(readJournalView()).toBe('drawer');
+  });
+
+  it('stamps the journal view, which like density is always present', () => {
+    applyJournalView('modal');
+    expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('modal');
+
+    applyJournalView('drawer');
+    expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('drawer');
   });
 
   it('keeps working when storage refuses', () => {

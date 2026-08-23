@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
 import { formatHours } from '../lib/hours';
+import { ratingTone } from '../lib/rating';
 import { genreStripe, resolveGenre } from './genres';
 import type { LibraryItem } from '../api/types';
 
@@ -82,13 +83,17 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
       {item.coverUrl === null ? (
         <span
           aria-hidden="true"
-          className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-sunken text-lg font-semibold text-muted"
+          className="flex aspect-[5/7] w-cover shrink-0 items-center justify-center rounded bg-sunken text-lg font-semibold text-muted"
         >
           {item.title.charAt(0)}
         </span>
       ) : (
         // Empty alt on purpose: the title is right there as text, so the cover repeats it.
-        <img src={item.coverUrl} alt="" className="h-14 w-10 shrink-0 rounded object-cover" />
+        <img
+          src={item.coverUrl}
+          alt=""
+          className="aspect-[5/7] w-cover shrink-0 rounded object-cover"
+        />
       )}
 
       <div className="min-w-0 flex-1">
@@ -153,7 +158,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
               <span
                 role="img"
                 aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}
-                className="font-semibold text-rating"
+                className={`font-semibold ${ratingTone(item.latestRating)}`}
               >
                 ★ {item.latestRating.toFixed(1)}
               </span>

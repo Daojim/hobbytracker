@@ -74,8 +74,13 @@ describe('contrast', () => {
         ['fg', 'surface'],
         ['muted', 'surface'],
         ['accent', 'surface'],
-        ['rating', 'surface'],
         ['danger', 'surface'],
+        // All three rating bands, not just the one that happens to be on screen. The low band is
+        // the risk: a red that reads well on a dark ground is easy to pick, and a red dark enough
+        // to read on a light one stops looking like the same scale.
+        ['rating-low', 'surface'],
+        ['rating-mid', 'surface'],
+        ['rating-high', 'surface'],
         ['muted', 'well'],
         ['muted', 'sunken'],
       ])('%s reads on %s', (token, ground) => {

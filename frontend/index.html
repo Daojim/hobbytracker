@@ -37,6 +37,12 @@
             'data-density',
             density === 'compact' ? 'compact' : 'comfortable',
           );
+
+          var journal = localStorage.getItem('hobbytracker.journal');
+          document.documentElement.setAttribute(
+            'data-journal',
+            journal === 'modal' ? 'modal' : 'drawer',
+          );
         } catch (error) {
           // No preference readable. The defaults in index.css are already correct.
         }

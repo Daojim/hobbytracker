@@ -1,12 +1,16 @@
 import { useCallback, useState } from 'react';
 import {
   type Density,
+  type JournalView,
   type Theme,
   applyDensity,
+  applyJournalView,
   applyTheme,
   readDensity,
+  readJournalView,
   readTheme,
   storeDensity,
+  storeJournalView,
   storeTheme,
 } from './theme';
 
@@ -26,6 +30,7 @@ import {
 export function useTheme() {
   const [theme, setThemeState] = useState<Theme>(readTheme);
   const [density, setDensityState] = useState<Density>(readDensity);
+  const [journalView, setJournalViewState] = useState<JournalView>(readJournalView);
 
   const setTheme = useCallback((next: Theme) => {
     applyTheme(next);
@@ -39,5 +44,11 @@ export function useTheme() {
     setDensityState(next);
   }, []);
 
-  return { theme, density, setTheme, setDensity };
+  const setJournalView = useCallback((next: JournalView) => {
+    applyJournalView(next);
+    storeJournalView(next);
+    setJournalViewState(next);
+  }, []);
+
+  return { theme, density, journalView, setTheme, setDensity, setJournalView };
 }

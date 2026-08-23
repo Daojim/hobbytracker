@@ -7,6 +7,7 @@ import { NoteList } from './NoteList';
 import { automaticGenre } from '../board/genres';
 import { entrySeed } from './fields';
 import { formatHours } from '../lib/hours';
+import { ratingTone } from '../lib/rating';
 import { useJournalEntry } from './useJournalEntry';
 import { useNotes } from './useNotes';
 import type { LogEntry, LogStatus } from '../api/types';
@@ -166,7 +167,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-xl outline-none"
+        className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-xl outline-none 2xl:max-w-lg modal:inset-4 modal:m-auto modal:h-fit modal:max-h-[86vh] modal:max-w-2xl modal:rounded-xl modal:border modal:p-6 3xl:modal:max-w-3xl"
       >
         <div className="flex items-start gap-3">
           <h2 id={titleId} className="flex-1 text-lg font-semibold">
@@ -295,7 +296,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
                       <span
                         role="img"
                         aria-label={`Rated ${entry.rating.toFixed(1)} out of 10`}
-                        className="text-xs text-muted"
+                        className={`text-xs font-semibold ${ratingTone(entry.rating)}`}
                       >
                         ★ {entry.rating.toFixed(1)}
                       </span>

@@ -64,58 +64,60 @@ export function BoardPage() {
   }, [journalFor]);
 
   return (
-    <main className="min-h-screen bg-sunken p-6 text-fg">
-      <AppHeader title="Games" to="/search" linkLabel="Add a game" />
+    <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
+      <div className="mx-auto max-w-board">
+        <AppHeader title="Games" to="/search" linkLabel="Add a game" />
 
-      <DndContext {...board.dnd}>
-        <div className="grid items-start gap-4 md:grid-cols-4">
-          {COLUMNS.map(({ status, label }) => (
-            <Column
-              key={status}
-              hobby={HOBBY}
-              status={status}
-              label={label}
-              sort={sorts[status]}
-              onSortChange={(sort) => setSorts((current) => ({ ...current, [status]: sort }))}
-              year={yearFor(status, year)}
-              onYearChange={status === 'Completed' ? setYear : undefined}
-              collapsed={status === 'Dropped' ? !droppedOpen : undefined}
-              onToggleCollapse={
-                status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
-              }
-              onDrop={(mediaId) => board.drop(mediaId, status)}
-              removal={{
-                mediaId: removingFor,
-                onAsk: setRemovingFor,
-                onCancel: () => setRemovingFor(null),
-                onConfirm: (mediaId) => {
-                  setRemovingFor(null);
-                  board.remove(mediaId);
-                },
-              }}
-              onOpen={(mediaId) => {
-                openedFrom.current = mediaId;
-                setJournalFor(mediaId);
-              }}
-            />
-          ))}
-        </div>
+        <DndContext {...board.dnd}>
+          <div className="grid items-start gap-4 md:grid-cols-4 2xl:gap-5 3xl:gap-6">
+            {COLUMNS.map(({ status, label }) => (
+              <Column
+                key={status}
+                hobby={HOBBY}
+                status={status}
+                label={label}
+                sort={sorts[status]}
+                onSortChange={(sort) => setSorts((current) => ({ ...current, [status]: sort }))}
+                year={yearFor(status, year)}
+                onYearChange={status === 'Completed' ? setYear : undefined}
+                collapsed={status === 'Dropped' ? !droppedOpen : undefined}
+                onToggleCollapse={
+                  status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
+                }
+                onDrop={(mediaId) => board.drop(mediaId, status)}
+                removal={{
+                  mediaId: removingFor,
+                  onAsk: setRemovingFor,
+                  onCancel: () => setRemovingFor(null),
+                  onConfirm: (mediaId) => {
+                    setRemovingFor(null);
+                    board.remove(mediaId);
+                  },
+                }}
+                onOpen={(mediaId) => {
+                  openedFrom.current = mediaId;
+                  setJournalFor(mediaId);
+                }}
+              />
+            ))}
+          </div>
 
-        {/* What the cursor carries. A card cannot follow the pointer out of its own column and
-            stay in the list, and a second sortable with the same id would be ambiguous to
-            dnd-kit — so the overlay wears the card's face without being one. */}
-        {/* dropAnimation={null}, or releasing a card tweens the overlay back to the rect it
-            started in and only then re-renders it where it was dropped — which reads as the card
-            being yanked home before it changes its mind. The optimistic cache update has already
-            put it in the new column by then, so there is nothing worth animating towards. */}
-        <DragOverlay dropAnimation={null}>
-          {board.dragging !== null && (
-            <div className={`${CARD_CLASS} cursor-grabbing shadow-lg`}>
-              <CardFace item={board.dragging} />
-            </div>
-          )}
-        </DragOverlay>
-      </DndContext>
+          {/* What the cursor carries. A card cannot follow the pointer out of its own column and
+              stay in the list, and a second sortable with the same id would be ambiguous to
+              dnd-kit — so the overlay wears the card's face without being one. */}
+          {/* dropAnimation={null}, or releasing a card tweens the overlay back to the rect it
+              started in and only then re-renders it where it was dropped — which reads as the card
+              being yanked home before it changes its mind. The optimistic cache update has already
+              put it in the new column by then, so there is nothing worth animating towards. */}
+          <DragOverlay dropAnimation={null}>
+            {board.dragging !== null && (
+              <div className={`${CARD_CLASS} cursor-grabbing shadow-lg`}>
+                <CardFace item={board.dragging} />
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
+      </div>
 
       {journalFor !== null && (
         <EntryDrawer mediaId={journalFor} onClose={() => setJournalFor(null)} />

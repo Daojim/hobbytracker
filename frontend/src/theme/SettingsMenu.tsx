@@ -1,20 +1,20 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { DENSITIES, THEMES } from './theme';
+import { DENSITIES, JOURNAL_VIEWS, THEMES } from './theme';
 import { useTheme } from './useTheme';
 
 /**
- * The one control in the header, holding both appearance preferences.
+ * The one control in the header, holding the appearance preferences.
  *
  * One button rather than two controls side by side: the header would otherwise start collecting
- * them, and there would be nowhere obvious for the next one to go. Theme and density are usually
- * set in the same sitting, so choosing one leaves the panel open.
+ * them, and there would be nowhere obvious for the next one to go. They are usually set in the
+ * same sitting, so choosing one leaves the panel open.
  *
  * Built as radio groups rather than a list of buttons because that is what they are — a closed
  * set where exactly one is current — and it is what lets a screen reader say "System, selected,
  * 1 of 5" instead of reading five unrelated buttons.
  */
 export function SettingsMenu() {
-  const { theme, density, setTheme, setDensity } = useTheme();
+  const { theme, density, journalView, setTheme, setDensity, setJournalView } = useTheme();
   const [open, setOpen] = useState(false);
 
   const ids = useId();
@@ -120,6 +120,35 @@ export function SettingsMenu() {
                   aria-hidden="true"
                   className={`mt-1 h-2 w-2 shrink-0 rounded-full border ${
                     density === option.value ? 'border-accent bg-accent' : 'border-line'
+                  }`}
+                />
+                {option.label}
+              </button>
+            ))}
+          </div>
+
+          <hr className="my-2 border-line-soft" />
+
+          <p
+            id={`${ids}-journal`}
+            className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
+          >
+            Journal
+          </p>
+          <div role="radiogroup" aria-labelledby={`${ids}-journal`} className="flex flex-col">
+            {JOURNAL_VIEWS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={journalView === option.value}
+                onClick={() => setJournalView(option.value)}
+                className="flex items-baseline gap-2 rounded px-2 py-1 text-left text-sm hover:bg-hover"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`mt-1 h-2 w-2 shrink-0 rounded-full border ${
+                    journalView === option.value ? 'border-accent bg-accent' : 'border-line'
                   }`}
                 />
                 {option.label}
