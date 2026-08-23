@@ -99,7 +99,7 @@ export function Column({
       </div>
 
       {!collapsed && (
-        <div ref={setNodeRef} className="flex flex-1 flex-col gap-2">
+        <div ref={setNodeRef} className="flex flex-1 flex-col gap-cardgap">
           {isPending && <p className="text-sm text-muted">Loading…</p>}
           {error !== null && (
             <p role="alert" className="text-sm text-danger">
@@ -111,7 +111,7 @@ export function Column({
             items={items.map((item) => item.mediaId)}
             strategy={verticalListSortingStrategy}
           >
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-cardgap">
               {items.map((item) => (
                 <Card
                   key={item.mediaId}

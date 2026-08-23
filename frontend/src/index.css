@@ -3,16 +3,23 @@
 /*
  * The palette, and the only place in the app that names a colour.
  *
- * Every value is a plain custom property redefined per theme, and `@theme inline` below turns
- * each one into a utility. `inline` is the whole mechanism: without it a utility resolves to the
- * value the theme variable held at build time, and a theme could not change it at runtime.
+ * Every value is a plain custom property, and `@theme inline` below turns each one into a
+ * utility. `inline` is the whole mechanism: without it a utility resolves to the value the theme
+ * variable held at build time, so no attribute could change it at runtime.
  *
- * This replaces 65 hand-written `dark:` twins spread across 15 components. Two halves of a pair
- * sitting at the call site is the failure this codebase has already paid for once — two
- * orderings that had to agree about which pass the board calls current, and quietly stopped.
- * Here the two halves are one token, so they cannot drift.
+ * A theme is one block here and nothing else — no component knows a colour, so adding one is a
+ * table of values and a line in src/theme/theme.ts.
+ *
+ * `color-scheme` belongs to each theme rather than sitting once on :root. It is the only thing
+ * that themes a range input's track, and the rating slider is a range input — so a dark theme
+ * chosen under a light OS would otherwise render a light track on a dark drawer.
  */
-:root {
+
+/* ---- Shelf Light: warm paper. The default, and what `system` resolves to in daylight. ---- */
+:root,
+[data-theme='shelf-light'] {
+  color-scheme: light;
+
   --surface: #fffdfa;
   --sunken: #efe9e1;
   --hover: #f1eae1;
@@ -30,8 +37,16 @@
   --scrim: rgb(33 28 23 / 0.28);
 }
 
+/*
+ * `system` stamps no attribute, so this is what answers for it. The values are Shelf Dark's,
+ * repeated: a media query cannot be aliased to a selector in CSS, and there is no way to say
+ * "these two conditions share a palette". `index.css.test.ts` compares the two blocks and fails
+ * if they ever stop agreeing, which is the only honest way to keep a copy-paste honest.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+
     --surface: #221e1a;
     --sunken: #16130f;
     --hover: #2b2520;
@@ -48,12 +63,98 @@
   }
 }
 
+/* ---- Shelf Dark: the same room with the lights off. ---- */
+[data-theme='shelf-dark'] {
+  color-scheme: dark;
+
+  --surface: #221e1a;
+  --sunken: #16130f;
+  --hover: #2b2520;
+  --line: #332c25;
+  --line-soft: #29231d;
+  --fg: #efe8e0;
+  --muted: #a99c90;
+  --accent: #5fbfaa;
+  --danger: #ff8a78;
+  --ok: #6fcb8f;
+  --drop: #24312d;
+  --dropped: #6e645a;
+  --scrim: rgb(0 0 0 / 0.6);
+}
+
+/* ---- Console: cool and deep, so cover art and the genre stripes carry the colour. ---- */
+[data-theme='console'] {
+  color-scheme: dark;
+
+  --surface: #171a21;
+  --sunken: #0a0c10;
+  --hover: #1e232c;
+  --line: #272d38;
+  --line-soft: #1d222c;
+  --fg: #f1f3f6;
+  --muted: #9ba5b3;
+  --accent: #5ecbd6;
+  --danger: #ff8579;
+  --ok: #5fd79a;
+  --drop: #16242b;
+  --dropped: #5d6672;
+  --scrim: rgb(0 0 0 / 0.65);
+}
+
 /*
- * Named for the job rather than the colour, so a theme can answer differently without any
- * caller changing. `muted` in particular is not "grey": it is the second voice on a surface, and
- * it carries a contrast promise — every theme's value clears 4.5:1 against its own `surface`.
- * The old `text-neutral-500` was one value for both themes and managed 3.8:1 on the dark one,
- * which is under AA for text this size and is what the card's whole metadata row was set in.
+ * ---- Ember: charcoal, with red as the heat rather than the room. ----
+ *
+ * The surfaces are deliberately neutral. Tinting them red was the alternative and was rejected
+ * by eye: a red ground shifts the ten genre hues against it, and those mean something. So red
+ * appears only where the app is speaking — links, focus, the current choice — and never behind
+ * text or beneath a cover.
+ *
+ * It is also the only theme where the accent and `danger` are the same colour family, which is
+ * why destructive controls never rely on colour alone. See the confirm chips.
+ */
+[data-theme='ember'] {
+  color-scheme: dark;
+
+  --surface: #1c1a19;
+  --sunken: #121110;
+  --hover: #262220;
+  --line: #2e2a28;
+  --line-soft: #24211f;
+  --fg: #f2eeeb;
+  --muted: #a79e99;
+  --accent: #ee6b52;
+  --danger: #ff8e7a;
+  --ok: #6fcb8f;
+  --drop: #2a201d;
+  --dropped: #6b625d;
+  --scrim: rgb(0 0 0 / 0.62);
+}
+
+/*
+ * How tightly the board is packed, independent of what it is wearing.
+ *
+ * Comfortable is roomier than the board has ever been; compact is close to what it was. Both are
+ * stamped, because density has no system preference to defer to.
+ */
+:root,
+[data-density='comfortable'] {
+  --card-pad: 0.75rem;
+  --card-gap: 0.625rem;
+  --card-title: 0.9375rem;
+}
+
+[data-density='compact'] {
+  --card-pad: 0.5rem;
+  --card-gap: 0.375rem;
+  --card-title: 0.875rem;
+}
+
+/*
+ * Named for the job rather than the colour, so a theme can answer differently without any caller
+ * changing. `muted` in particular is not "grey": it is the second voice on a surface, and it
+ * carries a contrast promise — every theme's value clears 4.5:1 against its own `surface`. The
+ * old `text-neutral-500` was one value for both themes and managed 3.8:1 on the dark one, which
+ * is under AA for text this size and is what the card's whole metadata row was set in.
  */
 @theme inline {
   --color-surface: var(--surface);
@@ -69,6 +170,10 @@
   --color-drop: var(--drop);
   --color-dropped: var(--dropped);
   --color-scrim: var(--scrim);
+
+  --spacing-card: var(--card-pad);
+  --spacing-cardgap: var(--card-gap);
+  --text-card: var(--card-title);
 }
 
 /*
@@ -93,17 +198,4 @@
   --color-genre-simulator: oklch(0.72 0.11 205);
   --color-genre-puzzle: oklch(0.65 0.13 175);
   --color-genre-adventure: oklch(0.5 0.06 40);
-}
-
-/*
- * Native controls — the rating slider, the date inputs, the selects — follow the OS theme only
- * if the page says it has both. Without this the slider's track renders light on a dark drawer,
- * which is the one part of a range input Tailwind cannot reach with a utility.
- *
- * It stays a pair while the palette still follows the OS. Once a theme can be *chosen*, this has
- * to become one value per theme instead, or picking a dark theme under a light OS leaves the
- * slider's track light on a dark drawer — the exact bug this line exists to prevent.
- */
-:root {
-  color-scheme: light dark;
 }

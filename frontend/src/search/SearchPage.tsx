@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AppHeader } from '../shell/AppHeader';
 import { searchGames } from '../api/games';
 import { libraryMediaIds } from '../api/library';
 import { addToBacklog } from '../api/logEntries';
@@ -54,12 +54,7 @@ export function SearchPage() {
 
   return (
     <main className="min-h-screen bg-sunken p-6 text-fg">
-      <header className="mb-6 flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold">Search</h1>
-        <Link to="/board" className="text-sm text-accent hover:underline">
-          Back to the board
-        </Link>
-      </header>
+      <AppHeader title="Search" to="/board" linkLabel="Back to the board" />
 
       <label className="block max-w-xl">
         <span className="sr-only">Search games</span>

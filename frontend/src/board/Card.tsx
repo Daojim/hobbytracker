@@ -105,7 +105,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             activation distance already decides it: under that the drag never begins and the
             click lands, and over it dnd-kit adds a capture-phase click listener of its own, so
             the press that moved a card cannot also open its drawer. */}
-        <h3 className="font-medium break-words">
+        <h3 className="text-card font-medium break-words">
           {onOpen === undefined ? (
             item.title
           ) : (
@@ -196,7 +196,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
 }
 
 export const CARD_CLASS =
-  'flex touch-none gap-2 rounded border border-line-soft bg-surface p-2 text-sm';
+  'flex touch-none gap-2 rounded border border-line-soft bg-surface p-card text-sm';
 
 export interface CardProps {
   item: LibraryItem;

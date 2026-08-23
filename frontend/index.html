@@ -4,6 +4,44 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HobbyTracker</title>
+
+    <!--
+      The chosen theme, stamped before anything paints.
+
+      This has to run here rather than in React. The bundle is fetched, parsed and mounted well
+      after the first paint, so a theme applied there shows the default palette first and swaps —
+      which reads as a flash of the wrong colours on every load, and is invisible in development
+      where the bundle is already warm.
+
+      It cannot import src/theme/theme.ts, so the keys and attribute names are repeated as
+      literals. theme.test.ts reads this file and asserts the copies still match, because a
+      renamed key here fails by silently ignoring the preference rather than by breaking.
+
+      Wrapped in try/catch: reading localStorage throws outright in a browser set to block site
+      data, and an exception at this point is a blank page rather than a wrong colour.
+    -->
+    <script>
+      (function () {
+        try {
+          var themes = ['shelf-light', 'shelf-dark', 'console', 'ember'];
+          var theme = localStorage.getItem('hobbytracker.theme');
+          // 'system' is stored as an absent attribute on purpose, so an unknown value and the
+          // system default land in the same place: leave the root alone and let the
+          // prefers-color-scheme query in index.css answer.
+          if (themes.indexOf(theme) !== -1) {
+            document.documentElement.setAttribute('data-theme', theme);
+          }
+
+          var density = localStorage.getItem('hobbytracker.density');
+          document.documentElement.setAttribute(
+            'data-density',
+            density === 'compact' ? 'compact' : 'comfortable',
+          );
+        } catch (error) {
+          // No preference readable. The defaults in index.css are already correct.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

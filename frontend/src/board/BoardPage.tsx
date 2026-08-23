@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
+import { AppHeader } from '../shell/AppHeader';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column } from './Column';
 import { EntryDrawer } from '../journal/EntryDrawer';
@@ -65,12 +65,7 @@ export function BoardPage() {
 
   return (
     <main className="min-h-screen bg-sunken p-6 text-fg">
-      <header className="mb-6 flex items-baseline gap-4">
-        <h1 className="text-2xl font-semibold">Games</h1>
-        <Link to="/search" className="text-sm text-accent hover:underline">
-          Add a game
-        </Link>
-      </header>
+      <AppHeader title="Games" to="/search" linkLabel="Add a game" />
 
       <DndContext {...board.dnd}>
         <div className="grid items-start gap-4 md:grid-cols-4">
