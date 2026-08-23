@@ -285,6 +285,17 @@
  * surface, light or dark, which is why none of them needs a variant. Lightness varies as well as
  * hue because ten hues is past what anyone with common colour-vision deficiency can separate;
  * the card prints the genre's name for the same reason.
+ *
+ * These ten were picked by the user against a live board rather than derived, and they are the
+ * second set: the first had Platform/Puzzle, Fighting/Racing and Simulator/Puzzle all under 0.10
+ * apart in OKLab, which at a 4px stripe is the same colour. Measure before changing one — the
+ * pair a person notices is rarely the closest pair. Convert each to OKLab (L, C·cos H, C·sin H)
+ * and take the Euclidean distance: under 0.10 is indistinguishable at stripe width, 0.10 to 0.15
+ * is tellable side by side, and above 0.15 is comfortable.
+ *
+ * The floor here is Strategy against Adventure at 0.087, which is known and was accepted: both
+ * are warm and light and sit 20° apart. Dropping Adventure's chroma to 0.06 opens it to 0.119
+ * and makes the most generic genre the quiet one, if it ever becomes annoying in practice.
  */
 @theme {
   --breakpoint-3xl: 1920px;
@@ -298,14 +309,14 @@
      personal journal, and the board renders the same offline as on. */
   --font-sans: 'Public Sans Variable', ui-sans-serif, system-ui, sans-serif;
 
-  --color-genre-rpg: oklch(0.55 0.18 295);
-  --color-genre-shooter: oklch(0.6 0.19 25);
-  --color-genre-platform: oklch(0.7 0.16 145);
-  --color-genre-fighting: oklch(0.7 0.16 60);
-  --color-genre-brawler: oklch(0.58 0.17 350);
-  --color-genre-racing: oklch(0.75 0.15 90);
-  --color-genre-strategy: oklch(0.55 0.15 255);
-  --color-genre-simulator: oklch(0.72 0.11 205);
-  --color-genre-puzzle: oklch(0.65 0.13 175);
-  --color-genre-adventure: oklch(0.5 0.06 40);
+  --color-genre-rpg: oklch(0.6 0.17 140);
+  --color-genre-shooter: oklch(0.68 0.15 240);
+  --color-genre-platform: oklch(0.52 0.17 260);
+  --color-genre-fighting: oklch(0.52 0.17 300);
+  --color-genre-brawler: oklch(0.52 0.17 20);
+  --color-genre-racing: oklch(0.75 0.13 0);
+  --color-genre-strategy: oklch(0.68 0.15 60);
+  --color-genre-simulator: oklch(0.55 0.06 80);
+  --color-genre-puzzle: oklch(0.75 0.13 160);
+  --color-genre-adventure: oklch(0.75 0.13 80);
 }
