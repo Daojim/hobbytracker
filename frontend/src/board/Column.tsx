@@ -71,20 +71,20 @@ export function Column({
   return (
     <section
       aria-labelledby={headingId}
-      className={`flex min-h-24 flex-col rounded-lg border p-3 transition-colors ${
-        muted ? 'border-column-dropped/30 opacity-70' : 'border-neutral-300 dark:border-neutral-700'
-      } ${isOver ? 'bg-blue-50 dark:bg-blue-950/40' : ''}`}
+      className={`flex min-h-24 flex-col rounded-xl border p-3 transition-colors ${
+        muted ? 'border-dropped/30 opacity-70' : 'border-line-soft'
+      } ${isOver ? 'bg-drop' : 'bg-well'}`}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
-          {label} <span className="text-neutral-500">{data?.total ?? 0}</span>
+          {label} <span className="text-muted">{data?.total ?? 0}</span>
         </h2>
 
         {onToggleCollapse !== undefined && (
           <button
             type="button"
             onClick={onToggleCollapse}
-            className="rounded px-1 text-xs text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            className="rounded px-1 text-xs text-muted hover:bg-hover"
           >
             {collapsed ? `Show ${label}` : `Hide ${label}`}
           </button>
@@ -99,10 +99,10 @@ export function Column({
       </div>
 
       {!collapsed && (
-        <div ref={setNodeRef} className="flex flex-1 flex-col gap-2">
-          {isPending && <p className="text-sm text-neutral-500">Loading…</p>}
+        <div ref={setNodeRef} className="flex flex-1 flex-col gap-cardgap">
+          {isPending && <p className="text-sm text-muted">Loading…</p>}
           {error !== null && (
-            <p role="alert" className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-danger">
               {error.message}
             </p>
           )}
@@ -111,7 +111,7 @@ export function Column({
             items={items.map((item) => item.mediaId)}
             strategy={verticalListSortingStrategy}
           >
-            <ul className="flex flex-col gap-2">
+            <ul className="flex flex-col gap-cardgap">
               {items.map((item) => (
                 <Card
                   key={item.mediaId}
@@ -133,10 +133,10 @@ export function Column({
           </SortableContext>
 
           {data !== undefined && items.length === 0 && (
-            <p className="text-sm text-neutral-500">Nothing here yet.</p>
+            <p className="text-sm text-muted">Nothing here yet.</p>
           )}
           {data !== undefined && items.length < data.total && (
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-muted">
               Showing {items.length} of {data.total}
             </p>
           )}

@@ -11,20 +11,20 @@ merely shorter.
 in PR #9. The backend was verified against the live site; the front is verified against a stub
 that serves every leg of it.
 
-In flight are three small things daily use turned up, all landed. Currently on branch
-**`card-drag-from-title`**, cut from `main` after #9 merged and open as **PR #10**, carrying:
+**PR #10 is merged** — a card drags from its title, a save in the drawer says so, and the e2e
+suite builds to its own output directory so it no longer needs your development server stopped.
 
-1. a card can be dragged from its title now, which is most of its surface — **Board semantics**,
-   under *a card's surface carries two gestures*;
-2. a save in the drawer says so — **Journalling**, under *a save says "Saved"*;
-3. the e2e suite builds to its own output directory, so it no longer needs your development
-   server stopped — **Tests**, under *a dev server used to block the e2e run*.
+**The redesign is built, on branch `design-tokens`, cut from `main` after #10 merged.** Three
+commits, one per stage, each green on its own:
 
-Everything is green and everything has been run: backend 251, frontend 210, Playwright 45.
+1. **the token layer** — every colour behind a semantic name, all 66 `dark:` variants gone,
+   proved by the whole suite passing untouched;
+2. **four themes and a density setting** behind one menu, top right;
+3. **the Shelf re-skin in Public Sans** — cards lift on shadow, columns became wells, the rating
+   turned amber, and destructive controls stopped relying on colour.
 
-**Next up, agreed with the user: a frontend redesign** — scoped to *tokens and a visual refresh*.
-Semantic colour, type and spacing tokens first, then a re-skin on top of them. Same DOM, same
-layout, no new screens. See **The redesign** below for why that order and what is in the way.
+Everything is green and everything has been run: backend 251, frontend 269, Playwright 49. See
+**The redesign** for the whole of it, and for the two bugs it found on the way.
 
 Seven plans. The current one is
 `C:\Users\jimmy\.claude\plans\for-the-next-part-delightful-alpaca.md`, and it is worth reading
@@ -38,8 +38,9 @@ its assumptions did not survive contact with the site. The earlier six are the b
 
 ### Picking this up
 
-**Nothing is half-finished.** The branch is green and its PR is open; merge it, or say what to
-build next. Two things worth knowing before a first run either way:
+**Nothing is half-finished.** `design-tokens` is green and has no PR yet — the user has seen the
+themes and has more they want to add, so it was left for them to say what comes next rather than
+opened. Two things worth knowing before a first run either way:
 
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
@@ -129,6 +130,7 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 ├── global.json           opts dotnet test into Microsoft.Testing.Platform
 ├── CLAUDE.md             this file
 ├── frontend/             Vite + React + TS SPA
+│   ├── index.html        stamps the chosen theme before the bundle loads. See The redesign
 │   ├── vite.config.ts    /api proxy to :5201, and the Vitest config
 │   ├── playwright.config.ts  starts the stub, the API and Vite itself
 │   ├── e2e/              drag specs, plus the IGDB stub and database helpers
@@ -140,6 +142,8 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       │                 activation distance, and useBoard owns the writes
 │       ├── journal/      the drawer over the board — rating, platform, dates, notes, earlier passes
 │       ├── search/       SearchPage + SearchResult, over a debounced IGDB search
+│       ├── shell/        AppHeader — one bar for both screens, so the menu reaches both
+│       ├── theme/        the four themes, the two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── HobbyTracker.slnx
@@ -214,8 +218,8 @@ dotnet ef migrations add <Name> \
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
-cd frontend && npm test                             # frontend, 210 tests
-cd frontend && npm run test:e2e                     # 45 specs in a real browser
+cd frontend && npm test                             # frontend, 287 tests
+cd frontend && npm run test:e2e                     # 50 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -884,40 +888,113 @@ stops translating the symptom is an *empty library* rather than an error.
 
 ## The redesign
 
-Agreed with the user, and the scope is deliberately the narrow one: **semantic tokens first, then
-a re-skin on top of them.** Same DOM, same layout, no new screens, no new navigation. Widening it
-to the card's information design or a responsive rework was offered and **not** taken, so treat
-those as out of scope until asked.
+Built on `design-tokens`. The board wears a real design now: **Shelf** — borderless cards
+lifting on a shadow, a warm ground, columns as tinted wells — in **Public Sans**, with four
+themes and two densities behind one menu in the header.
 
-**The token layer is the whole reason for the order.** `@theme` in `index.css` currently holds
-the ten genre colours and `--color-column-dropped` and nothing else. Every other colour in the
-app is a raw Tailwind neutral with a hand-written `dark:` twin *at the call site* —
-`bg-white dark:bg-neutral-900`, `border-neutral-200 dark:border-neutral-800`, and so on through
-all fifteen components. So changing the palette today means editing every file, twice, and
-keeping two halves of every pair in agreement by hand. That is the same class of problem as two
-orderings that must agree, which this codebase has already paid for once. Tokens make the re-skin
-cheap and reversible; doing them second would mean doing the work twice.
+Decided with the user, **settled — do not reopen**:
 
-Three things the survey turned up that are **not** in scope but are written down so they are not
-re-derived:
+| | |
+|---|---|
+| Look | **Shelf**, chosen from a rendered mockup rather than a description |
+| Type | **Public Sans**, self-hosted through `@fontsource-variable` |
+| Themes | **Four + System**: Shelf Light, Shelf Dark, Console, Ember |
+| Red | **Ember's alone.** Not forced into the others |
+| Accent | **A per-theme token.** There is no brand colour |
+| Rating | **Coloured by what it says** — under 6 red, 6–8 orange, 8 and over yellow |
+| Danger | **Never colour alone** — a filled chip the accent never wears |
+| Density | Comfortable / Compact, a setting rather than a decision |
+| Journal | **Drawer or modal**, also a setting. Same dialog either way |
+| Width | The board stops widening at 2000px and puts the pixels into the cards |
 
-- The card's metadata row renders rating, `×2`, `~27 h`, genre and last activity as five
-  identical `text-xs text-neutral-500` items in a flex row — the densest information on the
-  board, with no hierarchy in it.
-- Cover art is 40×56, thumbnail-sized for a medium that is entirely visual.
-- The shell is an `<h1>` and one link, and `md:grid-cols-4` means the kanban becomes a vertical
-  stack of four sections below `md`.
+The user's own words on red, which is the principle the whole theme layer is shaped around:
 
-**The suite is what makes this safe, and that is not luck.** Every test queries by role and
-accessible name — never by class, never by test id — so a change of appearance leaves all 255 of
-them meaningful and passing without edits. The exceptions to watch are the handful of assertions
-on literal strings (`~27 h`, `★ 8.5`) and on `aria-label` wording.
+> Red doesn't have to be on everything, I would rather have one theme that I like personally
+> while the other themes are well fit together, rather than forcing red to work with it.
 
-What must survive the redesign, all of it settled elsewhere in this file: the stripe **and** the
-genre's name beside it, since ten hues is past what colour alone can carry; `color-scheme: light
-dark` on `:root`, which is the only thing that themes a range input's track; the 8px activation
-distance and the title *not* stopping the pointer; and the drawer staying a real dialog with its
-focus moved in and handed back by id.
+Ember is that theme, and its surfaces are **neutral charcoal rather than red-tinted**. Tinting
+them was mocked up and rejected by eye: a red ground shifts the ten genre hues against it, and
+those mean something. So red appears where the app is speaking — links, focus, the current
+choice — and never behind text or beneath a cover.
+
+Its accent is `#f2545b`, a true red — it began as a vermilion and read as orange. **On Ember's
+near-black surface a red has to sit fairly light to clear 4.5:1 at all**: `#ef4444` lands at
+4.58 and `#e5484d` at 4.38, so the deeper, more saturated reds are simply not available here.
+That is a fact about the ground rather than a preference, and the contrast test is what says so.
+
+**The genre palette is unfinished and is with the user.** Three pairs are closer than the
+Strategy/RPG collision that prompted it — Platform/Puzzle worst at 0.095 in OKLab — so it is
+being picked rather than nudged. Do not adjust the ten by hand in the meantime.
+
+### How a theme works
+
+`src/index.css` is **the only file in the app that names a colour**. Each theme is one block of
+custom properties; `@theme inline` turns each into a utility. The `inline` is the mechanism and
+not a detail: without it a utility resolves to whatever the variable held at build time, so no
+attribute could change it at runtime.
+
+No component knows a colour, so **adding a theme is a block of values and a line in
+`src/theme/theme.ts`** — there is no provider, and a component test still renders without a
+wrapper.
+
+- **`system` stores no attribute**, rather than the string `"system"`. A literal there would
+  match no palette block *and* would stop `:root:not([data-theme])` matching, so the OS
+  preference would be ignored twice over.
+- **`color-scheme` is per theme, not once on `:root`.** It is the only thing that themes a range
+  input's track, and the rating slider is a range input — a dark theme under a light OS would
+  otherwise put a light track on a dark drawer, visible only inside the drawer.
+- **Genre colours are content, not chrome**, and stay in a plain `@theme`. They say which genre a
+  game is, so they mean the same thing whatever the app is wearing. The `bg-genre-*` class names
+  are load-bearing: `Card.test.tsx` asserts on them and it is the only styling assertion in the
+  suite.
+- **Whether a card has a border is a token too.** Shadow does almost nothing against Console's
+  deep ground, so Console keeps an outline and the warm themes and Ember do not. That would
+  otherwise have needed a component to know which theme it was in.
+- **The journal's drawer/modal setting is a `@custom-variant`, not a second component.** Both are
+  one dialog with one focus trap; only the box changes, so `modal:` utilities on the panel do the
+  whole of it. Putting it on the root attribute rather than in React state is also what lets the
+  menu change it without shared state — `useTheme` holds its state locally, so two callers of it
+  would not have heard each other.
+- **Rating tones are whole class names.** `ratingTone` in `src/lib/rating.ts` returns
+  `text-rating-low` and its siblings in full, never an interpolated `text-rating-${tone}` —
+  Tailwind scans the source as text and an interpolated name generates nothing at all.
+- **Light themes cannot have a yellow.** Nothing yellow enough to be called that clears 4.5:1 on
+  near-white, so Shelf Light's high band is a dark gold. The ramp still reads red → orange →
+  gold, which is what the bands are for.
+- **An unrecognised stored value falls back** instead of being trusted. Storage outlives the code
+  that wrote it, so a theme dropped later would leave the root stamped with a value nothing
+  answers — unstyled text on an unstyled ground, the least diagnosable failure available.
+
+### The three things that fail quietly, and what holds them
+
+Each of these is invisible in development and each has a test that was checked by breaking it.
+
+- **The pre-paint script in `index.html`.** It stamps the attributes before the bundle loads, or
+  the page renders in the default palette and swaps — the flash every themed app gets wrong once,
+  and invisible locally where the bundle is warm. It cannot import `theme.ts`, so it repeats the
+  keys as literals, and `theme.test.ts` reads the file and asserts the copies still match. It is
+  also the *only* thing that applies a stored preference: `useTheme` deliberately does not, so a
+  broken script is a failing test rather than a flash. `e2e/theme.spec.ts` blocks the module and
+  asserts the attribute is stamped anyway; delete the script and three specs go red.
+- **`system` and Shelf Dark say the same thing twice**, because CSS cannot alias a media query to
+  a selector. `index.css.test.ts` compares the two blocks declaration by declaration.
+- **Contrast.** `index.css.test.ts` checks `fg`, `muted`, `accent`, `rating` and `danger` against
+  every ground they sit on across all five palette blocks, plus the chip's label against its own
+  fill — forty assertions. It exists because the same mistake happened twice: `text-neutral-500`
+  sat at **3.8:1** on the dark theme for the life of the board, and then `--danger-fg` was set
+  near-white on every theme, which is right where the fill is a deep red and **2.07:1** where the
+  fill is a light salmon. The fill and its ink move in opposite directions per theme.
+
+### Two things worth knowing before touching it
+
+- **`localStorage` is not in the test globals by default.** jsdom implements it, but Node 22+
+  declares the name itself and the environment will not overwrite a global that already exists —
+  so it is present and answers to nothing. `src/test/setup.ts` supplies one, and the condition
+  asks whether the thing can *store* rather than whether it is `undefined`, which was the bug in
+  the first attempt at that same check.
+- **Screenshots are how a visual claim gets checked.** A throwaway spec under `e2e/` that seeds a
+  board, switches theme and writes PNGs is worth writing again whenever this area changes — it is
+  what caught the unreadable chip. Do not commit it.
 
 ## Phases
 
@@ -945,8 +1022,9 @@ the list is shuffled.
   site's access shape so the real code path runs against it. See **HowLongToBeat** below for
   everything the spike established, and **What the stub is for** for why the specs are green
   for the right reason.
-- **The redesign.** Semantic tokens, then a visual refresh on top of them. Agreed scope is
-  *tokens and appearance*: same DOM, same layout, no new screens. See **The redesign**.
+- **The redesign — done.** Semantic tokens, four themes, a density setting and the Shelf
+  re-skin in Public Sans. The scope grew twice with the user: it began as tokens and appearance,
+  and gained themes, a settings menu, a density preference and a webfont. See **The redesign**.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from

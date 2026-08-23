@@ -33,7 +33,7 @@ export function SortSelect({ label, value, onChange }: SortSelectProps) {
         // MODES is the closed set of what this control can emit, so the cast cannot widen past
         // LibrarySort however the DOM types the value.
         onChange={(event) => onChange(event.target.value as LibrarySort)}
-        className="rounded border border-neutral-300 bg-white px-1 py-0.5 text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+        className="rounded border border-line bg-surface px-1 py-0.5 text-xs text-fg"
       >
         {MODES.map((mode) => (
           <option key={mode.value} value={mode.value}>

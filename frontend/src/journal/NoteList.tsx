@@ -60,13 +60,13 @@ export function NoteList({
             value={draft}
             placeholder="write a note…"
             onChange={(event) => setDraft(event.target.value)}
-            className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            className="w-full rounded border border-line bg-surface px-2 py-1 text-sm"
           />
           <button
             type="button"
             onClick={write}
             disabled={busy}
-            className="self-start rounded border border-neutral-300 px-2 py-0.5 text-xs font-medium hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+            className="self-start rounded border border-line px-2 py-0.5 text-xs font-medium hover:bg-hover disabled:opacity-50"
           >
             Add note
           </button>
@@ -75,14 +75,14 @@ export function NoteList({
         <button
           type="button"
           onClick={() => setComposing(true)}
-          className="self-start rounded text-xs text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
+          className="self-start rounded text-xs text-muted hover:text-fg"
         >
           Add a note
         </button>
       )}
 
       {error !== null && (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="text-xs text-danger">
           {error}
         </p>
       )}
@@ -159,7 +159,7 @@ function NoteRow({
           rows={3}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
-          className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+          className="w-full rounded border border-line bg-surface px-2 py-1 text-sm"
         />
         <span className="flex gap-2 text-xs">
           <button
@@ -173,7 +173,7 @@ function NoteRow({
           <button
             type="button"
             onClick={onDone}
-            className="rounded text-neutral-500 hover:underline"
+            className="rounded text-muted hover:underline"
           >
             Cancel
           </button>
@@ -184,14 +184,14 @@ function NoteRow({
 
   return (
     <>
-      <span className="flex flex-wrap items-baseline gap-2 text-xs text-neutral-500">
+      <span className="flex flex-wrap items-baseline gap-2 text-xs text-muted">
         <span>{when}</span>
 
         <button
           type="button"
           aria-label={`Edit the note from ${when}`}
           onClick={onEdit}
-          className="rounded hover:text-neutral-800 dark:hover:text-neutral-200"
+          className="rounded hover:text-fg"
         >
           Edit
         </button>

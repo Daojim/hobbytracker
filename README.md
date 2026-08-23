@@ -146,8 +146,8 @@ the operation the app hits most.
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
-cd frontend && npm test                             # frontend, 210 tests
-cd frontend && npm run test:e2e                     # 45 specs in a real browser
+cd frontend && npm test                             # frontend, 287 tests
+cd frontend && npm run test:e2e                     # 50 specs in a real browser
 ```
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it

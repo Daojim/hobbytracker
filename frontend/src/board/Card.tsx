@@ -2,6 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
 import { formatHours } from '../lib/hours';
+import { ratingTone } from '../lib/rating';
 import { genreStripe, resolveGenre } from './genres';
 import type { LibraryItem } from '../api/types';
 
@@ -82,13 +83,17 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
       {item.coverUrl === null ? (
         <span
           aria-hidden="true"
-          className="flex h-14 w-10 shrink-0 items-center justify-center rounded bg-neutral-100 text-lg font-semibold text-neutral-400 dark:bg-neutral-800 dark:text-neutral-600"
+          className="flex aspect-[5/7] w-cover shrink-0 items-center justify-center rounded bg-sunken text-lg font-semibold text-muted"
         >
           {item.title.charAt(0)}
         </span>
       ) : (
         // Empty alt on purpose: the title is right there as text, so the cover repeats it.
-        <img src={item.coverUrl} alt="" className="h-14 w-10 shrink-0 rounded object-cover" />
+        <img
+          src={item.coverUrl}
+          alt=""
+          className="aspect-[5/7] w-cover shrink-0 rounded object-cover"
+        />
       )}
 
       <div className="min-w-0 flex-1">
@@ -105,7 +110,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             activation distance already decides it: under that the drag never begins and the
             click lands, and over it dnd-kit adds a capture-phase click listener of its own, so
             the press that moved a card cannot also open its drawer. */}
-        <h3 className="font-medium break-words">
+        <h3 className="text-card font-medium break-words">
           {onOpen === undefined ? (
             item.title
           ) : (
@@ -127,12 +132,14 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             onPointerDown={(event) => event.stopPropagation()}
             className="mt-1 flex flex-wrap items-baseline gap-2 text-xs"
           >
-            <span className="text-neutral-500">{warning}</span>
+            <span className="text-muted">{warning}</span>
 
+            {/* Filled rather than red text, for ConfirmDelete's reason: on Ember the accent is
+                red as well, and a destructive control must not be one hue away from a link. */}
             <button
               type="button"
               onClick={() => removal?.onConfirm()}
-              className="rounded font-medium text-red-600 hover:underline"
+              className="rounded bg-danger px-2 py-0.5 font-semibold text-danger-fg"
             >
               Really remove?
             </button>
@@ -140,15 +147,19 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             <button
               type="button"
               onClick={() => removal?.onCancel()}
-              className="rounded text-neutral-500 hover:underline"
+              className="rounded border border-line px-2 py-0.5 text-muted hover:bg-hover hover:text-fg"
             >
               Cancel
             </button>
           </span>
         ) : (
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
             {item.latestRating !== null && (
-              <span role="img" aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}>
+              <span
+                role="img"
+                aria-label={`Rated ${item.latestRating.toFixed(1)} out of 10`}
+                className={`font-semibold ${ratingTone(item.latestRating)}`}
+              >
                 ★ {item.latestRating.toFixed(1)}
               </span>
             )}
@@ -186,7 +197,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
           // being claimed at all.
           onPointerDown={(event) => event.stopPropagation()}
           onClick={() => (removable ? removal.onAsk() : onDrop?.(item.mediaId))}
-          className="h-5 w-5 shrink-0 rounded text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800 dark:hover:text-neutral-200"
+          className="h-5 w-5 shrink-0 rounded text-muted hover:bg-hover hover:text-fg"
         >
           ×
         </button>
@@ -196,7 +207,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
 }
 
 export const CARD_CLASS =
-  'flex touch-none gap-2 rounded border border-neutral-200 bg-white p-2 text-sm dark:border-neutral-800 dark:bg-neutral-900';
+  'flex touch-none gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
 
 export interface CardProps {
   item: LibraryItem;
