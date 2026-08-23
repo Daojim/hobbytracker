@@ -1,17 +1,10 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  KeyboardSensor,
-  PointerSensor,
-  closestCorners,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
-import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { removeCurrentPass, reorderColumn, transition } from '../api/library';
 import { BOARD_STATUSES, columnKey, gameKey, yearFor } from './keys';
+import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
 
 export interface BoardView {
@@ -184,12 +177,7 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     },
   });
 
-  const sensors = useSensors(
-    // Without a distance, the press that opens a card's drop button is read as the beginning of
-    // a drag and the click never lands.
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useBoardSensors();
 
   const findCard = (mediaId: number) =>
     BOARD_STATUSES.flatMap((status) => columnOf(status)?.items ?? []).find(

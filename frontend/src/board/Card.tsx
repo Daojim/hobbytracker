@@ -96,8 +96,15 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             a way to read a column's contents in order without reaching for a test id.
 
             The title is the way into the journal, and it is a button so that works from the
-            keyboard too. Stopping the pointer here keeps the press from also being read as the
-            start of a drag — the same guard the close button needs. */}
+            keyboard too. It pointedly does *not* stop the pointer the way the close corner
+            does, and that is the whole difference between them: this is most of the card's
+            surface, so a press here that could only ever be a click leaves the drag with just
+            the margins to start from — which is what having to aim at a card felt like.
+
+            Nothing is needed to keep the two gestures apart. The pointer sensor's 8px
+            activation distance already decides it: under that the drag never begins and the
+            click lands, and over it dnd-kit adds a capture-phase click listener of its own, so
+            the press that moved a card cannot also open its drawer. */}
         <h3 className="font-medium break-words">
           {onOpen === undefined ? (
             item.title
@@ -105,7 +112,6 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             <button
               type="button"
               id={cardTitleId(item.mediaId)}
-              onPointerDown={(event) => event.stopPropagation()}
               onClick={() => onOpen(item.mediaId)}
               className="text-left hover:underline"
             >

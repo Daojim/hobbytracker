@@ -8,6 +8,7 @@ import {
   openJournal,
   seed,
   setSort,
+  titlesIn,
   today,
   todayOnCard,
   writeNote,
@@ -206,6 +207,47 @@ test('a card still drags even though its title opens the journal', async ({ page
   await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
   // The gesture moved a card and did not also open anything.
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+});
+
+test('a card drags from its title, which is most of its surface', async ({ page, request }) => {
+  // The title is a button, and it is by far the biggest target on a card. If pressing it could
+  // only ever be a click, most of the card would be dead to the gesture — which is what having
+  // to aim at the margins felt like.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  const title = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
+  await drag(page, title, column(page, 'InProgress'));
+
+  await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+  // And the gesture did not also count as a click on the button it started from: past the
+  // activation distance dnd-kit swallows the click itself, so nothing here has to.
+  await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+});
+
+test('a wobble while clicking the title still opens the journal', async ({ page, request }) => {
+  // The press that opens a card and the press that starts a drag are the same press, and only
+  // the distance tells them apart. A hand that moves three pixels between down and up is
+  // clicking, and this is what the title button's old stopPropagation was over-protecting.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  const title = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
+  const box = await title.boundingBox();
+  if (box === null) {
+    throw new Error('the title has to be on screen to be pressed');
+  }
+
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  // Inside the pointer sensor's 8px activation distance, so this is still a click.
+  await page.mouse.move(x + 3, y + 2);
+  await page.mouse.up();
+
+  await expect(page.getByRole('dialog', { name: 'Celeste' })).toBeVisible();
+  expect(await titlesIn(page, 'Backlog')).toEqual(['Celeste']);
 });
 
 test('the drawer catches up with a drag', async ({ page, request }) => {

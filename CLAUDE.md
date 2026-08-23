@@ -114,7 +114,8 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── lib/hours.ts  formatHours — display, so board/ need not reach into journal/
-│       ├── board/        the board. keys.ts owns the query key; useBoard owns the writes
+│       ├── board/        the board. keys.ts owns the query key, sensors.ts owns the drag's
+│       │                 activation distance, and useBoard owns the writes
 │       ├── journal/      the drawer over the board — rating, platform, dates, notes, earlier passes
 │       ├── search/       SearchPage + SearchResult, over a debounced IGDB search
 │       └── test/         MSW server, fixtures, and the render helper
@@ -566,6 +567,22 @@ It confirms inline on the card, because a delete is not one drag from undone. **
 asking is held by `BoardPage`, not the card** — refetches remount cards, the same fact that makes
 focus go back to the drawer's opener by id — and holding it above the board also means only one
 card can be asking at a time, as the drawer's deletes already work.
+
+**A card's surface carries two gestures, and the 8px activation distance is the whole of what
+tells them apart.** `useBoardSensors` in `board/sensors.ts` is the one place that decides it:
+under the distance the drag never begins and the click lands on whatever button was pressed;
+over it dnd-kit adds a capture-phase `click` listener of its own, so the press that moved a card
+cannot also open its drawer. Nothing else is needed, and the title button therefore does **not**
+stop the pointer — it is most of the card's surface, and swallowing the press there left the drag
+only the margins to start from. The close corner does stop it, and that difference is the point:
+twenty pixels in the corner is a button and nothing else, where a hand that wobbles past the
+threshold would drag the card rather than remove the title.
+
+**The test harness mounts cards under those same sensors**, which is why they are a module rather
+than a few lines inside `useBoard`. A bare `DndContext` takes dnd-kit's defaults, and those carry
+no activation constraint — every press activates a drag from the first pixel and the click that
+follows is swallowed. The moment the title stopped eating its own press, that made the journal
+look unopenable in jsdom while working perfectly in a browser.
 
 **Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries
 take `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just
