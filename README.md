@@ -146,8 +146,8 @@ the operation the app hits most.
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
-cd frontend && npm test                             # frontend, 184 tests
-cd frontend && npm run test:e2e                     # 34 specs in a real browser
+cd frontend && npm test                             # frontend, 205 tests
+cd frontend && npm run test:e2e                     # 42 specs in a real browser
 ```
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
@@ -170,9 +170,9 @@ its first run.
 - [x] Journal, library, and the test suite
 - [x] React + TypeScript frontend — the kanban board and its drag, search, and the journal drawer
 - [x] Notes as dated journal entries rather than one box that overwrites itself
-- [~] HowLongToBeat completion times — all three of them, with a matcher that refuses rather than
-      guesses. Backend done and verified against the live site; the drawer's pin control and the
-      end-to-end stub are what remain
+- [x] HowLongToBeat completion times — all three of them, with a matcher that refuses rather than
+      guesses, and a pin in the drawer for when it does. Verified against the live site, and
+      end to end against a stub that serves every leg of the site's access shape
 - [ ] Google/Discord OAuth and JWT — `log_entries.user_id` is nullable until then, deliberately:
       the column already existed, so the journal shipped without waiting on auth
 - [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration

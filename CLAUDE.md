@@ -7,14 +7,14 @@ merely shorter.
 
 ## Where things stand
 
-**The board phase is finished. HowLongToBeat is in progress: the whole backend is done and
-verified against the live site, and what is left is the drawer's pin control, the end-to-end
-specs, and nothing else.** Backend 251 tests, frontend 184 Vitest tests, 34 Playwright specs —
-all green.
+**The board phase is finished, and so is HowLongToBeat: backend, both pieces of UI, and the
+end-to-end specs.** The backend was verified against the live site; the front is verified against
+a stub that serves every leg of it. Backend 251 tests, frontend 205 Vitest tests, 42 Playwright
+specs — all green.
 
-Currently on branch **`howlongtobeat`**, off `living-with-the-board`. Three branches are finished
-and unmerged and their PRs open in this order: `journal-notes`, then `living-with-the-board`,
-then this one.
+Currently on branch **`howlongtobeat`**. It was cut off `living-with-the-board`, but that branch
+and `journal-notes` have both since merged, so this one now sits directly on `main` with nothing
+queued in front of it.
 
 Seven plans. The current one is
 `C:\Users\jimmy\.claude\plans\for-the-next-part-delightful-alpaca.md`, and it is worth reading
@@ -38,21 +38,11 @@ its assumptions did not survive contact with the site. The earlier six are the b
 4. ~~`Integrations/Hltb/`~~ — session, client, throttle, and the 502 mapping.
 5. ~~`Services/HltbMatcher`~~ — the pure matcher, and the actual work of the feature.
 6. ~~Writing the numbers~~ — `HltbService`, the queue and its worker, and the two endpoints.
-7. **The drawer's pin control** — *not built*. `PUT /api/games/{mediaId}/hltb` exists, is tested,
-   and has no caller. Put it in the drawer header beside the genre select, on the same reasoning:
-   it belongs to the title, and `EntryForm` submits one PUT to a different endpoint. A number
-   input that saves on change, plus a *View on HowLongToBeat* link to
-   `https://howlongtobeat.com/game/{id}` — which is how you check it matched the game you meant,
-   and is why no column stores the matched title. A new mutation in `useJournalEntry.ts`
-   following `setGenre`, invalidating `['library']` and `gameKey(mediaId)`, because the card now
-   carries main-story hours.
-8. **End-to-end** — *not built*. A stub at `frontend/e2e/support/hltb-stub.mjs` on its own port
-   with its own `/health`, a fourth `webServer` in `playwright.config.ts`, and `Hltb__BaseUrl`
-   pointed at it. It has to serve all three legs so the real code path runs: a bundle containing
-   a `fetch("/api/…", {method:"POST"})` literal *and* a matching `/api/…/init` reference for the
-   pair rule to find, the handshake, and the search. Specs: numbers appear after a backfill
-   (mirroring *a refresh brings genres to a title that predates them*), the *no estimate* copy
-   still shows for a title the stub does not know, and **Time to beat** orders shortest first.
+7. ~~The drawer's pin control~~ — `HltbPin` in the drawer header beside the genre select, and
+   `setHltbId` in `useJournalEntry.ts` following `setGenre`. See **The pin control** below for
+   the two places it does not do what the plan said.
+8. ~~End-to-end~~ — `e2e/support/hltb-stub.mjs` on :5398 as a fourth `webServer`, and
+   `e2e/hltb.spec.ts`. See **What the stub is for** below.
 
 **Two things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
@@ -201,8 +191,8 @@ dotnet ef migrations add <Name> \
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
-cd frontend && npm test                             # frontend, 184 tests
-cd frontend && npm run test:e2e                     # 34 specs in a real browser
+cd frontend && npm test                             # frontend, 205 tests
+cd frontend && npm run test:e2e                     # 42 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -237,8 +227,11 @@ list before it could assert anything at all.
 
 **The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit
 assertion there passes or fails for reasons unrelated to whether dragging a card works.
-`npm run test:e2e` starts three servers itself — no manual setup beyond `docker compose up -d db`:
+`npm run test:e2e` starts four servers itself — no manual setup beyond `docker compose up -d db`:
 
+- **A HowLongToBeat stub** (`e2e/support/hltb-stub.mjs`) on :5398, pointed at by `Hltb__BaseUrl`
+  and running with `Hltb__MinSecondsBetweenRequests=0` — the politeness floor is two seconds a
+  request and nothing here needs protecting from us. See **What the stub is for**.
 - **An IGDB stub** (`e2e/support/igdb-stub.mjs`) on :5399. `Igdb:BaseUrl` and `Igdb:TokenUrl` are
   plain options, so pointing them at it needs no production code — and it is what makes "seed
   through the API, never IGDB" possible at all, since `media` rows are *only* ever written by a
@@ -695,6 +688,11 @@ Decisions worth not re-litigating:
   recorded", because null means *use that one*. Labelled through `htmlFor`/`id` like every other
   field — a wrapping `<label>` makes the select's accessible name absorb its own option text,
   which made `getByLabel('Platform')` match two controls.
+- **The HowLongToBeat id sits in the header too**, for the genre select's reason exactly: it
+  belongs to the title, not to a pass. It is the feature's only correction, and the *View on
+  HowLongToBeat* link beside it is how you check the numbers belong to the game you meant — which
+  is why no column stores the matched title. It does **not** save on change the way the genre
+  select does; see **The pin control** under **HowLongToBeat**.
 - **The form submits every field, every time.** `PUT` means an absent field is *cleared* — that
   is the whole reason it is PUT — so sending only what changed would wipe the rating whenever
   somebody corrected a date. Notes are outside it — each is its own row and its own write,
@@ -817,10 +815,11 @@ the list is shuffled.
   the same as the five drawer gaps. It was expected to have built HowLongToBeat's backfill rail a
   phase early; it did not, because HLTB's has to be a queue rather than a request — but it did
   prove the TPT downcast and the migration-on-a-populated-table traps that HLTB then hit too.
-- **HowLongToBeat — backend done, two pieces of UI left.** All three completion times, the
-  matcher, the queue, the endpoints, and `sort=hours`. What remains is the drawer's pin control
-  and the end-to-end stub — see **Where HowLongToBeat has got to** at the top, and
-  **HowLongToBeat** below for everything the spike established.
+- **HowLongToBeat — done.** All three completion times, the matcher, the queue, the endpoints,
+  `sort=hours`, the drawer's pin control, and an end-to-end stub that serves every leg of the
+  site's access shape so the real code path runs against it. See **HowLongToBeat** below for
+  everything the spike established, and **What the stub is for** for why the specs are green
+  for the right reason.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
@@ -987,6 +986,38 @@ that silently answers nothing. This is the one route anybody waits on, and so th
 The numbers were wrong; leaving a stamp behind would stop the backfill ever looking again and the
 card would stay blank for good.
 
+### The pin control
+
+`HltbPin` sits in the drawer header beside the genre select, on the same reasoning: both belong
+to the title, and `EntryForm` submits one PUT to a different endpoint. `setHltbId` in
+`useJournalEntry.ts` follows `setGenre` and invalidates `['library']` as well as
+`gameKey(mediaId)`, because the card carries main-story hours and *Time to beat* orders on it.
+
+Two things about it are **not** what the plan said, and both are deliberate:
+
+- **It is a text box, not a number input.** An id is an identifier rather than a quantity: a
+  spinner that nudges it by one lands on an unrelated game. The real reason is worse than that,
+  though — a number input reports an unparseable value as an *empty string*, and empty here means
+  *take the pin back*, so a typo would silently clear a good id and reset `hltb_checked_at` with
+  it. `inputMode="numeric"` keeps the mobile keypad. `parseHltbId` mirrors the server's
+  `Range(1, int.MaxValue)` on the text, as `parseRating` and `parseHours` do — here because there
+  is nothing to learn from asking, rather than because Postgres would round it.
+- **It commits on blur or Enter, not on change.** The genre select beside it saves on change
+  because a choice from a list is complete the moment it is made; "9134" passes through 9, 91 and
+  913 on the way, and this is the one route that holds the caller while the server reads a
+  website. An unchanged value is not sent at all, so tabbing past the box costs nothing.
+
+**`commit()` returns early while a pin is in flight, and jsdom cannot show you why.** Enter
+commits while the box still has focus, and the commit disables it — which a real browser reports
+as a blur, which is the same event that commits. Without the guard one pin is two upstream
+lookups, the second on a value `hltbId` has not caught up with yet. jsdom does not implement
+"disabling a focused element blurs it", so the Vitest suite passes either way; the Playwright
+specs are what actually run that path.
+
+The component is keyed on `detail.hltbId` for `EntryForm`'s reason — `useState` reads its initial
+value once — which also gives the error path what it needs for free: a refused pin leaves the
+stored id alone, so the key does not change and what was typed stays in the box to be corrected.
+
 ### What the plan got wrong
 
 Worth knowing before trusting
@@ -1012,6 +1043,44 @@ make the suite depend on the network.
 `ApiFactory` swaps `IHltbClient` for `FakeHltbClient` and `IHltbQueue` for `FakeHltbQueue`, and
 **removes `HltbWorker` from the host entirely**. Left in, it would look up titles on a background
 thread while tests assert about the rows it is writing.
+
+### What the stub is for
+
+`e2e/support/hltb-stub.mjs` exists because the backend suite fakes `IHltbClient` outright, which
+leaves the whole access shape — the bundle scrape, the pair rule, the handshake, the body-borne
+key — with no test above the unit level. So the stub is a *site*, not an endpoint: it serves the
+home page, two bundles, the handshake, the search and the game page, and the real
+`HltbSession`/`HltbClient` run against it unmodified. `Hltb:BaseUrl` is the only thing pointed
+at it, because everything else about reaching HLTB is rediscovered at runtime rather than
+configured — which is exactly what makes this worth running.
+
+Three deliberate choices, each of which is what stops a spec passing for the wrong reason:
+
+- **Its search endpoint is `warble`, pointedly not `bleed`.** `bleed` is what
+  `Hltb:FallbackSearchPath` holds, so naming the stub's endpoint after the real one would let the
+  fallback quietly cover for a pair rule that had stopped working. Checked by breaking it: strip
+  the `/init` reference out of the bundle and **all eight specs fail**.
+- **The bundle carries a decoy.** `/api/game` is referenced from a POST fetch and is the first
+  one a reader meets — the obvious reading, what the community clients take, and what answers 404
+  on the real site. It is there so "take the first POST fetch" fails this suite rather than
+  passing it.
+- **The identity checks are enforced, not decorative.** No User-Agent or no Referer is a 403, and
+  a search sent under a different User-Agent than the token was issued to is a 403 as well —
+  because the token bakes it in. Those are two of the three things that were green against stubs
+  while the real site refused. A search without the body property whose *name* is the hpKey gets
+  a **404**, not a 403, because that is what the real endpoint does and the wrong status is the
+  whole trap.
+
+The stub's catalogue disagrees with IGDB's on purpose. Stardew Valley is missing altogether;
+Anthem is filed as "Anthem: Legion of Dawn", which scores about 0.29 against IGDB's bare "Anthem"
+and is correctly refused — Pokémon Scarlet's situation, and what makes the pin's specs about
+something real rather than about a number nobody needed.
+
+**Adding a title already queues a lookup**, so most specs need only wait; `awaitEstimate` and
+`awaitChecked` in `e2e/support/hltb.ts` are that wait. The backfill spec has to blank the columns
+in psql first, because a title that predates the feature is a state the app has no way to reach.
+`awaitChecked` reads `hltb_checked_at` straight out of Postgres, since a refused match changes no
+other field and nothing on the wire carries that column — which is the same reason it exists.
 
 **`log_entries.hours_played` is not this number and does not unlock this sort.** Yours is how long
 *you* took on one pass; `sort=hours` means "how long does this take", which is a property of the
