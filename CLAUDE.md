@@ -218,8 +218,8 @@ dotnet ef migrations add <Name> \
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
-cd frontend && npm test                             # frontend, 269 tests
-cd frontend && npm run test:e2e                     # 49 specs in a real browser
+cd frontend && npm test                             # frontend, 287 tests
+cd frontend && npm run test:e2e                     # 50 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -901,9 +901,11 @@ Decided with the user, **settled — do not reopen**:
 | Themes | **Four + System**: Shelf Light, Shelf Dark, Console, Ember |
 | Red | **Ember's alone.** Not forced into the others |
 | Accent | **A per-theme token.** There is no brand colour |
-| Rating | Amber, and the only warm mark on the board |
+| Rating | **Coloured by what it says** — under 6 red, 6–8 orange, 8 and over yellow |
 | Danger | **Never colour alone** — a filled chip the accent never wears |
 | Density | Comfortable / Compact, a setting rather than a decision |
+| Journal | **Drawer or modal**, also a setting. Same dialog either way |
+| Width | The board stops widening at 2000px and puts the pixels into the cards |
 
 The user's own words on red, which is the principle the whole theme layer is shaped around:
 
@@ -914,6 +916,15 @@ Ember is that theme, and its surfaces are **neutral charcoal rather than red-tin
 them was mocked up and rejected by eye: a red ground shifts the ten genre hues against it, and
 those mean something. So red appears where the app is speaking — links, focus, the current
 choice — and never behind text or beneath a cover.
+
+Its accent is `#f2545b`, a true red — it began as a vermilion and read as orange. **On Ember's
+near-black surface a red has to sit fairly light to clear 4.5:1 at all**: `#ef4444` lands at
+4.58 and `#e5484d` at 4.38, so the deeper, more saturated reds are simply not available here.
+That is a fact about the ground rather than a preference, and the contrast test is what says so.
+
+**The genre palette is unfinished and is with the user.** Three pairs are closer than the
+Strategy/RPG collision that prompted it — Platform/Puzzle worst at 0.095 in OKLab — so it is
+being picked rather than nudged. Do not adjust the ten by hand in the meantime.
 
 ### How a theme works
 
@@ -939,6 +950,17 @@ wrapper.
 - **Whether a card has a border is a token too.** Shadow does almost nothing against Console's
   deep ground, so Console keeps an outline and the warm themes and Ember do not. That would
   otherwise have needed a component to know which theme it was in.
+- **The journal's drawer/modal setting is a `@custom-variant`, not a second component.** Both are
+  one dialog with one focus trap; only the box changes, so `modal:` utilities on the panel do the
+  whole of it. Putting it on the root attribute rather than in React state is also what lets the
+  menu change it without shared state — `useTheme` holds its state locally, so two callers of it
+  would not have heard each other.
+- **Rating tones are whole class names.** `ratingTone` in `src/lib/rating.ts` returns
+  `text-rating-low` and its siblings in full, never an interpolated `text-rating-${tone}` —
+  Tailwind scans the source as text and an interpolated name generates nothing at all.
+- **Light themes cannot have a yellow.** Nothing yellow enough to be called that clears 4.5:1 on
+  near-white, so Shelf Light's high band is a dark gold. The ramp still reads red → orange →
+  gold, which is what the bands are for.
 - **An unrecognised stored value falls back** instead of being trusted. Storage outlives the code
   that wrote it, so a theme dropped later would leave the root stamped with a value nothing
   answers — unstyled text on an unstyled ground, the least diagnosable failure available.
