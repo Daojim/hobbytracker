@@ -70,6 +70,38 @@ public sealed class IgdbClientTests
     }
 
     [Fact]
+    public async Task Leaves_mods_and_bundles_out_of_a_search()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        await client.SearchGamesAsync("hollow knight", 10, Ct);
+
+        // 5 is Mod and 3 is Bundle, read off /v4/game_types rather than assumed from the
+        // deprecated `category` enum they used to share numbering with.
+        //
+        // In the query rather than over the results, because IGDB applies `where` before
+        // `limit`: filtering afterwards would ask for ten and hand back six. Searching
+        // "Hollow Knight" without this returns a mod of it above the game itself.
+        var request = stub.Requests.ShouldHaveSingleItem();
+        request.Body.ShouldNotBeNull().ShouldContain("where game_type != (3,5);");
+    }
+
+    [Fact]
+    public async Task Leaves_the_backfill_able_to_refresh_anything_already_logged()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        await client.GetGamesAsync([365702], Ct);
+
+        // The search filter deliberately does not reach here. These ids are already on
+        // somebody's board, and a mod logged before the filter existed would otherwise stop
+        // being refreshed — keeping whatever IGDB said about it the day it was added, for
+        // ever, with nothing anywhere reporting that it had been skipped.
+        stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull().ShouldNotContain("game_type");
+    }
+    [Fact]
     public async Task Asks_igdb_nothing_when_there_are_no_ids_to_refresh()
     {
         var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);

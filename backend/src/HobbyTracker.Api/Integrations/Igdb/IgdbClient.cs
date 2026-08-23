@@ -43,12 +43,31 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
         "fields id, name, first_release_date, cover.image_id, platforms.name, genres.name, " +
         "involved_companies.developer, involved_companies.company.name;";
 
+    /// <summary>
+    /// The game types a search should never offer: 3 is Bundle and 5 is Mod.
+    ///
+    /// Both describe something you cannot play on its own, and IGDB ranks them alongside the
+    /// real thing — searching "Hollow Knight" returns a mod of it <em>above</em> the game.
+    ///
+    /// The ids come from /v4/game_types rather than from the <c>category</c> enum they used to
+    /// share numbering with. <c>category</c> is deprecated in favour of <c>game_type</c>, and is
+    /// no longer populated at all — asking for it comes back absent on every row, so a filter
+    /// written against it would silently exclude nothing.
+    ///
+    /// Deliberately not applied to <see cref="GetGamesAsync"/>: those ids are already on the
+    /// board, and a title logged before this filter existed has to stay refreshable.
+    /// </summary>
+    private const string ExcludeBundlesAndMods = "where game_type != (3,5);";
+
     public Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(
         string search, int limit, CancellationToken cancellationToken)
     {
+        // The where clause goes in the query rather than over the results, because IGDB
+        // applies it before the limit: filtering afterwards would ask for ten and return six.
         var query = $"""
             search "{SanitizeSearchTerm(search)}";
             {SearchFields}
+            {ExcludeBundlesAndMods}
             limit {limit};
             """;
 

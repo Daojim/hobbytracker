@@ -22,15 +22,18 @@ suite builds to its own output directory so it no longer needs your development 
 3. **the Shelf re-skin in Public Sans** — cards lift on shadow, columns became wells, the rating
    turned amber, and destructive controls stopped relying on colour.
 
-**The width, search and navigation work sits on top of it**, in three more commits, each green
-on its own — what living with the redesign at laptop widths turned up:
+**PR #12 is merged** — the width, search and navigation work that living with the redesign at
+laptop widths turned up, in three more commits:
 
 4. **a board that works between 768 and 1600** — the cover stopped being stretched, and a card
    sizes itself from its column rather than from the window. See **The board at every width**;
 5. **search above the board** rather than on a screen of its own. See **Search on the board**;
 6. **a hobby nav**, with the five that do not exist yet saying *Soon*. See **The hobby nav**.
 
-Everything is green and everything has been run: backend 251, frontend 296, Playwright 58. See
+**Search no longer offers mods and bundles.** One clause in the APIcalypse, on branch
+`filter-mods-and-bundles`. See **Game types** under **IGDB integration**.
+
+Everything is green and everything has been run: backend 253, frontend 296, Playwright 59. See
 **The redesign** for the whole of it, and for the four bugs it found on the way.
 
 Nine plans. The current one is
@@ -49,9 +52,8 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished.** The redesign is merged as #11, and the width, search and
-navigation work that followed it is green on `board-width-nav-and-search`. Two things worth
-knowing before a first run either way:
+**Nothing is half-finished.** #11 and #12 are both merged; the game-type filter is green on
+`filter-mods-and-bundles`. Two things worth knowing before a first run either way:
 
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
@@ -78,13 +80,15 @@ knowing before a first run either way:
 8. ~~End-to-end~~ — `e2e/support/hltb-stub.mjs` on :5398 as a fourth `webServer`, and
    `e2e/hltb.spec.ts`. See **What the stub is for** below.
 
-**Two things about search worth not re-deriving.** It debounces at 300ms because the API reaches
+**Three things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
 "hollow" and six requests. And a result already in your library shows "On your board" rather than
 an add button, because a second Backlog entry is not a replay but the card would render it as
 one. Knowing that needs the whole library, so `libraryMediaIds()` pages to the end rather than
 stopping at the API's maximum page size; capping it would offer to add your hundred-and-first
-title twice.
+title twice. And it asks IGDB for main games only, in the sense of **not mods and not
+bundles** — see **Game types** below, because the reason it is a `where` clause rather than a
+filter over the results is not obvious.
 
 **The column query key is `['library', hobby, status, { sort, year }]`** — see
 `frontend/src/board/keys.ts`, which is the only place it is spelled out. The sort and the year
@@ -228,9 +232,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 253 tests
 cd frontend && npm test                             # frontend, 296 tests
-cd frontend && npm run test:e2e                     # 58 specs in a real browser
+cd frontend && npm run test:e2e                     # 59 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -527,6 +531,40 @@ Two IGDB quirks the code depends on:
 - There is no `developer` field on a game. Involvement is a join carrying role flags, so the
   query pulls `involved_companies.developer` alongside `involved_companies.company.name` and
   filters.
+
+### Game types
+
+A search asks for everything **except Bundle and Mod** — `where game_type != (3,5);`, one line
+in `IgdbClient`. Without it the first result for "Hollow Knight" is a *mod* of Hollow Knight,
+ranked above the game itself; "Celeste" returns three mods, two of them the same title twice.
+
+Four things behind that one line, each of which cost something to establish:
+
+- **`category` is not the field, and writing the filter against it would fail silently.** It is
+  deprecated in favour of `game_type` and **no longer populated at all** — asking for it comes
+  back absent on every row, so `where category != (3,5)` excludes nothing while looking right.
+- **The ids came from `/v4/game_types`, not from the old enum.** They happen to agree — 0 Main
+  Game, 1 DLC, 2 Expansion, 3 Bundle, 4 Standalone Expansion, 5 Mod, 6 Episode, 7 Season,
+  8 Remake, 9 Remaster, 10 Expanded Game, 11 Port, 12 Fork, 13 Pack / Addon, 14 Update — but
+  agreeing by inspection is a different thing from agreeing by assumption.
+- **It is in the query, not over the results.** IGDB applies `where` before `limit`, so a
+  filter applied afterwards would ask for ten and hand back six. Live, the filtered search
+  still returns a full ten, backfilled with further matches, in the same relevance order.
+- **It deliberately does not reach `GetGamesAsync`.** Those ids are already on somebody's
+  board. A mod logged before this existed has to stay refreshable, or it silently keeps
+  whatever IGDB said the day it was added, for ever, with nothing reporting the skip.
+  `IgdbClientTests.Leaves_the_backfill_able_to_refresh_anything_already_logged` pins that.
+
+**Two consequences that are choices rather than bugs.** Bundle drops some things people do
+play — *Halo: The Master Chief Collection* and *The Witcher 3: Game of the Year Edition* are
+both filed as bundles. And `Season` is untouched, so "Mario Kart" still returns ten
+*Mario Kart Tour: … Tour* seasons and none of the actual games. Both were left alone on
+purpose; neither is hard to change, and each is one id in that clause.
+
+**The e2e stub honours the clause rather than ignoring it.** `igdb-stub.mjs` carries a mod and
+a bundle in its catalogue, both matching "hollow", and parses `where game_type != (...)` — so
+`a mod and a bundle never reach the strip` goes red if the clause is ever dropped from the
+client, instead of passing because the stub never had one.
 
 ## API
 

@@ -19,20 +19,28 @@ const PORT = Number(process.env.STUB_PORT ?? 5399);
  * Genres are the board's colours. Hollow Knight carries three, one of which the palette does
  * not paint, which is what lets a spec show the automatic pick choosing the specific genre over
  * the word that describes half the catalogue.
+ *
+ * gameType mirrors IGDB game_type: 0 Main Game, 3 Bundle, 5 Mod. The last two entries are the
+ * only ones that are not real games, and they exist so a spec can watch them not arrive —
+ * searching "Hollow Knight" on the live API really does put a mod of it above the game.
  */
 const CATALOGUE = [
-  { id: 3001, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games',
+  { id: 3001, gameType: 0, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games',
     genres: ['Platform', 'Indie'] },
-  { id: 3002, name: 'Hades', platforms: ['PC', 'Switch'], developer: 'Supergiant Games',
+  { id: 3002, gameType: 0, name: 'Hades', platforms: ['PC', 'Switch'], developer: 'Supergiant Games',
     genres: ["Hack and slash/Beat 'em up", 'Indie'] },
-  { id: 3003, name: 'Hollow Knight', platforms: ['PC', 'Switch'], developer: 'Team Cherry',
+  { id: 3003, gameType: 0, name: 'Hollow Knight', platforms: ['PC', 'Switch'], developer: 'Team Cherry',
     genres: ['Adventure', 'Platform', 'Indie'] },
-  { id: 3004, name: 'Outer Wilds', platforms: ['PC', 'Xbox'], developer: 'Mobius Digital',
+  { id: 3004, gameType: 0, name: 'Outer Wilds', platforms: ['PC', 'Xbox'], developer: 'Mobius Digital',
     genres: ['Adventure', 'Puzzle'] },
-  { id: 3005, name: 'Anthem', platforms: ['PC'], developer: 'BioWare',
+  { id: 3005, gameType: 0, name: 'Anthem', platforms: ['PC'], developer: 'BioWare',
     genres: ['Shooter', 'Role-playing (RPG)'] },
-  { id: 3006, name: 'Stardew Valley', platforms: ['PC', 'Switch'], developer: 'ConcernedApe',
+  { id: 3006, gameType: 0, name: 'Stardew Valley', platforms: ['PC', 'Switch'], developer: 'ConcernedApe',
     genres: ['Simulator', 'Role-playing (RPG)'] },
+  { id: 3007, gameType: 5, name: 'Hollow Knight: Pale Court', platforms: ['PC'],
+    developer: 'Team Cherry', genres: ['Platform'] },
+  { id: 3008, gameType: 3, name: 'Hollow Knight Collection', platforms: ['PC', 'Switch'],
+    developer: 'Team Cherry', genres: ['Platform'] },
 ];
 
 const asIgdbGame = (game) => ({
@@ -51,6 +59,24 @@ const asIgdbGame = (game) => ({
 /** APIcalypse, not a query string: `search "celeste"; fields ...; limit 20;` */
 const matchesTerm = (term) =>
   CATALOGUE.filter((game) => game.name.toLowerCase().includes(term.toLowerCase().trim()));
+
+/**
+ * `where game_type != (3,5);` — honoured rather than ignored, so a spec that watches a mod
+ * not arrive is watching the clause the API actually sent rather than a catalogue that never
+ * had one. Drop the clause from IgdbClient and the mod comes back and the spec goes red.
+ *
+ * Applied before the limit, as IGDB applies it: filtering afterwards would ask for ten and
+ * hand back six.
+ */
+const withoutExcludedTypes = (games, query) => {
+  const excluded = /where\s+game_type\s*!=\s*\(([^)]*)\)/.exec(query)?.[1];
+  if (excluded === undefined) {
+    return games;
+  }
+
+  const ids = excluded.split(',').map((id) => id.trim());
+  return games.filter((game) => !ids.includes(String(game.gameType)));
+};
 
 const readBody = (request) =>
   new Promise((resolve) => {
@@ -89,7 +115,7 @@ const server = createServer(async (request, response) => {
         : CATALOGUE.filter((game) => ids.split(',').includes(String(game.id)));
 
     response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(matches.map(asIgdbGame)));
+    response.end(JSON.stringify(withoutExcludedTypes(matches, query).map(asIgdbGame)));
     return;
   }
 

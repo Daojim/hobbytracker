@@ -60,6 +60,20 @@ test('the results give the board back when the search is cleared', async ({ page
   await expect(results).toHaveCount(0);
 });
 
+test('a mod and a bundle never reach the strip', async ({ page }) => {
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+
+  // Waited for rather than asserted straight away: an absence assertion against a strip that
+  // has not loaded yet passes for the wrong reason every time.
+  await expect(page.getByRole('button', { name: 'Add Hollow Knight to backlog' })).toBeVisible();
+
+  // Both are in the stub catalogue and both match the term, so the only thing keeping them
+  // out is the where clause IgdbClient sends. On the live API this is not hypothetical — the
+  // first result for "Hollow Knight" is a mod of it, above the game itself.
+  await expect(page.getByText('Hollow Knight: Pale Court')).toHaveCount(0);
+  await expect(page.getByText('Hollow Knight Collection')).toHaveCount(0);
+});
+
 test('the old search address lands on the board', async ({ page }) => {
   // The screen is gone, but a bookmark to it should not be a dead end.
   await page.goto('/search');
