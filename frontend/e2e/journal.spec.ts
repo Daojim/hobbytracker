@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
+import { awaitEstimate } from './support/hltb';
 import {
   card,
   column,
@@ -315,17 +316,24 @@ test('deleting the only pass takes the title off the board', async ({ page, requ
 test('how long a pass took is recorded against that pass', async ({ page, request }) => {
   // Per pass, like the platform: a replay is not the same length as the first run, and the
   // number worth putting beside HowLongToBeat's estimate is what this playthrough took.
-  await seed(request, 'Celeste', 'Completed', {
+  const mediaId = await seed(request, 'Celeste', 'Completed', {
     startedAt: '2026-08-01',
     completedAt: '2026-08-10',
   });
+
+  // Reading yours against theirs is the reason to write yours down at all, and until the
+  // HowLongToBeat stub existed there was nothing here to read it against. See hltb.spec.ts.
+  await awaitEstimate(request, mediaId);
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await expect(page.getByText('No HowLongToBeat estimate yet')).toBeVisible();
+  await expect(page.getByText('Main story: 8 h')).toBeVisible();
 
   await page.getByLabel('Hours played').fill('31.5');
   await page.getByRole('button', { name: 'Save' }).click();
+
+  // Measured against Main Story alone: three deltas is arithmetic rather than a reading.
+  await expect(page.getByText('you: 31.5 h (+23.5)')).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
   await page.reload();

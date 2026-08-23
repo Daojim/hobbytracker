@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 import { CONNECTION_STRING } from './e2e/support/database';
 
 const STUB_PORT = 5399;
+const HLTB_STUB_PORT = 5398;
 const API_PORT = 5202;
 const WEB_PORT = 5174;
 
@@ -40,6 +41,11 @@ export default defineConfig({
       reuseExistingServer: true,
     },
     {
+      command: 'node e2e/support/hltb-stub.mjs',
+      url: `http://localhost:${HLTB_STUB_PORT}/health`,
+      reuseExistingServer: true,
+    },
+    {
       // --no-launch-profile, or launchSettings.json pins :5201 and quietly wins over
       // ASPNETCORE_URLS, leaving the tests talking to whatever is on the development port.
       // The migration is chained in rather than run from globalSetup, which Playwright does not
@@ -61,6 +67,16 @@ export default defineConfig({
         Igdb__ClientSecret: 'e2e',
         Igdb__BaseUrl: `http://localhost:${STUB_PORT}/v4/`,
         Igdb__TokenUrl: `http://localhost:${STUB_PORT}/oauth2/token`,
+
+        // HowLongToBeat needs only its base URL pointed elsewhere: everything else about
+        // reaching it — the endpoint's name, the handshake — is rediscovered at runtime rather
+        // than configured, which is exactly why the stub has to serve all of it.
+        Hltb__BaseUrl: `http://localhost:${HLTB_STUB_PORT}/`,
+
+        // The politeness floor is two seconds a request in production, and a backfill is four
+        // requests before the first title is even looked up. Nothing here needs protecting from
+        // us, and a spec that waited it out would spend its whole budget being polite to a stub.
+        Hltb__MinSecondsBetweenRequests: '0',
       },
     },
     {
