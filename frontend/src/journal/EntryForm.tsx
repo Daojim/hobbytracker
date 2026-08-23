@@ -24,6 +24,16 @@ export interface EntryFormProps {
    */
   estimates: HltbEstimates;
   saving: boolean;
+  /**
+   * Whether what is on screen is what the server has.
+   *
+   * Held by the drawer rather than here, and that is not a preference: this form is keyed on the
+   * values it was seeded from, so a save that changed anything remounts it. A flag set on success
+   * would be destroyed by the refetch that proves it was true.
+   */
+  saved: boolean;
+  /** Says the form has been touched since, which is what makes {@link saved} stop being true. */
+  onEdit: () => void;
   /** What the API objected to, keyed by field, so it can be shown where it belongs. */
   serverErrors: Record<string, string[]>;
   onSave: (update: UpdateLogEntry) => void;
@@ -41,8 +51,10 @@ export function EntryForm({
   platforms,
   estimates,
   saving,
+  saved,
   serverErrors,
   onSave,
+  onEdit,
 }: EntryFormProps) {
   const ids = useId();
 
@@ -158,7 +170,10 @@ export function EntryForm({
     // spinner and the mobile keypad, but leaving native validation on means the browser
     // silently refuses to submit an 8.75 and shows a bubble we cannot word, style or test —
     // and the message that matters here is *why* two decimal places are refused.
-    <form onSubmit={submit} noValidate className="flex flex-col gap-3">
+    // onChange on the form rather than on each of seven fields: React's synthetic events
+    // propagate through the tree, so one handler here hears every control inside. The notes box
+    // is outside this form and is its own write, so it is right that it does not reach this.
+    <form onSubmit={submit} onChange={onEdit} noValidate className="flex flex-col gap-3">
       <Field id={`${ids}-rating`} label="Rating" message={messageFor('rating')}>
         <div className="flex items-center gap-3">
           {/* The slider carries the field's label, so it is the control a screen reader meets
@@ -280,13 +295,29 @@ export function EntryForm({
         </Field>
       </div>
 
-      <button
-        type="submit"
-        disabled={saving}
-        className="self-start rounded border border-neutral-300 px-3 py-1 text-sm font-medium hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
-      >
-        {saving ? 'Saving…' : 'Save'}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={saving}
+          className="rounded border border-neutral-300 px-3 py-1 text-sm font-medium hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+
+        {/* Not on a timer. It says "what you are looking at is what the server has", which stops
+            being true the moment a field changes and not a few seconds after the write — so it
+            is cleared by the edit rather than by a clock, and is therefore never a stale claim.
+            The transition a fade would have given comes free from the button, which reads
+            "Saving…" in between and takes this away while it does.
+
+            role="status" so it is announced politely: a confirmation only sighted readers get is
+            only half a confirmation, and this drawer is a real dialog for the same reason. */}
+        {saved && !saving && (
+          <span role="status" className="text-sm text-green-700 dark:text-green-500">
+            Saved
+          </span>
+        )}
+      </div>
     </form>
   );
 }

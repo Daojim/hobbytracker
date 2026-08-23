@@ -7,14 +7,17 @@ merely shorter.
 
 ## Where things stand
 
-**The board phase is finished, and so is HowLongToBeat: backend, both pieces of UI, and the
-end-to-end specs.** The backend was verified against the live site; the front is verified against
-a stub that serves every leg of it. Backend 251 tests, frontend 205 Vitest tests, 42 Playwright
-specs — all green.
+**HowLongToBeat is finished and merged** — backend, both pieces of UI and the end-to-end specs,
+in PR #9. The backend was verified against the live site; the front is verified against a stub
+that serves every leg of it.
 
-Currently on branch **`howlongtobeat`**. It was cut off `living-with-the-board`, but that branch
-and `journal-notes` have both since merged, so this one now sits directly on `main` with nothing
-queued in front of it.
+In flight is a pair of small things daily use turned up, both landed. Currently on branch
+**`card-drag-from-title`**, cut from `main` after #9 merged and carrying two commits: a card can
+be dragged from its title now, which is most of its surface (**Board semantics**, under *a card's
+surface carries two gestures*), and a save in the drawer says so (**Journalling**, under *a save
+says "Saved"*). It is open as a PR against `main` and waiting to be merged.
+
+Everything is green and everything has been run: backend 251, frontend 210, Playwright 45.
 
 Seven plans. The current one is
 `C:\Users\jimmy\.claude\plans\for-the-next-part-delightful-alpaca.md`, and it is worth reading
@@ -25,6 +28,18 @@ its assumptions did not survive contact with the site. The earlier six are the b
 `look-at-claude-md-and-radiant-wreath.md` is the five drawer gaps and the reasoning behind each;
 `i-want-to-continue-wiggly-toucan.md` is how they were built;
 `there-are-a-few-reflective-balloon.md` is the four that came after.
+
+### Picking this up
+
+**Nothing is half-finished.** The branch is green and its PR is open; merge it, or say what to
+build next. Two things worth knowing before a first run either way:
+
+- **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
+  itself if Docker Desktop is not running — Playwright reports a database that is not there as
+  the same unhelpful "Process from config.webServer was not able to start" that a build lock
+  does.
+- **A `dotnet run` of your own stops the suite building at all**, which the ports being one
+  apart does not save you from. See **A dev server blocks the e2e run** under **Tests**.
 
 ### Where HowLongToBeat has got to
 
@@ -192,8 +207,8 @@ dotnet ef migrations add <Name> \
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
-cd frontend && npm test                             # frontend, 205 tests
-cd frontend && npm run test:e2e                     # 42 specs in a real browser
+cd frontend && npm test                             # frontend, 210 tests
+cd frontend && npm run test:e2e                     # 45 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -201,6 +216,15 @@ Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into
 
 The suite starts its own throwaway Postgres via Testcontainers, so it neither needs nor touches
 the docker-compose database. It does need Docker running. A full run is under ten seconds.
+
+**A dev server blocks the e2e run**, which the ports being one apart does not save you from. The
+Playwright harness rebuilds the API, and Windows will not let it overwrite
+`bin/Debug/net10.0/HobbyTracker.Api.exe` while a `dotnet run` of your own is holding it — so
+`dotnet ef database update` fails, and Playwright reports only "Process from config.webServer was
+not able to start". `dotnet build backend/src/HobbyTracker.Api` names the locking process, which
+is the quickest way to see what is actually wrong. Stopping the dev server is the one-line answer;
+giving the e2e run its own `BaseOutputPath` so the two can genuinely coexist is the durable one,
+and is not done.
 
 Choices worth not re-litigating:
 
@@ -710,6 +734,29 @@ Decisions worth not re-litigating:
   HowLongToBeat* link beside it is how you check the numbers belong to the game you meant — which
   is why no column stores the matched title. It does **not** save on change the way the genre
   select does; see **The pin control** under **HowLongToBeat**.
+- **A save says "Saved", and the flag cannot live in the form.** `EntryForm` is keyed on
+  `entrySeed`, so a save that changed anything remounts it — a flag set on success is destroyed
+  by the very refetch that confirms it, which is why the button appeared to snap straight back to
+  *Save* with nothing to show for it. `saved` is held in `EntryDrawer`, above the key. Not read
+  off `save.isSuccess` either: that stays true until the next write, where this has to stop being
+  true the moment a field is touched. The test for it was checked by moving the flag into the form
+  and watching it go red.
+- **It is not on a timer**, and that is the whole design. It claims "what you are looking at is
+  what the server has", which stops being true on the next edit rather than a few seconds after
+  the write — so it is cleared by `onEdit` and is never a stale promise about a form that has
+  changed since. The transition a fade would have given comes free from the button, which reads
+  *Saving…* in between and takes the message away while it does. `role="status"` so it is
+  announced: a confirmation only sighted readers get is half a confirmation, and this drawer is a
+  real dialog for that reason. One `onChange` on the `<form>` catches every field, because React's
+  synthetic events propagate through the tree — the notes box is outside the form and its own
+  write, so it rightly does not reach it.
+- **Its Playwright spec scopes `role="status"` to the dialog, and has to.** dnd-kit mounts a live
+  region of its own to announce a drag, so the board behind the drawer carries a second
+  `role="status"` — empty except mid-drag, and enough to fail a bare `getByRole('status')` as a
+  strict-mode violation. The Vitest suite cannot show you that: it mounts the drawer without the
+  board's `DndContext` around it, so the locator resolves uniquely there and the spec was green
+  in jsdom and red in a browser. Same shape as `commit()` under **The pin control** — the unit
+  suite and the browser disagree, and the browser is the one that is right.
 - **The form submits every field, every time.** `PUT` means an absent field is *cleared* — that
   is the whole reason it is PUT — so sending only what changed would wipe the rating whenever
   somebody corrected a date. Notes are outside it — each is its own row and its own write,

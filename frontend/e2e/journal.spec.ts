@@ -47,6 +47,34 @@ test('rating a game from the board puts the rating on its card', async ({ page, 
   ).toBeVisible();
 });
 
+test('saving says so, and stops saying so once you change something', async ({
+  page,
+  request,
+}) => {
+  // The button reads "Saving…" for a few hundred milliseconds and then goes back to "Save",
+  // which leaves nothing behind to say the write landed. This is that something — and the real
+  // API is what makes the test worth having, since a save that changes a value remounts the
+  // form underneath the message.
+  await seed(request, 'Celeste', 'InProgress');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // Scoped to the dialog, because the board behind it has a role="status" of its own: dnd-kit
+  // mounts a live region to announce a drag, and it is empty except while one is happening. A
+  // bare getByRole('status') matches both and fails as a strict-mode violation — which the Vitest
+  // suite cannot show, because it mounts the drawer without the board's DndContext around it.
+  const confirmation = page.getByRole('dialog').getByRole('status');
+  await expect(confirmation).toHaveText('Saved');
+
+  // It is a claim about what is on screen, not an announcement about the past, so editing
+  // takes it back rather than a timer running out.
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('9.1');
+  await expect(confirmation).toHaveCount(0);
+});
+
 test('a rating the column would round is refused before it is sent', async ({ page, request }) => {
   // numeric(3,1) rounds 8.75 to 8.8 rather than rejecting it, so accepting one would mean
   // reporting a rating the database does not hold.
