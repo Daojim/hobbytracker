@@ -226,6 +226,58 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         stored.ShouldBe("InProgress");
     }
 
+    [Fact]
+    public async Task Stores_all_three_howlongtobeat_times_against_a_game()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            game.HltbMainStoryHours = 27.0m;
+            game.HltbMainExtraHours = 41.59m;
+            game.HltbCompletionistHours = 65.6m;
+            game.HltbId = 26286;
+            game.HltbCheckedAt = Eastern(2026, 8, 22);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await WithDbAsync(db => db.Games.SingleAsync(g => g.Id == mediaId, Ct));
+
+        stored.HltbMainStoryHours.ShouldBe(27.0m);
+        stored.HltbMainExtraHours.ShouldBe(41.59m);
+        stored.HltbCompletionistHours.ShouldBe(65.6m);
+        stored.HltbId.ShouldBe(26286);
+        stored.HltbCheckedAt.ShouldNotBeNull();
+    }
+
+    [Theory]
+    [InlineData("main")]
+    [InlineData("extra")]
+    [InlineData("completionist")]
+    public async Task Rejects_a_completion_time_of_nought(string tier)
+    {
+        // HowLongToBeat answers 0 for "nobody has submitted this", which is not the same claim
+        // as "this takes no time". The constraint is what stops that zero being stored as a
+        // fact — the client has to map it to null before it ever reaches here.
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            switch (tier)
+            {
+                case "main": game.HltbMainStoryHours = 0m; break;
+                case "extra": game.HltbMainExtraHours = 0m; break;
+                default: game.HltbCompletionistHours = 0m; break;
+            }
+
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_games_hltb_hours_positive");
+    }
+
     private async Task<int> GivenAGameAsync(string externalId = "1")
     {
         return await WithDbAsync(async db =>

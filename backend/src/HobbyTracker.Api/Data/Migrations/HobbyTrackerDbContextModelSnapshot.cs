@@ -366,9 +366,23 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("text[]")
                         .HasColumnName("genres");
 
+                    b.Property<DateTimeOffset?>("HltbCheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hltb_checked_at");
+
+                    b.Property<decimal?>("HltbCompletionistHours")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("hltb_completionist_hours");
+
                     b.Property<int?>("HltbId")
                         .HasColumnType("integer")
                         .HasColumnName("hltb_id");
+
+                    b.Property<decimal?>("HltbMainExtraHours")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("hltb_main_extra_hours");
 
                     b.Property<decimal?>("HltbMainStoryHours")
                         .HasPrecision(5, 2)
@@ -385,8 +399,14 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("character varying(50)")
                         .HasColumnName("primary_genre");
 
+                    b.Property<int?>("ReleaseYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("release_year");
+
                     b.ToTable("games", null, t =>
                         {
+                            t.HasCheckConstraint("ck_games_hltb_hours_positive", "(hltb_main_story_hours    IS NULL OR hltb_main_story_hours    > 0) AND\n(hltb_main_extra_hours    IS NULL OR hltb_main_extra_hours    > 0) AND\n(hltb_completionist_hours IS NULL OR hltb_completionist_hours > 0)");
+
                             t.Property("Id")
                                 .HasColumnName("media_id");
                         });

@@ -14,6 +14,14 @@ public sealed class IgdbGame
 {
     public int Id { get; set; }
     public string? Name { get; set; }
+
+    /// <summary>
+    /// Unix seconds, as IGDB sends it — not a DateTimeOffset, because this type mirrors the
+    /// wire and converting here would hide which side the epoch belongs to. Only the year is
+    /// ever used, by the HowLongToBeat matcher.
+    /// </summary>
+    public long? FirstReleaseDate { get; set; }
+
     public IgdbCover? Cover { get; set; }
     public List<IgdbPlatform>? Platforms { get; set; }
     public List<IgdbGenre>? Genres { get; set; }

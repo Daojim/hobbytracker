@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getGame, setGameGenre } from '../api/games';
+import { getGame, setGameGenre, setGameHltbId } from '../api/games';
 import { ApiError } from '../api/client';
 import { deleteLogEntry, updateLogEntry } from '../api/logEntries';
 import { gameKey } from '../board/keys';
@@ -55,11 +55,23 @@ export function useJournalEntry(mediaId: number) {
     },
   });
 
+  const setHltbId = useMutation({
+    mutationFn: (hltbId: number | null) => setGameHltbId(mediaId, hltbId),
+
+    onSuccess: () => {
+      // The card carries the main-story estimate now, and the Time to beat sort orders on it,
+      // so a corrected pin changes the board and not only the drawer.
+      void queryClient.invalidateQueries({ queryKey: ['library'] });
+      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+    },
+  });
+
   return {
     game,
     save,
     remove,
     setGenre,
+    setHltbId,
     /** Which field the API objected to, rather than only that it objected. */
     fieldErrors: save.error instanceof ApiError ? save.error.fieldErrors : {},
   };

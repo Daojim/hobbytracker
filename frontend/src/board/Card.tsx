@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
+import { formatHours } from '../lib/hours';
 import { genreStripe, resolveGenre } from './genres';
 import type { LibraryItem } from '../api/types';
 
@@ -148,6 +149,18 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             {item.entryCount > 1 && (
               <span role="img" aria-label={`${item.entryCount} playthroughs`}>
                 ×{item.entryCount}
+              </span>
+            )}
+            {/* Marked with a tilde and named in full to a screen reader, because the number
+                alone is ambiguous: the drawer prints "31.5 h" for what a pass took *you*, and
+                this is how long the game takes anyone. Main story only — the other two tiers
+                are a drawer reading, where there is room to name which is which. */}
+            {item.hltbMainStoryHours !== null && (
+              <span
+                role="img"
+                aria-label={`About ${item.hltbMainStoryHours} hours to finish`}
+              >
+                ~{formatHours(item.hltbMainStoryHours)}
               </span>
             )}
             {genre !== null && <span>{genre}</span>}

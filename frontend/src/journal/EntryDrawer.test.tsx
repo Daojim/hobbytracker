@@ -493,7 +493,43 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText(/No HowLongToBeat estimate yet/)).toBeInTheDocument();
   });
 
-  it('puts your hours next to the main story, and the difference between them', async () => {
+  it('shows all three of HowLongToBeat\'s estimates', async () => {
+  journalServer({
+    detail: gameDetail({
+      hltbMainStoryHours: 27,
+      hltbMainExtraHours: 41.59,
+      hltbCompletionistHours: 65.6,
+      logEntries: [logEntry({ id: 7 })],
+    }),
+  });
+
+  open();
+
+  expect(await screen.findByText('Main story: 27 h')).toBeInTheDocument();
+  expect(screen.getByText('Main + Extra: 41.59 h')).toBeInTheDocument();
+  expect(screen.getByText('Completionist: 65.6 h')).toBeInTheDocument();
+});
+
+it('leaves out a tier nobody has submitted a time for, rather than showing a gap', async () => {
+  // An obscure title with a main-story time and nothing else is ordinary. Printing
+  // "Completionist: —" would make that read as a broken row rather than as missing data.
+  journalServer({
+    detail: gameDetail({
+      hltbMainStoryHours: 27,
+      hltbMainExtraHours: null,
+      hltbCompletionistHours: null,
+      logEntries: [logEntry({ id: 7 })],
+    }),
+  });
+
+  open();
+
+  expect(await screen.findByText('Main story: 27 h')).toBeInTheDocument();
+  expect(screen.queryByText(/Completionist/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/No HowLongToBeat estimate yet/)).not.toBeInTheDocument();
+});
+
+it('puts your hours next to the main story, and the difference between them', async () => {
     journalServer({
       detail: gameDetail({
         hltbMainStoryHours: 24.5,
@@ -506,6 +542,160 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText(/Main story: 24.5 h/)).toBeInTheDocument();
     expect(screen.getByText(/you: 31 h/)).toBeInTheDocument();
     expect(screen.getByText(/\+6.5/)).toBeInTheDocument();
+  });
+
+  it('offers the pinned HowLongToBeat id, and a link to check it against', async () => {
+    // Following the link is how you find out whether the matcher picked the game you meant,
+    // and it is why no column stores the matched title: HowLongToBeat's name for a game is
+    // often not IGDB's, so storing it would let a lookup rename a card.
+    journalServer({
+      detail: gameDetail({ hltbId: 9134, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+
+    expect(await screen.findByLabelText('HowLongToBeat ID')).toHaveValue('9134');
+    expect(screen.getByRole('link', { name: 'View on HowLongToBeat' })).toHaveAttribute(
+      'href',
+      'https://howlongtobeat.com/game/9134',
+    );
+  });
+
+  it('has nothing to link to before anything has matched', async () => {
+    journalServer({
+      detail: gameDetail({ hltbId: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+
+    expect(await screen.findByLabelText('HowLongToBeat ID')).toHaveValue('');
+    expect(screen.queryByRole('link', { name: 'View on HowLongToBeat' })).not.toBeInTheDocument();
+  });
+
+  it('pins the id against the game, not the pass', async () => {
+    // A property of the title, exactly like the genre beside it — and the form below submits
+    // one PUT to the log-entry endpoint, so putting this in it would mean writing to two.
+    const journal = journalServer({
+      detail: gameDetail({ id: 3003, hltbId: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('HowLongToBeat ID'), '9134');
+    await userEvent.tab();
+
+    await waitFor(() => expect(journal.pinned).toHaveLength(1));
+    expect(journal.pinned[0]).toEqual({ mediaId: 3003, hltbId: 9134 });
+  });
+
+  it('waits for the number to be finished rather than pinning every keystroke', async () => {
+    // The genre select saves on change because a choice from a list is complete when it is
+    // made. A number is not: "9134" passes through 9, 91 and 913 on the way, and this is the
+    // one route that fetches HowLongToBeat while the caller waits — four pins would be four
+    // upstream lookups, three of them for ids nobody asked about.
+    const journal = journalServer({
+      detail: gameDetail({ hltbId: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('HowLongToBeat ID'), '9134');
+
+    expect(journal.pinned).toHaveLength(0);
+  });
+
+  it('does not re-ask about an id that was only looked at', async () => {
+    // Tabbing through the drawer must not re-pin what is already pinned. The pin re-fetches,
+    // so an unchanged value going back would be seconds of upstream work to learn nothing.
+    const journal = journalServer({
+      detail: gameDetail({ hltbId: 9134, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByLabelText('HowLongToBeat ID'));
+    await userEvent.tab();
+
+    expect(journal.pinned).toHaveLength(0);
+  });
+
+  it('clears the pin when the box is emptied', async () => {
+    // Not the same as never having asked and not the same as a zero: null here means forget
+    // the id, which puts the title back in the way of the next backfill.
+    const journal = journalServer({
+      detail: gameDetail({ id: 3003, hltbId: 9134, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+    await userEvent.clear(await screen.findByLabelText('HowLongToBeat ID'));
+    await userEvent.tab();
+
+    await waitFor(() => expect(journal.pinned).toHaveLength(1));
+    expect(journal.pinned[0]).toEqual({ mediaId: 3003, hltbId: null });
+  });
+
+  it('pins on Enter without having to tab away', async () => {
+    const journal = journalServer({
+      detail: gameDetail({ id: 3003, hltbId: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('HowLongToBeat ID'), '9134{Enter}');
+
+    await waitFor(() => expect(journal.pinned).toHaveLength(1));
+    // Still exactly one after everything settles. This is the path where the box is still
+    // focused as it disables, which a real browser turns into a second blur — see the guard in
+    // HltbPin. jsdom cannot reproduce that, so this asserts the intent rather than proving it.
+    await waitFor(() => expect(screen.getByLabelText('HowLongToBeat ID')).toBeEnabled());
+    expect(journal.pinned).toEqual([{ mediaId: 3003, hltbId: 9134 }]);
+  });
+
+  it('says so when HowLongToBeat does not know the id', async () => {
+    // The reason the pin fetches while you wait: an id typed wrong comes back as a refusal
+    // naming it, rather than as a stored pin that quietly answers nothing for ever.
+    journalServer({
+      detail: gameDetail({ hltbId: null, logEntries: [logEntry({ id: 7 })] }),
+      pinErrors: { hltbId: ['HowLongToBeat has no game 999999.'] },
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('HowLongToBeat ID'), '999999');
+    await userEvent.tab();
+
+    expect(await screen.findByText('HowLongToBeat has no game 999999.')).toBeInTheDocument();
+    // And what was typed stays put, because correcting it is the next thing you would do.
+    expect(screen.getByLabelText('HowLongToBeat ID')).toHaveValue('999999');
+  });
+
+  it('asks once, however the box loses focus on the way', async () => {
+    // The box disables itself while the server is reading HowLongToBeat, and an element being
+    // disabled is a blur — which is the same event that commits. Without a guard the commit
+    // fires again on a value the stored id has not caught up with yet, and one pin becomes two
+    // upstream lookups.
+    const journal = journalServer({
+      detail: gameDetail({ id: 3003, hltbId: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('HowLongToBeat ID'), '9134');
+    await userEvent.tab();
+
+    await waitFor(() => expect(journal.pinned).toHaveLength(1));
+    // Let everything that was going to happen happen, then check nothing else did.
+    await waitFor(() => expect(screen.getByLabelText('HowLongToBeat ID')).toBeEnabled());
+    expect(journal.pinned).toEqual([{ mediaId: 3003, hltbId: 9134 }]);
+  });
+
+  it('refuses what is not an id without asking HowLongToBeat about it', async () => {
+    // There is nothing to learn from asking, and the pin is the one route that holds the
+    // caller while the server reads a website. The rule mirrors the Range on the server.
+    const journal = journalServer({
+      detail: gameDetail({ hltbId: null, logEntries: [logEntry({ id: 7 })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('HowLongToBeat ID'), '12.5');
+    await userEvent.tab();
+
+    expect(await screen.findByText(/whole number/)).toBeInTheDocument();
+    expect(journal.pinned).toHaveLength(0);
   });
 
   it('offers the game genres, and an automatic option naming what it would pick', async () => {

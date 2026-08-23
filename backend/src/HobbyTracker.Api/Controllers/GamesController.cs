@@ -7,7 +7,7 @@ namespace HobbyTracker.Api.Controllers;
 
 [ApiController]
 [Route("api/games")]
-public class GamesController(IGameCatalogService catalog) : ControllerBase
+public class GamesController(IGameCatalogService catalog, IHltbService hltb) : ControllerBase
 {
     /// <summary>
     /// Searches IGDB by title, stores what comes back in media + games, and returns the
@@ -64,6 +64,63 @@ public class GamesController(IGameCatalogService catalog) : ControllerBase
     {
         var refreshed = await catalog.RefreshLibraryAsync(cancellationToken);
         return Ok(new RefreshResult(refreshed));
+    }
+
+    /// <summary>
+    /// Asks HowLongToBeat about every title on your board that has not been asked about lately.
+    ///
+    /// Answers 202 with a count of what was queued, not of what changed. HowLongToBeat is a
+    /// website being read by a program, so requests to it are spaced out by seconds — a library
+    /// of fifty titles is minutes of work, and holding an HTTP request open for that would be
+    /// the wrong shape even if it worked. A background worker drains the queue; what it found is
+    /// visible on the board afterwards.
+    ///
+    /// Maintenance, and deliberately without a button, exactly like POST /api/games/refresh.
+    /// </summary>
+    [HttpPost("hltb/refresh")]
+    [ProducesResponseType<QueuedResult>(StatusCodes.Status202Accepted)]
+    public async Task<ActionResult<QueuedResult>> RefreshHltb(CancellationToken cancellationToken)
+    {
+        var queued = await hltb.BackfillAsync(cancellationToken);
+        return Accepted(new QueuedResult(queued));
+    }
+
+    /// <summary>
+    /// Pins the HowLongToBeat entry for a title by hand, or clears the pin with a null.
+    ///
+    /// The correction for a matcher that deliberately writes nothing when it is unsure. Without
+    /// somewhere to say "it is this one", a title HowLongToBeat files differently from IGDB —
+    /// the paired Pokemon releases, say — would stay blank for good.
+    ///
+    /// Unlike the backfill this fetches there and then, because the whole point of typing an id
+    /// is to find out whether it was the right one. An id HowLongToBeat does not know is a 400
+    /// rather than a stored pin that quietly answers nothing.
+    /// </summary>
+    [HttpPut("{mediaId:int}/hltb")]
+    [ProducesResponseType<GameDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<ActionResult<GameDetailDto>> SetHltbId(
+        int mediaId, SetHltbIdRequest request, CancellationToken cancellationToken)
+    {
+        var (outcome, game) = await hltb.PinAsync(mediaId, request.HltbId, cancellationToken);
+
+        switch (outcome)
+        {
+            case HltbPinOutcome.NoSuchGame:
+                return NotFound();
+
+            case HltbPinOutcome.NoSuchHltbId:
+                ModelState.AddModelError(
+                    nameof(request.HltbId),
+                    $"HowLongToBeat has no game {request.HltbId}.");
+
+                return ValidationProblem(ModelState);
+
+            default:
+                return Ok(game);
+        }
     }
 
     /// <summary>

@@ -107,7 +107,8 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
                 // when it stops translating the symptom is an empty library rather than an
                 // error. This is terminal, so nothing filters on it afterwards.
                 (row.Media as Game)!.Genres,
-                (row.Media as Game)!.PrimaryGenre))
+                (row.Media as Game)!.PrimaryGenre,
+                (row.Media as Game)!.HltbMainStoryHours))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<LibraryItemDto>(items, total, normalisedPage, normalisedSize);
@@ -329,6 +330,18 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
             .OrderBy(row => row.Latest.Rating == null)
             .ThenByDescending(row => row.Latest.Rating),
 
+        // Shortest first — the question is "what can I finish this weekend" — and a title
+        // nothing has matched to HowLongToBeat last, rather than sorting as though nobody
+        // having timed it meant it took no time.
+        //
+        // The downcast is confined to this one arm on purpose. BoardQuery is what every Where
+        // and OrderBy is pushed through, so a downcast that failed to translate *there* would
+        // empty the whole board; here the worst case is that this one mode breaks. See the
+        // comment on BoardQuery, and the test that asserts this column comes back non-empty.
+        LibrarySort.Hours => query
+            .OrderBy(row => (row.Media as Game)!.HltbMainStoryHours == null)
+            .ThenBy(row => (row.Media as Game)!.HltbMainStoryHours),
+
         // Manual: the user's own ranking. Every other mode is a read-only view that leaves
         // Position untouched, which is why dragging is only offered in this one.
         _ => query.OrderBy(row => row.Latest.Position).ThenByDescending(row => row.Latest.Id),
@@ -380,6 +393,7 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
                 row.Latest.Rating,
                 row.Latest.CompletedAt ?? row.Latest.StartedAt,
                 (row.Media as Game)!.Genres,
-                (row.Media as Game)!.PrimaryGenre))
+                (row.Media as Game)!.PrimaryGenre,
+                (row.Media as Game)!.HltbMainStoryHours))
             .FirstOrDefaultAsync(cancellationToken);
 }

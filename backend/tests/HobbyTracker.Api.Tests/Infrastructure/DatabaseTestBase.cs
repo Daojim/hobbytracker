@@ -23,6 +23,11 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     protected PostgresFixture Postgres { get; } = postgres;
     protected FakeIgdbClient Igdb { get; } = new();
 
+    /// <summary>HowLongToBeat, and the queue that would have asked it. See FakeHltbQueue.</summary>
+    protected FakeHltbClient Hltb { get; } = new();
+
+    protected FakeHltbQueue HltbQueue { get; } = new();
+
     /// <summary>
     /// The host's clock, stopped. xUnit builds a fresh instance of the test class per fact, so
     /// each test owns its own and moving it cannot disturb anything running alongside.
@@ -59,7 +64,7 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     private ApiFactory? _factory;
     private HttpClient? _client;
 
-    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Clock);
+    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Hltb, HltbQueue, Clock);
     protected HttpClient Client => _client ??= Factory.CreateClient();
 
     public virtual async ValueTask InitializeAsync() => await Postgres.ResetAsync();

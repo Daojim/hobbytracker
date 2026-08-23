@@ -31,4 +31,13 @@ public sealed record LibraryItemDto(
     /// client, where the ordering and the palette are the same list.
     /// </summary>
     IReadOnlyList<string>? Genres,
-    string? PrimaryGenre);
+    string? PrimaryGenre,
+
+    /// <summary>
+    /// HowLongToBeat's main-story estimate, and only that one — the card has room for a number,
+    /// not a table, and the other two tiers are a drawer reading where they can be named.
+    ///
+    /// Null for a row that is not a game, for the same reason as <see cref="Genres"/>, and null
+    /// for a game nothing has matched to HowLongToBeat yet.
+    /// </summary>
+    decimal? HltbMainStoryHours);

@@ -1,3 +1,5 @@
+using HobbyTracker.Api.Infrastructure;
+using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -5,6 +7,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 
 namespace HobbyTracker.Api.Tests.Infrastructure;
 
@@ -17,6 +20,8 @@ namespace HobbyTracker.Api.Tests.Infrastructure;
 public sealed class ApiFactory(
     PostgresFixture postgres,
     FakeIgdbClient igdb,
+    FakeHltbClient hltb,
+    FakeHltbQueue hltbQueue,
     TimeProvider clock,
     string timeZone = "America/New_York")
     : WebApplicationFactory<Program>
@@ -48,6 +53,24 @@ public sealed class ApiFactory(
         {
             services.RemoveAll<IIgdbClient>();
             services.AddSingleton<IIgdbClient>(igdb);
+
+            services.RemoveAll<IHltbClient>();
+            services.AddSingleton<IHltbClient>(hltb);
+
+            // The queue is faked and the worker that drains it is taken out entirely. Left in,
+            // it would look up titles on a background thread while tests assert about the rows
+            // it is writing — every one of them racing something it never mentioned.
+            services.RemoveAll<IHltbQueue>();
+            services.AddSingleton<IHltbQueue>(hltbQueue);
+
+            var worker = services.FirstOrDefault(service =>
+                service.ServiceType == typeof(IHostedService)
+                && service.ImplementationType == typeof(HltbWorker));
+
+            if (worker is not null)
+            {
+                services.Remove(worker);
+            }
 
             // Stopped, so "today" is whatever the test says it is. Without this, every
             // assertion about a stamped date is really an assertion about the wall clock.

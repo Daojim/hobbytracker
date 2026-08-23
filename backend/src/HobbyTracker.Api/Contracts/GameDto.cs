@@ -24,7 +24,14 @@ public sealed record GameDto(
     string? PrimaryGenre,
     string? ExternalId,
     string Source,
-    decimal? HltbMainStoryHours)
+
+    /// <summary>
+    /// HowLongToBeat's three completion times, in hours. Any of them can be null on its own —
+    /// a game with a main-story time and no completionist time is ordinary, not an error.
+    /// </summary>
+    decimal? HltbMainStoryHours,
+    decimal? HltbMainExtraHours,
+    decimal? HltbCompletionistHours)
 {
     public static GameDto From(Game game) => new(
         game.Id,
@@ -36,7 +43,9 @@ public sealed record GameDto(
         game.PrimaryGenre,
         game.ExternalId,
         SeedData.Sources.NameFor(game.SourceId),
-        game.HltbMainStoryHours);
+        game.HltbMainStoryHours,
+        game.HltbMainExtraHours,
+        game.HltbCompletionistHours);
 }
 
 /// <summary>
@@ -51,3 +60,24 @@ public sealed record SetGenreRequest([MaxLength(50)] string? Genre);
 
 /// <summary>How many titles a refresh brought up to date.</summary>
 public sealed record RefreshResult(int Refreshed);
+
+/// <summary>
+/// How many titles were put in the queue — pointedly not how many changed.
+///
+/// A separate type from <see cref="RefreshResult"/> rather than a reuse of it, because the two
+/// numbers mean different things and sharing a name for them is how that stops being noticed:
+/// Refreshed counts rows the IGDB upsert touched, where this counts work not yet begun. The
+/// HowLongToBeat backfill cannot report the other number, since at a floor of seconds between
+/// requests the answers arrive long after the reply has gone.
+/// </summary>
+public sealed record QueuedResult(int Queued);
+
+/// <summary>
+/// The HowLongToBeat id to pin to a title by hand, or null to take the pin back.
+///
+/// The only correction this feature offers, and enough for both ways of being wrong: a match
+/// that found the wrong game and one that found nothing are both fixed by naming the right id.
+/// Unlike typed-in hours it also survives the next backfill, since a stored id is what every
+/// later refresh fetches rather than re-matching.
+/// </summary>
+public sealed record SetHltbIdRequest([Range(1, int.MaxValue)] int? HltbId);

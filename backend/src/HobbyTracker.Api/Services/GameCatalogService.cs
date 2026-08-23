@@ -235,14 +235,21 @@ public sealed class GameCatalogService(
 
     /// <summary>
     /// Copies IGDB-owned fields onto the entity. Deliberately leaves the hltb_* columns and
-    /// primary_genre alone: HowLongToBeat has no official API, and which genre stands for a game
-    /// is a choice — both are authored here rather than at IGDB, and must survive every refresh
-    /// from it.
+    /// primary_genre alone: those are written by HltbService and by the reader respectively,
+    /// and both must survive every refresh from IGDB. A search re-running over a title that has
+    /// already been matched to HowLongToBeat must not undo that work.
     /// </summary>
     private static void ApplyMetadata(IgdbGame source, Game target)
     {
         target.Title = source.Name!;
         target.CoverUrl = IgdbImage.CoverUrl(source.Cover?.ImageId);
+
+        // Read in UTC rather than the journal zone. This is compared against HowLongToBeat's
+        // release_world, which is a bare year belonging to no timezone at all, so localising
+        // would only invent a distinction the other side of the comparison cannot carry.
+        target.ReleaseYear = source.FirstReleaseDate is { } seconds
+            ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime.Year
+            : null;
 
         target.Platforms =
         [

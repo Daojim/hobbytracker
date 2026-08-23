@@ -1,22 +1,28 @@
 import { useId, useState } from 'react';
 import { journalDateInput } from '../lib/time';
+import { formatHours } from '../lib/hours';
 import {
   HOURS_RULE,
   RATING_RULE,
   UNRATED_THUMB,
   dateFieldValue,
-  formatHours,
+  hltbTiers,
   parseHours,
   parseRating,
 } from './fields';
+import type { HltbEstimates } from './fields';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
 
 export interface EntryFormProps {
   entry: LogEntry;
   /** What the game came out on. Already loaded by getGame, so this costs no extra request. */
   platforms: string[];
-  /** HowLongToBeat's main-story estimate, for reading yours against. Null until it lands. */
-  hltbMainStoryHours: number | null;
+  /**
+   * HowLongToBeat's three estimates, for reading your own hours against. Passed as one object
+   * rather than three numbers because three nullable numbers in a row is the argument list
+   * where two get swapped silently.
+   */
+  estimates: HltbEstimates;
   saving: boolean;
   /** What the API objected to, keyed by field, so it can be shown where it belongs. */
   serverErrors: Record<string, string[]>;
@@ -33,7 +39,7 @@ export interface EntryFormProps {
 export function EntryForm({
   entry,
   platforms,
-  hltbMainStoryHours,
+  estimates,
   saving,
   serverErrors,
   onSave,
@@ -80,26 +86,24 @@ export function EntryForm({
   /**
    * Your hours read against HowLongToBeat's, which is the reason to write them down at all.
    *
-   * hltb_main_story_hours has been on the wire since the schema shipped and null on every row,
-   * so the honest thing to say for now is that there is no estimate — not nothing at all, which
-   * reads as a missing feature rather than missing data.
+   * An empty list is the whole of "this title has never been matched" — hltbTiers drops the
+   * tiers nobody has submitted a time for, so a game with a main-story time and no
+   * completionist time shows one estimate rather than one number and two dashes.
    */
-  const comparison = (() => {
-    const mine = parseHours(hours).value ?? null;
+  const tiers = hltbTiers(estimates);
+  const mine = parseHours(hours).value ?? null;
 
-    if (hltbMainStoryHours === null) {
-      return 'No HowLongToBeat estimate yet';
-    }
-
-    const estimate = `Main story: ${formatHours(hltbMainStoryHours)}`;
-    if (mine === null) {
-      return estimate;
-    }
-
-    const difference = Number((mine - hltbMainStoryHours).toFixed(2));
-    const sign = difference > 0 ? '+' : '';
-    return `${estimate} · you: ${formatHours(mine)} (${sign}${difference})`;
-  })();
+  /**
+   * The difference, against Main Story alone.
+   *
+   * Three deltas would be arithmetic rather than a reading, and main story is what the card and
+   * the Time to beat sort both mean by "how long does this take" — so it is the one your own
+   * hours are worth holding up against.
+   */
+  const delta =
+    mine === null || estimates.hltbMainStoryHours === null
+      ? null
+      : Number((mine - estimates.hltbMainStoryHours).toFixed(2));
 
   // IGDB's list, plus whatever is already recorded when that list has stopped mentioning it.
   // Dropping a stored value on a save the reader made about something else is not a correction.
@@ -215,7 +219,26 @@ export function EntryForm({
             className="w-24 rounded border border-neutral-300 bg-white px-2 py-1 text-sm dark:border-neutral-700 dark:bg-neutral-900"
           />
 
-          <span className="text-xs text-neutral-500">{comparison}</span>
+          {/* One span per tier rather than one assembled string: they wrap independently on a
+              narrow drawer, and a test can name the tier it means. */}
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-neutral-500">
+            {tiers.length === 0 ? (
+              <span>No HowLongToBeat estimate yet</span>
+            ) : (
+              tiers.map((tier) => (
+                <span key={tier.label}>
+                  {tier.label}: {formatHours(tier.hours)}
+                </span>
+              ))
+            )}
+
+            {delta !== null && (
+              <span>
+                you: {formatHours(mine)} ({delta > 0 ? '+' : ''}
+                {delta})
+              </span>
+            )}
+          </div>
         </div>
       </Field>
 

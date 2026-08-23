@@ -226,6 +226,40 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
+    public async Task A_board_row_carries_the_main_story_estimate()
+    {
+        // Only main story reaches the card. The other two are a drawer reading, where there is
+        // room to name them; three numbers in a card's metadata row would be a table.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        await WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(g => g.Id == mediaId, Ct);
+            game.HltbMainStoryHours = 27m;
+            game.HltbMainExtraHours = 41.59m;
+            await db.SaveChangesAsync(Ct);
+        });
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.HltbMainStoryHours.ShouldBe(27m);
+    }
+
+    [Fact]
+    public async Task A_board_row_for_something_that_is_not_a_game_has_no_estimate()
+    {
+        // Same TPT downcast as the genres, and the same reason to pin it: the LEFT JOIN behind
+        // it answers null for a media row with no detail table, and the board is games-only
+        // only until it is not.
+        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Some Film");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
+
+        item.HltbMainStoryHours.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task A_board_row_for_something_that_is_not_a_game_has_no_genres()
     {
         // Genres live on the games table, so the projection reaches them through a TPT downcast
