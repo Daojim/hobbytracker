@@ -263,6 +263,19 @@ MSBuild skips the copy, never attempts the locked file, and the suite passes whi
 nothing. `dotnet build backend/src/HobbyTracker.Api` still names the locking process if some
 other build ever hits this.
 
+**`dotnet test` has no such fix, and hits the same lock.** The Playwright harness carries its
+own `BaseOutputPath`; the backend suite builds the API to the default `bin/Debug` and so fails
+with the same `MSB3027` whenever a `dotnet run` of yours is up. It is one environment variable
+at the call site rather than a config change, because unlike the e2e run this is a thing you
+type rather than a thing that runs itself:
+
+```bash
+BaseOutputPath='bin/testrun/' dotnet test --solution backend/HobbyTracker.slnx
+```
+
+Stopping the development server works just as well. Do not add this to a config file — the
+default path is the right one when nothing is holding it.
+
 Choices worth not re-litigating:
 
 - **Real Postgres, not in-memory or SQLite.** What is worth testing here is Postgres-specific:
