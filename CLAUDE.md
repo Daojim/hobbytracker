@@ -7,40 +7,52 @@ merely shorter.
 
 ## Where things stand
 
-**The board is complete, the drawer's five gaps are closed, and so is the round of four things
-daily use turned up after them.** Backend 187 tests, frontend 177 Vitest tests, 34 Playwright
-specs — all green.
+**The board phase is finished. HowLongToBeat is in progress: the whole backend is done and
+verified against the live site, and what is left is the drawer's pin control, the end-to-end
+specs, and nothing else.** Backend 251 tests, frontend 184 Vitest tests, 34 Playwright specs —
+all green.
 
-Currently on branch **`living-with-the-board`**, off `journal-notes` — which is finished and
-still unmerged, so open its PR before this one. Every step below is done.
+Currently on branch **`howlongtobeat`**, off `living-with-the-board`. Three branches are finished
+and unmerged and their PRs open in this order: `journal-notes`, then `living-with-the-board`,
+then this one.
 
-**HowLongToBeat is next**, and nothing is holding it up. Its backfill rail is already built: see
-`POST /api/games/refresh` under **Genres and colour**.
-
-Six plans, all worth reading before touching this:
-`C:\Users\jimmy\.claude\plans\project-context-i-m-building-nifty-mango.md` is the original board
-plan; `i-had-a-previous-melodic-nebula.md` beside it is the timezone and timestamp work that
-interrupted it; `look-at-claude-md-and-radiant-wreath.md` is the five drawer gaps and the
-reasoning behind each; `i-want-to-continue-wiggly-toucan.md` is how they were built;
+Seven plans. The current one is
+`C:\Users\jimmy\.claude\plans\for-the-next-part-delightful-alpaca.md`, and it is worth reading
+before touching HowLongToBeat — though see **What the plan got wrong** below, because three of
+its assumptions did not survive contact with the site. The earlier six are the board's:
+`project-context-i-m-building-nifty-mango.md` is the original board plan;
+`i-had-a-previous-melodic-nebula.md` is the timezone and timestamp work that interrupted it;
+`look-at-claude-md-and-radiant-wreath.md` is the five drawer gaps and the reasoning behind each;
+`i-want-to-continue-wiggly-toucan.md` is how they were built;
 `there-are-a-few-reflective-balloon.md` is the four that came after.
 
-1. ~~Scaffold `frontend/`~~ — Vite 8 + React 19 + TS, Tailwind v4, TanStack Query, react-router.
-2. ~~API client + Vitest tests~~ — `src/api/` mirrors `Contracts/`, 32 tests over MSW.
-3. ~~Board components~~ — `Column`, `Card`, `SortSelect`, `YearPicker`, and `useBoard` holding
-   the writes. Each column fetches itself, which is what makes the year picker narrow Completed
-   alone and a sort on one column cost nothing on the other three.
-4. ~~The drag, and Playwright specs written red first~~ — dnd-kit, 8 specs in `frontend/e2e/`.
-5. ~~Search page~~ — a 300ms debounced input over `searchGames()`, and a button over
-   `addToBacklog()`.
-6. ~~Journalling from the board~~ — a drawer over the board for rating, notes and date
-   correction, plus the earlier passes read-only. See **Journalling** below.
-7. ~~Four of the five drawer gaps~~ — the stale-after-a-drag caching bug, the drawer becoming a
-   real dialog, deleting a pass, and the platform a pass was played on.
-8. ~~Notes become dated journal entries~~ — a `notes` child table, the column migrated in and
-   dropped, and a note list per pass in the drawer. The last of the five, and the contract break.
-9. ~~Four things using it turned up~~ — closing from Backlog removes a title rather than
-   dropping it, rating by slider, your own hours beside HowLongToBeat's, and genres colouring
-   the cards. See **Genres and colour**, and the phase of the same name.
+### Where HowLongToBeat has got to
+
+1. ~~Spike~~ — established that HLTB answers at all, and what shape. Throwaway, not committed;
+   everything it found is written down under **HowLongToBeat** below.
+2. ~~Schema~~ — `AddHltbTimes`: two more hours columns, `hltb_checked_at`, `release_year`, and
+   the first check constraint on `games`.
+3. ~~Display~~ — three tiers in the drawer, the estimate on a card, `sort=hours` as
+   *Time to beat*. Built before any network code, so the feature was demonstrable with numbers
+   set by hand in psql.
+4. ~~`Integrations/Hltb/`~~ — session, client, throttle, and the 502 mapping.
+5. ~~`Services/HltbMatcher`~~ — the pure matcher, and the actual work of the feature.
+6. ~~Writing the numbers~~ — `HltbService`, the queue and its worker, and the two endpoints.
+7. **The drawer's pin control** — *not built*. `PUT /api/games/{mediaId}/hltb` exists, is tested,
+   and has no caller. Put it in the drawer header beside the genre select, on the same reasoning:
+   it belongs to the title, and `EntryForm` submits one PUT to a different endpoint. A number
+   input that saves on change, plus a *View on HowLongToBeat* link to
+   `https://howlongtobeat.com/game/{id}` — which is how you check it matched the game you meant,
+   and is why no column stores the matched title. A new mutation in `useJournalEntry.ts`
+   following `setGenre`, invalidating `['library']` and `gameKey(mediaId)`, because the card now
+   carries main-story hours.
+8. **End-to-end** — *not built*. A stub at `frontend/e2e/support/hltb-stub.mjs` on its own port
+   with its own `/health`, a fourth `webServer` in `playwright.config.ts`, and `Hltb__BaseUrl`
+   pointed at it. It has to serve all three legs so the real code path runs: a bundle containing
+   a `fetch("/api/…", {method:"POST"})` literal *and* a matching `/api/…/init` reference for the
+   pair rule to find, the handshake, and the search. Specs: numbers appear after a backfill
+   (mirroring *a refresh brings genres to a title that predates them*), the *no estimate* copy
+   still shows for a title the stub does not know, and **Time to beat** orders shortest first.
 
 **Two things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
@@ -111,6 +123,7 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │   └── src/
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
+│       ├── lib/hours.ts  formatHours — display, so board/ need not reach into journal/
 │       ├── board/        the board. keys.ts owns the query key; useBoard owns the writes
 │       ├── journal/      the drawer over the board — rating, platform, dates, notes, earlier passes
 │       ├── search/       SearchPage + SearchResult, over a debounced IGDB search
@@ -127,10 +140,12 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
     │   │   ├── Configurations/       one IEntityTypeConfiguration per entity
     │   │   └── Migrations/
     │   ├── Integrations/Igdb/        IGDB client, auth, wire DTOs
+    │   ├── Integrations/Hltb/        HowLongToBeat session, client, throttle, wire DTOs
     │   ├── Services/                 orchestration (IGDB → database → DTO)
     │   ├── Contracts/                what the API accepts and returns
     │   ├── Controllers/
-    │   └── Infrastructure/           cross-cutting (exception handling, journal clock, JSON)
+    │   └── Infrastructure/           cross-cutting (exception handling, journal clock, JSON,
+    │                                 and the HowLongToBeat queue + its background worker)
     └── tests/HobbyTracker.Api.Tests/
         ├── Infrastructure/           container fixture, host factory, fakes
         ├── Data/  Services/  Integrations/  Endpoints/
@@ -172,6 +187,9 @@ the missing setting. That is the intended behaviour, not a bug to work around.
 After a migration adds a column IGDB owns, bring the library you already have up to date —
 `curl -X POST http://localhost:5201/api/games/refresh`. See **Genres and colour**.
 
+HowLongToBeat has its own, and it answers immediately rather than when the work is done —
+`curl -X POST http://localhost:5201/api/games/hltb/refresh`. See **HowLongToBeat**.
+
 New migration:
 ```bash
 dotnet ef migrations add <Name> \
@@ -182,8 +200,8 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 187 tests
-cd frontend && npm test                             # frontend, 177 tests
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
+cd frontend && npm test                             # frontend, 184 tests
 cd frontend && npm run test:e2e                     # 34 specs in a real browser
 ```
 
@@ -256,7 +274,7 @@ is how the lookup tables keep their `_lu` suffix.
 | `hobby_lu` | `id`, `name` — games, movies, tv, anime, books, music |
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
-| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `hltb_main_story_hours`, `hltb_id` |
+| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at` |
 | `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `started_at`, `completed_at`, `logged_at` |
 | `notes` | `id`, `log_entry_id`, `body`, `written_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
@@ -318,6 +336,23 @@ renames the column in `media` too and leaves the base table with no `id` at all.
   because comparing them is the point. Named "played" rather than "to complete" because a pass
   can be `InProgress` or `Dropped`, where "to complete" would be a lie. A pass inserted by a drag
   out of Completed starts with neither hours nor platform.
+- **The three `hltb_*_hours` columns are `numeric(5,2)`, and null never means nought.**
+  HowLongToBeat answers `0` for a game nobody has submitted a time for, which is a different
+  claim from "takes no time" — `ck_games_hltb_hours_positive`, the first check constraint on
+  `games`, exists to make forgetting to map that fail loudly rather than store a lie. There is no
+  upper bound in it on purpose: `numeric(5,2)` *throws* past 999.99 rather than rounding, so an
+  over-long completionist time — and they exist — has to be dropped to null in the client, where
+  a constraint could not help anyway. Only that tier is lost; its siblings are still good numbers.
+  Any one of the three can be null on its own, which is ordinary rather than an error.
+- **`games.hltb_checked_at` separates *never asked* from *asked, nothing matched*.** Stamped on a
+  miss as well as a hit, which is the entire point of it: without that, the backfill re-asks about
+  every unmatchable title on every run, for ever. It is also what makes a second backfill answer
+  `{"queued":0}`.
+- **`games.release_year` exists for the matcher and nothing else.** IGDB and HowLongToBeat both
+  list "Resident Evil 4" twice under exactly that title, 2005 and 2023, and nothing in the strings
+  can tell them apart. Read from IGDB's `first_release_date` in **UTC**, not the journal zone,
+  because it is compared against HLTB's `release_world` — a bare year belonging to no timezone,
+  so localising would invent a distinction the other side cannot carry.
 - **`games.genres` is `text[]`, and `games.primary_genre` is the one you chose.** Null there
   means "use the automatic pick", not "no genre" — which is why the drawer's blank option reads
   *Automatic — Platform* rather than *Not recorded*. Free text up to 50 characters, not a value
@@ -430,7 +465,9 @@ Two IGDB quirks the code depends on:
 | `GET /api/games?search=&limit=` | search IGDB, upsert, return |
 | `GET /api/games/{id}` | one stored game plus its log entries |
 | `POST /api/games/refresh` | re-fetch every IGDB title on the board. Maintenance; no UI |
+| `POST /api/games/hltb/refresh` | queue the board for HowLongToBeat. **202 with a count of what was queued**, not of what changed. Maintenance; no UI |
 | `PUT /api/games/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
+| `PUT /api/games/{mediaId}/hltb` | pin the HowLongToBeat entry by hand, or null to take the pin back. The only correction the feature offers |
 | `GET /api/log-entries?mediaId=&status=&page=&pageSize=` | the journal, newest first |
 | `POST /api/log-entries` | record a pass through a title |
 | `GET /api/log-entries/{id}` | |
@@ -544,10 +581,23 @@ top-first rather than a move-and-index: idempotent, no off-by-one arithmetic, an
 since left the column are ignored rather than rejected, because a loaded board can legitimately
 be one drag out of date.
 
-**Sorting never writes.** `sort` ∈ `manual` (default) · `added` · `title` · `rating` are
-read-only views that leave `position` untouched — which is what lets the UI enable dragging only
-in manual mode and still guarantee the ranking survives a look at the alphabetical order.
-`sort=hours` deliberately does not exist while `hltb_main_story_hours` is null on every row.
+**Sorting never writes.** `sort` ∈ `manual` (default) · `added` · `title` · `rating` · `hours`
+are read-only views that leave `position` untouched — which is what lets the UI enable dragging
+only in manual mode and still guarantee the ranking survives a look at the alphabetical order.
+
+`sort=hours` is HowLongToBeat's **main story** estimate, shortest first, with titles that have no
+estimate last — the same treatment an unrated title gets under `sort=rating`, rather than sorting
+as though nobody having timed a game meant it took no time. Main story alone, so the sort has one
+meaning: *what can I finish this weekend*. It is **not** `log_entries.hours_played`, which is how
+long you took on one pass; that is a fact about a playthrough where this is a property of the
+title. The UI calls it **Time to beat**, named for the question rather than the column, because
+"Hours" alone reads as the hours you have put in.
+
+Its TPT downcast lives **inside that one switch arm** in `LibraryService.Sorted`, never on
+`BoardRow` in `BoardQuery`. `BoardQuery` is what every `Where` and `OrderBy` is pushed through, so
+a downcast that failed to translate there would empty the whole board; confined to one arm the
+worst case is that one mode breaks. `LibraryOrderingTests` asserts the column comes back
+**non-empty**, because emptiness is the symptom.
 
 ### Traps, all of which have bitten already
 
@@ -620,11 +670,25 @@ Decisions worth not re-litigating:
   because two controls on one value need two names. Native rather than `appearance-none`, which
   removes the thumb and leaves nothing to grab, and `color-scheme: light dark` on `:root` so the
   track follows the theme everything else already follows.
-- **Hours played sits beside HowLongToBeat's estimate**, and says *No HowLongToBeat estimate yet*
-  until that phase lands — `hltbMainStoryHours` has been on the wire since the schema shipped and
-  read by nothing until now. `parseHours` mirrors `PlaytimeHoursAttribute` on the text rather
-  than the float, one decimal place further out than the rating for the same reason; the 999.99
-  ceiling is a different failure, since overflowing `numeric(5,2)` throws rather than rounding.
+- **Hours played sits beside all three of HowLongToBeat's estimates**, one `<span>` each rather
+  than one assembled string — they wrap independently on a narrow drawer, and a test can name the
+  tier it means. `hltbTiers` in `src/journal/fields.ts` drops the tiers nobody has submitted a
+  time for rather than printing a dash beside them, because a game with a main-story time and no
+  completionist time is ordinary rather than a broken row. That also gives the drawer one
+  condition instead of three: an empty list is the whole of *never matched*, which is what keeps
+  *No HowLongToBeat estimate yet* honest now that there are three ways to have nothing. It takes
+  the game rather than three loose numbers, since three nullable numbers in a row is exactly the
+  argument list where two get swapped in silence.
+- **The difference is measured against Main Story alone.** Three deltas is arithmetic rather than
+  a reading, and main story is what the card and the *Time to beat* sort both mean by "how long
+  does this take". `parseHours` mirrors `PlaytimeHoursAttribute` on the text rather than the
+  float, one decimal place further out than the rating for the same reason; the 999.99 ceiling is
+  a different failure, since overflowing `numeric(5,2)` throws rather than rounding.
+- **The estimate on a card is written `~27 h`** and announced as *About 27 hours to finish*. The
+  tilde is doing real work: the drawer prints `31.5 h` for what a pass took *you*, so an unmarked
+  number on a card for a game you have not started would read as the same kind of claim. Main
+  story only — a card has room for a number, not a table. `formatHours` lives in `src/lib/hours.ts`
+  rather than `journal/fields.ts` so that `board/` need not reach into `journal/` to format one.
 - **The genre select is in the header, not the form.** Genre belongs to the title and the form
   submits one `PUT` to the log-entry endpoint, so putting it there would mean writing to two.
   It saves on change. Its blank option names the automatic pick rather than saying "Not
@@ -717,7 +781,13 @@ typed — through `IIgdbClient.GetGamesAsync`, a `where id = (…)` clause rathe
 batched at 500. It runs straight back through the same upsert a search uses, so a refreshed row
 and a searched one are written by the same code, including its care about the columns IGDB does
 not own. A title IGDB no longer returns is simply absent from the results and keeps what was last
-known. **HowLongToBeat's backfill rides this same rail.**
+known.
+
+**HowLongToBeat's backfill does *not* ride this rail, though it was expected to.** This one is
+synchronous and reports what it changed, because IGDB answers 500 titles in one request. HLTB
+answers one at a time behind a politeness floor of seconds, so its backfill queues instead and
+answers 202 with a count of what was queued — a different shape, a different route, and a
+different result type on purpose. See **HowLongToBeat**.
 
 **Two traps this cost time to find.** EF scaffolds a `NOT NULL text[]` with no default, and
 Postgres refuses that on a table with rows in it — `23502`, proven against the real database
@@ -744,9 +814,13 @@ the list is shuffled.
 - **Living with the board — done.** Four things daily use turned up once the drawer was finished:
   closing from Backlog removes a title rather than dropping it, rating by slider, your own hours
   beside HowLongToBeat's, and genres from IGDB colouring the cards. Unfinished board-phase work,
-  the same as the five drawer gaps, and it built HowLongToBeat's backfill rail a phase early.
-- **HowLongToBeat.** Completion times, and the `sort=hours` they unlock. See below. **Next, with
-  nothing ahead of it.**
+  the same as the five drawer gaps. It was expected to have built HowLongToBeat's backfill rail a
+  phase early; it did not, because HLTB's has to be a queue rather than a request — but it did
+  prove the TPT downcast and the migration-on-a-populated-table traps that HLTB then hit too.
+- **HowLongToBeat — backend done, two pieces of UI left.** All three completion times, the
+  matcher, the queue, the endpoints, and `sort=hours`. What remains is the drawer's pin control
+  and the end-to-end stub — see **Where HowLongToBeat has got to** at the top, and
+  **HowLongToBeat** below for everything the spike established.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
@@ -765,45 +839,180 @@ nullable `user_id` as temporary, not as a design decision.
 The board is built hobby-parameterised (`/api/library?hobby=games`) even though only games
 exist, so the other hobbies' boards are a routing change rather than a rewrite.
 
-### HowLongToBeat, moved ahead of the other hobbies
+## HowLongToBeat
 
-Decided with the user, **settled — do not reopen**:
+Every card carries how long the game takes, and the drawer carries all three of HowLongToBeat's
+numbers beside how long *you* took. Decided with the user, **settled — do not reopen**:
 
 | | |
 |---|---|
-| Position | Straight after the board, ahead of auth. `sort=hours` lands with data behind it |
-| Numbers | **Main Story only.** Uses the column that exists; no migration, and `sort=hours` has one meaning |
-| Matching | Auto-accept above a confidence threshold; **below it, leave null** |
-| Fetching | On add to the board, plus a backfill pass for what is already there — the rail exists, see **Genres and colour** |
+| Numbers | **All three** — Main Story, Main + Extra, Completionist, under HLTB's own names |
+| `sort=hours` | **Main Story only**, so the sort has exactly one meaning |
+| Where | All three in the drawer; **main story alone on a card**, which has room for a number, not a table |
+| Matching | Auto-accept above a threshold *and* a margin; below either, **write nothing** |
+| Correcting | **In the drawer, by pinning an id.** Not psql, and not typed-in hours |
+| Fetching | Queued on add to the board, plus a backfill for what is already there |
 
-It is genuinely a backfill: `games.hltb_main_story_hours` (`numeric(5,2)`) and `games.hltb_id`
-already exist, `GameDto` and `GameDetailDto` already expose them, and `GameCatalogService`
-deliberately leaves both alone when it upserts from IGDB — so re-searching a game cannot wipe its
-hours.
+### HLTB is not an API, and that is the whole design problem
 
-**HLTB is not an API, and this is the thing to design around.** IGDB is documented,
-authenticated, and versioned. HLTB is a website with an internal endpoint that unofficial clients
-wrap and that has broken those clients repeatedly. Establish the current access shape with a
-spike *before* planning the rest — it is the only real unknown in the feature. Then isolate it
-behind `IHltbClient` in `Integrations/Hltb/`, mirroring `IIgdbClient`, so the blast radius when it
-breaks is one folder. Nothing a user does should ever block on it, and `HltbException` should
-become a 502 the way `IgdbException` does.
+IGDB is documented, authenticated and versioned. HowLongToBeat is a website with an internal
+endpoint that unofficial clients wrap and that has broken those clients for months at a stretch —
+the best-known Python one was dead from late 2024 into 2025. Treat a break as expected: stored
+numbers persist, a title added during an outage simply shows nothing, and `Hltb:Enabled` turns the
+worker off without a release.
 
-`hltb_id` is what makes that survivable: a confident match is stored once and never looked up
-again, so an outage costs new games only.
+**The access shape, established by spike and correct as of August 2026.** All of it is
+rediscovered at runtime rather than configured, because all of it moves:
 
-**Matching is the work; fetching is not.** IGDB and HLTB disagree about titles constantly —
-remasters, anniversaries, subtitle punctuation. A wrong number is worse than no number here,
-because the whole point is answering "can I finish this before the weekend is out". So a match
-below the threshold writes nothing and the card simply shows no hours, which is honest. Correction
-for a bad match arrives with the detail page; until then, a wrong `hltb_id` is fixed in psql.
+1. `GET /` → the Next.js bundles under `/_next/static/chunks/*.js`.
+2. **The pair rule**: the search endpoint is whichever `/api/X` is *also* referenced as
+   `/api/X/init`. Today X is `bleed`; it has been `s` and `seek` before. Taking the first
+   `fetch(..., {method:"POST"})` instead — the obvious reading, and what the community clients do —
+   picks `/api/game/`, which answers **404**. A 404 reads as a wrong URL rather than a wrong rule,
+   so it sends you hunting for a path suffix that was never there. `Hltb:FallbackSearchPath` is
+   where to correct the next rename without a release.
+3. `GET /api/{X}/init?<epoch-ms>` → `{"token":..., "hpKey":"ign_...", "hpVal":...}`. The token
+   decodes to `<ms>::<your-ip>|<your-user-agent>|<hpKey>|<hpVal>.<hmac>`.
+4. `POST /api/{X}` with `x-auth-token`, `x-hp-key`, `x-hp-val` — **and the body carrying a
+   property whose *name* is the hpKey**. That last one is the trap: without it the endpoint
+   answers 404, not 403, so a failed anti-bot check looks exactly like a wrong URL. A 403 means
+   the token has gone off; re-run the handshake and retry **once**, which is what the site's own
+   JavaScript does.
 
-**Do not fetch at search time.** Searching IGDB returns up to 500 results and upserts every one;
-a lookup per result would be slow and rude to a service that never agreed to serve us.
+**`User-Agent` and `Referer` are both load-bearing, measured rather than guessed.** The handshake
+answers `403 {"error":"Access Denied"}` without either and 200 with both; `Accept` and `Origin`
+make no difference. The token bakes the User-Agent in, so the string used at the handshake and at
+the search must be identical — which is why `HltbClient.Identify` stamps it per request instead of
+the typed client's DI configuration doing it. That coupling lived in two files once, and only the
+real site could tell you they had drifted.
 
-`sort=hours` stays absent from `LibrarySort` until this ships. A sort control that visibly does
-nothing is worse than an absent one.
+**Fetching a pinned id needs no handshake at all.** `GET /game/{id}` carries the record in the
+JSON Next.js embeds, at `props.pageProps.game.data.game[0]` — one level deeper than the search's
+`data`, whose siblings there are `relationships`, `userReviews`, `platformData`. An unknown id
+answers 404, which is an answer rather than a failure. This is why a matched title stays
+refreshable on a day the search endpoint has been renamed.
+
+**Three wire quirks are absorbed at the boundary** so nothing above `Integrations/Hltb` knows
+them: times arrive in **seconds**; `0` means nobody has submitted one, not that the game is
+instant; and `release_world` is an integer year from the search but a date string from the page,
+which is why `HltbGameJson.ReleaseWorld` is a `JsonElement` — typing it either way makes the other
+endpoint throw.
+
+### Two deviations from the IGDB mirror, both forced
+
+`Integrations/Hltb/` mirrors `Integrations/Igdb/` where it can. `HltbSession` is
+`TwitchTokenProvider`'s shape exactly — singleton, one refresh however many callers arrive at
+once, invalidated from outside. Nothing expires it on a timer: the token's lifetime is HLTB's to
+know, so any guess fails either by refusing a good token or keeping a stale one, and the 403 is
+the only honest signal.
+
+But **the 403 retry lives in `HltbClient`, not in a `DelegatingHandler`**. The credential is
+partly in the request *body*, so a handler replaying a 403 would resend the stale one and fail the
+very check it was retrying for; rewriting request JSON inside a handler is worse than the coupling
+it would avoid.
+
+And **identity is stamped per request**, as above.
+
+The **throttle** does stay a handler, because rate limiting genuinely is a transport concern. Its
+state is a singleton beside it: keeping the timestamp on the handler quietly does not work, since
+`IHttpClientFactory` rebuilds the chain every couple of minutes and the floor would reset on a
+schedule nothing in that file controls. It is politeness, not compliance — HLTB publishes no rate
+limit, only a history of blocking unofficial clients.
+
+### Matching is the work; fetching is not
+
+`Services/HltbMatcher` is pure and static, and it is the piece most likely to need a new case.
+Two ways of refusing, because there are two ways of being wrong:
+
+- **The numerals must agree outright.** "Final Fantasy VII" against "Final Fantasy VIII" scores
+  ~0.97 on letters alone, so no threshold could separate them. Roman numerals are folded to digits
+  during *normalisation* rather than only where numerals are compared — doing it in one place and
+  not the other made the two rules disagree, refusing a "VII" to "7" match the file had already
+  decided was correct. Single **L, C, D and M are excluded** from the roman set on purpose: they
+  are legal numerals, and reading them as such turns "L.A. Noire" into "50 a noire", which then
+  stops matching "LA Noire".
+- **The winner must beat the runner-up by `AmbiguityMargin`.** Otherwise the two "Resident Evil 4"
+  entries — same title, 2005 and 2023, both scoring 1.0 — are settled by a coin flip that looks
+  from outside exactly like a confident match.
+
+**Calibrated against the real library, not guessed.** Every correct match scored **1.0**; the
+closest wrong one scored **0.64**. So `MatchThreshold` 0.9 and `AmbiguityMargin` 0.05 both have
+room to spare. Seven of eight titles matched. The eighth, **Pokémon Scarlet**, scored 0.577 and was
+refused — HowLongToBeat models the paired release as one "Pokémon Scarlet and Violet" entry and
+IGDB does not, and no rule here can invent that mapping. That refusal is correct, and it is
+exactly what the pin is for.
+
+Normalising is conservative: diacritics folded, punctuation flattened, a leading "The" dropped,
+and nothing else. Stripping subtitles or the word "edition" is how a matcher becomes confident
+about the wrong game.
+
+### Nothing a person does waits on HowLongToBeat
+
+Adding a title to the board writes its log entry, drops the id in a bounded `Channel`, and
+replies. `POST /api/games/hltb/refresh` does the same for the whole library and answers **202**
+with a count of what was **queued** — a `QueuedResult`, deliberately not `RefreshResult`, because
+`Refreshed` counts rows the IGDB upsert touched where this counts work not yet begun, and sharing
+a type for those two numbers is how the difference stops being noticed. At a two-second floor,
+fifty titles is minutes; no HTTP request should be held open for that.
+
+`HltbWorker` drains the queue, a DI scope per title, logging and swallowing every failure —
+nobody is waiting on it, and a title that fails keeps its null `hltb_checked_at` so the next
+backfill finds it. The queue drops the newest when full for the same reason: it is a convenience,
+not a ledger.
+
+**`HltbService` is deliberately not part of `GameCatalogService`, and never goes through its
+`ApplyMetadata`.** That method's contract — its own comment, and two tests — is that an IGDB
+refresh cannot touch the `hltb_*` columns. A separate service keeps that true by construction.
+
+**Storing the matched id is load-bearing, and was missed on the first pass.** A confident match
+writes `hltb_id`, and every later refresh fetches *that id* instead of searching and matching
+again. Without it every backfill quietly becomes a full re-match, and the numbers can drift onto a
+different game because a title was edited or the rules were tightened. `HltbService.Apply` owns
+it. It pointedly does **not** write the title back: HLTB's name for a game is often not IGDB's —
+the entire reason a matcher exists — so that would let a lookup rename a card.
+
+### The pin is the only correction, and that is enough
+
+`PUT /api/games/{mediaId}/hltb` takes an id or a null. It covers both ways of being wrong — a
+match that found the wrong game and one that found nothing are both fixed by naming the right id —
+and unlike typed-in hours it survives the next backfill, because a stored id is what every refresh
+fetches. It is also exactly what `Game.HltbId`'s doc comment always said the column was for.
+
+It fetches **there and then** rather than queueing, because the point of typing an id is to learn
+whether it was right, so an id HLTB does not know is a **400 naming it** rather than a stored pin
+that silently answers nothing. This is the one route anybody waits on, and so the only one
+`HltbExceptionHandler`'s 502 can reach.
+
+**Clearing a pin resets the title to never-having-been-asked**, not to asked-and-found-nothing.
+The numbers were wrong; leaving a stamp behind would stop the backfill ever looking again and the
+card would stay blank for good.
+
+### What the plan got wrong
+
+Worth knowing before trusting
+`C:\Users\jimmy\.claude\plans\for-the-next-part-delightful-alpaca.md`:
+
+- It had an `HltbSessionHandler` mirroring `IgdbAuthHandler`. **Impossible** — see the body-borne
+  credential above.
+- It assumed fetching by id needed the same handshake. It needs none.
+- It argued `release_year` was needed to stop remasters being matched by coin flip. The
+  **ambiguity margin already refuses that safely**; the year converts refusals into correct
+  matches, so it is a coverage improvement rather than a safety requirement. It earns its place
+  anyway — the live check shows Resident Evil 4 resolving with a year and refusing without one.
+
+### Testing it, and the thing tests cannot tell you
+
+Stubs verified every one of the above and were green while the real site refused three times in a
+row: no `Referer` on the handshake, a User-Agent that only DI supplied, and a fabricated fixture
+for the game page that had `data` as an array. **A throwaway harness that runs the real
+`HltbSession` and `HltbClient` against howlongtobeat.com is worth writing again** whenever this
+area is touched — it is the only thing that can catch any of that. Do not commit it, and do not
+make the suite depend on the network.
+
+`ApiFactory` swaps `IHltbClient` for `FakeHltbClient` and `IHltbQueue` for `FakeHltbQueue`, and
+**removes `HltbWorker` from the host entirely**. Left in, it would look up titles on a background
+thread while tests assert about the rows it is writing.
 
 **`log_entries.hours_played` is not this number and does not unlock this sort.** Yours is how long
 *you* took on one pass; `sort=hours` means "how long does this take", which is a property of the
-title and still null on every row. `LibrarySort` stays as it is until HLTB ships.
+title.

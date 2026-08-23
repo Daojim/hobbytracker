@@ -70,6 +70,8 @@ Timestamps are instants, and the app records days in `America/New_York` — see 
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass |
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date |
 | `GET /api/library?hobby=&status=` | your collection |
+| `POST /api/games/hltb/refresh` | queue the board for HowLongToBeat. Answers 202 straight away |
+| `PUT /api/games/{mediaId}/hltb` | pin a HowLongToBeat entry by hand when the matcher would not guess |
 
 ## Stack
 
@@ -143,9 +145,9 @@ the operation the app hits most.
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 155 tests
-cd frontend && npm test                             # frontend, 134 tests
-cd frontend && npm run test:e2e                     # 26 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 251 tests
+cd frontend && npm test                             # frontend, 184 tests
+cd frontend && npm run test:e2e                     # 34 specs in a real browser
 ```
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
@@ -168,7 +170,9 @@ its first run.
 - [x] Journal, library, and the test suite
 - [x] React + TypeScript frontend — the kanban board and its drag, search, and the journal drawer
 - [x] Notes as dated journal entries rather than one box that overwrites itself
-- [ ] HowLongToBeat completion times — the `hltb_*` columns exist so that pass is a backfill
+- [~] HowLongToBeat completion times — all three of them, with a matcher that refuses rather than
+      guesses. Backend done and verified against the live site; the drawer's pin control and the
+      end-to-end stub are what remain
 - [ ] Google/Discord OAuth and JWT — `log_entries.user_id` is nullable until then, deliberately:
       the column already existed, so the journal shipped without waiting on auth
 - [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration
