@@ -64,6 +64,57 @@ describe('EntryDrawer', () => {
     });
   });
 
+  it('says it saved, and keeps saying it through the refetch that remounts the form', async () => {
+    // The form is keyed on the values it was seeded from, so a save that changed anything
+    // remounts it — which is exactly where a "Saved" held inside the form would be destroyed
+    // half a second after appearing. The drawer holds it, above the key, for that reason.
+    let stored: number | null = null;
+    server.use(
+      http.get('/api/games/:id', () =>
+        HttpResponse.json(gameDetail({ logEntries: [logEntry({ id: 7, rating: stored })] })),
+      ),
+      http.put('/api/log-entries/:id', async ({ request }) => {
+        const body = (await request.json()) as { rating: number | null };
+        stored = body.rating;
+        return HttpResponse.json(logEntry({ id: 7, rating: stored }));
+      }),
+    );
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+    await userEvent.click(save());
+
+    // A status rather than plain text: a confirmation nobody can see is not a confirmation.
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+
+    // And it is still there once the refetch has landed and the form has been rebuilt from it.
+    await waitFor(() => expect(stored).toBe(8.5));
+    expect(screen.getByRole('status')).toHaveTextContent('Saved');
+  });
+
+  it('says nothing about saving before anything has been saved', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    await screen.findByRole('button', { name: 'Save' });
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('takes the confirmation back as soon as the form is edited again', async () => {
+    // "Saved" beside a form that has changed since is a lie, and a worse one than saying
+    // nothing: it is the state the reader is trusting when they close the drawer.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+
+    await userEvent.type(screen.getByRole('spinbutton', { name: 'Exact rating' }), '9');
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
   it('rates by slider, and the box follows', async () => {
     const journal = journalServer({
       detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),

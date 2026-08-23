@@ -8,6 +8,7 @@ import {
   openJournal,
   seed,
   setSort,
+  titlesIn,
   today,
   todayOnCard,
   writeNote,
@@ -44,6 +45,34 @@ test('rating a game from the board puts the rating on its card', async ({ page, 
   await expect(
     card(page, 'Celeste').getByRole('img', { name: 'Rated 8.5 out of 10' }),
   ).toBeVisible();
+});
+
+test('saving says so, and stops saying so once you change something', async ({
+  page,
+  request,
+}) => {
+  // The button reads "Saving…" for a few hundred milliseconds and then goes back to "Save",
+  // which leaves nothing behind to say the write landed. This is that something — and the real
+  // API is what makes the test worth having, since a save that changes a value remounts the
+  // form underneath the message.
+  await seed(request, 'Celeste', 'InProgress');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
+  await page.getByRole('button', { name: 'Save' }).click();
+
+  // Scoped to the dialog, because the board behind it has a role="status" of its own: dnd-kit
+  // mounts a live region to announce a drag, and it is empty except while one is happening. A
+  // bare getByRole('status') matches both and fails as a strict-mode violation — which the Vitest
+  // suite cannot show, because it mounts the drawer without the board's DndContext around it.
+  const confirmation = page.getByRole('dialog').getByRole('status');
+  await expect(confirmation).toHaveText('Saved');
+
+  // It is a claim about what is on screen, not an announcement about the past, so editing
+  // takes it back rather than a timer running out.
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('9.1');
+  await expect(confirmation).toHaveCount(0);
 });
 
 test('a rating the column would round is refused before it is sent', async ({ page, request }) => {
@@ -206,6 +235,47 @@ test('a card still drags even though its title opens the journal', async ({ page
   await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
   // The gesture moved a card and did not also open anything.
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+});
+
+test('a card drags from its title, which is most of its surface', async ({ page, request }) => {
+  // The title is a button, and it is by far the biggest target on a card. If pressing it could
+  // only ever be a click, most of the card would be dead to the gesture — which is what having
+  // to aim at the margins felt like.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  const title = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
+  await drag(page, title, column(page, 'InProgress'));
+
+  await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+  // And the gesture did not also count as a click on the button it started from: past the
+  // activation distance dnd-kit swallows the click itself, so nothing here has to.
+  await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
+});
+
+test('a wobble while clicking the title still opens the journal', async ({ page, request }) => {
+  // The press that opens a card and the press that starts a drag are the same press, and only
+  // the distance tells them apart. A hand that moves three pixels between down and up is
+  // clicking, and this is what the title button's old stopPropagation was over-protecting.
+  await seed(request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  const title = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
+  const box = await title.boundingBox();
+  if (box === null) {
+    throw new Error('the title has to be on screen to be pressed');
+  }
+
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  // Inside the pointer sensor's 8px activation distance, so this is still a click.
+  await page.mouse.move(x + 3, y + 2);
+  await page.mouse.up();
+
+  await expect(page.getByRole('dialog', { name: 'Celeste' })).toBeVisible();
+  expect(await titlesIn(page, 'Backlog')).toEqual(['Celeste']);
 });
 
 test('the drawer catches up with a drag', async ({ page, request }) => {

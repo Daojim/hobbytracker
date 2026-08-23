@@ -14,8 +14,8 @@ const WEB_PORT = 5174;
  * so it is tested against a real browser, the real API and real Postgres — with only IGDB
  * replaced, because it is the one participant that never agreed to serve a test suite.
  *
- * Ports are all one above the development ones, so a running `npm run dev` and `dotnet run` do
- * not have to be stopped to run this.
+ * Ports are all one above the development ones, and the API builds to its own output directory,
+ * so a running `npm run dev` and `dotnet run` do not have to be stopped to run this.
  */
 export default defineConfig({
   testDir: './e2e',
@@ -57,6 +57,20 @@ export default defineConfig({
       reuseExistingServer: true,
       timeout: 240_000,
       env: {
+        // The one thing that lets this coexist with a `dotnet run` of your own, which the ports
+        // being one apart does not. Windows will not let this build overwrite
+        // bin/Debug/net10.0/HobbyTracker.Api.exe while the development server is executing it,
+        // and the failure arrives as MSB3027 inside a webServer Playwright only describes as
+        // "Process from config.webServer was not able to start". Building somewhere else is the
+        // whole fix. obj/ is deliberately still shared: the compilation is identical either way,
+        // so only the copy destination differs and neither build redoes the other's work.
+        //
+        // It is an environment variable rather than a -p: flag because MSBuild reads the
+        // environment as properties, and this command is two dotnet invocations — the chained
+        // `dotnet ef database update` has nowhere to take an MSBuild flag, and would otherwise
+        // build to the locked path and fail before the API was even reached.
+        BaseOutputPath: 'bin/e2e/',
+
         // Not "Development": that would load appsettings.Development.json and user-secrets,
         // which is where the real IGDB credentials and the real database live. The backend
         // suite keeps them out the same way, with its own "Testing" environment.

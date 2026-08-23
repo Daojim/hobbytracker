@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Card, type CardRemoval } from './Card';
 import { libraryItem } from '../test/library';
@@ -32,6 +32,39 @@ function renderCard(
 
 const removeButton = (title = 'Celeste') =>
   screen.getByRole('button', { name: `Remove ${title} from your board` });
+
+/**
+ * A card under something listening for the press, which is what a drag listener is.
+ *
+ * The spy has to be a React prop rather than an addEventListener on the card: stopPropagation in
+ * a React handler stops the *synthetic* event, and React attaches at the root container, so the
+ * native event bubbles past the card either way and a native listener cannot tell the two cases
+ * apart. dnd-kit's own listeners are React props, so this measures the layer that matters.
+ */
+function renderPressed() {
+  const pressed = vi.fn();
+  const removal: CardRemoval = {
+    confirming: false,
+    onAsk: vi.fn(),
+    onCancel: vi.fn(),
+    onConfirm: vi.fn(),
+  };
+
+  renderWithProviders(
+    <div onPointerDown={pressed}>
+      <Card
+        item={libraryItem({ title: 'Celeste', currentStatus: 'Backlog' })}
+        onDrop={vi.fn()}
+        removal={removal}
+        onOpen={vi.fn()}
+        draggable
+      />
+    </div>,
+    { dnd: true },
+  );
+
+  return { pressed };
+}
 
 describe('Card', () => {
   it('names the title', () => {
@@ -215,6 +248,32 @@ describe('Card', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Celeste' }));
 
     expect(onOpen).toHaveBeenCalledExactlyOnceWith(42);
+  });
+
+  it('lets a press on the title reach the card, so the drag can start there', () => {
+    // The title is the biggest target on a card, so a press that lands on it has to be able to
+    // become a drag — otherwise most of the card is dead to the gesture. What separates a click
+    // from a drag is the pointer sensor's 8px activation distance, not this button swallowing
+    // the press: below it the click lands, above it dnd-kit suppresses the click itself.
+    //
+    // jsdom has no layout and no pointer events, so this says only that the press propagates and
+    // leaves the gesture to Playwright — see "a card drags from its title" in journal.spec.ts.
+    const { pressed } = renderPressed();
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Celeste' }));
+
+    expect(pressed).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the close corner from starting one, because it is a small target', () => {
+    // The opposite call, deliberately: twenty pixels in the corner is a button and nothing else,
+    // and a hand that wobbles past the threshold there would drag the card rather than remove
+    // the title. The title has room for both gestures; this does not.
+    const { pressed } = renderPressed();
+
+    fireEvent.pointerDown(removeButton());
+
+    expect(pressed).not.toHaveBeenCalled();
   });
 
   it('shows cover art when there is any, and falls back to an initial when there is not', () => {

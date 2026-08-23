@@ -44,6 +44,15 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
   // because every row in the history carries the same control.
   const [confirming, setConfirming] = useState<number | null>(null);
 
+  // Whether the form on screen matches what was last written.
+  //
+  // Here rather than in EntryForm, which is keyed on the values it was seeded from and so
+  // remounts on any save that changed one — a flag set on success would be wiped by the very
+  // refetch that confirms it. Not read off save.isSuccess either: that stays true until the next
+  // write, where this has to stop being true as soon as a field is touched. The drawer unmounts
+  // when it closes, so opening another title starts with nothing claimed.
+  const [saved, setSaved] = useState(false);
+
   // The keyboard follows the drawer in. Without this the focus is still on the board behind,
   // and the first Tab walks the columns rather than the form that just opened.
   useEffect(() => {
@@ -241,8 +250,15 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               platforms={detail.platforms}
               estimates={detail}
               saving={save.isPending}
+              saved={saved}
               serverErrors={fieldErrors}
-              onSave={(update) => save.mutate({ entryId: current.id, update })}
+              onSave={(update) =>
+                save.mutate(
+                  { entryId: current.id, update },
+                  { onSuccess: () => setSaved(true) },
+                )
+              }
+              onEdit={() => setSaved(false)}
             />
 
             <ConfirmDelete
