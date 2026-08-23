@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { formatJournalDate } from '../lib/time';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm } from './EntryForm';
+import { HltbPin } from './HltbPin';
 import { NoteList } from './NoteList';
 import { automaticGenre } from '../board/genres';
 import { entrySeed } from './fields';
@@ -35,7 +36,7 @@ export interface EntryDrawerProps {
  * rendered a rating that could never be set. This is where they become real.
  */
 export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
-  const { game, save, remove, setGenre, fieldErrors } = useJournalEntry(mediaId);
+  const { game, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(mediaId);
   const titleId = useId();
   const genreId = useId();
   const panel = useRef<HTMLElement>(null);
@@ -213,6 +214,20 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               ))}
             </select>
           </div>
+        )}
+
+        {detail !== undefined && (
+          <HltbPin
+            // Re-seeds when the stored id changes — after a pin of your own, or after the
+            // queue matches the title while the drawer is open. EntryForm is keyed for the
+            // same reason: useState reads its initial value once. A refused pin leaves the id
+            // alone, so what was typed stays in the box to be corrected.
+            key={detail.hltbId}
+            hltbId={detail.hltbId}
+            saving={setHltbId.isPending}
+            error={setHltbId.error === null ? null : setHltbId.error.message}
+            onPin={(hltbId) => setHltbId.mutate(hltbId)}
+          />
         )}
 
         {current !== undefined && detail !== undefined && (

@@ -3,6 +3,7 @@ import {
   HOURS_RULE,
   dateFieldValue,
   hltbTiers,
+  parseHltbId,
   parseHours,
   parseRating,
 } from './fields';
@@ -83,6 +84,30 @@ describe('parseHours', () => {
   it('accepts the largest number the column holds, and refuses the next one', () => {
     expect(parseHours('999.99')).toEqual({ value: 999.99 });
     expect(parseHours('1000').error).toBe(HOURS_RULE);
+  });
+});
+
+describe('parseHltbId', () => {
+  it('reads a whole number', () => {
+    expect(parseHltbId('9134')).toEqual({ value: 9134 });
+  });
+
+  it('treats an empty box as taking the pin back, which is a request of its own', () => {
+    // Not "nothing to say": null tells the server to forget the id, which puts the title back
+    // to never-having-been-asked so the next backfill looks at it again.
+    expect(parseHltbId('')).toEqual({ value: null });
+    expect(parseHltbId('   ')).toEqual({ value: null });
+  });
+
+  it.each(['0', '-4', '12.5', 'abc', '9134x'])('refuses %s', (input) => {
+    expect(parseHltbId(input).error).toBeTruthy();
+  });
+
+  it('refuses an id past what the column can hold', () => {
+    // The server binds this to an int, so anything larger is a model-binding failure with a
+    // worse message than the rule that could have caught it here.
+    expect(parseHltbId('2147483648').error).toBeTruthy();
+    expect(parseHltbId('2147483647')).toEqual({ value: 2147483647 });
   });
 });
 

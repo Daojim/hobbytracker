@@ -30,3 +30,22 @@ export function setGameGenre(mediaId: number, genre: string | null): Promise<Gam
     body: { genre },
   });
 }
+
+/**
+ * Names the HowLongToBeat entry for a title by hand, or takes the pin back with a null.
+ *
+ * The only correction the feature offers, and enough for both ways of being wrong: a match that
+ * found the wrong game and one that found nothing are both fixed by saying which id is right.
+ * Unlike typed-in hours it survives the next backfill, because a stored id is what every later
+ * refresh fetches instead of matching again.
+ *
+ * Unusually for this client, the request is worth waiting on: the server fetches HowLongToBeat
+ * there and then, so an id it does not know comes back as a 400 naming it rather than as a pin
+ * that quietly answers nothing. The game that comes back already carries the new numbers.
+ */
+export function setGameHltbId(mediaId: number, hltbId: number | null): Promise<GameDetail> {
+  return apiJson<GameDetail>(`/api/games/${mediaId}/hltb`, {
+    method: 'PUT',
+    body: { hltbId },
+  });
+}

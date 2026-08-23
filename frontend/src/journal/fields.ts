@@ -78,6 +78,37 @@ export function parseHours(input: string): ParsedRating {
   return value > 0 && value <= 999.99 ? { value } : { error: HOURS_RULE };
 }
 
+/** Mirrors the Range on SetHltbIdRequest, so both sides refuse the same ids. */
+export const HLTB_ID_RULE = 'A HowLongToBeat ID is a whole number, 1 or greater.';
+
+/**
+ * Reads the HowLongToBeat id box.
+ *
+ * Read off the text like {@link parseRating} and {@link parseHours}, though for a different
+ * reason: those exist because Postgres rounds a number it cannot hold, where this exists
+ * because there is nothing to learn from asking. Pinning is the one route that holds the caller
+ * while the server reads a website, so an id that cannot be one should not cost that.
+ *
+ * The ceiling is int.MaxValue because the server binds this to an int — anything larger fails
+ * in the model binder, with a worse message than the rule that could have caught it here.
+ */
+export function parseHltbId(input: string): ParsedRating {
+  const trimmed = input.trim();
+
+  // Empty is a request in its own right: take the pin back. That puts the title back to
+  // never-having-been-asked, so the next backfill looks at it again — which is the point.
+  if (trimmed === '') {
+    return { value: null };
+  }
+
+  if (!/^\d+$/.test(trimmed)) {
+    return { error: HLTB_ID_RULE };
+  }
+
+  const value = Number(trimmed);
+  return value >= 1 && value <= 2_147_483_647 ? { value } : { error: HLTB_ID_RULE };
+}
+
 export interface HltbTier {
   label: string;
   hours: number;
