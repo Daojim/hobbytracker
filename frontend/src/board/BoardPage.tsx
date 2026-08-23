@@ -69,7 +69,15 @@ export function BoardPage() {
         <AppHeader title="Games" to="/search" linkLabel="Add a game" />
 
         <DndContext {...board.dnd}>
-          <div className="grid items-start gap-4 md:grid-cols-4 2xl:gap-5 3xl:gap-6">
+          {/* Two columns before four. Four across a 768px window left each one 168px, which after
+              the well, the card and the cover is about 32px of title — every name a stack of
+              broken words, and the card tall enough to stretch its own cover. data-board is
+              what scopes the e2e card() locator to the board, so a search result cannot
+              answer to it. */}
+          <div
+            data-board=""
+            className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:gap-5 3xl:gap-6"
+          >
             {COLUMNS.map(({ status, label }) => (
               <Column
                 key={status}

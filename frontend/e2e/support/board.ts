@@ -62,8 +62,16 @@ export function column(page: Page, status: LogStatus): Locator {
   return page.getByRole('region', { name: new RegExp(`^${COLUMN_LABEL[status]} `) });
 }
 
+/**
+ * A card on the board.
+ *
+ * Scoped to the board rather than the page: a list item is not a board card just because it
+ * is a list item, and anything else on screen that renders a list of titles would answer to a
+ * bare getByRole here. The failure would be a strict-mode violation in whichever spec happened
+ * to have both on screen, which is nowhere near the change that caused it.
+ */
 export function card(page: Page, title: string): Locator {
-  return page.getByRole('listitem').filter({ hasText: title });
+  return page.locator('[data-board]').getByRole('listitem').filter({ hasText: title });
 }
 
 /**
