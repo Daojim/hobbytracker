@@ -11,13 +11,20 @@ merely shorter.
 in PR #9. The backend was verified against the live site; the front is verified against a stub
 that serves every leg of it.
 
-In flight is a pair of small things daily use turned up, both landed. Currently on branch
-**`card-drag-from-title`**, cut from `main` after #9 merged and carrying two commits: a card can
-be dragged from its title now, which is most of its surface (**Board semantics**, under *a card's
-surface carries two gestures*), and a save in the drawer says so (**Journalling**, under *a save
-says "Saved"*). It is open as a PR against `main` and waiting to be merged.
+In flight are three small things daily use turned up, all landed. Currently on branch
+**`card-drag-from-title`**, cut from `main` after #9 merged and open as **PR #10**, carrying:
+
+1. a card can be dragged from its title now, which is most of its surface — **Board semantics**,
+   under *a card's surface carries two gestures*;
+2. a save in the drawer says so — **Journalling**, under *a save says "Saved"*;
+3. the e2e suite builds to its own output directory, so it no longer needs your development
+   server stopped — **Tests**, under *a dev server used to block the e2e run*.
 
 Everything is green and everything has been run: backend 251, frontend 210, Playwright 45.
+
+**Next up, agreed with the user: a frontend redesign** — scoped to *tokens and a visual refresh*.
+Semantic colour, type and spacing tokens first, then a re-skin on top of them. Same DOM, same
+layout, no new screens. See **The redesign** below for why that order and what is in the way.
 
 Seven plans. The current one is
 `C:\Users\jimmy\.claude\plans\for-the-next-part-delightful-alpaca.md`, and it is worth reading
@@ -38,8 +45,8 @@ build next. Two things worth knowing before a first run either way:
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
   the same unhelpful "Process from config.webServer was not able to start" that a build lock
   does.
-- **A `dotnet run` of your own stops the suite building at all**, which the ports being one
-  apart does not save you from. See **A dev server blocks the e2e run** under **Tests**.
+- **A `dotnet run` of your own no longer stops the suite**, as of this branch. See **A dev
+  server used to block the e2e run** under **Tests** for what that cost and how it is held.
 
 ### Where HowLongToBeat has got to
 
@@ -217,14 +224,31 @@ Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into
 The suite starts its own throwaway Postgres via Testcontainers, so it neither needs nor touches
 the docker-compose database. It does need Docker running. A full run is under ten seconds.
 
-**A dev server blocks the e2e run**, which the ports being one apart does not save you from. The
-Playwright harness rebuilds the API, and Windows will not let it overwrite
-`bin/Debug/net10.0/HobbyTracker.Api.exe` while a `dotnet run` of your own is holding it — so
-`dotnet ef database update` fails, and Playwright reports only "Process from config.webServer was
-not able to start". `dotnet build backend/src/HobbyTracker.Api` names the locking process, which
-is the quickest way to see what is actually wrong. Stopping the dev server is the one-line answer;
-giving the e2e run its own `BaseOutputPath` so the two can genuinely coexist is the durable one,
-and is not done.
+**A dev server used to block the e2e run**, and the ports being one apart never saved you from it.
+The Playwright harness rebuilds the API, and Windows will not let it overwrite
+`bin/Debug/net10.0/HobbyTracker.Api.exe` while a `dotnet run` of your own is executing it. It
+arrived as `MSB3027` buried inside a web server that Playwright described only as "Process from
+config.webServer was not able to start".
+
+**`BaseOutputPath: 'bin/e2e/'` in `playwright.config.ts` is the fix**, and it is one line with
+three things worth knowing behind it:
+
+- **It is an environment variable, not a `-p:` flag.** MSBuild reads the environment as
+  properties, and that API web server is *two* dotnet invocations chained — the
+  `dotnet ef database update` in front has nowhere to take an MSBuild flag, and it is the one
+  that failed first.
+- **`obj/` stays shared on purpose.** The compilation is identical either way, so only the copy
+  destination differs; neither build redoes the other's work and the second is a copy rather than
+  a rebuild.
+- **`bin/e2e/` rather than a sibling `bin-e2e/`,** so the existing `[Bb]in/` rule in
+  `.gitignore` already covers it.
+
+Proven the only way worth proving: reproduced first — `dotnet run`, then `touch Program.cs`, then
+a build that failed naming the locking process — and then the full suite run green **with the
+development server still up**. Note the reproduction needs that `touch`: with nothing changed
+MSBuild skips the copy, never attempts the locked file, and the suite passes while telling you
+nothing. `dotnet build backend/src/HobbyTracker.Api` still names the locking process if some
+other build ever hits this.
 
 Choices worth not re-litigating:
 
@@ -858,6 +882,43 @@ downcast added to the two terminal DTO projections only**; `BoardQuery` is untou
 that projection is what every `Where` and `OrderBy` on `Latest` is pushed through and when it
 stops translating the symptom is an *empty library* rather than an error.
 
+## The redesign
+
+Agreed with the user, and the scope is deliberately the narrow one: **semantic tokens first, then
+a re-skin on top of them.** Same DOM, same layout, no new screens, no new navigation. Widening it
+to the card's information design or a responsive rework was offered and **not** taken, so treat
+those as out of scope until asked.
+
+**The token layer is the whole reason for the order.** `@theme` in `index.css` currently holds
+the ten genre colours and `--color-column-dropped` and nothing else. Every other colour in the
+app is a raw Tailwind neutral with a hand-written `dark:` twin *at the call site* —
+`bg-white dark:bg-neutral-900`, `border-neutral-200 dark:border-neutral-800`, and so on through
+all fifteen components. So changing the palette today means editing every file, twice, and
+keeping two halves of every pair in agreement by hand. That is the same class of problem as two
+orderings that must agree, which this codebase has already paid for once. Tokens make the re-skin
+cheap and reversible; doing them second would mean doing the work twice.
+
+Three things the survey turned up that are **not** in scope but are written down so they are not
+re-derived:
+
+- The card's metadata row renders rating, `×2`, `~27 h`, genre and last activity as five
+  identical `text-xs text-neutral-500` items in a flex row — the densest information on the
+  board, with no hierarchy in it.
+- Cover art is 40×56, thumbnail-sized for a medium that is entirely visual.
+- The shell is an `<h1>` and one link, and `md:grid-cols-4` means the kanban becomes a vertical
+  stack of four sections below `md`.
+
+**The suite is what makes this safe, and that is not luck.** Every test queries by role and
+accessible name — never by class, never by test id — so a change of appearance leaves all 255 of
+them meaningful and passing without edits. The exceptions to watch are the handful of assertions
+on literal strings (`~27 h`, `★ 8.5`) and on `aria-label` wording.
+
+What must survive the redesign, all of it settled elsewhere in this file: the stripe **and** the
+genre's name beside it, since ten hues is past what colour alone can carry; `color-scheme: light
+dark` on `:root`, which is the only thing that themes a range input's track; the 8px activation
+distance and the title *not* stopping the pointer; and the drawer staying a real dialog with its
+focus moved in and handed back by id.
+
 ## Phases
 
 Phases are referred to **by name, not by number**, anywhere outside this list. The order has now
@@ -884,6 +945,8 @@ the list is shuffled.
   site's access shape so the real code path runs against it. See **HowLongToBeat** below for
   everything the spike established, and **What the stub is for** for why the specs are green
   for the right reason.
+- **The redesign.** Semantic tokens, then a visual refresh on top of them. Agreed scope is
+  *tokens and appearance*: same DOM, same layout, no new screens. See **The redesign**.
 - **Auth.** Google/Discord OAuth and JWT issuance.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
