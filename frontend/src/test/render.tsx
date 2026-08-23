@@ -23,7 +23,10 @@ import { useBoardSensors } from '../board/sensors';
  * A card whose title correctly lets the press through then looks unopenable here and works fine
  * in a browser, which is the least useful way for a test to disagree with the app.
  */
-export function renderWithProviders(ui: ReactElement, { dnd = false }: { dnd?: boolean } = {}) {
+export function renderWithProviders(
+  ui: ReactElement,
+  { dnd = false, route = '/board' }: { dnd?: boolean; route?: string } = {},
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, staleTime: 0, gcTime: 0 },
@@ -33,7 +36,7 @@ export function renderWithProviders(ui: ReactElement, { dnd = false }: { dnd?: b
 
   function Wrapper({ children }: { children: ReactNode }) {
     const sensors = useBoardSensors();
-    const routed = <MemoryRouter>{children}</MemoryRouter>;
+    const routed = <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>;
 
     return (
       <QueryClientProvider client={queryClient}>

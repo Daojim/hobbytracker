@@ -83,6 +83,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
       {item.coverUrl === null ? (
         <span
           aria-hidden="true"
+          data-cover=""
           className="flex aspect-[5/7] w-cover shrink-0 items-center justify-center rounded bg-sunken text-lg font-semibold text-muted"
         >
           {item.title.charAt(0)}
@@ -92,6 +93,7 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
         <img
           src={item.coverUrl}
           alt=""
+          data-cover=""
           className="aspect-[5/7] w-cover shrink-0 rounded object-cover"
         />
       )}
@@ -206,8 +208,26 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
   );
 }
 
+/**
+ * The card box, worn by the real card and by the drag preview alike.
+ *
+ * `items-start` is load-bearing rather than tidying. Without it the default `align-items:
+ * stretch` wins over the cover's `aspect-[5/7]` — an aspect ratio only decides a height when
+ * the height is free, and stretch takes it — so the cover rendered `w-cover` wide by however
+ * tall the card happened to be, and `object-cover` cropped a vertical strip out of a portrait.
+ * The narrower the column the more the title wrapped, the taller the card, the thinner the
+ * cover. It measured 40×95 at 768px. The genre stripe still fills the height because it asks
+ * for that itself with `self-stretch`.
+ *
+ * `@container` makes the card a query container so the cover and the title can size themselves
+ * from `cqi` — see the density block in index.css. It belongs here rather than on the column
+ * for the same reason the genre stripe lives inside CardFace: this class is what the drag
+ * preview wears, and the preview is rendered outside every column, so a container on the
+ * column would make a card shrink at the moment it was picked up. Safe against a layout cycle
+ * because a card's width comes from its grid track and never from its contents.
+ */
 export const CARD_CLASS =
-  'flex touch-none gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
+  '@container flex touch-none items-start gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
 
 export interface CardProps {
   item: LibraryItem;

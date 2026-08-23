@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { AppHeader } from '../shell/AppHeader';
+import { BoardSearch } from '../search/BoardSearch';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column } from './Column';
 import { EntryDrawer } from '../journal/EntryDrawer';
 import { useBoard } from './useBoard';
 import { yearFor } from './keys';
+import type { Hobby } from '../shell/hobbies';
 import type { LibrarySort, LogStatus } from '../api/types';
 
 /**
@@ -15,7 +17,7 @@ import type { LibrarySort, LogStatus } from '../api/types';
  * routing change rather than a rewrite. Each column fetches itself, which is what makes a sort
  * or a year on one of them cost nothing on the other three.
  */
-const HOBBY = 'games';
+const HOBBY: Hobby = 'games';
 
 const COLUMNS: readonly { status: LogStatus; label: string }[] = [
   { status: 'Backlog', label: 'Backlog' },
@@ -66,10 +68,22 @@ export function BoardPage() {
   return (
     <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
       <div className="mx-auto max-w-board">
-        <AppHeader title="Games" to="/search" linkLabel="Add a game" />
+        <AppHeader title="HobbyTracker" />
+
+        {/* Above the board rather than on a screen of its own, so the column a title is
+            about to land in is visible while you decide. */}
+        <BoardSearch hobby={HOBBY} />
 
         <DndContext {...board.dnd}>
-          <div className="grid items-start gap-4 md:grid-cols-4 2xl:gap-5 3xl:gap-6">
+          {/* Two columns before four. Four across a 768px window left each one 168px, which after
+              the well, the card and the cover is about 32px of title — every name a stack of
+              broken words, and the card tall enough to stretch its own cover. data-board is
+              what scopes the e2e card() locator to the board, so a search result cannot
+              answer to it. */}
+          <div
+            data-board=""
+            className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:gap-5 3xl:gap-6"
+          >
             {COLUMNS.map(({ status, label }) => (
               <Column
                 key={status}

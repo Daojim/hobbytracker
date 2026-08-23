@@ -32,6 +32,12 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${WEB_PORT}`,
     trace: 'retain-on-failure',
+
+    // Pinned, because the default is 1280x720 and the board turns four columns across at
+    // exactly 1280 — one pixel of scrollbar away from laying out as two and taking the drag
+    // specs geometry with it. Saying the number here also lets layout.spec.ts override it
+    // per describe block and mean something by it.
+    viewport: { width: 1440, height: 900 },
   },
 
   webServer: [
