@@ -9,15 +9,17 @@ import { column, seed } from './support/board';
  * effect, so the button only has to write a log entry. That upsert is the part worth doing for
  * real rather than stubbing in the browser — it is what turns an IGDB result into an id the
  * board can point at.
+ *
+ * `.fill()` rather than `.type()`, which sets the value in one shot: the 300ms debounce is then
+ * waited out by an auto-retrying expect rather than by keystroke timing.
  */
 
-test.beforeEach(() => {
+test.beforeEach(async ({ page }) => {
   resetDatabase();
+  await page.goto('/board');
 });
 
-test('finding a game puts it on the board', async ({ page }) => {
-  await page.goto('/search');
-
+test('finding a game puts it on the board without leaving it', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
   await page.getByRole('button', { name: 'Add Hollow Knight to backlog' }).click();
 
@@ -26,14 +28,14 @@ test('finding a game puts it on the board', async ({ page }) => {
   await expect(page.getByText('On your board')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Add Hollow Knight to backlog' })).toHaveCount(0);
 
-  await page.getByRole('link', { name: 'Back to the board' }).click();
+  // The whole point of the move: the column behind the strip has it already.
   await expect(column(page, 'Backlog').getByText('Hollow Knight')).toBeVisible();
 });
 
 test('a game you already logged is not offered a second time', async ({ page, request }) => {
   await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
+  await page.reload();
 
-  await page.goto('/search');
   await page.getByRole('searchbox', { name: 'Search games' }).fill('celeste');
 
   // Already on the board means logged, in any column — not just Backlog.
@@ -42,9 +44,26 @@ test('a game you already logged is not offered a second time', async ({ page, re
 });
 
 test('a search that matches nothing says so', async ({ page }) => {
-  await page.goto('/search');
-
   await page.getByRole('searchbox', { name: 'Search games' }).fill('zzzzzz');
 
   await expect(page.getByText('Nothing matched “zzzzzz”.')).toBeVisible();
+});
+
+test('the results give the board back when the search is cleared', async ({ page }) => {
+  const results = page.getByRole('region', { name: 'Search results' });
+
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+  await expect(results).toBeVisible();
+
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('');
+
+  await expect(results).toHaveCount(0);
+});
+
+test('the old search address lands on the board', async ({ page }) => {
+  // The screen is gone, but a bookmark to it should not be a dead end.
+  await page.goto('/search');
+
+  await expect(page.getByRole('searchbox', { name: 'Search games' })).toBeVisible();
+  await expect(column(page, 'Backlog')).toBeVisible();
 });

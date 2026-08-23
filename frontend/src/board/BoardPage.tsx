@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { AppHeader } from '../shell/AppHeader';
+import { BoardSearch } from '../search/BoardSearch';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column } from './Column';
 import { EntryDrawer } from '../journal/EntryDrawer';
@@ -66,7 +67,11 @@ export function BoardPage() {
   return (
     <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
       <div className="mx-auto max-w-board">
-        <AppHeader title="Games" to="/search" linkLabel="Add a game" />
+        <AppHeader title="Games" />
+
+        {/* Above the board rather than on a screen of its own, so the column a title is
+            about to land in is visible while you decide. */}
+        <BoardSearch hobby={HOBBY} />
 
         <DndContext {...board.dnd}>
           {/* Two columns before four. Four across a 768px window left each one 168px, which after
