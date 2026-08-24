@@ -30,9 +30,9 @@ laptop widths turned up, in three more commits:
 5. **search above the board** rather than on a screen of its own. See **Search on the board**;
 6. **a hobby nav**, with the five that do not exist yet saying *Soon*. See **The hobby nav**.
 
-**Search answers with the game you meant**, on branch `search-that-finds-the-game`: mods and
-bundles are gone, half a title is enough to find something, and what comes back is ordered so
-a fan game cannot outrank the thing it is named after. Three sections under
+**PR #13 is merged** — search that answers with the game you meant: mods and bundles are gone,
+half a title is enough to find something, and what comes back is ordered so a fan game cannot
+outrank the thing it is named after. Three sections under
 **IGDB integration** carry it — **Game types**, **Two questions, not one**, and
 **Ranking search results** — and the last two are worth reading before touching search,
 because both record rules that were tried against the live API and thrown away.
@@ -56,8 +56,10 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished.** #11 and #12 are both merged; the search work is green on
-`search-that-finds-the-game`. Two things worth knowing before a first run either way:
+**Nothing is half-finished, and nothing is in flight.** #11, #12 and #13 are all merged and
+`main` is green. **Auth is the current phase** — see **Auth** below, which carries the four
+decisions already taken with the user and the order the work is worth doing in. Two things
+worth knowing before a first run:
 
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
@@ -1318,23 +1320,131 @@ the list is shuffled.
   hobby nav. The scope grew three times with the user: it began as tokens and appearance, gained
   themes, a settings menu, a density preference and a webfont, and then gained the layout and
   navigation work that living with it turned up. See **The redesign**.
-- **Auth.** Google/Discord OAuth and JWT issuance.
+- **Auth — current.** Google OAuth first, Discord after, an httpOnly cookie session, and
+  real multi-user scoping. See **Auth**.
 - **Detail and review.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
 
-**Auth keeps being deliberately deferred, three times now.** The original brief had it second.
-`log_entries.user_id` is already nullable, so both the journal and the board work without a
+**Auth was deliberately deferred three times, and is now being built.** The original brief had
+it second. `log_entries.user_id` is nullable, so both the journal and the board work without a
 line of auth, and sequencing auth first would have left the app unable to do its job while it
-was built. This is a considered choice, not an oversight — do not propose bringing it forward
-without asking.
+was built. That was a considered choice rather than an oversight, and it is now spent: the
+user has asked for it, so the deferral is history rather than guidance.
 
-When auth does land: backfill `user_id` on existing rows, flip the column to `NOT NULL`, and
-scope every query in `LogEntryService` and `LibraryService` to the current user. Treat the
-nullable `user_id` as temporary, not as a design decision.
+The nullable `user_id` was always temporary. **Auth** says what happens to it, and what happens
+to the rows currently carrying null — which is not what this paragraph used to say, because
+the user chose to start clean rather than backfill.
 
 The board is built hobby-parameterised (`/api/library?hobby=games`) even though only games
 exist, so the other hobbies' boards are a routing change rather than a rewrite.
+
+## Auth
+
+**This is the current phase, and it is being built rather than deferred.** It was put off three
+times on purpose — see **Phases** — and the user has now asked for it, so that paragraph is
+history rather than guidance.
+
+Decided with the user, **settled — do not reopen**:
+
+| | |
+|---|---|
+| Session | **An httpOnly cookie.** Not a JWT in localStorage, and not an in-memory access token |
+| Providers | **Google first, Discord after.** One provider proves the rail; the second is a config block |
+| Accounts | **Anyone can sign up.** Real multi-user, one board each — not a gate on a shared board |
+| Existing data | **Discarded.** No backfill; the board is rebuilt after signing in |
+
+### What already exists, and what it was built for
+
+The schema has been ready for this since the first migration, and reading it is the fastest way
+to understand the intended shape:
+
+- **`users`** holds profile only — `display_name`, `role`, `created_at`. No credentials.
+- **`auth_identities`** holds one external login each: `provider`, `provider_user_id`, `email`.
+  **Unique on `(provider, provider_user_id)`**, which is the login lookup key and what stops one
+  Google account being attached to two users — that would let either sign in as the other.
+- The split is why **Google and Discord can land on the same account** later without producing
+  two profiles and two backlogs. `email` is informational and explicitly *not* a login key: people
+  change them, providers reuse them, and two providers can report the same one.
+- **`log_entries.user_id` is nullable**, and every row currently holds null.
+
+Nothing else exists. `Program.cs` has no authentication or authorization wiring at all, no
+controller carries `[Authorize]`, and there is no `Auth*` anything outside `Domain/`.
+
+### The session is a cookie, and the proxy is why
+
+The frontend talks to `/api/...` on **its own origin** — Vite proxies to the API in development,
+which is also why the API has no CORS policy and wants none. That makes an httpOnly cookie the
+cheapest correct answer: the browser attaches it with no help, JavaScript can never read it, and
+an XSS bug anywhere in the app cannot exfiltrate the session. `credentials: 'include'` in
+`src/api/client.ts` is the whole of the frontend's part.
+
+The cost is that **the API and the app have to stay on one origin in production**, or the cookie
+needs `SameSite=None` plus the CORS policy this codebase has so far avoided. That is a deployment
+decision that has not been made yet and should be made before this ships, not after.
+
+### Multi-user is a data-leak surface, not a feature flag
+
+Anyone signing up means **every query that touches a user's data has to be scoped**, and missing
+one is not a bug but a stranger reading your journal. There are roughly **29 database query sites**
+across `LogEntryService` (7), `GameCatalogService` (7), `NoteService` (6), `HltbService` (5) and
+`LibraryService` (4).
+
+Not all of them need scoping, and the difference matters:
+
+- **`log_entries` and `notes` are per user.** Every read and every write.
+- **`media` and `games` are shared catalogue**, and must stay that way. Two people searching
+  "Hollow Knight" get the same row — that is the whole point of the upsert, and of
+  `hltb_id` being stored once rather than per person. Scoping the catalogue by user would
+  multiply it and re-fetch HowLongToBeat once per account.
+
+So the rule is: **`log_entries` and `notes` are scoped; `media`, `games` and the lookup tables are
+not.** `GameCatalogService.GetAsync` is the one that spans both — it returns a shared game plus
+*your* entries for it.
+
+**The test that matters is the one that proves a second user sees nothing of the first.** Write it
+before the scoping, at the endpoint level, for the board, the drawer, a note and a status
+transition. A per-service unit test cannot catch a controller that forgot to pass the user.
+
+### Order this is worth building in
+
+Each of these is green on its own, which is the shape every phase here has used.
+
+1. **The rail, with Google only.** Options + `ValidateOnStart` mirroring `IgdbOptions`, the
+   redirect and callback endpoints, identity lookup or creation, the cookie, and
+   `GET /api/auth/me`. No scoping yet, no `[Authorize]` yet — signing in changes nothing about
+   what you see, which is what keeps this commit small and reviewable.
+2. **Scope the data.** `user_id` on write, filtered on read, `[Authorize]` on the four
+   controllers, and the second-user tests above. This is the commit that can leak data, so it is
+   the one to review hardest.
+3. **`user_id` becomes `NOT NULL`.** A migration, after the table has been emptied — see below.
+4. **The frontend.** A sign-in screen, `credentials: 'include'`, a 401 handler that sends you to
+   sign-in rather than showing an error, and something in `AppHeader` saying who you are.
+5. **Discord.** A config block, a second button, and a test that two identities can point at one
+   user.
+
+### Two things to get right, and one to be careful with
+
+- **Follow the options pattern.** `AddOptions<AuthOptions>().Bind().Validate().ValidateOnStart()`,
+  exactly as `Igdb`, `Hltb` and `Journal` do, so a missing client secret fails the boot naming the
+  setting rather than 500ing on the first sign-in. Credentials go in **user-secrets**, never in
+  `appsettings.json` — the same rule the IGDB keys follow.
+- **`ApiFactory` has to be able to sign a test in.** The backend suite's 251→270 tests reach the
+  endpoints directly; once `[Authorize]` lands they all 401 unless the harness authenticates. A
+  test authentication handler registered in the "Testing" environment is the usual answer, and it
+  wants writing at the same time as step 2 rather than discovered during it.
+- **Discarding the board is deliberate and one-way.** The user chose to start clean rather than
+  backfill, so there is no adoption step. `log_entries` and `notes` get truncated before
+  `user_id` becomes `NOT NULL`. **Confirm it immediately before running it** — by then the board
+  may hold real games again, and this was decided while it held few.
+
+### What the e2e suite will need
+
+`resetDatabase()` truncates `notes, log_entries, games, media` and leaves the lookup tables — it
+will need `users` and `auth_identities` in that list, and `seed()` will need a user to log entries
+against. The IGDB and HowLongToBeat stubs are the precedent for the provider: **a Google stub the
+API is pointed at by configuration**, so the real callback code runs against it. Nothing in the
+suite should reach accounts.google.com, for the reason nothing reaches IGDB.
 
 ## HowLongToBeat
 
