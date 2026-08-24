@@ -43,9 +43,10 @@ $ curl -b jar "localhost:5173/api/games?search=hollow%20knight&limit=1"
   "primaryGenre": null,
   "externalId": "14593",
   "source": "igdb",
+  "hltbAllStylesHours": 41.82,
   "hltbMainStoryHours": 27.0,
-  "hltbMainExtraHours": 40.5,
-  "hltbCompletionistHours": 64.0
+  "hltbMainExtraHours": 41.6,
+  "hltbCompletionistHours": 65.59
 }]
 ```
 
@@ -67,7 +68,7 @@ $ curl -b jar "localhost:5173/api/library?hobby=games"
     "lastActivity": "2026-08-15T23:47:00+00:00",
     "genres": ["Platform"],
     "primaryGenre": null,
-    "hltbMainStoryHours": 8.0,
+    "hltbAllStylesHours": 9.5,
     "latestNotePreview": "that B-side nearly broke me"
   }],
   "total": 1, "page": 1, "pageSize": 25
@@ -104,7 +105,7 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date |
 | `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column |
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls |
-| `DELETE /api/library/{mediaId}/current` | take a title off the board |
+| `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
 | `PUT /api/library/order` | store one column's manual ranking |
 
 ## Stack
@@ -194,6 +195,15 @@ rather than an error. Sixteen query sites carry the predicate by hand, and twent
 tests were written red first, and each was checked afterwards by reverting one predicate at a
 time: every one fails exactly the tests that name it and nothing else.
 
+**A card shows the number HowLongToBeat itself leads with, and it is fetched rather than
+averaged.** The site prints one headline figure above its three tiers — 42 hours for Hollow
+Knight, whose main story is 27 and completionist 65.6 — and it is not a function of them. The
+mean of the three is 44.6 and their median is 39, and the site publishes both of those under
+their own names on the same payload; the headline is a fourth statistic over every submission.
+So computing it would have produced a real number that is simply not the one anybody sees.
+The sort follows the card onto that field, because a column ordered shortest-first on a figure
+none of its cards show reads as broken.
+
 **HowLongToBeat's matcher refuses rather than guesses.** Two ways of refusing, because there are
 two ways of being wrong: the numerals have to agree outright ("Final Fantasy VII" scores ~0.97
 against "VIII" on letters alone), and the winner has to beat the runner-up by a margin, or the
@@ -227,8 +237,8 @@ mistake happened twice, once leaving muted text at 3.8:1 for the life of the boa
 
 ```bash
 dotnet test --solution backend/HobbyTracker.slnx    # backend, 314 tests
-cd frontend && npm test                             # frontend, 326 tests
-cd frontend && npm run test:e2e                     # 77 specs in a real browser
+cd frontend && npm test                             # frontend, 327 tests
+cd frontend && npm run test:e2e                     # 78 specs in a real browser
 ```
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
