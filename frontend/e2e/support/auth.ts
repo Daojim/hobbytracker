@@ -19,10 +19,14 @@ export interface StubIdentity {
  * a cookie, and those two have separate cookie jars. Anything seeding through the API afterwards
  * has to go through `page.request`.
  */
-export async function signIn(page: Page, who: StubIdentity = {}): Promise<void> {
+export async function signIn(
+  page: Page,
+  who: StubIdentity = {},
+  provider = 'google',
+): Promise<void> {
   await page.request.post(`${GOOGLE_STUB}/__identity`, { data: who });
 
-  await page.goto('/api/auth/google/start?returnUrl=/board');
+  await page.goto(`/api/auth/${provider}/start?returnUrl=/board`);
   await expect(page).toHaveURL(/\/board$/);
 }
 

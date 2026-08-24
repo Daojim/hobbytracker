@@ -116,6 +116,14 @@ export default defineConfig({
         Auth__Google__AuthorizationEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/o/oauth2/v2/auth`,
         Auth__Google__TokenEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/token`,
         Auth__Google__UserInfoEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/v1/userinfo`,
+        Auth__Discord__ClientId: 'e2e-google-client',
+        Auth__Discord__ClientSecret: 'e2e-google-secret',
+        Auth__Discord__AuthorizationEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/o/oauth2/v2/auth`,
+        Auth__Discord__TokenEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/token`,
+
+        // The one that differs, and the point of pointing Discord at the same stub: a different
+        // address answering a different shape, read by the same ExternalSignIn.
+        Auth__Discord__UserInfoEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/api/users/@me`,
       },
     },
     {

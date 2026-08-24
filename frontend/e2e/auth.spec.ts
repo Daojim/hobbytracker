@@ -133,3 +133,34 @@ test('one person’s board is not the next person’s', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Search games' }).fill('celeste');
   await expect(page.getByRole('button', { name: 'Add Celeste to backlog' })).toBeVisible();
 });
+
+test('Discord signs you in the same way Google does', async ({ page }) => {
+  // A second provider is a config block and a second link, which is what the generic OAuth
+  // handler bought. The stub answers Discord's user-info at its own address and in its own
+  // shape — `id` and `global_name` rather than `sub` and `name` — so this is really a test that
+  // ExternalSignIn reads both without a per-provider reader behind it.
+  await signIn(page, { sub: 'discord-1', email: 'jimmy@example.com', name: 'Jimmy Dao' }, 'discord');
+
+  expect((await whoAmI(page.request))!.displayName).toBe('Jimmy Dao');
+  expect(psql("select provider || ':' || provider_user_id from auth_identities;"))
+    .toBe('discord:discord-1');
+});
+
+test('the same person at two providers is two accounts until they are linked', async ({ page }) => {
+  // Email is informational, never a login key: providers reuse addresses, and trusting one to
+  // merge accounts would let anybody who can get an address at either walk into the other's
+  // journal. Linking is a feature that does not exist yet; the schema is ready for it.
+  await signIn(page, { sub: 'same-1', email: 'jimmy@example.com', name: 'Jimmy' });
+  await signOut(page);
+  await signIn(page, { sub: 'same-1', email: 'jimmy@example.com', name: 'Jimmy' }, 'discord');
+
+  expect(psql('select count(*) from users;')).toBe('2');
+  expect(psql('select count(*) from auth_identities;')).toBe('2');
+});
+
+test('the sign-in screen offers both providers', async ({ page }) => {
+  await page.goto('/signin');
+
+  await expect(page.getByRole('link', { name: /google/i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /discord/i })).toBeVisible();
+});

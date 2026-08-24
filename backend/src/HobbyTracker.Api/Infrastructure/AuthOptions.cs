@@ -16,6 +16,8 @@ public sealed class AuthOptions
 
     public AuthProviderOptions Google { get; set; } = new();
 
+    public AuthProviderOptions Discord { get; set; } = new();
+
     /// <summary>
     /// How long a session lasts. Sliding, so using the app renews it and only a month away
     /// signs you out.
@@ -66,6 +68,7 @@ public sealed class ValidateAuthOptions : IValidateOptions<AuthOptions>
         List<string> failures = [];
 
         Check(options.Google, $"{AuthOptions.SectionName}:{nameof(AuthOptions.Google)}", failures);
+        Check(options.Discord, $"{AuthOptions.SectionName}:{nameof(AuthOptions.Discord)}", failures);
 
         return failures.Count == 0
             ? ValidateOptionsResult.Success

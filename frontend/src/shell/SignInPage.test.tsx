@@ -12,13 +12,18 @@ describe('SignInPage', () => {
     expect(screen.getByRole('heading', { level: 1, name: /sign in/i })).toBeInTheDocument();
   });
 
-  it('offers Google as a link, not a button', () => {
+  it('offers every provider as a link, not a button', () => {
     // The flow is a browser navigation to somebody else's site, answered with a 302 that fetch
     // cannot usefully follow. A link is what this is; a button would be a lie that holds right
     // up until somebody wires an onClick to it.
-    expect(screen.getByRole('link', { name: /google/i })).toHaveAttribute(
-      'href',
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).toEqual([
       '/api/auth/google/start?returnUrl=%2Fboard',
-    );
+      '/api/auth/discord/start?returnUrl=%2Fboard',
+    ]);
+  });
+
+  it('names each provider, so the buttons are not two of the same word', () => {
+    expect(screen.getByRole('link', { name: /google/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /discord/i })).toBeInTheDocument();
   });
 });

@@ -33,6 +33,7 @@ public sealed class ApiFactory(
     /// nothing here ever follows it — the real dance is the end-to-end suite's.
     /// </summary>
     public const string GoogleAuthorizationEndpoint = "https://stub.invalid/authorize";
+    public const string DiscordAuthorizationEndpoint = "https://stub.invalid/discord/authorize";
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -60,6 +61,11 @@ public sealed class ApiFactory(
                 ["Auth:Google:AuthorizationEndpoint"] = GoogleAuthorizationEndpoint,
                 ["Auth:Google:TokenEndpoint"] = "https://stub.invalid/token",
                 ["Auth:Google:UserInfoEndpoint"] = "https://stub.invalid/userinfo",
+                ["Auth:Discord:ClientId"] = "test-discord-client",
+                ["Auth:Discord:ClientSecret"] = "test-discord-secret",
+                ["Auth:Discord:AuthorizationEndpoint"] = DiscordAuthorizationEndpoint,
+                ["Auth:Discord:TokenEndpoint"] = "https://stub.invalid/discord/token",
+                ["Auth:Discord:UserInfoEndpoint"] = "https://stub.invalid/discord/userinfo",
 
                 // Pinned rather than inherited from appsettings.json, so the dates these tests
                 // assert on cannot be moved by an edit to a file they never mention.

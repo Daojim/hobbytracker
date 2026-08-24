@@ -128,6 +128,11 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
+// Google is OpenID Connect, so it wants the openid scope; Discord is plain OAuth and does not
+// have one. Both need whatever grants a name and an address.
+string[] GoogleScopes = ["openid", "email", "profile"];
+string[] DiscordScopes = ["identify", "email"];
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -158,28 +163,36 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             return Task.CompletedTask;
         };
     })
-    .AddOAuth(AuthProviders.Google, options =>
+    .AddOAuth(AuthProviders.Google, options => Provider(options, AuthProviders.Google, GoogleScopes))
+    .AddOAuth(AuthProviders.Discord, options => Provider(options, AuthProviders.Discord, DiscordScopes));
+
+// A provider is a scheme name, a set of scopes and a block of configuration -- which is the
+// whole reason the framework's generic OAuth handler was chosen over a provider-specific
+// package. Adding a third is two lines above and five values in appsettings.
+static void Provider(OAuthOptions options, string scheme, IEnumerable<string> scopes)
+{
+    // Must match the redirect URI registered with the provider, and the browser has to reach it
+    // on the origin it is already on -- see the Vite proxy note in CLAUDE.md.
+    options.CallbackPath = $"/api/auth/{scheme}/callback";
+
+    foreach (var scope in scopes)
     {
-        // Must match the redirect URI registered with the provider, and the browser has to
-        // reach it on the origin it is already on -- see the Vite proxy note in CLAUDE.md.
-        options.CallbackPath = $"/api/auth/{AuthProviders.Google}/callback";
+        options.Scope.Add(scope);
+    }
 
-        options.Scope.Add("openid");
-        options.Scope.Add("email");
-        options.Scope.Add("profile");
+    // One option, and it closes the interception window on the authorization code.
+    options.UsePkce = true;
 
-        // One option, and it closes the interception window on the authorization code.
-        options.UsePkce = true;
+    // The default is SameSite=None, which browsers refuse without Secure, so the flow fails on
+    // plain-http localhost with a correlation error that names nothing useful. Lax is enough for
+    // the same reason the session cookie's is: the callback is a top-level navigation rather
+    // than a background request.
+    options.CorrelationCookie.SameSite = SameSiteMode.Lax;
 
-        // The default is SameSite=None, which browsers refuse without Secure, so the flow fails
-        // on plain-http localhost with a correlation error that names nothing useful. Lax is
-        // enough for the same reason the session cookie's is: the callback is a top-level
-        // navigation rather than a background request.
-        options.CorrelationCookie.SameSite = SameSiteMode.Lax;
-
-        // The one part of the dance that is ours. See ExternalSignIn.
-        options.Events.OnCreatingTicket = ExternalSignIn.CompleteAsync;
-    });
+    // The one part of the dance that is ours. See ExternalSignIn, which reads both providers'
+    // user-info shapes -- Google says `sub` and `name`, Discord says `id` and `global_name`.
+    options.Events.OnCreatingTicket = ExternalSignIn.CompleteAsync;
+}
 
 // Everything above is a constant; everything below comes from configuration, and it is resolved
 // from the container rather than read here. `builder.Configuration` is still being assembled at
@@ -192,16 +205,19 @@ builder.Services.AddOptions<CookieAuthenticationOptions>(
         cookie.ExpireTimeSpan = TimeSpan.FromDays(auth.Value.SessionDays));
 
 builder.Services.AddOptions<OAuthOptions>(AuthProviders.Google)
-    .Configure<IOptions<AuthOptions>>((oauth, auth) =>
-    {
-        var google = auth.Value.Google;
+    .Configure<IOptions<AuthOptions>>((oauth, auth) => Credentials(oauth, auth.Value.Google));
 
-        oauth.ClientId = google.ClientId;
-        oauth.ClientSecret = google.ClientSecret;
-        oauth.AuthorizationEndpoint = google.AuthorizationEndpoint;
-        oauth.TokenEndpoint = google.TokenEndpoint;
-        oauth.UserInformationEndpoint = google.UserInfoEndpoint;
-    });
+builder.Services.AddOptions<OAuthOptions>(AuthProviders.Discord)
+    .Configure<IOptions<AuthOptions>>((oauth, auth) => Credentials(oauth, auth.Value.Discord));
+
+static void Credentials(OAuthOptions options, AuthProviderOptions provider)
+{
+    options.ClientId = provider.ClientId;
+    options.ClientSecret = provider.ClientSecret;
+    options.AuthorizationEndpoint = provider.AuthorizationEndpoint;
+    options.TokenEndpoint = provider.TokenEndpoint;
+    options.UserInformationEndpoint = provider.UserInfoEndpoint;
+}
 
 builder.Services.AddAuthorization();
 

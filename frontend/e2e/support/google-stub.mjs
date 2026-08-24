@@ -154,6 +154,23 @@ const server = createServer(async (request, response) => {
   }
 
   // ------------------------------------------------------------------- user-info
+  //
+  // Two paths, two shapes, one store. Google answers `sub` and `name`; Discord answers `id` and
+  // `global_name` at a different address. Serving both from one stub is what lets the specs
+  // prove that ExternalSignIn reads either without a per-provider reader behind it.
+  if (url.pathname === '/api/users/@me') {
+    const bearer = (request.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
+    const who = tokens.get(bearer);
+
+    if (who === undefined) {
+      json(response, 401, { message: '401: Unauthorized' });
+      return;
+    }
+
+    json(response, 200, { id: who.sub, email: who.email, global_name: who.name });
+    return;
+  }
+
   if (url.pathname === '/v1/userinfo') {
     const bearer = (request.headers.authorization ?? '').replace(/^Bearer\s+/i, '');
     const who = tokens.get(bearer);

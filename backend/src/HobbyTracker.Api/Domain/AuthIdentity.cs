@@ -33,4 +33,5 @@ public class AuthIdentity
 public static class AuthProviders
 {
     public const string Google = "google";
+    public const string Discord = "discord";
 }

@@ -63,6 +63,23 @@ public sealed class AuthEndpointTests(PostgresFixture postgres) : DatabaseTestBa
     }
 
     [Fact]
+    public async Task Sends_you_to_discord_the_same_way()
+    {
+        // A second provider is a config block and nothing else -- same handler, same options
+        // shape, same PKCE. This asserts that rather than asserting Discord in particular.
+        var response = await Redirecting().GetAsync("/api/auth/discord/start", Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Found);
+
+        var location = response.Headers.Location.ShouldNotBeNull().ToString();
+        location.ShouldStartWith(ApiFactory.DiscordAuthorizationEndpoint);
+
+        var query = QueryHelpers.ParseQuery(new Uri(location).Query);
+        query["client_id"].ToString().ShouldBe("test-discord-client");
+        query["code_challenge_method"].ToString().ShouldBe("S256");
+    }
+
+    [Fact]
     public async Task Refuses_to_start_a_sign_in_with_a_provider_it_does_not_have()
     {
         // A 400 naming the provider rather than the 500 an unregistered scheme would otherwise

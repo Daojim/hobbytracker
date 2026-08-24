@@ -31,6 +31,6 @@ export function signOut(): Promise<void> {
  * plain link in the UI, because the flow is a top-level navigation to the provider and fetch
  * cannot follow a 302 to somebody else's site to any useful end.
  */
-export function signInUrl(returnUrl = '/board'): string {
-  return `/api/auth/google/start?returnUrl=${encodeURIComponent(returnUrl)}`;
+export function signInUrl(provider: string, returnUrl = '/board'): string {
+  return `/api/auth/${provider}/start?returnUrl=${encodeURIComponent(returnUrl)}`;
 }

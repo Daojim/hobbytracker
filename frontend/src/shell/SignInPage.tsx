@@ -1,11 +1,12 @@
 import { signInUrl } from '../api/auth';
+import { PROVIDERS } from './providers';
 
 /**
  * The only screen you can reach without a session.
  *
- * Google is a link rather than a button on purpose: signing in is a top-level navigation to
- * somebody else's site, answered with a 302 that fetch cannot usefully follow. Discord becomes a
- * second link here and nothing else.
+ * Each provider is a link rather than a button on purpose: signing in is a top-level navigation
+ * to somebody else's site, answered with a 302 that fetch cannot usefully follow. A third one is
+ * a line in providers.ts and a config block on the server.
  *
  * It wears the bordered-control idiom the drawer already uses rather than a filled accent, and
  * that is a token decision rather than a taste one: `--accent` has no paired foreground, because
@@ -24,14 +25,19 @@ export function SignInPage() {
         </p>
       </div>
 
-      <a
-        href={signInUrl()}
-        className="flex items-center justify-center rounded-lg border border-accent bg-surface
-          px-4 py-2.5 text-sm font-medium text-accent hover:bg-hover focus-visible:outline-2
-          focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        Continue with Google
-      </a>
+      <div className="flex flex-col gap-3">
+        {PROVIDERS.map((provider) => (
+          <a
+            key={provider.id}
+            href={signInUrl(provider.id)}
+            className="flex items-center justify-center rounded-lg border border-accent
+              bg-surface px-4 py-2.5 text-sm font-medium text-accent hover:bg-hover
+              focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            {provider.label}
+          </a>
+        ))}
+      </div>
     </main>
   );
 }

@@ -153,4 +153,51 @@ public sealed class AuthServiceTests(PostgresFixture postgres) : DatabaseTestBas
 
     private Task<int> CountAsync<T>(Func<HobbyTrackerDbContext, IQueryable<T>> set) =>
         WithDbAsync(db => set(db).CountAsync(Ct));
+
+    // ------------------------------------------------------- a second provider
+
+    [Fact]
+    public async Task Two_providers_pointing_at_one_user_give_one_board()
+    {
+        // The reason credentials live in their own table rather than as columns on users. Two
+        // identities, one profile, one backlog — and this is what a "link your Discord" feature
+        // would write when it exists. Signing in through either has to land in the same place.
+        var user = await SignInAsync(Google("1234", "jimmy@example.com", "Jimmy Dao"));
+        await GivenIdentityAsync(user.Id, "discord", "9876", "jimmy@example.com");
+
+        var viaDiscord = await SignInAsync(
+            new ExternalIdentity("discord", "9876", "jimmy@example.com", "Jimmy Dao"));
+
+        viaDiscord.Id.ShouldBe(user.Id);
+        (await AccountsAsync()).ShouldBe(1);
+        (await CountAsync(db => db.AuthIdentities)).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task The_same_address_at_two_providers_is_still_two_people()
+    {
+        // Until somebody links them it has to be, and the reason is that email is not a login
+        // key: providers reuse addresses, and trusting one to merge accounts would let anybody
+        // who can get an address at either provider walk into the other's journal.
+        var google = await SignInAsync(Google("1234", "shared@example.com", "Jimmy"));
+        var discord = await SignInAsync(
+            new ExternalIdentity("discord", "1234", "shared@example.com", "Jimmy"));
+
+        discord.Id.ShouldNotBe(google.Id);
+        (await AccountsAsync()).ShouldBe(2);
+    }
+
+    private Task GivenIdentityAsync(int userId, string provider, string subject, string? email) =>
+        WithDbAsync(async db =>
+        {
+            db.AuthIdentities.Add(new AuthIdentity
+            {
+                UserId = userId,
+                Provider = provider,
+                ProviderUserId = subject,
+                Email = email,
+            });
+
+            await db.SaveChangesAsync(Ct);
+        });
 }
