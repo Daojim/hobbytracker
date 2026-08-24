@@ -165,7 +165,7 @@ public sealed class UserScopingTests(PostgresFixture postgres) : DatabaseTestBas
         // this is the one that has to be a join rather than a filter. It is also the one most
         // likely to be missed, because there is no absent column to notice.
         var (_, entryId) = await GivenTheirsAsync();
-        var noteId = await GivenNoteAsync(entryId);
+        var noteId = await GivenNoteAsync(entryId, "Theirs");
 
         var response = method switch
         {
@@ -279,6 +279,29 @@ public sealed class UserScopingTests(PostgresFixture postgres) : DatabaseTestBas
     private async Task<int> OtherAsync() => _other ??= await GivenUserAsync("Someone Else");
 
     /// <summary>A game on their board and on nobody else's, plus the pass that put it there.</summary>
+    [Fact]
+    public async Task Someone_elses_note_never_reaches_my_card()
+    {
+        // The board's note preview is the one field on the row that does not ride on `Latest`,
+        // and so the one that does not inherit BoardQuery's scoping for free: it reaches every
+        // pass on the title, and the title is shared. Without its own predicate a stranger's
+        // journal would be printed on your card, which is worse than any other leak here — it
+        // is not a count being wrong, it is their words on your board.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+
+        var theirs = await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed, userId: await OtherAsync());
+        await GivenNoteAsync(theirs, "Theirs", Eastern(2026, 1, 1, 12, 0));
+
+        var mine = await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        await GivenNoteAsync(mine, "Mine", Eastern(2024, 1, 1, 12, 0));
+
+        var item = (await BoardAsync()).Items.ShouldHaveSingleItem();
+
+        // Theirs is the newer of the two, so an unscoped subquery picks it every time.
+        item.LatestNotePreview.ShouldBe("Mine");
+    }
+
     private async Task<(int MediaId, int EntryId)> GivenTheirsAsync()
     {
         var mediaId = await GivenGameAsync("Hollow Knight");
@@ -291,15 +314,6 @@ public sealed class UserScopingTests(PostgresFixture postgres) : DatabaseTestBas
 
         return (mediaId, entryId);
     }
-
-    private Task<int> GivenNoteAsync(int entryId) => WithDbAsync(async db =>
-    {
-        var note = new Note { LogEntryId = entryId, Body = "Theirs", WrittenAt = Clock.UtcNow };
-
-        db.Notes.Add(note);
-        await db.SaveChangesAsync(Ct);
-        return note.Id;
-    });
 
     private async Task<PagedResult<LibraryItemDto>> BoardAsync() =>
         await ReadAsync<PagedResult<LibraryItemDto>>(

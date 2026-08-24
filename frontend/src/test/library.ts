@@ -28,6 +28,7 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     genres: [],
     primaryGenre: null,
     hltbMainStoryHours: null,
+    latestNotePreview: null,
     ...overrides,
   };
 }

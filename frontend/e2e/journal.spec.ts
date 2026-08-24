@@ -444,15 +444,42 @@ test('notes stack up on a pass instead of overwriting each other', async ({ page
   await page.reload();
   await openJournal(page, 'Hollow Knight');
 
-  await expect(page.getByText('stuck on watcher knights')).toBeVisible();
-  await expect(page.getByText('finally beat radiance')).toBeVisible();
+  // Scoped to the drawer throughout. The card behind it carries the last thing you wrote, so
+  // both of these are on screen twice — which is the board working, and still two matches.
+  const drawer = page.getByRole('dialog');
+  await expect(drawer.getByText('stuck on watcher knights')).toBeVisible();
+  await expect(drawer.getByText('finally beat radiance')).toBeVisible();
 
-  // Newest first, matching every other list in this app.
-  // Scoped to the drawer: the board's cards behind it are list items too, and its "Playing"
-  // column would answer to the same region name as the pass.
-  const bodies = await page.getByRole('dialog').getByRole('listitem').allTextContents();
+  // Newest first, matching every other list in this app. Scoped for a second reason as well:
+  // the board's cards behind it are list items too, and its "Playing" column would answer to
+  // the same region name as the pass.
+  const bodies = await drawer.getByRole('listitem').allTextContents();
   expect(bodies[0]).toContain('finally beat radiance');
   expect(bodies[1]).toContain('stuck on watcher knights');
+});
+
+test('the note you just wrote is on the card behind the drawer', async ({ page }) => {
+  // The one test that can catch this. Writing a note used to invalidate the game query alone,
+  // on the reasoning that nothing a note does shows on a card — true until a card started
+  // carrying the last thing you wrote. Drop the library invalidation from useNotes and the
+  // drawer shows the note while the card behind it shows nothing, until something unrelated
+  // refetches. Nothing in jsdom notices: the cache is thrown away between tests there.
+  //
+  // The body names no other seeded title on purpose. card() filters on the card's own text, so
+  // a note mentioning another game would make that locator match two cards and every assertion
+  // after it a strict-mode violation.
+  await seed(page.request, 'Celeste', 'InProgress');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await writeNote(page, 'that B-side nearly broke me');
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(card(page, 'Celeste').getByText('that B-side nearly broke me')).toBeVisible();
+
+  // And it is the row the server sends, not something the drawer left behind on screen.
+  await page.reload();
+  await expect(card(page, 'Celeste').getByText('that B-side nearly broke me')).toBeVisible();
 });
 
 test('a note can be fixed and another taken back', async ({ page }) => {
@@ -470,18 +497,20 @@ test('a note can be fixed and another taken back', async ({ page }) => {
 
   // Waited for, not assumed: the rewritten body can only be on screen once the refetch lands,
   // and clicking before then means clicking a node React is in the middle of replacing.
-  await expect(page.getByText('watcher knights')).toBeVisible();
+  // Scoped to the drawer throughout, because the card behind it now carries the note as well.
+  const drawer = page.getByRole('dialog');
+  await expect(drawer.getByText('watcher knights')).toBeVisible();
 
   await page.getByRole('button', { name: /^Delete the note from/ }).first().click();
   await page.getByRole('button', { name: 'Really delete?' }).click();
 
   // Gone from the screen before reloading, or the navigation cancels the request that removes it.
-  await expect(page.getByText('a typo I will regret')).toHaveCount(0);
+  await expect(drawer.getByText('a typo I will regret')).toHaveCount(0);
 
   await page.reload();
   await openJournal(page, 'Celeste');
 
-  await expect(page.getByText('watcher knights')).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('watcher knights')).toBeVisible();
   await expect(page.getByText('a typo I will regret')).toHaveCount(0);
 });
 

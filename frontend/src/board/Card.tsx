@@ -186,6 +186,21 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
             {lastActivity !== null && <span>{lastActivity}</span>}
           </div>
         )}
+
+        {/* The last thing you wrote, under everything else and quieter than it. Cut by CSS
+            rather than by a character count, which is what lets it answer to the card's width
+            and to the density setting — the server's cap sits far enough out that it is never
+            what a reader sees cut. No date beside it: the row above already ends with one, and
+            two dates on a card read as a contradiction rather than as two facts.
+
+            Plain text with no role, unlike the badges above it. "★ 8.5" has to be spelled out
+            for a screen reader because the glyph does not say what it means; a sentence you
+            wrote yourself already reads as what it is. */}
+        {item.latestNotePreview !== null && (
+          <p data-note="" className="mt-1 line-clamp-2 text-xs break-words text-muted">
+            {item.latestNotePreview}
+          </p>
+        )}
       </div>
 
       {(droppable || removable) && !confirming && (

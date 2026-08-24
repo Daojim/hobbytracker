@@ -40,4 +40,20 @@ public sealed record LibraryItemDto(
     /// Null for a row that is not a game, for the same reason as <see cref="Genres"/>, and null
     /// for a game nothing has matched to HowLongToBeat yet.
     /// </summary>
-    decimal? HltbMainStoryHours);
+    decimal? HltbMainStoryHours,
+
+    /// <summary>
+    /// The opening of the most recent thing you wrote about this title, or null if you have
+    /// written nothing. The whole of it lives in the drawer; this is a preview and is named so,
+    /// because a field called <c>LatestNote</c> that is not the note would be a lie.
+    ///
+    /// Cut at <c>LibraryService.NotePreviewLength</c> characters. A note may be 4000, and
+    /// a board is up to four columns of a hundred rows — uncapped, this field would make the
+    /// board response scale with how much somebody writes. The cap is comfortably more than two
+    /// lines can show at the widest card, so what a reader sees cut is always the client's
+    /// line-clamp and never this.
+    ///
+    /// The most recent across *every* pass of yours, deliberately unlike everything else on the
+    /// row. See the projection in <c>LibraryService</c>.
+    /// </summary>
+    string? LatestNotePreview);

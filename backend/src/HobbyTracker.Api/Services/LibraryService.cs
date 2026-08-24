@@ -51,6 +51,17 @@ public sealed class LibraryService(
     HobbyTrackerDbContext db, IJournalClock clock, ICurrentUser user) : ILibraryService
 {
     /// <summary>
+    /// How much of a note reaches a card.
+    ///
+    /// A note may be 4000 characters and a board is up to four columns of a hundred rows, so
+    /// uncapped this would make the board response scale with how much somebody writes. It is
+    /// comfortably more than two lines can hold at the widest card and the loosest density, so
+    /// the cut a reader actually sees is always the client's line-clamp and never this one —
+    /// which is what lets that clamp answer to the card's width, as a character count cannot.
+    /// </summary>
+    public const int NotePreviewLength = 200;
+
+    /// <summary>
     /// A title on the board, with the entry that decides which column it sits in.
     ///
     /// Deliberately assigned member by member rather than through a constructor. EF Core can
@@ -84,6 +95,8 @@ public sealed class LibraryService(
         int? pageSize,
         CancellationToken cancellationToken)
     {
+        var userId = user.Id;
+
         var (normalisedPage, normalisedSize) = Paging.Normalise(page, pageSize);
 
         var query = Filtered(BoardQuery().AsNoTracking(), hobby, status, SpanOf(year));
@@ -109,7 +122,33 @@ public sealed class LibraryService(
                 // error. This is terminal, so nothing filters on it afterwards.
                 (row.Media as Game)!.Genres,
                 (row.Media as Game)!.PrimaryGenre,
-                (row.Media as Game)!.HltbMainStoryHours))
+                (row.Media as Game)!.HltbMainStoryHours,
+
+                // The last thing you wrote about this title, from *any* pass of yours —
+                // deliberately unlike every other field on this row, all of which come from
+                // Latest. A replay begun this morning has nothing written on it yet, and what
+                // you said the first time round is still the last thing you said about it.
+                //
+                // Which is why the UserId predicate below is load-bearing rather than
+                // decorative. Riding on Latest would have inherited BoardQuery's scoping for
+                // free; reaching every pass on a title reaches a *shared* title, so without it
+                // a stranger's journal prints on your card. Notes carry no user column of
+                // their own — they belong to whoever owns the pass they were written during —
+                // so this is a join, exactly as every query in NoteService is.
+                //
+                // Here rather than in BoardQuery for the genre downcast's reason, and it
+                // matters more here: this is terminal, so a subquery that fails to translate
+                // throws and names itself, where the same thing in BoardQuery would empty the
+                // board and say nothing at all.
+                row.Media.LogEntries
+                    .Where(entry => entry.UserId == userId)
+                    .SelectMany(entry => entry.Notes)
+                    .OrderByDescending(note => note.WrittenAt)
+                    .ThenByDescending(note => note.Id)
+                    .Select(note => note.Body.Length > NotePreviewLength
+                        ? note.Body.Substring(0, NotePreviewLength)
+                        : note.Body)
+                    .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<LibraryItemDto>(items, total, normalisedPage, normalisedSize);
@@ -406,8 +445,11 @@ public sealed class LibraryService(
         }
     }
 
-    private async Task<LibraryItemDto?> ItemAsync(int mediaId, CancellationToken cancellationToken) =>
-        await BoardQuery()
+    private async Task<LibraryItemDto?> ItemAsync(int mediaId, CancellationToken cancellationToken)
+    {
+        var userId = user.Id;
+
+        return await BoardQuery()
             .AsNoTracking()
             .Where(row => row.Media.Id == mediaId)
             .Select(row => new LibraryItemDto(
@@ -421,6 +463,20 @@ public sealed class LibraryService(
                 row.Latest.CompletedAt ?? row.Latest.StartedAt,
                 (row.Media as Game)!.Genres,
                 (row.Media as Game)!.PrimaryGenre,
-                (row.Media as Game)!.HltbMainStoryHours))
+                (row.Media as Game)!.HltbMainStoryHours,
+
+                // As in ListAsync, predicate and all. This copy has to exist: it is what a drag
+                // or a menu move answers with, and a field arriving null here and populated on
+                // the next refetch would flicker.
+                row.Media.LogEntries
+                    .Where(entry => entry.UserId == userId)
+                    .SelectMany(entry => entry.Notes)
+                    .OrderByDescending(note => note.WrittenAt)
+                    .ThenByDescending(note => note.Id)
+                    .Select(note => note.Body.Length > NotePreviewLength
+                        ? note.Body.Substring(0, NotePreviewLength)
+                        : note.Body)
+                    .FirstOrDefault()))
             .FirstOrDefaultAsync(cancellationToken);
+    }
 }

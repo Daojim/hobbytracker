@@ -152,6 +152,23 @@ describe('Card', () => {
     expect(screen.queryByText('Indie')).not.toBeInTheDocument();
   });
 
+it('shows the last thing you wrote about it', () => {
+    // The journal is the point of the app, and until this it was entirely behind a click: the
+    // board could tell you what you scored a game and not one word of what you said about it.
+    renderCard(libraryItem({ latestNotePreview: 'Finally beat Hornet after forty tries.' }));
+
+    expect(screen.getByText('Finally beat Hornet after forty tries.')).toBeInTheDocument();
+  });
+
+  it('says nothing at all when nothing has been written', () => {
+    // Not an empty line held open for a note that may never come. Most of a backlog has never
+    // been written on, and a column of cards each carrying a blank row is a raggeder board for
+    // no information.
+    const { container } = renderCard(libraryItem({ latestNotePreview: null }));
+
+    expect(container.querySelector('[data-note]')).toBeNull();
+  });
+
   it('offers a drop button on Playing, where giving up on a game did happen', () => {
     renderCard(libraryItem({ title: 'Celeste', currentStatus: 'InProgress' }));
 

@@ -141,9 +141,15 @@ export async function setSort(page: Page, status: LogStatus, mode: string): Prom
     .selectOption({ label: mode });
 }
 
-/** Writes a note on whichever pass has its compose box open — the current one, by default. */
+/**
+ * Writes a note on whichever pass has its compose box open — the current one, by default.
+ *
+ * The wait is scoped to the dialog, and has to be: a card carries the last thing you wrote
+ * about a title, so the note lands in two places at once and a bare getByText resolves to both.
+ * That is the feature working rather than a flake, but it is still a strict-mode violation.
+ */
 export async function writeNote(page: Page, body: string): Promise<void> {
   await page.getByRole('textbox', { name: 'New note' }).fill(body);
   await page.getByRole('button', { name: 'Add note' }).click();
-  await expect(page.getByText(body)).toBeVisible();
+  await expect(page.getByRole('dialog').getByText(body)).toBeVisible();
 }

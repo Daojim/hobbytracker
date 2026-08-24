@@ -8,13 +8,22 @@ import { gameKey } from '../board/keys';
  * Its own hook rather than three more mutations on `useJournalEntry`, which already carries the
  * entry query, the save and the pass delete.
  *
- * Only the game query is invalidated. The card behind the drawer shows a rating, a count of
- * passes and a date, and none of those move when a note is written — so unlike a save or a
- * delete, the board has nothing to hear about.
+ * Both the game query and the library are invalidated, and the library half is newer than the
+ * rest of this hook. A card carries the last thing you wrote about a title now, so writing,
+ * rewriting or taking back a note all move something on the board — which was not true when
+ * this was written, and the comment here went on saying so for a while after it stopped being.
+ *
+ * The bare `['library']` prefix rather than one hobby's, because this hook has no hobby: it is
+ * opened from a card and knows only a media id. One extra prefix level costs a refetch of
+ * columns that cannot have changed, on an action nobody performs in a loop.
  */
 export function useNotes(mediaId: number) {
   const queryClient = useQueryClient();
-  const refresh = () => queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: gameKey(mediaId) }),
+      queryClient.invalidateQueries({ queryKey: ['library'] }),
+    ]);
 
   const write = useMutation({
     mutationFn: ({ entryId, body }: { entryId: number; body: string }) => addNote(entryId, body),

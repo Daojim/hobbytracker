@@ -221,6 +221,32 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
         });
 
     /// <summary>
+    /// One thing written down during a pass. A note has no owner of its own — it belongs to
+    /// whoever owns the entry it hangs off — so the <paramref name="entryId"/> decides that.
+    /// </summary>
+    /// <param name="writtenAt">
+    /// Defaults to the stopped clock, which every note seeded in one test then shares. A test
+    /// about which note is newest has to say so rather than leaning on the insertion order the
+    /// id tie-break would otherwise settle it by.
+    /// </param>
+    protected Task<int> GivenNoteAsync(
+        int entryId,
+        string body = "A note",
+        DateTimeOffset? writtenAt = null) => WithDbAsync(async db =>
+        {
+            var note = new Note
+            {
+                LogEntryId = entryId,
+                Body = body,
+                WrittenAt = writtenAt ?? Clock.UtcNow,
+            };
+
+            db.Notes.Add(note);
+            await db.SaveChangesAsync(Ct);
+            return note.Id;
+        });
+
+    /// <summary>
     /// Somebody to own rows. Respawn truncates <c>users</c> between tests, so each one makes its
     /// own rather than sharing a fixture — which is also what lets a test make two.
     /// </summary>

@@ -16,6 +16,7 @@ const item: LibraryItem = {
   genres: [],
   primaryGenre: null,
   hltbMainStoryHours: null,
+  latestNotePreview: null,
 };
 
 const page: PagedResult<LibraryItem> = { items: [item], total: 1, page: 1, pageSize: 25 };

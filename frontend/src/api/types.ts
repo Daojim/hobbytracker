@@ -51,6 +51,14 @@ export interface LibraryItem {
    * a table. Null for a row that is not a game, and for a game nothing has matched yet.
    */
   hltbMainStoryHours: number | null;
+  /**
+   * The opening of the most recent thing you wrote about this title, cut by the server. The
+   * whole of it lives in the drawer; this is a preview and is named so.
+   *
+   * The latest across *every* pass of yours, unlike everything else on this row — a replay you
+   * have not written on yet still carries forward what you said the first time round.
+   */
+  latestNotePreview: string | null;
 }
 
 export interface Game {
