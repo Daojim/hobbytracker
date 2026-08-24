@@ -71,10 +71,15 @@ const asIgdbGame = (game) => ({
 /**
  * APIcalypse, not a query string: `search "celeste"; fields ...; limit 20;`
  *
- * Matched on letters and digits only, because the real endpoint is fuzzy and a raw substring
- * test is not. Searching "Hollow Knight Silksong" has to reach "Hollow Knight: Silksong" — the
- * colon between them is the entire reason IgdbRelevance exists, so a stub that let the colon
- * hide the real game would make the ranking spec unwritable.
+ * Punctuation is flattened on both sides, because the real endpoint is fuzzy and a raw
+ * substring test is not: searching "Hollow Knight Silksong" has to reach "Hollow Knight:
+ * Silksong", the colon between them being the entire reason IgdbRelevance exists.
+ *
+ * But every token has to match a **whole word**, because that is the real limitation and the
+ * whole reason the client asks a second question. IGDB's search does no prefix matching:
+ * "hollow k" answers with nothing, and "pokemon s" answers with Pokemon Topaz rather than
+ * Pokémon Sword. A stub that quietly matched prefixes here would make the slug query look
+ * unnecessary and its spec pass for the wrong reason.
  */
 const flatten = (value) =>
   value
@@ -85,9 +90,29 @@ const flatten = (value) =>
     .trim();
 
 const matchesTerm = (term) => {
-  const wanted = flatten(term);
-  return CATALOGUE.filter((game) => flatten(game.name).includes(wanted));
+  const wanted = flatten(term).split(' ').filter(Boolean);
+  if (wanted.length === 0) {
+    return [];
+  }
+
+  return CATALOGUE.filter((game) => {
+    const words = flatten(game.name).split(' ');
+    return wanted.every((token) => words.includes(token));
+  });
 };
+
+/**
+ * `where slug ~ *"hollow-k"*;` — the prefix question, and the only one that can answer half
+ * a title. Slugs are what make it work on "pokemon s": IGDB writes "Pokémon Sword" as
+ * pokemon-sword, so the accent that defeats a name match is already gone.
+ */
+const slugOf = (name) => flatten(name).replace(/ /g, '-');
+
+const matchesSlug = (pattern) =>
+  CATALOGUE.filter((game) => slugOf(game.name).includes(pattern))
+    // sort total_rating_count desc, as the client asks for. Without it, which entries come
+    // back for a broad pattern would be arbitrary.
+    .sort((a, b) => (b.ratings ?? 0) - (a.ratings ?? 0));
 
 /**
  * `where game_type != (3,5);` — honoured rather than ignored, so a spec that watches a mod
@@ -96,9 +121,12 @@ const matchesTerm = (term) => {
  *
  * Applied before the limit, as IGDB applies it: filtering afterwards would ask for ten and
  * hand back six.
+ * The `where` keyword is deliberately not part of the pattern: the relevance query writes
+ * `where game_type != (...)` and the slug query writes `& game_type != (...)`, and anchoring
+ * on `where` silently let mods through the second one.
  */
 const withoutExcludedTypes = (games, query) => {
-  const excluded = /where\s+game_type\s*!=\s*\(([^)]*)\)/.exec(query)?.[1];
+  const excluded = /game_type\s*!=\s*\(([^)]*)\)/.exec(query)?.[1];
   if (excluded === undefined) {
     return games;
   }
@@ -133,15 +161,21 @@ const server = createServer(async (request, response) => {
   if (url.pathname === '/v4/games') {
     const query = await readBody(request);
 
-    // Two query shapes, because the API writes two. A search is what adding a game does;
-    // `where id = (...)` is what the refresh does, and answering it with a name match would
-    // hand back the whole catalogue for an empty term.
+    // Three query shapes, because the API writes three: a relevance search and a slug prefix
+    // match, which together are what adding a game does, and `where id = (...)`, which is the
+    // refresh. Answering that last one with a name match would hand back the whole catalogue
+    // for an empty term.
     const ids = /where\s+id\s*=\s*\(([^)]*)\)/.exec(query)?.[1];
+    const slug = /slug\s*~\s*\*"([^"]*)"\*/.exec(query)?.[1];
 
-    const matches =
-      ids === undefined
-        ? matchesTerm(/search\s+"([^"]*)"/.exec(query)?.[1] ?? '')
-        : CATALOGUE.filter((game) => ids.split(',').includes(String(game.id)));
+    let matches;
+    if (ids !== undefined) {
+      matches = CATALOGUE.filter((game) => ids.split(',').includes(String(game.id)));
+    } else if (slug !== undefined) {
+      matches = matchesSlug(slug);
+    } else {
+      matches = matchesTerm(/search\s+"([^"]*)"/.exec(query)?.[1] ?? '');
+    }
 
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(withoutExcludedTypes(matches, query).map(asIgdbGame)));

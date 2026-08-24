@@ -86,6 +86,14 @@ test('the real game comes first, not the fan game named after it', async ({ page
 
   await expect(titles.first()).toHaveText('Hollow Knight: Silksong');
 });
+test('half a title is enough to find a game', async ({ page }) => {
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow k');
+
+  // Typing half a title is the ordinary way to use a search box, and IGDB's own search cannot
+  // do it — it is full text over whole words, so "hollow k" answers with nothing at all. The
+  // stub is as limited on purpose, so only the slug question can find this.
+  await expect(page.getByRole('button', { name: 'Add Hollow Knight to backlog' })).toBeVisible();
+});
 test('the old search address lands on the board', async ({ page }) => {
   // The screen is gone, but a bookmark to it should not be a dead end.
   await page.goto('/search');

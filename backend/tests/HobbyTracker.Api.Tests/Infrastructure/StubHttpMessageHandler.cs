@@ -20,6 +20,12 @@ public sealed class StubHttpMessageHandler(
 {
     private readonly List<RecordedRequest> _requests = [];
 
+    // A search asks IGDB two questions at once, so two threads reach this handler at the
+    // same time. List.Add is not safe under that, and the failure is a corrupted list or a
+    // lost request rather than an exception — which would read as the client having skipped
+    // a query it actually made.
+    private readonly Lock _gate = new();
+
     public IReadOnlyList<RecordedRequest> Requests => _requests;
 
     /// <summary>Always answers with the same status and body.</summary>
@@ -50,8 +56,14 @@ public sealed class StubHttpMessageHandler(
             StringComparer.OrdinalIgnoreCase);
 
         var recorded = new RecordedRequest(request.Method, request.RequestUri, headers, body);
-        _requests.Add(recorded);
 
-        return respond(recorded, _requests.Count - 1);
+        int index;
+        lock (_gate)
+        {
+            _requests.Add(recorded);
+            index = _requests.Count - 1;
+        }
+
+        return respond(recorded, index);
     }
 }

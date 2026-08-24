@@ -30,11 +30,14 @@ laptop widths turned up, in three more commits:
 5. **search above the board** rather than on a screen of its own. See **Search on the board**;
 6. **a hobby nav**, with the five that do not exist yet saying *Soon*. See **The hobby nav**.
 
-**Search answers with the game you meant**, on branch `filter-mods-and-bundles`: mods and
-bundles are gone, and what is left is ordered so a fan game cannot outrank the thing it is
-named after. See **Game types** and **Ranking search results** under **IGDB integration**.
+**Search answers with the game you meant**, on branch `search-that-finds-the-game`: mods and
+bundles are gone, half a title is enough to find something, and what comes back is ordered so
+a fan game cannot outrank the thing it is named after. Three sections under
+**IGDB integration** carry it — **Game types**, **Two questions, not one**, and
+**Ranking search results** — and the last two are worth reading before touching search,
+because both record rules that were tried against the live API and thrown away.
 
-Everything is green and everything has been run: backend 261, frontend 296, Playwright 60. See
+Everything is green and everything has been run: backend 270, frontend 296, Playwright 61. See
 **The redesign** for the whole of it, and for the four bugs it found on the way.
 
 Nine plans. The current one is
@@ -54,7 +57,7 @@ contact with the site. The earlier five are the board's:
 ### Picking this up
 
 **Nothing is half-finished.** #11 and #12 are both merged; the search work is green on
-`filter-mods-and-bundles`. Two things worth knowing before a first run either way:
+`search-that-finds-the-game`. Two things worth knowing before a first run either way:
 
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
@@ -81,7 +84,7 @@ contact with the site. The earlier five are the board's:
 8. ~~End-to-end~~ — `e2e/support/hltb-stub.mjs` on :5398 as a fourth `webServer`, and
    `e2e/hltb.spec.ts`. See **What the stub is for** below.
 
-**Four things about search worth not re-deriving.** It debounces at 300ms because the API reaches
+**Five things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
 "hollow" and six requests. And a result already in your library shows "On your board" rather than
 an add button, because a second Backlog entry is not a replay but the card would render it as
@@ -89,7 +92,9 @@ one. Knowing that needs the whole library, so `libraryMediaIds()` pages to the e
 stopping at the API's maximum page size; capping it would offer to add your hundred-and-first
 title twice. It asks IGDB for main games only, in the sense of **not mods and not bundles** —
 see **Game types** below, because the reason it is a `where` clause rather than a filter over
-the results is not obvious. And **it does not hand back the order IGDB gave it**; see
+the results is not obvious. **It asks IGDB two questions rather than one**, because IGDB's
+search cannot match a prefix and "hollow k" would otherwise find nothing at all. And **it does
+not hand back the order IGDB gave it**. See **Two questions, not one** and
 **Ranking search results**.
 
 **The column query key is `['library', hobby, status, { sort, year }]`** — see
@@ -234,9 +239,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 261 tests
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 270 tests
 cd frontend && npm test                             # frontend, 296 tests
-cd frontend && npm run test:e2e                     # 60 specs in a real browser
+cd frontend && npm run test:e2e                     # 61 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -574,55 +579,109 @@ a bundle in its catalogue, both matching "hollow", and parses `where game_type !
 `a mod and a bundle never reach the strip` goes red if the clause is ever dropped from the
 client, instead of passing because the stub never had one.
 
+### Two questions, not one
+
+`IgdbClient.SearchGamesAsync` sends **two queries in parallel** and merges them. Neither can be
+dropped, and the reason is measured rather than argued:
+
+| typed | `search` | `where slug ~ *"…"*` |
+|---|---|---|
+| `hollow k` | **nothing** | Hollow Knight, Silksong, Godmaster |
+| `pokemon s` | Pokemon Topaz, Name That Pokemon | **Sword, Silver, Sapphire, Stadium** |
+| `botw` | **Breath of the Wild** | Botworld Odyssey, RobotWar |
+| `gta v` | **Grand Theft Auto V** | nothing |
+| `final fantasy 7` | **Final Fantasy VII** | nothing |
+
+**IGDB's `search` is full text over whole words and does no prefix matching whatsoever.** Typing
+half a title — the ordinary way to use a search box — answers with nothing at all, or with junk
+that happens to contain a whole word you typed. That is not a limitation worth passing on.
+
+**The slug is what makes the prefix half work, and `name` is not.** `name ~` is
+*accent-sensitive*, so `*"pokemon"*` finds only the handful of games actually spelled without the
+é and none of Nintendo's. IGDB writes "Pokémon Sword" as the slug `pokemon-sword`, so the accent
+is already gone before the comparison happens. `SlugPatternOf` builds the same shape from what was
+typed: lower case, accents folded, every run of anything else a single hyphen.
+
+That doubles as the escaping — the pattern can only hold letters, digits and hyphens, so nothing
+survives that could close the APIcalypse string early. `SanitizeSearchTerm` has to do that job by
+hand because it keeps spaces.
+
+Three details worth not rediscovering:
+
+- **The slug query carries `sort total_rating_count desc;`**, and is only allowed to because it
+  has no `search` in it — IGDB refuses the two together. Without a sort, *which* ten of the
+  hundreds of slug matches come back is arbitrary.
+- **Parallel, not sequential.** Two round trips one after the other would double what a keystroke
+  costs. It also means two threads hit `StubHttpMessageHandler` at once, which is why that now
+  takes a lock — `List.Add` losing a request would read as the client never having sent it.
+- **A pattern under two characters is skipped.** `*"a"*` matches most of the catalogue, so a
+  one-letter search would answer with the ten most-rated games containing an "a".
+
+The merged set can hold up to twice the limit, so `GameCatalogService.SearchAsync` **ranks first
+and cuts second** — trimming before ranking would throw away the prefix matches, which are usually
+the good ones. The cut also happens before the upsert, which keeps the catalogue growing at the
+rate it always did: one row per result somebody could actually have seen.
+
 ### Ranking search results
 
-`Services/IgdbRelevance` re-orders what a search returns. Filtering mods and bundles was only
-half the problem: **IGDB ranks on string relevance, and string relevance cannot tell a game
-from a fan game named after it.** Searching "Hollow Knight Silksong" returns a Game Boy Color
-game by one person, no ratings and one platform, *above* Team Cherry's — because the fan
-game's title is that exact string and the real one has a colon in it. No amount of title
-matching fixes that; the fan game is genuinely the better string match.
+`Services/IgdbRelevance` re-orders what those two questions found. Filtering mods and bundles was
+only part of the problem: **IGDB ranks on string relevance, and string relevance cannot tell a
+game from a fan game named after it.** Searching "Hollow Knight Silksong" returns a Game Boy Color
+game by one person, no ratings and one platform, *above* Team Cherry's — because the fan game's
+title is that exact string and the real one has a colon in it. No amount of title matching fixes
+that; the fan game is genuinely the better string match.
 
-The rule is three lines, and each is the guard on the one below it:
+The rule is three lines:
 
-1. **A title that does not contain what you typed at all can never outrank one that does.**
-   IGDB pads a search out with fuzzy matches, and without this floor a famous one buries the
-   obscure game you asked for by name — "Celeste" has 1465 ratings and "Celeste Classic 2:
-   Lani's Trek" has none, but nobody typing the latter wanted the former.
-2. **Above that floor, the one more people have played comes first.** `total_rating_count +
-   hypes`, added rather than chosen between because they cover different halves of a game's
-   life: an unreleased game has no ratings by definition, and Silksong sat on 220 hypes and
-   nothing else for years, which was exactly when it was most searched for.
-3. **Title match breaks the ties, and IGDB's own order breaks what is left.** The sort is
-   stable, so results this rule has nothing to say about keep the order IGDB put them in.
+1. **The game more people have played comes first.** `total_rating_count + hypes`, added rather
+   than chosen between because they cover different halves of a game's life: an unreleased game
+   has no ratings by definition, and Silksong sat on 220 hypes and nothing else for years, which
+   was exactly when it was most searched for. A fan game has neither.
+2. **How well the title matches breaks the ties** — and that is most of what orders the long tail,
+   because nearly everything down there has no ratings at all. It is what puts "Celeste Witch"
+   above "The Mystery of the Mary Celeste".
+3. **IGDB's own order breaks what is left**, through a stable sort.
 
-**Ordering by title first and popularity second was tried and is wrong.** It fixes the fan
-game and creates the "Zelda" case: there is a game called exactly "Zelda" with no ratings at
-all, and it went straight to the top above *The Legend of Zelda* — the same bug wearing a
-different hat. That is why popularity is not merely a tie-break, and why
-`Does_not_let_an_exact_title_nobody_has_rated_come_first_either` exists.
+**Two other rules were tried against the live API and are worse.** Ordering by title first and
+popularity second creates the "Zelda" case: there is a game called exactly `Zelda` with no ratings
+at all, and it goes straight above *The Legend of Zelda* — the same bug wearing a different hat.
+Putting a floor under that instead, so a title not containing the search text can never outrank
+one that does, then loses "botw": the slug question drags in Botworld Odyssey and RobotWar and the
+floor buries *Breath of the Wild* beneath them. Exempting IGDB's own first pick from that floor
+rescues "botw" and breaks "gta v" and "final fantasy 7", by promoting that pick above equally
+unmatched results with sixty times the ratings. All three are pinned by tests named after what
+they got wrong.
+
+**The floor was in for a while and its removal costs exactly one measured thing:** "Doom 3" puts
+*Phantasy Star III: Generations of Doom* third, where the floor had the Xbox *Doom 3*. A third
+place is worth less than the first place "botw" loses. What makes it safe to drop is the second
+question — the candidate set is tight enough now that a famous game is rarely in it by accident.
+"Celeste Classic 2", "Celeste Witch" and "Hollow Knight Godmaster" each come back with a single
+candidate.
 
 **It cannot be done in the query.** IGDB rejects a search carrying a sort outright:
-`406 "Search is sorting on relevancy and therefore sort is not applicable on search"`. So the
-ordering is re-decided over the page IGDB chose to return, in `GameCatalogService.SearchAsync`
-before the upsert, which is what makes the existing "relevance order, not database order"
-test still mean something.
+`406 "Search is sorting on relevancy and therefore sort is not applicable on search"`.
 
-`total_rating_count` and `hypes` are **asked for and never stored**. They are facts about how
-many people have played a game today rather than facts about the game, so a copy would go
-stale while answering for a ranking nobody would think to re-run.
+`total_rating_count` and `hypes` are **asked for and never stored**. They are facts about how many
+people have played a game today rather than facts about the game, so a copy would go stale while
+answering for a ranking nobody would think to re-run.
 
-Measured against the live API rather than reasoned about. Every one of these improved or
-stayed put, and none regressed: *Hollow Knight Silksong*, *Silksong*, *Halo 3* (was ODST),
-*Mario Kart 8* (was a Mercedes-Benz promo), *Elden Ring* (was Nightreign), *Final Fantasy VII*
-(was a 41-rating re-release), *Doom* (was Doom II), *Zelda*, *Celeste*, *Celeste Classic 2*,
-*Elden Ring GB*, *Outer Wilds*, *Stardew Valley*.
+Measured against the live API rather than reasoned about. All correct as of August 2026:
+*pokemon s*, *hollow k*, *mario ka*, *zeld*, *botw*, *gta v*, *final fantasy 7*, *Hollow Knight*,
+*Hollow Knight Silksong*, *Silksong*, *Zelda*, *Celeste*, *Celeste Classic 2*, *Celeste Witch*,
+*Halo 3*, *Doom*, *Mario Kart 8*, *Elden Ring*, *Elden Ring GB*, *Final Fantasy VII Rebirth*,
+*Outer Wilds*, *Stardew Valley*.
 
-**The e2e stub had to be made fuzzy for this to be testable at all.** `matchesTerm` was a raw
-substring test, so "Hollow Knight Silksong" never matched "Hollow Knight: Silksong" and the
-real game simply was not in the results — the colon between them is the whole point. It now
-flattens punctuation on both sides, as the real endpoint effectively does. The spec was
-checked by disabling `Rank` and watching it come back with the fan game on top.
+**The e2e stub is as limited as the real endpoint, deliberately.** Its `matchesTerm` requires
+every token to match a **whole word**, so "hollow k" finds nothing there either and only the slug
+question can answer `half a title is enough to find a game`. It flattens punctuation on both sides
+for the same reason the ranking does — a raw substring test would never match "Hollow Knight:
+Silksong" against "Hollow Knight Silksong", and the colon between them is the entire point. The
+ranking spec was checked by disabling `Rank` and watching the fan game come back to the top.
+
+One trap the suite caught: the stub's game-type filter used to anchor on `where game_type`, and
+the slug query writes `& game_type`. Mods sailed through the second question while the first was
+still filtering them.
 
 ## API
 

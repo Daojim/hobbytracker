@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
@@ -81,22 +82,89 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     // static readonly rather than const: C# will only fold an interpolated string into a
     // constant when every hole is itself a constant *string*, and these ids are worth more as
     // numbers than the interpolation is worth as a compile-time fold.
-    private static readonly string ExcludeBundlesAndMods =
-        $"where game_type != ({BundleType},{ModType});";
+    //
+    // A bare condition rather than a whole clause, because the slug query below has a
+    // condition of its own to and it with.
+    private static readonly string NotABundleOrMod =
+        $"game_type != ({BundleType},{ModType})";
 
-    public Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(
+    /// <summary>
+    /// The shortest slug pattern worth asking about.
+    ///
+    /// <c>*"a"*</c> matches most of the catalogue, so a one-letter search would come back with
+    /// the ten most-rated games containing an "a" — noise dressed as an answer, and a request
+    /// nobody wanted. The relevance question still runs.
+    /// </summary>
+    private const int ShortestSlugPattern = 2;
+
+    /// <summary>
+    /// Everything IGDB will admit to knowing about a term, from two questions rather than one.
+    ///
+    /// <para>
+    /// IGDB's <c>search</c> is full text over whole words and does <b>no prefix matching</b>.
+    /// "hollow k" answers with nothing at all; "pokemon s" answers with Pokemon Topaz and Name
+    /// That Pokemon rather than Pokémon Sword. Typing half a title is the ordinary way to use a
+    /// search box, so that is not a limitation worth passing on to the app.
+    /// </para>
+    ///
+    /// <para>
+    /// A <c>slug</c> match does the prefix half. Slugs are accent-free where names are not,
+    /// which is the only reason "pokemon s" can reach "Pokémon Sword" at all — <c>name ~</c> is
+    /// accent-sensitive and finds only the handful of games actually spelled "Pokemon".
+    /// </para>
+    ///
+    /// <para>
+    /// Neither question can be dropped. Slugs cannot do abbreviations or numerals: "botw",
+    /// "gta v" and "final fantasy 7" all find their game through <c>search</c> and nothing
+    /// through slugs. Prefixes are the other way about. So both run, in parallel — sequential
+    /// would double how long a keystroke takes to answer — and the caller ranks what comes
+    /// back. See <see cref="Services.IgdbRelevance"/>.
+    /// </para>
+    ///
+    /// Answers with up to twice <paramref name="limit"/>, because it asked twice. Ordering the
+    /// merged set is the caller's job and so is cutting it back down.
+    /// </summary>
+    public async Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(
         string search, int limit, CancellationToken cancellationToken)
     {
-        // The where clause goes in the query rather than over the results, because IGDB
-        // applies it before the limit: filtering afterwards would ask for ten and return six.
-        var query = $"""
+        // The type filter goes in the query rather than over the results, because IGDB applies
+        // where before limit: filtering afterwards would ask for ten and hand back six.
+        var byRelevance = QueryAsync(
+            $"""
             search "{SanitizeSearchTerm(search)}";
             {SearchFields}
-            {ExcludeBundlesAndMods}
+            where {NotABundleOrMod};
             limit {limit};
-            """;
+            """,
+            cancellationToken);
 
-        return QueryAsync(query, cancellationToken);
+        var pattern = SlugPatternOf(search);
+
+        // Sorting is allowed here only because this query carries no `search`: IGDB refuses
+        // the two together with a 406 saying relevance is already the sort. Without one, which
+        // ten of the hundreds of slug matches come back would be arbitrary.
+        var byPrefix = pattern.Length < ShortestSlugPattern
+            ? Task.FromResult<IReadOnlyList<IgdbGame>>([])
+            : QueryAsync(
+                $"""
+                {SearchFields}
+                where slug ~ *"{pattern}"* & {NotABundleOrMod};
+                sort total_rating_count desc;
+                limit {limit};
+                """,
+                cancellationToken);
+
+        var answers = await Task.WhenAll(byRelevance, byPrefix);
+
+        // Relevance first, then whatever only the prefix question found. The same game comes
+        // back from both far more often than not, and a repeated id would be upserted twice
+        // and rendered as two identical results.
+        var merged = new List<IgdbGame>(answers[0]);
+        var seen = merged.Select(game => game.Id).ToHashSet();
+
+        merged.AddRange(answers[1].Where(game => seen.Add(game.Id)));
+
+        return merged;
     }
 
     /// <summary>
@@ -191,4 +259,44 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
               .Replace("\n", " ")
               .Replace("\r", " ")
               .Trim();
+
+    /// <summary>
+    /// What a term looks like once IGDB has made a slug of it: lower case, accents folded, and
+    /// every run of anything else turned into a single hyphen. "Pokémon S" becomes
+    /// <c>pokemon-s</c>, which is the prefix of <c>pokemon-sword</c> and <c>pokemon-silver-version</c>.
+    ///
+    /// This doubles as the escaping. The result can only hold letters, digits and hyphens, so
+    /// there is nothing left that could close the APIcalypse string early — which is a rule
+    /// <see cref="SanitizeSearchTerm"/> has to enforce by hand because it keeps spaces.
+    /// </summary>
+    private static string SlugPatternOf(string search)
+    {
+        var builder = new StringBuilder(search.Length);
+        var pendingHyphen = false;
+
+        foreach (var rune in search.Normalize(NormalizationForm.FormD))
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(rune) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsAsciiLetterOrDigit(rune))
+            {
+                if (pendingHyphen && builder.Length > 0)
+                {
+                    builder.Append('-');
+                }
+
+                builder.Append(char.ToLowerInvariant(rune));
+                pendingHyphen = false;
+            }
+            else
+            {
+                pendingHyphen = true;
+            }
+        }
+
+        return builder.ToString();
+    }
 }

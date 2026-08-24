@@ -12,6 +12,14 @@ public sealed class IgdbClientTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    /// <summary>The relevance half of a search — the one carrying an APIcalypse `search`.</summary>
+    private static RecordedRequest SearchQuery(StubHttpMessageHandler stub) =>
+        stub.Requests.Single(request => request.Body?.Contains("search \"") == true);
+
+    /// <summary>The prefix half — the one asking about slugs, which carries no `search`.</summary>
+    private static RecordedRequest SlugQuery(StubHttpMessageHandler stub) =>
+        stub.Requests.Single(request => request.Body?.Contains("slug ~") == true);
+
     [Fact]
     public async Task Builds_an_apicalypse_query_body()
     {
@@ -20,7 +28,7 @@ public sealed class IgdbClientTests
 
         await client.SearchGamesAsync("halo", 5, Ct);
 
-        var request = stub.Requests.ShouldHaveSingleItem();
+        var request = SearchQuery(stub);
 
         // APIcalypse goes in the POST body, not the query string -- a detail that catches
         // everyone the first time they use IGDB.
@@ -46,6 +54,81 @@ public sealed class IgdbClientTests
     }
 
 
+    [Fact]
+    public async Task Asks_two_questions_because_search_cannot_do_prefixes()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        await client.SearchGamesAsync("hollow k", 10, Ct);
+
+        // IGDB's `search` is full text over whole words and does no prefix matching at all:
+        // "hollow k" answers with nothing, and "pokemon s" answers with Pokemon Topaz rather
+        // than Pokémon Sword. A slug match does the prefix half, and slugs are accent-free
+        // where names are not — which is the only reason "pokemon s" can reach "Pokémon".
+        stub.Requests.Count.ShouldBe(2);
+
+        SearchQuery(stub).Body.ShouldNotBeNull().ShouldContain("search \"hollow k\";");
+
+        var slug = SlugQuery(stub).Body.ShouldNotBeNull();
+        slug.ShouldContain("where slug ~ *\"hollow-k\"*");
+        slug.ShouldNotContain("search");
+
+        // Without a sort, which ten of the hundreds of slug matches come back is arbitrary.
+        // Sorting is only allowed because this query carries no `search` — IGDB refuses the
+        // two together with a 406.
+        slug.ShouldContain("sort total_rating_count desc;");
+    }
+
+    [Theory]
+    [InlineData("Pokémon S", "pokemon-s")]
+    [InlineData("Hollow Knight: Silksong", "hollow-knight-silksong")]
+    [InlineData("  spaced  out  ", "spaced-out")]
+    [InlineData("Ni no Kuni II: Revenant Kingdom", "ni-no-kuni-ii-revenant-kingdom")]
+    public async Task Writes_the_slug_pattern_the_way_igdb_writes_slugs(
+        string search, string expected)
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        await client.SearchGamesAsync(search, 10, Ct);
+
+        // Accents folded and punctuation hyphenated, because that is what IGDB does to build
+        // a slug: "Pokémon Sword" is pokemon-sword. Folding is the whole point — `name ~` is
+        // accent-sensitive, so matching on names finds only the games nobody has heard of.
+        SlugQuery(stub).Body.ShouldNotBeNull().ShouldContain($"slug ~ *\"{expected}\"*");
+    }
+
+    [Fact]
+    public async Task Merges_both_answers_and_lists_each_game_once()
+    {
+        // The same game comes back from both questions far more often than not.
+        var stub = new StubHttpMessageHandler((request, _) =>
+            StubHttpMessageHandler.Respond(
+                HttpStatusCode.OK,
+                request.Body?.Contains("slug ~") == true
+                    ? """[{ "id": 2, "name": "Hollow Knight: Silksong" }, { "id": 1, "name": "Hollow Knight" }]"""
+                    : """[{ "id": 1, "name": "Hollow Knight" }]"""));
+
+        var games = await CreateClient(stub).SearchGamesAsync("hollow k", 10, Ct);
+
+        // Relevance first, then whatever only the prefix question found. IgdbRelevance decides
+        // the order the caller actually sees; this only has to not lose or repeat anything.
+        games.Select(game => game.Id).ShouldBe([1, 2]);
+    }
+
+    [Fact]
+    public async Task Does_not_ask_about_slugs_when_there_is_almost_nothing_to_match_on()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        await client.SearchGamesAsync("a", 10, Ct);
+
+        // *"a"* matches most of the catalogue, so the ten most-rated games containing an "a"
+        // would come back for every one-letter search — noise, and a request nobody wanted.
+        stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull().ShouldContain("search");
+    }
     [Fact]
     public async Task Builds_a_by_id_query_body_for_the_backfill()
     {
@@ -83,8 +166,8 @@ public sealed class IgdbClientTests
         // In the query rather than over the results, because IGDB applies `where` before
         // `limit`: filtering afterwards would ask for ten and hand back six. Searching
         // "Hollow Knight" without this returns a mod of it above the game itself.
-        var request = stub.Requests.ShouldHaveSingleItem();
-        request.Body.ShouldNotBeNull().ShouldContain("where game_type != (3,5);");
+        SearchQuery(stub).Body.ShouldNotBeNull().ShouldContain("where game_type != (3,5);");
+        SlugQuery(stub).Body.ShouldNotBeNull().ShouldContain("game_type != (3,5)");
     }
 
     [Fact]
@@ -129,7 +212,7 @@ public sealed class IgdbClientTests
         // APIcalypse delimits the term with double quotes and defines no escape sequence, so a
         // quote in user input would end the clause early and leave the rest to be parsed as
         // query syntax.
-        stub.Requests.Single().Body.ShouldNotBeNull().ShouldContain(expected);
+        SearchQuery(stub).Body.ShouldNotBeNull().ShouldContain(expected);
     }
 
     [Fact]
