@@ -3,6 +3,7 @@ import { CONNECTION_STRING } from './e2e/support/database';
 
 const STUB_PORT = 5399;
 const HLTB_STUB_PORT = 5398;
+const GOOGLE_STUB_PORT = 5397;
 const API_PORT = 5202;
 const WEB_PORT = 5174;
 
@@ -52,6 +53,11 @@ export default defineConfig({
       reuseExistingServer: true,
     },
     {
+      command: 'node e2e/support/google-stub.mjs',
+      url: `http://localhost:${GOOGLE_STUB_PORT}/health`,
+      reuseExistingServer: true,
+    },
+    {
       // --no-launch-profile, or launchSettings.json pins :5201 and quietly wins over
       // ASPNETCORE_URLS, leaving the tests talking to whatever is on the development port.
       // The migration is chained in rather than run from globalSetup, which Playwright does not
@@ -59,7 +65,11 @@ export default defineConfig({
       // a database that did not exist yet.
       command:
         'node e2e/support/prepare-database.mjs && dotnet run --project ../backend/src/HobbyTracker.Api --no-launch-profile',
-      url: `http://localhost:${API_PORT}/api/library/years?hobby=games`,
+      // Readiness asks the one route that is meant to answer without a session: /api/auth/me is
+      // 200 and null when nobody is signed in, by design. A board route would do until the day
+      // [Authorize] lands and then 401 forever, which Playwright reports as a server that never
+      // started rather than as a permission problem.
+      url: `http://localhost:${API_PORT}/api/auth/me`,
       reuseExistingServer: true,
       timeout: 240_000,
       env: {
@@ -97,6 +107,15 @@ export default defineConfig({
         // requests before the first title is even looked up. Nothing here needs protecting from
         // us, and a spec that waited it out would spend its whole budget being polite to a stub.
         Hltb__MinSecondsBetweenRequests: '0',
+
+        // The provider, pointed at the stub the same way IGDB and HowLongToBeat are. Every
+        // endpoint is a plain option precisely so this is possible: the framework's real OAuth
+        // handler runs here, so what the specs exercise is what runs against Google.
+        Auth__Google__ClientId: 'e2e-google-client',
+        Auth__Google__ClientSecret: 'e2e-google-secret',
+        Auth__Google__AuthorizationEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/o/oauth2/v2/auth`,
+        Auth__Google__TokenEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/token`,
+        Auth__Google__UserInfoEndpoint: `http://localhost:${GOOGLE_STUB_PORT}/v1/userinfo`,
       },
     },
     {

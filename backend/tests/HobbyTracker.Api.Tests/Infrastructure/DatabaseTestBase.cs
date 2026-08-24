@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -63,15 +64,38 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
 
     private ApiFactory? _factory;
     private HttpClient? _client;
+    private readonly List<HttpClient> _extraClients = [];
 
     protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Hltb, HltbQueue, Clock);
     protected HttpClient Client => _client ??= Factory.CreateClient();
+
+    /// <summary>Nobody signed in, for asserting that a route says so.</summary>
+    protected HttpClient AnonymousClient => Client;
+
+    /// <summary>
+    /// A client signed in as one particular user. Two of these is how a test says "and the
+    /// other person sees none of it", which is the only shape that can catch a leak.
+    /// </summary>
+    protected HttpClient ClientFor(int userId)
+    {
+        var client = Factory.CreateClient();
+        client.DefaultRequestHeaders.Add(
+            TestAuthHandler.UserHeader, userId.ToString(CultureInfo.InvariantCulture));
+
+        _extraClients.Add(client);
+        return client;
+    }
 
     public virtual async ValueTask InitializeAsync() => await Postgres.ResetAsync();
 
     public virtual async ValueTask DisposeAsync()
     {
         _client?.Dispose();
+
+        foreach (var client in _extraClients)
+        {
+            client.Dispose();
+        }
 
         if (_factory is not null)
         {
@@ -173,5 +197,25 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
             db.LogEntries.Add(entry);
             await db.SaveChangesAsync(Ct);
             return entry.Id;
+        });
+
+    /// <summary>
+    /// Somebody to own rows. Respawn truncates <c>users</c> between tests, so each one makes its
+    /// own rather than sharing a fixture — which is also what lets a test make two.
+    /// </summary>
+    protected Task<int> GivenUserAsync(string displayName = "Test User") => WithDbAsync(async db =>
+        {
+            var user = new User
+            {
+                DisplayName = displayName,
+
+                // Not nullable, and these rows bypass the service that would stamp it. Pinned to
+                // the stopped clock so it is deterministic, exactly as LoggedAt is.
+                CreatedAt = Clock.UtcNow,
+            };
+
+            db.Users.Add(user);
+            await db.SaveChangesAsync(Ct);
+            return user.Id;
         });
 }
