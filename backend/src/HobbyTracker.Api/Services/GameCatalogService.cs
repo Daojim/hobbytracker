@@ -51,19 +51,23 @@ public sealed class GameCatalogService(
     public async Task<IReadOnlyList<GameDto>> SearchAsync(
         string search, int? limit, CancellationToken cancellationToken)
     {
-        var results = await igdb.SearchGamesAsync(
+        var found = await igdb.SearchGamesAsync(
             search, limit ?? options.Value.DefaultSearchLimit, cancellationToken);
 
-        if (results.Count == 0)
+        if (found.Count == 0)
         {
             return [];
         }
 
+        // Re-decided here rather than asked for in the query: IGDB refuses a search carrying
+        // a sort outright, with a 406 saying so. See IgdbRelevance for what it is fixing.
+        var results = IgdbRelevance.Rank(search, found);
+
         var stored = await UpsertAsync(results, cancellationToken);
 
-        // Hand results back in IGDB's relevance order. That ordering is the entire value of
-        // an APIcalypse `search`, and the database has no idea it exists — reading the rows
-        // back in id order would put whichever title we happened to see first at the top.
+        // Hand results back in the ranked order. IGDB's relevance is most of it and the
+        // database has no idea it exists — reading the rows back in id order would put
+        // whichever title we happened to see first at the top.
         return
         [
             .. results

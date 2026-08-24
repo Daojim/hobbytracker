@@ -30,10 +30,11 @@ laptop widths turned up, in three more commits:
 5. **search above the board** rather than on a screen of its own. See **Search on the board**;
 6. **a hobby nav**, with the five that do not exist yet saying *Soon*. See **The hobby nav**.
 
-**Search no longer offers mods and bundles.** One clause in the APIcalypse, on branch
-`filter-mods-and-bundles`. See **Game types** under **IGDB integration**.
+**Search answers with the game you meant**, on branch `filter-mods-and-bundles`: mods and
+bundles are gone, and what is left is ordered so a fan game cannot outrank the thing it is
+named after. See **Game types** and **Ranking search results** under **IGDB integration**.
 
-Everything is green and everything has been run: backend 253, frontend 296, Playwright 59. See
+Everything is green and everything has been run: backend 261, frontend 296, Playwright 60. See
 **The redesign** for the whole of it, and for the four bugs it found on the way.
 
 Nine plans. The current one is
@@ -52,7 +53,7 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished.** #11 and #12 are both merged; the game-type filter is green on
+**Nothing is half-finished.** #11 and #12 are both merged; the search work is green on
 `filter-mods-and-bundles`. Two things worth knowing before a first run either way:
 
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
@@ -80,15 +81,16 @@ contact with the site. The earlier five are the board's:
 8. ~~End-to-end~~ — `e2e/support/hltb-stub.mjs` on :5398 as a fourth `webServer`, and
    `e2e/hltb.spec.ts`. See **What the stub is for** below.
 
-**Three things about search worth not re-deriving.** It debounces at 300ms because the API reaches
+**Four things about search worth not re-deriving.** It debounces at 300ms because the API reaches
 IGDB on *every* call by design and caches nothing — the debounce is the only thing between typing
 "hollow" and six requests. And a result already in your library shows "On your board" rather than
 an add button, because a second Backlog entry is not a replay but the card would render it as
 one. Knowing that needs the whole library, so `libraryMediaIds()` pages to the end rather than
 stopping at the API's maximum page size; capping it would offer to add your hundred-and-first
-title twice. And it asks IGDB for main games only, in the sense of **not mods and not
-bundles** — see **Game types** below, because the reason it is a `where` clause rather than a
-filter over the results is not obvious.
+title twice. It asks IGDB for main games only, in the sense of **not mods and not bundles** —
+see **Game types** below, because the reason it is a `where` clause rather than a filter over
+the results is not obvious. And **it does not hand back the order IGDB gave it**; see
+**Ranking search results**.
 
 **The column query key is `['library', hobby, status, { sort, year }]`** — see
 `frontend/src/board/keys.ts`, which is the only place it is spelled out. The sort and the year
@@ -232,9 +234,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 253 tests
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 261 tests
 cd frontend && npm test                             # frontend, 296 tests
-cd frontend && npm run test:e2e                     # 59 specs in a real browser
+cd frontend && npm run test:e2e                     # 60 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -555,16 +557,72 @@ Four things behind that one line, each of which cost something to establish:
   whatever IGDB said the day it was added, for ever, with nothing reporting the skip.
   `IgdbClientTests.Leaves_the_backfill_able_to_refresh_anything_already_logged` pins that.
 
-**Two consequences that are choices rather than bugs.** Bundle drops some things people do
-play — *Halo: The Master Chief Collection* and *The Witcher 3: Game of the Year Edition* are
-both filed as bundles. And `Season` is untouched, so "Mario Kart" still returns ten
-*Mario Kart Tour: … Tour* seasons and none of the actual games. Both were left alone on
-purpose; neither is hard to change, and each is one id in that clause.
+**Bundle is the arguable half, and is meant to stay easy to take back.** It catches things
+people genuinely play: *Halo: The Master Chief Collection* and *The Witcher 3: Game of the
+Year Edition* are both filed as bundles. It is excluded because most bundles are shovelware
+pairs nobody logs, and the user has said to leave the door open rather than settle it. So the
+ids are named constants — `BundleType` and `ModType` in `IgdbClient` — and re-enabling is one
+edit: drop `BundleType` from the clause, and delete the half of the client test and the e2e
+spec that name a bundle. **Do not treat this one as settled.**
+
+`Season` is untouched, which is a live annoyance rather than a decision: "Mario Kart" returns
+ten *Mario Kart Tour: … Tour* seasons and none of the actual games. Adding `7` to the clause
+would fix it and has not been asked for.
 
 **The e2e stub honours the clause rather than ignoring it.** `igdb-stub.mjs` carries a mod and
 a bundle in its catalogue, both matching "hollow", and parses `where game_type != (...)` — so
 `a mod and a bundle never reach the strip` goes red if the clause is ever dropped from the
 client, instead of passing because the stub never had one.
+
+### Ranking search results
+
+`Services/IgdbRelevance` re-orders what a search returns. Filtering mods and bundles was only
+half the problem: **IGDB ranks on string relevance, and string relevance cannot tell a game
+from a fan game named after it.** Searching "Hollow Knight Silksong" returns a Game Boy Color
+game by one person, no ratings and one platform, *above* Team Cherry's — because the fan
+game's title is that exact string and the real one has a colon in it. No amount of title
+matching fixes that; the fan game is genuinely the better string match.
+
+The rule is three lines, and each is the guard on the one below it:
+
+1. **A title that does not contain what you typed at all can never outrank one that does.**
+   IGDB pads a search out with fuzzy matches, and without this floor a famous one buries the
+   obscure game you asked for by name — "Celeste" has 1465 ratings and "Celeste Classic 2:
+   Lani's Trek" has none, but nobody typing the latter wanted the former.
+2. **Above that floor, the one more people have played comes first.** `total_rating_count +
+   hypes`, added rather than chosen between because they cover different halves of a game's
+   life: an unreleased game has no ratings by definition, and Silksong sat on 220 hypes and
+   nothing else for years, which was exactly when it was most searched for.
+3. **Title match breaks the ties, and IGDB's own order breaks what is left.** The sort is
+   stable, so results this rule has nothing to say about keep the order IGDB put them in.
+
+**Ordering by title first and popularity second was tried and is wrong.** It fixes the fan
+game and creates the "Zelda" case: there is a game called exactly "Zelda" with no ratings at
+all, and it went straight to the top above *The Legend of Zelda* — the same bug wearing a
+different hat. That is why popularity is not merely a tie-break, and why
+`Does_not_let_an_exact_title_nobody_has_rated_come_first_either` exists.
+
+**It cannot be done in the query.** IGDB rejects a search carrying a sort outright:
+`406 "Search is sorting on relevancy and therefore sort is not applicable on search"`. So the
+ordering is re-decided over the page IGDB chose to return, in `GameCatalogService.SearchAsync`
+before the upsert, which is what makes the existing "relevance order, not database order"
+test still mean something.
+
+`total_rating_count` and `hypes` are **asked for and never stored**. They are facts about how
+many people have played a game today rather than facts about the game, so a copy would go
+stale while answering for a ranking nobody would think to re-run.
+
+Measured against the live API rather than reasoned about. Every one of these improved or
+stayed put, and none regressed: *Hollow Knight Silksong*, *Silksong*, *Halo 3* (was ODST),
+*Mario Kart 8* (was a Mercedes-Benz promo), *Elden Ring* (was Nightreign), *Final Fantasy VII*
+(was a 41-rating re-release), *Doom* (was Doom II), *Zelda*, *Celeste*, *Celeste Classic 2*,
+*Elden Ring GB*, *Outer Wilds*, *Stardew Valley*.
+
+**The e2e stub had to be made fuzzy for this to be testable at all.** `matchesTerm` was a raw
+substring test, so "Hollow Knight Silksong" never matched "Hollow Knight: Silksong" and the
+real game simply was not in the results — the colon between them is the whole point. It now
+flattens punctuation on both sides, as the real endpoint effectively does. The spec was
+checked by disabling `Rank` and watching it come back with the fan game on top.
 
 ## API
 

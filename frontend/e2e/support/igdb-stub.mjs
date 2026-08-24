@@ -20,9 +20,12 @@ const PORT = Number(process.env.STUB_PORT ?? 5399);
  * not paint, which is what lets a spec show the automatic pick choosing the specific genre over
  * the word that describes half the catalogue.
  *
- * gameType mirrors IGDB game_type: 0 Main Game, 3 Bundle, 5 Mod. The last two entries are the
- * only ones that are not real games, and they exist so a spec can watch them not arrive —
- * searching "Hollow Knight" on the live API really does put a mod of it above the game.
+ * gameType mirrors IGDB game_type: 0 Main Game, 3 Bundle, 5 Mod, and ratings mirrors
+ * total_rating_count. The last four entries are the ones that are not the real thing, and
+ * they exist so a spec can watch them lose. None of it is invented: searching "Hollow Knight"
+ * on the live API really does return a mod of it, and searching "Hollow Knight Silksong"
+ * really does put a one-person Game Boy Color game above Team Cherry's, because the fan
+ * game's title is the exact string and the real one has a colon in it.
  */
 const CATALOGUE = [
   { id: 3001, gameType: 0, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games',
@@ -41,11 +44,20 @@ const CATALOGUE = [
     developer: 'Team Cherry', genres: ['Platform'] },
   { id: 3008, gameType: 3, name: 'Hollow Knight Collection', platforms: ['PC', 'Switch'],
     developer: 'Team Cherry', genres: ['Platform'] },
+  // Listed above the real one on purpose, so the catalogue order is the wrong order and
+  // something has to actively fix it.
+  { id: 3009, gameType: 0, name: 'Hollow Knight Silksong', platforms: ['Game Boy Color'],
+    developer: 'Elvies', genres: ['Platform'] },
+  { id: 3010, gameType: 0, ratings: 502, name: 'Hollow Knight: Silksong',
+    platforms: ['PC', 'Switch'], developer: 'Team Cherry', genres: ['Platform'] },
 ];
 
 const asIgdbGame = (game) => ({
   id: game.id,
   name: game.name,
+  // What IgdbRelevance ranks on. Absent rather than zero for most of the catalogue, because
+  // IGDB omits a field it has no value for rather than sending a null.
+  ...(game.ratings === undefined ? {} : { total_rating_count: game.ratings }),
   // A list, because IGDB returns one — a single-platform stub cannot show that the drawer's
   // choices come from the game rather than from somewhere else.
   platforms: game.platforms.map((name, index) => ({ id: 6 + index, name })),
@@ -56,9 +68,26 @@ const asIgdbGame = (game) => ({
 });
 
 
-/** APIcalypse, not a query string: `search "celeste"; fields ...; limit 20;` */
-const matchesTerm = (term) =>
-  CATALOGUE.filter((game) => game.name.toLowerCase().includes(term.toLowerCase().trim()));
+/**
+ * APIcalypse, not a query string: `search "celeste"; fields ...; limit 20;`
+ *
+ * Matched on letters and digits only, because the real endpoint is fuzzy and a raw substring
+ * test is not. Searching "Hollow Knight Silksong" has to reach "Hollow Knight: Silksong" — the
+ * colon between them is the entire reason IgdbRelevance exists, so a stub that let the colon
+ * hide the real game would make the ranking spec unwritable.
+ */
+const flatten = (value) =>
+  value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const matchesTerm = (term) => {
+  const wanted = flatten(term);
+  return CATALOGUE.filter((game) => flatten(game.name).includes(wanted));
+};
 
 /**
  * `where game_type != (3,5);` — honoured rather than ignored, so a spec that watches a mod

@@ -39,25 +39,50 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     //
     // involved_companies.developer alongside the company name because IGDB has no "developer"
     // field on a game: involvement is a join carrying role flags, so we fetch both and filter.
+    // total_rating_count and hypes are asked for but never stored. They are what
+    // Services.IgdbRelevance uses to break a tie between two titles that match equally
+    // well — which is how a fan game called "Hollow Knight Silksong" stops outranking
+    // "Hollow Knight: Silksong".
     private const string SearchFields =
         "fields id, name, first_release_date, cover.image_id, platforms.name, genres.name, " +
+        "total_rating_count, hypes, " +
         "involved_companies.developer, involved_companies.company.name;";
 
+    // IGDB game_type ids, read off /v4/game_types rather than assumed from the deprecated
+    // `category` enum they used to share numbering with. Only the two that are excluded are
+    // named; the rest are in CLAUDE.md under Game types.
+    private const int BundleType = 3;
+    private const int ModType = 5;
+
     /// <summary>
-    /// The game types a search should never offer: 3 is Bundle and 5 is Mod.
+    /// The game types a search should never offer.
     ///
-    /// Both describe something you cannot play on its own, and IGDB ranks them alongside the
-    /// real thing — searching "Hollow Knight" returns a mod of it <em>above</em> the game.
+    /// Neither is a thing you play on its own, and IGDB ranks them alongside the real thing —
+    /// searching "Hollow Knight" returns a mod of it <em>above</em> the game.
     ///
-    /// The ids come from /v4/game_types rather than from the <c>category</c> enum they used to
-    /// share numbering with. <c>category</c> is deprecated in favour of <c>game_type</c>, and is
-    /// no longer populated at all — asking for it comes back absent on every row, so a filter
-    /// written against it would silently exclude nothing.
+    /// <para>
+    /// <b>Bundle is the arguable one, and is meant to stay easy to take back.</b> It catches
+    /// things people genuinely play and would want on a board: <i>Halo: The Master Chief
+    /// Collection</i> and <i>The Witcher 3: Game of the Year Edition</i> are both filed as
+    /// bundles. Excluded for now because most bundles are shovelware pairs nobody logs, and
+    /// re-enabling is one edit: drop <see cref="BundleType"/> from the clause below and delete
+    /// the half of the client test and the e2e spec that name a bundle.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>category</c> is <b>not</b> the field to write this against. It is deprecated in favour
+    /// of <c>game_type</c> and is no longer populated at all — asking for it comes back absent
+    /// on every row, so a filter written against it excludes nothing while reading as correct.
+    /// </para>
     ///
     /// Deliberately not applied to <see cref="GetGamesAsync"/>: those ids are already on the
     /// board, and a title logged before this filter existed has to stay refreshable.
     /// </summary>
-    private const string ExcludeBundlesAndMods = "where game_type != (3,5);";
+    // static readonly rather than const: C# will only fold an interpolated string into a
+    // constant when every hole is itself a constant *string*, and these ids are worth more as
+    // numbers than the interpolation is worth as a compile-time fold.
+    private static readonly string ExcludeBundlesAndMods =
+        $"where game_type != ({BundleType},{ModType});";
 
     public Task<IReadOnlyList<IgdbGame>> SearchGamesAsync(
         string search, int limit, CancellationToken cancellationToken)

@@ -74,6 +74,18 @@ test('a mod and a bundle never reach the strip', async ({ page }) => {
   await expect(page.getByText('Hollow Knight Collection')).toHaveCount(0);
 });
 
+test('the real game comes first, not the fan game named after it', async ({ page }) => {
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('Hollow Knight Silksong');
+
+  // Both are Main Games, so the game-type filter has nothing to say about this one. The fan
+  // game is the better *string* match — it is the exact title typed, and the real one has a
+  // colon in it — and the stub lists it first, so IGDB relevance alone would leave it on top.
+  const titles = page
+    .getByRole('region', { name: 'Search results' })
+    .getByRole('heading', { level: 3 });
+
+  await expect(titles.first()).toHaveText('Hollow Knight: Silksong');
+});
 test('the old search address lands on the board', async ({ page }) => {
   // The screen is gone, but a bookmark to it should not be a dead end.
   await page.goto('/search');

@@ -22,6 +22,22 @@ public sealed class IgdbGame
     /// </summary>
     public long? FirstReleaseDate { get; set; }
 
+    /// <summary>
+    /// How many people have rated it, across IGDB members and the outlets it aggregates.
+    ///
+    /// Read only by <see cref="Services.IgdbRelevance"/>, and never stored: this is a fact
+    /// about how many people have played a game today, not a fact about the game, so keeping
+    /// a copy would mean holding a number that quietly goes stale and answers for a ranking
+    /// nobody would think to re-run.
+    /// </summary>
+    public int? TotalRatingCount { get; set; }
+
+    /// <summary>
+    /// How many people have said they want it. The only signal an unreleased game has, and
+    /// so the other half of <see cref="Services.IgdbRelevance"/>'s tie-break.
+    /// </summary>
+    public int? Hypes { get; set; }
+
     public IgdbCover? Cover { get; set; }
     public List<IgdbPlatform>? Platforms { get; set; }
     public List<IgdbGenre>? Genres { get; set; }
