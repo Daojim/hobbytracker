@@ -50,12 +50,14 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
         // it makes, so the default is a backstop rather than the normal path.
         builder.Property(e => e.LoggedAt).HasDefaultValueSql("now()");
 
-        // SetNull rather than Cascade: deleting an account should not erase the journal, and
-        // UserId is nullable already while auth is still ahead of us.
+        // Cascade rather than SetNull, and it had to change with the column: EF refuses SetNull
+        // against a non-nullable foreign key and fails model validation at boot rather than at
+        // runtime. Deleting an account now takes its journal with it, which is the honest
+        // reading — a pass with no owner cannot exist, so there is nothing to leave behind.
         builder.HasOne(e => e.User)
             .WithMany(u => u.LogEntries)
             .HasForeignKey(e => e.UserId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Cascade here is correct: an entry is meaningless without the title it logs.
         builder.HasOne(e => e.Media)

@@ -8,8 +8,12 @@ public class LogEntry
 {
     public int Id { get; set; }
 
-    /// <summary>Nullable until auth arrives; every row is the single local user for now.</summary>
-    public int? UserId { get; set; }
+    /// <summary>
+    /// Whose pass this is. Never null: a journal entry belonging to nobody is not something the
+    /// app can show, scope or delete sensibly, and the column was only ever nullable so the
+    /// board could be built before sign-in existed.
+    /// </summary>
+    public int UserId { get; set; }
     public User? User { get; set; }
 
     public int MediaId { get; set; }

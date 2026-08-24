@@ -24,7 +24,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         await WithDbAsync(async db =>
         {
-            db.LogEntries.Add(new LogEntry { MediaId = mediaId, Status = LogStatus.Completed, Rating = rating });
+            db.LogEntries.Add(new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.Completed, Rating = rating });
             await db.SaveChangesAsync(Ct);
         });
 
@@ -41,7 +41,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
         {
-            db.LogEntries.Add(new LogEntry { MediaId = mediaId, Status = LogStatus.Completed, Rating = rating });
+            db.LogEntries.Add(new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.Completed, Rating = rating });
             await db.SaveChangesAsync(Ct);
         }));
 
@@ -58,7 +58,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         await WithDbAsync(async db =>
         {
-            db.LogEntries.Add(new LogEntry { MediaId = mediaId, Status = LogStatus.Completed, Rating = 8.75m });
+            db.LogEntries.Add(new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.Completed, Rating = 8.75m });
             await db.SaveChangesAsync(Ct);
         });
 
@@ -75,6 +75,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         {
             db.LogEntries.Add(new LogEntry
             {
+                UserId = UserId,
                 MediaId = mediaId,
                 Status = LogStatus.Completed,
                 StartedAt = Eastern(2026, 8, 20),
@@ -123,7 +124,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         await WithDbAsync(async db =>
         {
-            db.LogEntries.Add(new LogEntry { MediaId = mediaId, Status = LogStatus.Backlog });
+            db.LogEntries.Add(new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.Backlog });
             await db.SaveChangesAsync(Ct);
         });
 
@@ -148,7 +149,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         var entryId = await WithDbAsync(async db =>
         {
-            var entry = new LogEntry { MediaId = mediaId, Status = LogStatus.InProgress };
+            var entry = new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.InProgress };
             entry.Notes.Add(new Note { Body = "stuck on watcher knights" });
             entry.Notes.Add(new Note { Body = "finally beat radiance" });
 
@@ -176,7 +177,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
         {
-            var entry = new LogEntry { MediaId = mediaId, Status = LogStatus.InProgress };
+            var entry = new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.InProgress };
             entry.Notes.Add(new Note { Body = new string('x', 4001) });
 
             db.LogEntries.Add(entry);
@@ -210,7 +211,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         await WithDbAsync(async db =>
         {
-            db.LogEntries.Add(new LogEntry { MediaId = mediaId, Status = LogStatus.InProgress });
+            db.LogEntries.Add(new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.InProgress });
             await db.SaveChangesAsync(Ct);
         });
 
