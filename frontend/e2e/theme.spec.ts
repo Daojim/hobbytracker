@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { openJournal, seed } from './support/board';
 import { resetDatabase } from './support/database';
+import { signIn } from './support/auth';
 
 /**
  * Choosing a theme, and it still being chosen next time.
@@ -12,6 +13,11 @@ import { resetDatabase } from './support/database';
 
 test.beforeEach(async ({ page }) => {
   resetDatabase();
+
+  // Every board route is behind [Authorize] now, and the session is a cookie on this page's
+  // context — which is also why the helpers below seed through page.request rather than the
+  // standalone request fixture, since those two keep separate cookie jars.
+  await signIn(page);
   await page.goto('/board');
 });
 
@@ -59,12 +65,11 @@ test('density is remembered too, and is always stamped', async ({ page }) => {
 
 test('the journal opens where you asked it to, and is the same dialog either way', async ({
   page,
-  request,
 }) => {
   // Geometry is the only honest way to tell these apart. Both are one `role="dialog"` with the
   // same contents and the same Escape, so anything else a spec could assert would pass in both
   // modes and prove nothing about the setting.
-  await seed(request, 'Celeste', 'InProgress');
+  await seed(page.request, 'Celeste', 'InProgress');
   await page.reload();
 
   const viewport = page.viewportSize()!;

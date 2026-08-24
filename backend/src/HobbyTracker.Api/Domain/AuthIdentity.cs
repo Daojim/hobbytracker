@@ -21,3 +21,17 @@ public class AuthIdentity
     /// <summary>Email as reported by the provider. Informational — not a login key.</summary>
     public string? Email { get; set; }
 }
+
+/// <summary>
+/// The vocabulary of <see cref="AuthIdentity.Provider"/>, and also the OAuth scheme names
+/// registered in <c>Program.cs</c> and the <c>{provider}</c> segment of the sign-in routes.
+///
+/// One string doing all three jobs on purpose: a mapping between a scheme name and a stored
+/// value is a table that can disagree with itself, and the disagreement would show up as
+/// somebody signing in twice and getting two boards.
+/// </summary>
+public static class AuthProviders
+{
+    public const string Google = "google";
+    public const string Discord = "discord";
+}

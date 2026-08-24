@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { AppHeader } from './AppHeader';
 import { HOBBIES } from './hobbies';
 import { renderWithProviders } from '../test/render';
+import { authServer } from '../test/auth';
 
 const nav = () => screen.getByRole('navigation', { name: 'Hobbies' });
+
+// The header asks who is signed in, and MSW refuses a request no test stated. Answered here so
+// the cases about the nav stay about the nav.
+beforeEach(() => authServer());
 
 /**
  * The shell had no test at all until the nav arrived, which is why this file covers the h1 and
@@ -67,5 +72,31 @@ describe('AppHeader', () => {
     renderWithProviders(<AppHeader title="HobbyTracker" />);
 
     expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
+  });
+
+  it('says who is signed in', async () => {
+    authServer({ id: 3, displayName: 'Jimmy Dao' });
+
+    renderWithProviders(<AppHeader title="HobbyTracker" />);
+
+    expect(await screen.findByText('Jimmy Dao')).toBeInTheDocument();
+  });
+
+  it('offers a way out', async () => {
+    authServer();
+
+    renderWithProviders(<AppHeader title="HobbyTracker" />);
+
+    expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument();
+  });
+
+  it('says nothing about a session it has not been given', () => {
+    // The header renders inside the gate, so this is really about the moment before the answer
+    // arrives: a name-shaped gap is better than a flash of somebody else's.
+    authServer(null);
+
+    renderWithProviders(<AppHeader title="HobbyTracker" />);
+
+    expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument();
   });
 });

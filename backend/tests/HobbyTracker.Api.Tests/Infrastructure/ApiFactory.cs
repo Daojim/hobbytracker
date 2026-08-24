@@ -1,6 +1,7 @@
 using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -23,9 +24,17 @@ public sealed class ApiFactory(
     FakeHltbClient hltb,
     FakeHltbQueue hltbQueue,
     TimeProvider clock,
-    string timeZone = "America/New_York")
+    string timeZone = "America/New_York",
+    string googleClientId = "test-google-client")
     : WebApplicationFactory<Program>
 {
+    /// <summary>
+    /// Where a challenge is sent. A test asserting on the redirect needs to know it, and
+    /// nothing here ever follows it — the real dance is the end-to-end suite's.
+    /// </summary>
+    public const string GoogleAuthorizationEndpoint = "https://stub.invalid/authorize";
+    public const string DiscordAuthorizationEndpoint = "https://stub.invalid/discord/authorize";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // Not "Development": that would load appsettings.Development.json and user-secrets,
@@ -43,6 +52,20 @@ public sealed class ApiFactory(
                 // that would read them.
                 ["Igdb:ClientId"] = "test-client-id",
                 ["Igdb:ClientSecret"] = "test-client-secret",
+
+                // AuthOptions is validated at startup too, so the host will not boot without these.
+                // The endpoints are never reached: nothing in the backend suite signs in through
+                // OAuth, which is what the Google stub and the end-to-end specs are for.
+                ["Auth:Google:ClientId"] = googleClientId,
+                ["Auth:Google:ClientSecret"] = "test-google-secret",
+                ["Auth:Google:AuthorizationEndpoint"] = GoogleAuthorizationEndpoint,
+                ["Auth:Google:TokenEndpoint"] = "https://stub.invalid/token",
+                ["Auth:Google:UserInfoEndpoint"] = "https://stub.invalid/userinfo",
+                ["Auth:Discord:ClientId"] = "test-discord-client",
+                ["Auth:Discord:ClientSecret"] = "test-discord-secret",
+                ["Auth:Discord:AuthorizationEndpoint"] = DiscordAuthorizationEndpoint,
+                ["Auth:Discord:TokenEndpoint"] = "https://stub.invalid/discord/token",
+                ["Auth:Discord:UserInfoEndpoint"] = "https://stub.invalid/discord/userinfo",
 
                 // Pinned rather than inherited from appsettings.json, so the dates these tests
                 // assert on cannot be moved by an edit to a file they never mention.
@@ -76,6 +99,13 @@ public sealed class ApiFactory(
             // assertion about a stamped date is really an assertion about the wall clock.
             services.RemoveAll<TimeProvider>();
             services.AddSingleton(clock);
+
+            // Signed in by header rather than by cookie. The cookie and OAuth schemes stay
+            // registered underneath, so a challenge still behaves as it does in production —
+            // only what counts as already-signed-in changes. See TestAuthHandler.
+            services.AddAuthentication(TestAuthHandler.SchemeName)
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                    TestAuthHandler.SchemeName, _ => { });
         });
     }
 }

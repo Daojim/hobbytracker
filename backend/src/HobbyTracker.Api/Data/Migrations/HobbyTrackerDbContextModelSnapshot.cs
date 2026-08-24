@@ -172,7 +172,7 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("status");
 
-                    b.Property<int?>("UserId")
+                    b.Property<int>("UserId")
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
 
@@ -405,7 +405,7 @@ namespace HobbyTracker.Api.Data.Migrations
 
                     b.ToTable("games", null, t =>
                         {
-                            t.HasCheckConstraint("ck_games_hltb_hours_positive", "(hltb_main_story_hours    IS NULL OR hltb_main_story_hours    > 0) AND\n(hltb_main_extra_hours    IS NULL OR hltb_main_extra_hours    > 0) AND\n(hltb_completionist_hours IS NULL OR hltb_completionist_hours > 0)");
+                            t.HasCheckConstraint("ck_games_hltb_hours_positive", "(hltb_main_story_hours    IS NULL OR hltb_main_story_hours    > 0) AND\r\n(hltb_main_extra_hours    IS NULL OR hltb_main_extra_hours    > 0) AND\r\n(hltb_completionist_hours IS NULL OR hltb_completionist_hours > 0)");
 
                             t.Property("Id")
                                 .HasColumnName("media_id");
@@ -436,7 +436,8 @@ namespace HobbyTracker.Api.Data.Migrations
                     b.HasOne("HobbyTracker.Api.Domain.User", "User")
                         .WithMany("LogEntries")
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull)
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
                         .HasConstraintName("fk_log_entries_users_user_id");
 
                     b.Navigation("Media");

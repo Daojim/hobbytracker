@@ -36,5 +36,11 @@ export function psql(sql: string, database = E2E_DATABASE): string {
 export function resetDatabase(): void {
   // notes is named rather than left to CASCADE. Postgres reaches it either way through its
   // foreign key, but saying so keeps this list an honest inventory of what a run destroys.
-  psql('TRUNCATE notes, log_entries, games, media RESTART IDENTITY CASCADE;');
+  //
+  // users and auth_identities go too, so a run starts with nobody signed up. They are not
+  // reference data — the lookup tables are — and a leftover account would let one spec's
+  // sign-in satisfy the next spec's.
+  psql(
+    'TRUNCATE notes, log_entries, games, media, auth_identities, users RESTART IDENTITY CASCADE;',
+  );
 }

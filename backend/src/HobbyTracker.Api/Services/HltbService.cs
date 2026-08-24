@@ -57,7 +57,12 @@ public sealed class HltbService(
     IHltbQueue queue,
     IJournalClock clock,
     IOptions<HltbOptions> options,
-    ILogger<HltbService> logger) : IHltbService
+    ILogger<HltbService> logger,
+
+    // Only DetailAsync reads this, and only from a request. UpdateAsync and BackfillAsync touch
+    // games alone, so the background worker never asks who is signed in — which is as well,
+    // because in its own scope there is no HttpContext and nobody to be.
+    ICurrentUser user) : IHltbService
 {
     private readonly HltbOptions _options = options.Value;
 
@@ -211,13 +216,17 @@ public sealed class HltbService(
             return null;
         }
 
+        var userId = user.Id;
+
         // Same ordering as the board and the game detail endpoint. Three places decide which
         // pass is current and all three have to agree.
         var entries = await db.LogEntries
             .AsNoTracking()
             .Include(entry => entry.Media)
             .Include(entry => entry.Notes)
-            .Where(entry => entry.MediaId == mediaId)
+            // The game above is shared catalogue; these are yours. This is the one query in
+            // the codebase that spans both, and the split is the whole rule in miniature.
+            .Where(entry => entry.MediaId == mediaId && entry.UserId == userId)
             .OrderByDescending(entry => entry.LoggedAt)
             .ThenByDescending(entry => entry.Id)
             .ToListAsync(cancellationToken);

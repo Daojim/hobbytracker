@@ -1,5 +1,6 @@
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HobbyTracker.Api.Controllers;
@@ -13,6 +14,7 @@ namespace HobbyTracker.Api.Controllers;
 /// second request would be asking for something the client already has.
 /// </summary>
 [ApiController]
+[Authorize]
 [Route("api")]
 public class NotesController(INoteService notes) : ControllerBase
 {

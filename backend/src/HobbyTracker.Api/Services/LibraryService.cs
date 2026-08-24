@@ -47,7 +47,8 @@ public interface ILibraryService
 /// side effect, so `media` accumulates whatever has ever been typed into a search box. Joining
 /// to log_entries is what separates the catalog from the collection.
 /// </summary>
-public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock) : ILibraryService
+public sealed class LibraryService(
+    HobbyTrackerDbContext db, IJournalClock clock, ICurrentUser user) : ILibraryService
 {
     /// <summary>
     /// A title on the board, with the entry that decides which column it sits in.
@@ -159,9 +160,15 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
                 var replay = new LogEntry
                 {
                     MediaId = mediaId,
+
+                    // Yours, like the pass it replaces. LatestEntryFor above already refused
+                    // anybody else's, so this can only ever be a replay of your own.
+                    UserId = user.Id,
+
                     Status = target,
                     LoggedAt = now,
-                    Position = await BoardPositions.TopOfColumnAsync(db, target, cancellationToken),
+                    Position = await BoardPositions.TopOfColumnAsync(
+                        db, target, user.Id, cancellationToken),
                 };
 
                 ApplyTransitionTimestamps(replay, target, now);
@@ -230,49 +237,69 @@ public sealed class LibraryService(HobbyTrackerDbContext db, IJournalClock clock
 
     // ------------------------------------------------------------------ internals
 
-    private IQueryable<BoardRow> BoardQuery() => db.Media
-        // One row per title however many times it has been logged. A plain join to log_entries
-        // would return a replayed game once per playthrough.
-        .Where(media => media.LogEntries.Any())
-        .Select(media => new BoardRow
-        {
-            Media = media,
-            HobbyName = media.Hobby!.Name,
-            EntryCount = media.LogEntries.Count(),
+    private IQueryable<BoardRow> BoardQuery()
+    {
+        // Read once into a local, so EF parameterises it and so an unauthenticated caller fails
+        // here rather than quietly producing a board scoped to nobody.
+        var userId = user.Id;
 
-            // "Current" state comes from the most recent entry: a replay under way beats an old
-            // completion. Ordering is logged_at DESC, id DESC: a pass is current because it
-            // was recorded most recently, not because it happens to carry a date.
-            //
-            // This used to prefer a dated entry over an undated one, which read well and was
-            // wrong. Leaving Completed for Backlog or Dropped writes an entry with no dates by
-            // rule, so it could never outrank the completion it replaced — the card sprang
-            // back to Completed and every retry added another orphan entry.
-            //
-            // logged_at is server-stamped on every insert and NOT NULL with a now() default,
-            // so it is always there to order by. The id breaks ties, which is not a detail:
-            // several entries written in the same instant is exactly what a test fixture on a
-            // stopped clock produces.
-            //
-            // EF turns this nested First() into a LATERAL join rather than N queries.
-            //
-            // Kept in step with LatestEntryFor below and with GameCatalogService.GetAsync: if
-            // they disagree, the board moves one entry and then displays a different one.
-            Latest = media.LogEntries
-                .OrderByDescending(entry => entry.LoggedAt)
-                .ThenByDescending(entry => entry.Id)
-                .First(),
-        });
+        // All three reaches into log_entries below carry the predicate, and all three have to.
+        // Scoping only the first would leave EntryCount counting strangers' replays and Latest
+        // able to pick a stranger's entry — and Latest is what decides the column, so the
+        // symptom would be your own Backlog title sitting under Completed.
+        return db.Media
+            // One row per title however many times it has been logged. A plain join to
+            // log_entries would return a replayed game once per playthrough.
+            .Where(media => media.LogEntries.Any(entry => entry.UserId == userId))
+            .Select(media => new BoardRow
+            {
+                Media = media,
+                HobbyName = media.Hobby!.Name,
+                EntryCount = media.LogEntries.Count(entry => entry.UserId == userId),
 
+                // "Current" state comes from the most recent entry: a replay under way beats an
+                // old completion. Ordering is logged_at DESC, id DESC: a pass is current because
+                // it was recorded most recently, not because it happens to carry a date.
+                //
+                // This used to prefer a dated entry over an undated one, which read well and was
+                // wrong. Leaving Completed for Backlog or Dropped writes an entry with no dates
+                // by rule, so it could never outrank the completion it replaced — the card
+                // sprang back to Completed and every retry added another orphan entry.
+                //
+                // logged_at is server-stamped on every insert and NOT NULL with a now() default,
+                // so it is always there to order by. The id breaks ties, which is not a detail:
+                // several entries written in the same instant is exactly what a test fixture on
+                // a stopped clock produces.
+                //
+                // EF turns this nested First() into a LATERAL join rather than N queries.
+                //
+                // Kept in step with LatestEntryFor below and with GameCatalogService.GetAsync:
+                // if they disagree, the board moves one entry and then displays a different one.
+                // That now includes agreeing about whose entries are in scope.
+                Latest = media.LogEntries
+                    .Where(entry => entry.UserId == userId)
+                    .OrderByDescending(entry => entry.LoggedAt)
+                    .ThenByDescending(entry => entry.Id)
+                    .First(),
+            });
+    }
     /// <summary>
     /// The entry the board considers current, as a tracked entity. Must order identically to
     /// the projection in <see cref="BoardQuery"/> and to the entry list in
-    /// <c>GameCatalogService.GetAsync</c>.
+    /// <c>GameCatalogService.GetAsync</c>, and must agree with them about whose entries count.
+    ///
+    /// This one feeds two mutating paths addressed by media id alone — a transition and a close
+    /// — so leaving it unscoped would not be a leak but an edit to somebody else's board.
     /// </summary>
-    private IQueryable<LogEntry> LatestEntryFor(int mediaId) => db.LogEntries
-        .Where(entry => entry.MediaId == mediaId)
-        .OrderByDescending(entry => entry.LoggedAt)
-        .ThenByDescending(entry => entry.Id);
+    private IQueryable<LogEntry> LatestEntryFor(int mediaId)
+    {
+        var userId = user.Id;
+
+        return db.LogEntries
+            .Where(entry => entry.MediaId == mediaId && entry.UserId == userId)
+            .OrderByDescending(entry => entry.LoggedAt)
+            .ThenByDescending(entry => entry.Id);
+    }
 
     /// <summary>
     /// Turns a calendar year into the instants that bound it here. The offset is asked of the

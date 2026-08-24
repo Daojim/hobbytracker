@@ -1,6 +1,7 @@
 using System.Globalization;
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Data;
+using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Integrations.Igdb.Models;
@@ -46,7 +47,8 @@ public sealed class GameCatalogService(
     HobbyTrackerDbContext db,
     IIgdbClient igdb,
     IOptions<IgdbOptions> options,
-    ILogger<GameCatalogService> logger) : IGameCatalogService
+    ILogger<GameCatalogService> logger,
+    ICurrentUser user) : IGameCatalogService
 {
     public async Task<IReadOnlyList<GameDto>> SearchAsync(
         string search, int? limit, CancellationToken cancellationToken)
@@ -97,6 +99,8 @@ public sealed class GameCatalogService(
             return null;
         }
 
+        var userId = user.Id;
+
         // logged_at DESC, id DESC — the same order the board decides "current" by, so the
         // first entry here *is* the pass the board is showing. A detail view that ordered by
         // anything else would offer to edit one entry while the card reported another.
@@ -104,7 +108,9 @@ public sealed class GameCatalogService(
             .AsNoTracking()
             .Include(entry => entry.Media)
             .Include(entry => entry.Notes)
-            .Where(entry => entry.MediaId == mediaId)
+            // The game above is shared catalogue; these are yours. This is the one query in the
+            // codebase that spans both, and the split is the whole rule in miniature.
+            .Where(entry => entry.MediaId == mediaId && entry.UserId == userId)
             .OrderByDescending(entry => entry.LoggedAt)
             .ThenByDescending(entry => entry.Id)
             .ToListAsync(cancellationToken);

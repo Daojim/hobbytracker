@@ -91,4 +91,18 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
 
         error.Message.ShouldContain("Journal:TimeZone");
     }
+
+    [Fact]
+    public async Task A_missing_google_client_id_stops_the_host_booting()
+    {
+        // The same guard the IGDB credentials get, for the same reason: absent credentials
+        // should fail at boot naming the setting, not surface later as an opaque error from
+        // the provider on the first person's first sign-in.
+        await using var factory = new ApiFactory(
+            Postgres, Igdb, Hltb, HltbQueue, Clock, googleClientId: "");
+
+        var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
+
+        error.Message.ShouldContain("Auth:Google:ClientId");
+    }
 }

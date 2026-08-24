@@ -27,11 +27,14 @@ public interface ILogEntryService
 /// overwriting the last one, which is what makes "I finished this in 2024 and I am replaying
 /// it now" expressible at all.
 ///
-/// user_id is left null throughout. The column is nullable until auth lands in a later phase,
-/// at which point existing rows get backfilled and the column tightened.
+/// Every read and every write here is scoped to the signed-in user. Passes are personal, unlike
+/// the media and games rows they point at, which are a shared catalogue.
 /// </summary>
 public sealed class LogEntryService(
-    HobbyTrackerDbContext db, IJournalClock clock, IHltbQueue hltbQueue) : ILogEntryService
+    HobbyTrackerDbContext db,
+    IJournalClock clock,
+    IHltbQueue hltbQueue,
+    ICurrentUser user) : ILogEntryService
 {
     public async Task<PagedResult<LogEntryDto>> ListAsync(
         int? mediaId, LogStatus? status, int? page, int? pageSize, CancellationToken cancellationToken)
@@ -40,11 +43,15 @@ public sealed class LogEntryService(
 
         // Notes are on the DTO, so they have to be loaded: an entry read without this maps to
         // a DTO reporting no notes at all, silently, with nothing failing to compile.
+        var userId = user.Id;
+
         var query = db.LogEntries
             .AsNoTracking()
             .Include(entry => entry.Media)
             .Include(entry => entry.Notes)
-            .AsQueryable();
+            // Yours, and the total below counts the same rows -- a page scoped without its
+            // count reports somebody else's passes as pages you can never reach.
+            .Where(entry => entry.UserId == userId);
 
         if (mediaId is { } media)
         {
@@ -72,11 +79,13 @@ public sealed class LogEntryService(
 
     public async Task<LogEntryDto?> GetAsync(int id, CancellationToken cancellationToken)
     {
+        var userId = user.Id;
+
         var entry = await db.LogEntries
             .AsNoTracking()
             .Include(e => e.Media)
             .Include(e => e.Notes)
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, cancellationToken);
 
         return entry is null ? null : LogEntryDto.From(entry);
     }
@@ -96,6 +105,11 @@ public sealed class LogEntryService(
         {
             MediaId = media.Id,
             Media = media,
+
+            // Yours. Nothing in the request says so and nothing should: whose pass this is comes
+            // from the session, never from the body.
+            UserId = user.Id,
+
             Status = request.Status,
             Rating = request.Rating,
             Platform = request.Platform,
@@ -109,7 +123,8 @@ public sealed class LogEntryService(
 
             // Top of its column, so a title you just added is the first thing you see rather
             // than something you have to scroll for.
-            Position = await BoardPositions.TopOfColumnAsync(db, request.Status, cancellationToken),
+            Position = await BoardPositions.TopOfColumnAsync(
+                db, request.Status, user.Id, cancellationToken),
         };
 
         db.LogEntries.Add(entry);
@@ -128,10 +143,12 @@ public sealed class LogEntryService(
     public async Task<LogEntryDto?> UpdateAsync(
         int id, UpdateLogEntryRequest request, CancellationToken cancellationToken)
     {
+        var userId = user.Id;
+
         var entry = await db.LogEntries
             .Include(e => e.Media)
             .Include(e => e.Notes)
-            .FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, cancellationToken);
 
         if (entry is null)
         {
@@ -155,7 +172,10 @@ public sealed class LogEntryService(
 
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken)
     {
-        var entry = await db.LogEntries.FirstOrDefaultAsync(e => e.Id == id, cancellationToken);
+        var userId = user.Id;
+
+        var entry = await db.LogEntries
+            .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, cancellationToken);
         if (entry is null)
         {
             return false;

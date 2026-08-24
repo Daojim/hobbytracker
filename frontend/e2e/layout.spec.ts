@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { card, column, seed } from './support/board';
 import { resetDatabase } from './support/database';
+import { signIn } from './support/auth';
 import type { LogStatus } from '../src/api/types';
 
 /**
@@ -44,8 +45,9 @@ async function columnsAcross(page: Page): Promise<number> {
   return boxes.filter((box) => Math.abs(box.y - top) < 2).length;
 }
 
-test.beforeEach(() => {
+test.beforeEach(async ({ page }) => {
   resetDatabase();
+  await signIn(page);
 });
 
 /**
@@ -63,15 +65,15 @@ async function expectPortraitCover(page: Page, title: string) {
 test.describe('at 768px, where four columns used to become four slivers', () => {
   test.use({ viewport: { width: 768, height: 900 } });
 
-  test('a cover keeps its shape instead of stretching to the card', async ({ page, request }) => {
-    await seed(request, 'Stardew Valley', 'Backlog');
+  test('a cover keeps its shape instead of stretching to the card', async ({ page }) => {
+    await seed(page.request, 'Stardew Valley', 'Backlog');
     await page.goto('/board');
 
     await expectPortraitCover(page, 'Stardew Valley');
   });
 
-  test('the columns fall to two across rather than four', async ({ page, request }) => {
-    await seed(request, 'Celeste', 'Backlog');
+  test('the columns fall to two across rather than four', async ({ page }) => {
+    await seed(page.request, 'Celeste', 'Backlog');
     await page.goto('/board');
 
     expect(await columnsAcross(page)).toBe(2);
@@ -83,9 +85,8 @@ test.describe('at 1024px', () => {
 
   test('two columns still, because four would be no wider than 768 gave them', async ({
     page,
-    request,
   }) => {
-    await seed(request, 'Celeste', 'Backlog');
+    await seed(page.request, 'Celeste', 'Backlog');
     await page.goto('/board');
 
     expect(await columnsAcross(page)).toBe(2);
@@ -97,16 +98,15 @@ test.describe('at 1440px', () => {
 
   test('all four columns are across, which is the board it was designed as', async ({
     page,
-    request,
   }) => {
-    await seed(request, 'Celeste', 'Backlog');
+    await seed(page.request, 'Celeste', 'Backlog');
     await page.goto('/board');
 
     expect(await columnsAcross(page)).toBe(4);
   });
 
-  test('a cover keeps its shape here too', async ({ page, request }) => {
-    await seed(request, 'Stardew Valley', 'Backlog');
+  test('a cover keeps its shape here too', async ({ page }) => {
+    await seed(page.request, 'Stardew Valley', 'Backlog');
     await page.goto('/board');
 
     await expectPortraitCover(page, 'Stardew Valley');
@@ -121,8 +121,8 @@ test.describe('at 1440px', () => {
  * bigger there. Fixing the column count and moving only the board width is the one comparison
  * where "tracks its column" is the sole explanation left.
  */
-test('a cover grows with the column it is in', async ({ page, request }) => {
-  await seed(request, 'Celeste', 'Backlog');
+test('a cover grows with the column it is in', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'Backlog');
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/board');

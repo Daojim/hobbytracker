@@ -1,10 +1,13 @@
 using System.Net.Http.Headers;
 using System.Text.Json.Serialization;
 using HobbyTracker.Api.Data;
+using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Services;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -109,6 +112,115 @@ builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 
+// ------------------------------------------------------------------- sign-in
+builder.Services.AddOptions<AuthOptions>()
+    .Bind(builder.Configuration.GetSection(AuthOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// ValidateDataAnnotations does not recurse into nested option objects, so the provider blocks
+// are checked by this instead. See ValidateAuthOptions for why it is worth a class.
+builder.Services.AddSingleton<IValidateOptions<AuthOptions>, ValidateAuthOptions>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+// Whose rows a request is about. See CurrentUser for why this is injected into the services
+// rather than applied as an EF global query filter.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
+// Google is OpenID Connect, so it wants the openid scope; Discord is plain OAuth and does not
+// have one. Both need whatever grants a name and an address.
+string[] GoogleScopes = ["openid", "email", "profile"];
+string[] DiscordScopes = ["identify", "email"];
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "hobbytracker.session";
+
+        // The point of choosing a cookie at all: script cannot read it, so an XSS bug anywhere
+        // in the app still cannot walk off with somebody's session.
+        options.Cookie.HttpOnly = true;
+
+        // Lax, not Strict. The provider comes back as a top-level cross-site GET and Strict
+        // withholds the cookie on exactly that navigation, which reads as a sign-in that
+        // silently did nothing.
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.SlidingExpiration = true;
+
+        // Without these, an unauthenticated API call is answered with a 302 to a login page;
+        // fetch follows it and the caller gets 200 and a lump of HTML, then fails while parsing
+        // JSON, miles from the cause. This is an API, so it says so instead.
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    })
+    .AddOAuth(AuthProviders.Google, options => Provider(options, AuthProviders.Google, GoogleScopes))
+    .AddOAuth(AuthProviders.Discord, options => Provider(options, AuthProviders.Discord, DiscordScopes));
+
+// A provider is a scheme name, a set of scopes and a block of configuration -- which is the
+// whole reason the framework's generic OAuth handler was chosen over a provider-specific
+// package. Adding a third is two lines above and five values in appsettings.
+static void Provider(OAuthOptions options, string scheme, IEnumerable<string> scopes)
+{
+    // Must match the redirect URI registered with the provider, and the browser has to reach it
+    // on the origin it is already on -- see the Vite proxy note in CLAUDE.md.
+    options.CallbackPath = $"/api/auth/{scheme}/callback";
+
+    foreach (var scope in scopes)
+    {
+        options.Scope.Add(scope);
+    }
+
+    // One option, and it closes the interception window on the authorization code.
+    options.UsePkce = true;
+
+    // The default is SameSite=None, which browsers refuse without Secure, so the flow fails on
+    // plain-http localhost with a correlation error that names nothing useful. Lax is enough for
+    // the same reason the session cookie's is: the callback is a top-level navigation rather
+    // than a background request.
+    options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+
+    // The one part of the dance that is ours. See ExternalSignIn, which reads both providers'
+    // user-info shapes -- Google says `sub` and `name`, Discord says `id` and `global_name`.
+    options.Events.OnCreatingTicket = ExternalSignIn.CompleteAsync;
+}
+
+// Everything above is a constant; everything below comes from configuration, and it is resolved
+// from the container rather than read here. `builder.Configuration` is still being assembled at
+// this point, so a value captured now misses any source added afterwards -- which is exactly
+// what the test host does, and it surfaced as every endpoint 500ing on an empty ClientId. The
+// IGDB typed client resolves IOptions inside its configuring lambda for the same reason.
+builder.Services.AddOptions<CookieAuthenticationOptions>(
+        CookieAuthenticationDefaults.AuthenticationScheme)
+    .Configure<IOptions<AuthOptions>>((cookie, auth) =>
+        cookie.ExpireTimeSpan = TimeSpan.FromDays(auth.Value.SessionDays));
+
+builder.Services.AddOptions<OAuthOptions>(AuthProviders.Google)
+    .Configure<IOptions<AuthOptions>>((oauth, auth) => Credentials(oauth, auth.Value.Google));
+
+builder.Services.AddOptions<OAuthOptions>(AuthProviders.Discord)
+    .Configure<IOptions<AuthOptions>>((oauth, auth) => Credentials(oauth, auth.Value.Discord));
+
+static void Credentials(OAuthOptions options, AuthProviderOptions provider)
+{
+    options.ClientId = provider.ClientId;
+    options.ClientSecret = provider.ClientSecret;
+    options.AuthorizationEndpoint = provider.AuthorizationEndpoint;
+    options.TokenEndpoint = provider.TokenEndpoint;
+    options.UserInformationEndpoint = provider.UserInfoEndpoint;
+}
+
+builder.Services.AddAuthorization();
+
 // ------------------------------------------------------------------------ web
 builder.Services.AddControllers()
     // LogStatus travels as "Completed", not 2. Readable on the wire, and immune to someone
@@ -132,6 +244,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 app.Run();

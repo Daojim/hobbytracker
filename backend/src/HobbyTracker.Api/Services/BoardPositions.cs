@@ -14,14 +14,22 @@ internal static class BoardPositions
     /// One below the current minimum, so the card appears at the top without renumbering
     /// anything already there.
     ///
-    /// Scoped by status only. Positions are compared within a column, so a movie lowering the
-    /// minimum leaves the relative order of games exactly as it was.
+    /// Scoped by status and by owner. Positions are compared within one person's column, so a
+    /// movie lowering the minimum leaves the relative order of games exactly as it was — and
+    /// somebody else's backlog cannot decide where your new cards land.
+    ///
+    /// The owner arrives as a parameter rather than by injection because this is static and
+    /// takes the context as one too, which puts it out of reach of the container. That also
+    /// makes it the easiest scoping site in the codebase to miss, which is why a test names it.
     /// </summary>
     public static async Task<int> TopOfColumnAsync(
-        HobbyTrackerDbContext db, LogStatus status, CancellationToken cancellationToken)
+        HobbyTrackerDbContext db,
+        LogStatus status,
+        int userId,
+        CancellationToken cancellationToken)
     {
         var lowest = await db.LogEntries
-            .Where(entry => entry.Status == status)
+            .Where(entry => entry.Status == status && entry.UserId == userId)
             .MinAsync(entry => (int?)entry.Position, cancellationToken);
 
         return (lowest ?? 0) - 1;

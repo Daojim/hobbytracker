@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router';
 import { SettingsMenu } from '../theme/SettingsMenu';
+import { SessionBadge } from './SessionBadge';
 import { HOBBIES, boardPath } from './hobbies';
 
 export interface AppHeaderProps {
@@ -37,7 +38,8 @@ export function AppHeader({ title }: AppHeaderProps) {
 
         {/* Top right, and pushed there rather than positioned, so it stays put when the title
             wraps on a narrow screen. */}
-        <div className="ml-auto self-center">
+        <div className="ml-auto flex items-center gap-3 self-center">
+          <SessionBadge />
           <SettingsMenu />
         </div>
       </div>

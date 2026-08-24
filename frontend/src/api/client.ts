@@ -70,6 +70,11 @@ async function request(path: string, options: RequestOptions): Promise<Response>
   const response = await fetch(buildPath(path, query), {
     method,
     signal,
+
+    // The session is an httpOnly cookie. Same-origin requests already carry one, so today this
+    // changes nothing — it is here so that the day the app and the API stop sharing an origin
+    // is not also the day sign-in silently stops working.
+    credentials: 'include',
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
