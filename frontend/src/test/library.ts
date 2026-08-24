@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { server } from './server';
+import { authServer } from './auth';
 import type { LibraryItem, LogStatus, PagedResult } from '../api/types';
 
 /**
@@ -37,6 +38,11 @@ export interface BoardFixture {
 }
 
 export function boardServer({ columns = {}, years = [] }: BoardFixture = {}) {
+  // The shell asks who is signed in the moment it mounts, and MSW refuses a request no test
+  // stated. Answered here so every board test does not have to say so; call authServer(...)
+  // afterwards to override it, since a later server.use wins.
+  authServer();
+
   const listed: URL[] = [];
   const transitions: { mediaId: number; status: LogStatus }[] = [];
   const reorders: { hobby: string; status: LogStatus; mediaIds: number[] }[] = [];

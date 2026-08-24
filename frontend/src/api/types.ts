@@ -130,3 +130,15 @@ export interface ReorderColumn {
   /** The whole column, top first. Ids that have since moved out are ignored, not rejected. */
   mediaIds: number[];
 }
+
+/**
+ * Who is signed in.
+ *
+ * A name for the header and an id to tell one session from another, and deliberately not the
+ * email or the provider: nothing displays either yet, and a contract carrying a field nothing
+ * reads is a promise somebody has to keep later for no reason.
+ */
+export interface Me {
+  id: number;
+  displayName: string;
+}

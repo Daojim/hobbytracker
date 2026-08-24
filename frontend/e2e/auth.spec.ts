@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase, psql } from './support/database';
 import { signIn, signOut, whoAmI } from './support/auth';
+import { column, seed } from './support/board';
 
 /**
  * Signing in, for real.
@@ -89,4 +90,46 @@ test('a sign-in cannot be pointed at somebody else’s site', async ({ page }) =
   );
 
   expect(response.status()).toBe(400);
+});
+
+test('the board is not reachable without signing in', async ({ page }) => {
+  // The API refuses every column, and four red 401s is a true description of what happened and
+  // a useless one to be handed. Being asked to sign in is the honest reading.
+  await page.goto('/board');
+
+  await expect(page).toHaveURL(/\/signin$/);
+  await expect(page.getByRole('heading', { level: 1, name: /sign in/i })).toBeVisible();
+});
+
+test('the header says who you are, and lets you leave', async ({ page }) => {
+  await signIn(page, { sub: 'google-1', name: 'Jimmy Dao' });
+
+  // Not scoped to a banner landmark: AppHeader renders inside BoardPage's <main>, and a
+  // <header> nested in main is not a banner. There is exactly one of each of these anyway.
+  await expect(page.getByText('Jimmy Dao')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+
+  await expect(page).toHaveURL(/\/signin$/);
+  expect(await whoAmI(page.request)).toBeNull();
+});
+
+test('one person’s board is not the next person’s', async ({ page }) => {
+  // The scoping is proved properly in the backend suite; this is the browser end of it, and the
+  // thing a person would actually notice.
+  await signIn(page, { sub: 'google-1', name: 'First' });
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+  await expect(column(page, 'Backlog').getByRole('listitem')).toHaveCount(1);
+
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/signin$/);
+
+  await signIn(page, { sub: 'google-2', name: 'Second' });
+
+  await expect(column(page, 'Backlog').getByRole('listitem')).toHaveCount(0);
+
+  // And the catalogue is still shared: the same game is one search away, not re-fetched.
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('celeste');
+  await expect(page.getByRole('button', { name: 'Add Celeste to backlog' })).toBeVisible();
 });
