@@ -23,21 +23,37 @@ public interface INoteService
 /// <summary>
 /// What was written during a pass. Notes are read back with their entry — see
 /// <see cref="LogEntryDto"/> — so there is no list endpoint here; this is writes only.
+///
+/// Notes carry no user column of their own — they belong to whoever owns the pass they were
+/// written during — so every query here reaches through LogEntry rather than filtering a column.
+/// That is the whole reason a note id is enough on its own at the API: the route needs no entry
+/// to address a note, but the query still has to ask whose entry it was written during.
 /// </summary>
-public sealed class NoteService(HobbyTrackerDbContext db, IJournalClock clock) : INoteService
+public sealed class NoteService(
+    HobbyTrackerDbContext db, IJournalClock clock, ICurrentUser user) : INoteService
 {
     public async Task<NoteDto?> GetAsync(int id, CancellationToken cancellationToken)
     {
-        var note = await db.Notes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        var userId = user.Id;
+
+        var note = await db.Notes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                n => n.Id == id && n.LogEntry!.UserId == userId, cancellationToken);
+
         return note is null ? null : NoteDto.From(note);
     }
 
     public async Task<NoteDto?> CreateAsync(
         int entryId, NoteRequest request, CancellationToken cancellationToken)
     {
+        var userId = user.Id;
+
         // Checked rather than left to the insert: a bare foreign-key violation surfaces as a 500,
-        // and here the missing thing is the resource in the route, so it is a 404.
-        var exists = await db.LogEntries.AnyAsync(entry => entry.Id == entryId, cancellationToken);
+        // and here the missing thing is the resource in the route, so it is a 404. Somebody
+        // else's pass is the same 404 as one that does not exist -- see UserScopingTests.
+        var exists = await db.LogEntries.AnyAsync(
+            entry => entry.Id == entryId && entry.UserId == userId, cancellationToken);
         if (!exists)
         {
             return null;
@@ -61,7 +77,11 @@ public sealed class NoteService(HobbyTrackerDbContext db, IJournalClock clock) :
     public async Task<NoteDto?> UpdateAsync(
         int id, NoteRequest request, CancellationToken cancellationToken)
     {
-        var note = await db.Notes.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        var userId = user.Id;
+
+        var note = await db.Notes.FirstOrDefaultAsync(
+            n => n.Id == id && n.LogEntry!.UserId == userId, cancellationToken);
+
         if (note is null)
         {
             return null;
@@ -77,7 +97,11 @@ public sealed class NoteService(HobbyTrackerDbContext db, IJournalClock clock) :
 
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken)
     {
-        var note = await db.Notes.FirstOrDefaultAsync(n => n.Id == id, cancellationToken);
+        var userId = user.Id;
+
+        var note = await db.Notes.FirstOrDefaultAsync(
+            n => n.Id == id && n.LogEntry!.UserId == userId, cancellationToken);
+
         if (note is null)
         {
             return false;

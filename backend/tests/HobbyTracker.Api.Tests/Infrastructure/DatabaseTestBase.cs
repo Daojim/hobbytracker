@@ -64,13 +64,21 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
 
     private ApiFactory? _factory;
     private HttpClient? _client;
+    private HttpClient? _anonymousClient;
     private readonly List<HttpClient> _extraClients = [];
 
     protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Hltb, HltbQueue, Clock);
-    protected HttpClient Client => _client ??= Factory.CreateClient();
+    /// <summary>
+    /// Whose journal this is. Created fresh per test, because Respawn truncates users between
+    /// them; every fixture below and every request through <see cref="Client"/> belongs to it.
+    /// </summary>
+    protected int UserId { get; private set; }
 
-    /// <summary>Nobody signed in, for asserting that a route says so.</summary>
-    protected HttpClient AnonymousClient => Client;
+    /// <summary>Signed in as <see cref="UserId"/>, which is what almost every test wants.</summary>
+    protected HttpClient Client => _client ??= ClientFor(UserId);
+
+    /// <summary>Nobody signed in at all, for asserting that a route says so.</summary>
+    protected HttpClient AnonymousClient => _anonymousClient ??= Factory.CreateClient();
 
     /// <summary>
     /// A client signed in as one particular user. Two of these is how a test says "and the
@@ -86,11 +94,18 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
         return client;
     }
 
-    public virtual async ValueTask InitializeAsync() => await Postgres.ResetAsync();
+    public virtual async ValueTask InitializeAsync()
+    {
+        await Postgres.ResetAsync();
+
+        // After the reset, not before: the truncate would take it straight back out again.
+        UserId = await GivenUserAsync();
+    }
 
     public virtual async ValueTask DisposeAsync()
     {
         _client?.Dispose();
+        _anonymousClient?.Dispose();
 
         foreach (var client in _extraClients)
         {
@@ -172,17 +187,23 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
             return media.Id;
         });
 
+    /// <param name="userId">
+    /// Whose pass this is. Defaults to <see cref="UserId"/>, so a test that does not care about
+    /// ownership reads exactly as it did before there was any.
+    /// </param>
     protected Task<int> GivenLogEntryAsync(
         int mediaId,
         LogStatus status = LogStatus.Backlog,
         decimal? rating = null,
         DateTimeOffset? startedAt = null,
         DateTimeOffset? completedAt = null,
-        string? platform = null) => WithDbAsync(async db =>
+        string? platform = null,
+        int? userId = null) => WithDbAsync(async db =>
         {
             var entry = new LogEntry
             {
                 MediaId = mediaId,
+                UserId = userId ?? UserId,
                 Status = status,
                 Rating = rating,
                 Platform = platform,

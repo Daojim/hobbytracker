@@ -41,7 +41,7 @@ public sealed class AuthServiceTests(PostgresFixture postgres) : DatabaseTestBas
         var second = await SignInAsync(Google("1234", "jimmy@example.com", "Jimmy Dao"));
 
         second.Id.ShouldBe(first.Id);
-        (await CountAsync(db => db.Users)).ShouldBe(1);
+        (await AccountsAsync()).ShouldBe(1);
         (await CountAsync(db => db.AuthIdentities)).ShouldBe(1);
     }
 
@@ -54,7 +54,7 @@ public sealed class AuthServiceTests(PostgresFixture postgres) : DatabaseTestBas
         var second = await SignInAsync(Google("5678", "shared@example.com", "Second"));
 
         second.Id.ShouldNotBe(first.Id);
-        (await CountAsync(db => db.Users)).ShouldBe(2);
+        (await AccountsAsync()).ShouldBe(2);
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public sealed class AuthServiceTests(PostgresFixture postgres) : DatabaseTestBas
             Task.Run(() => SignInAsync(identity), Ct));
 
         both[0].Id.ShouldBe(both[1].Id);
-        (await CountAsync(db => db.Users)).ShouldBe(1);
+        (await AccountsAsync()).ShouldBe(1);
         (await CountAsync(db => db.AuthIdentities)).ShouldBe(1);
     }
 
@@ -142,6 +142,14 @@ public sealed class AuthServiceTests(PostgresFixture postgres) : DatabaseTestBas
 
     private Task<User> UserAsync(int id) =>
         WithDbAsync(db => db.Users.AsNoTracking().SingleAsync(user => user.Id == id, Ct));
+
+    /// <summary>
+    /// Accounts that signed in, rather than every row in <c>users</c>. The harness creates one
+    /// of its own for the ordinary fixtures, and counting that would put these assertions one
+    /// out for a reason none of them is about.
+    /// </summary>
+    private Task<int> AccountsAsync() =>
+        WithDbAsync(db => db.Users.CountAsync(user => user.AuthIdentities.Any(), Ct));
 
     private Task<int> CountAsync<T>(Func<HobbyTrackerDbContext, IQueryable<T>> set) =>
         WithDbAsync(db => set(db).CountAsync(Ct));

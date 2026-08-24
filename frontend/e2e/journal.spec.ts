@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
+import { signIn } from './support/auth';
 import { awaitEstimate } from './support/hltb';
 import {
   card,
@@ -24,11 +25,16 @@ import {
 
 test.beforeEach(async ({ page }) => {
   resetDatabase();
+
+  // Every board route is behind [Authorize] now, and the session is a cookie on this page's
+  // context — which is also why the helpers below seed through page.request rather than the
+  // standalone request fixture, since those two keep separate cookie jars.
+  await signIn(page);
   await page.goto('/board');
 });
 
-test('rating a game from the board puts the rating on its card', async ({ page, request }) => {
-  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
+test('rating a game from the board puts the rating on its card', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -49,13 +55,12 @@ test('rating a game from the board puts the rating on its card', async ({ page, 
 
 test('saving says so, and stops saying so once you change something', async ({
   page,
-  request,
 }) => {
   // The button reads "Saving…" for a few hundred milliseconds and then goes back to "Save",
   // which leaves nothing behind to say the write landed. This is that something — and the real
   // API is what makes the test worth having, since a save that changes a value remounts the
   // form underneath the message.
-  await seed(request, 'Celeste', 'InProgress');
+  await seed(page.request, 'Celeste', 'InProgress');
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -75,10 +80,10 @@ test('saving says so, and stops saying so once you change something', async ({
   await expect(confirmation).toHaveCount(0);
 });
 
-test('a rating the column would round is refused before it is sent', async ({ page, request }) => {
+test('a rating the column would round is refused before it is sent', async ({ page }) => {
   // numeric(3,1) rounds 8.75 to 8.8 rather than rejecting it, so accepting one would mean
   // reporting a rating the database does not hold.
-  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
+  await seed(page.request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -91,10 +96,10 @@ test('a rating the column would round is refused before it is sent', async ({ pa
 });
 
 
-test('the rating slider answers to the keyboard, a tenth at a time', async ({ page, request }) => {
+test('the rating slider answers to the keyboard, a tenth at a time', async ({ page }) => {
   // jsdom has no slider to press: the arrow keys a range input answers to are the browser's,
   // not ours, and "it comes for free" is only true if something checks.
-  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8 });
+  await seed(page.request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8 });
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -112,8 +117,8 @@ test('the rating slider answers to the keyboard, a tenth at a time', async ({ pa
   ).toBeVisible();
 });
 
-test('clearing a rating takes it off the card', async ({ page, request }) => {
-  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8.5 });
+test('clearing a rating takes it off the card', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'InProgress', { startedAt: '2026-08-10', rating: 8.5 });
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -131,18 +136,17 @@ test('clearing a rating takes it off the card', async ({ page, request }) => {
 
 test('a card names the genre it is coloured by, picking the specific one', async ({
   page,
-  request,
 }) => {
   // Hollow Knight is Adventure, Platform and Indie at IGDB. Indie is not painted at all and
   // Adventure describes half the catalogue, so the card should read Platform.
-  await seed(request, 'Hollow Knight', 'Backlog');
+  await seed(page.request, 'Hollow Knight', 'Backlog');
   await page.reload();
 
   await expect(card(page, 'Hollow Knight').getByText('Platform')).toBeVisible();
 });
 
-test('choosing a genre in the drawer recolours the card', async ({ page, request }) => {
-  await seed(request, 'Hollow Knight', 'Backlog');
+test('choosing a genre in the drawer recolours the card', async ({ page }) => {
+  await seed(page.request, 'Hollow Knight', 'Backlog');
   await page.reload();
 
   await openJournal(page, 'Hollow Knight');
@@ -157,21 +161,21 @@ test('choosing a genre in the drawer recolours the card', async ({ page, request
   await expect(card(page, 'Hollow Knight').getByText('Adventure')).toBeVisible();
 });
 
-test('a refresh brings genres to a title that predates them', async ({ page, request }) => {
+test('a refresh brings genres to a title that predates them', async ({ page }) => {
   // media rows are only ever written by a search, so a column added to the schema is empty on
   // the library you already have. This is what the backfill is for.
-  const mediaId = await seed(request, 'Celeste', 'Backlog');
-  await request.post('/api/games/refresh');
+  const mediaId = await seed(page.request, 'Celeste', 'Backlog');
+  await page.request.post('/api/games/refresh');
 
   await page.reload();
   await expect(card(page, 'Celeste').getByText('Platform')).toBeVisible();
 
-  const refreshed = await request.get(`/api/games/${mediaId}`);
+  const refreshed = await page.request.get(`/api/games/${mediaId}`);
   expect(((await refreshed.json()) as { genres: string[] }).genres).toEqual(['Indie', 'Platform']);
 });
 
-test('a corrected start date shows on the card', async ({ page, request }) => {
-  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
+test('a corrected start date shows on the card', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
   await page.reload();
   await expect(card(page, 'Celeste')).toContainText('Aug 10, 2026');
 
@@ -183,11 +187,11 @@ test('a corrected start date shows on the card', async ({ page, request }) => {
   await expect(card(page, 'Celeste')).toContainText('Aug 1, 2026');
 });
 
-test('a finished game dragged back to the backlog stays there', async ({ page, request }) => {
+test('a finished game dragged back to the backlog stays there', async ({ page }) => {
   // The ordinary route to Completed leaves a start date behind, and the Backlog entry that
   // supersedes it has none. Ordering the current pass by started_at meant the completion won,
   // the card sprang back, and every retry added another orphan entry.
-  await seed(request, 'Hollow Knight', 'Completed', {
+  await seed(page.request, 'Hollow Knight', 'Completed', {
     startedAt: '2024-01-10',
     completedAt: '2024-11-02',
   });
@@ -204,8 +208,8 @@ test('a finished game dragged back to the backlog stays there', async ({ page, r
   await expect(column(page, 'Completed').getByText('Hollow Knight')).toHaveCount(0);
 });
 
-test('the pass you finished is still there to read afterwards', async ({ page, request }) => {
-  await seed(request, 'Hollow Knight', 'Completed', {
+test('the pass you finished is still there to read afterwards', async ({ page }) => {
+  await seed(page.request, 'Hollow Knight', 'Completed', {
     startedAt: '2024-01-10',
     completedAt: '2024-11-02',
   });
@@ -226,8 +230,8 @@ test('the pass you finished is still there to read afterwards', async ({ page, r
   await expect(page.getByText('Nov 2, 2024')).toBeVisible();
 });
 
-test('a card still drags even though its title opens the journal', async ({ page, request }) => {
-  await seed(request, 'Celeste', 'Backlog');
+test('a card still drags even though its title opens the journal', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'Backlog');
   await page.reload();
 
   await drag(page, card(page, 'Celeste'), column(page, 'InProgress'));
@@ -237,11 +241,11 @@ test('a card still drags even though its title opens the journal', async ({ page
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
 });
 
-test('a card drags from its title, which is most of its surface', async ({ page, request }) => {
+test('a card drags from its title, which is most of its surface', async ({ page }) => {
   // The title is a button, and it is by far the biggest target on a card. If pressing it could
   // only ever be a click, most of the card would be dead to the gesture — which is what having
   // to aim at the margins felt like.
-  await seed(request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Celeste', 'Backlog');
   await page.reload();
 
   const title = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
@@ -253,11 +257,11 @@ test('a card drags from its title, which is most of its surface', async ({ page,
   await expect(page.getByRole('button', { name: 'Close' })).toHaveCount(0);
 });
 
-test('a wobble while clicking the title still opens the journal', async ({ page, request }) => {
+test('a wobble while clicking the title still opens the journal', async ({ page }) => {
   // The press that opens a card and the press that starts a drag are the same press, and only
   // the distance tells them apart. A hand that moves three pixels between down and up is
   // clicking, and this is what the title button's old stopPropagation was over-protecting.
-  await seed(request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Celeste', 'Backlog');
   await page.reload();
 
   const title = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
@@ -278,11 +282,11 @@ test('a wobble while clicking the title still opens the journal', async ({ page,
   expect(await titlesIn(page, 'Backlog')).toEqual(['Celeste']);
 });
 
-test('the drawer catches up with a drag', async ({ page, request }) => {
+test('the drawer catches up with a drag', async ({ page }) => {
   // A drag sets started_at server-side, and the drawer reads a different query from the one the
   // drag invalidates. With staleTime at 30s, open-close-drag-reopen inside that window served
   // the pre-drag entry, so Started looked empty on a game that had just been started.
-  await seed(request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Celeste', 'Backlog');
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -300,11 +304,11 @@ test('the drawer catches up with a drag', async ({ page, request }) => {
   await expect(page.getByLabel('Started')).toHaveValue(today());
 });
 
-test('a drag reaches the ordering you are not looking at', async ({ page, request }) => {
+test('a drag reaches the ordering you are not looking at', async ({ page }) => {
   // The same missed invalidation one level over: a column's key carries its sort, so only the
   // ordering on screen was refetched and any other cached ordering of it kept the moved card.
-  await seed(request, 'Celeste', 'Backlog');
-  await seed(request, 'Hades', 'Backlog');
+  await seed(page.request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Hades', 'Backlog');
   await page.reload();
 
   // Look at Title first, so that ordering is in the cache and has something to go stale. Then
@@ -321,11 +325,11 @@ test('a drag reaches the ordering you are not looking at', async ({ page, reques
   await expect(column(page, 'Backlog').getByText('Hades')).toBeVisible();
 });
 
-test('clicking away from the drawer closes it, and so does Escape', async ({ page, request }) => {
+test('clicking away from the drawer closes it, and so does Escape', async ({ page }) => {
   // jsdom has no layout, so it cannot say whether the backdrop really covers the board — only
   // that a click on it calls onClose. This clicks where a column is and lets the browser
   // decide what receives it.
-  await seed(request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Celeste', 'Backlog');
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -339,10 +343,10 @@ test('clicking away from the drawer closes it, and so does Escape', async ({ pag
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('a pass added by a mistaken drag can be taken back', async ({ page, request }) => {
+test('a pass added by a mistaken drag can be taken back', async ({ page }) => {
   // The gap this closes: drag to Completed and back and the card says ×2 forever, because
   // leaving Completed inserts an entry rather than editing one. Nothing could remove it.
-  await seed(request, 'Hollow Knight', 'Completed', {
+  await seed(page.request, 'Hollow Knight', 'Completed', {
     startedAt: '2024-01-10',
     completedAt: '2024-11-02',
   });
@@ -367,10 +371,10 @@ test('a pass added by a mistaken drag can be taken back', async ({ page, request
   ).toHaveCount(0);
 });
 
-test('deleting the only pass takes the title off the board', async ({ page, request }) => {
+test('deleting the only pass takes the title off the board', async ({ page }) => {
   // The library is titles you have logged something against, so the last pass leaving takes
   // the card with it. The drawer would otherwise be left describing nothing.
-  await seed(request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Celeste', 'Backlog');
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -383,17 +387,17 @@ test('deleting the only pass takes the title off the board', async ({ page, requ
 });
 
 
-test('how long a pass took is recorded against that pass', async ({ page, request }) => {
+test('how long a pass took is recorded against that pass', async ({ page }) => {
   // Per pass, like the platform: a replay is not the same length as the first run, and the
   // number worth putting beside HowLongToBeat's estimate is what this playthrough took.
-  const mediaId = await seed(request, 'Celeste', 'Completed', {
+  const mediaId = await seed(page.request, 'Celeste', 'Completed', {
     startedAt: '2026-08-01',
     completedAt: '2026-08-10',
   });
 
   // Reading yours against theirs is the reason to write yours down at all, and until the
   // HowLongToBeat stub existed there was nothing here to read it against. See hltb.spec.ts.
-  await awaitEstimate(request, mediaId);
+  await awaitEstimate(page.request, mediaId);
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -411,8 +415,8 @@ test('how long a pass took is recorded against that pass', async ({ page, reques
   await expect(page.getByLabel('Hours played')).toHaveValue('31.5');
 });
 
-test('the platform you played on is recorded against that pass', async ({ page, request }) => {
-  await seed(request, 'Hollow Knight', 'InProgress');
+test('the platform you played on is recorded against that pass', async ({ page }) => {
+  await seed(page.request, 'Hollow Knight', 'InProgress');
   await page.reload();
 
   await openJournal(page, 'Hollow Knight');
@@ -427,9 +431,9 @@ test('the platform you played on is recorded against that pass', async ({ page, 
   await expect(page.getByLabel('Platform')).toHaveValue('Switch');
 });
 
-test('notes stack up on a pass instead of overwriting each other', async ({ page, request }) => {
+test('notes stack up on a pass instead of overwriting each other', async ({ page }) => {
   // The bug this whole table exists to fix: one column meant a journal you could only overwrite.
-  await seed(request, 'Hollow Knight', 'InProgress');
+  await seed(page.request, 'Hollow Knight', 'InProgress');
   await page.reload();
 
   await openJournal(page, 'Hollow Knight');
@@ -451,8 +455,8 @@ test('notes stack up on a pass instead of overwriting each other', async ({ page
   expect(bodies[1]).toContain('stuck on watcher knights');
 });
 
-test('a note can be fixed and another taken back', async ({ page, request }) => {
-  await seed(request, 'Celeste', 'InProgress');
+test('a note can be fixed and another taken back', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'InProgress');
   await page.reload();
 
   await openJournal(page, 'Celeste');
@@ -483,11 +487,10 @@ test('a note can be fixed and another taken back', async ({ page, request }) => 
 
 test('a replay starts empty and the finished pass keeps what you wrote', async ({
   page,
-  request,
 }) => {
   // A note belongs to the pass it was written during, which is the whole reason it hangs off the
   // entry rather than the title. Only a real stack can show the two halves of that at once.
-  await seed(request, 'Hollow Knight', 'Completed', {
+  await seed(page.request, 'Hollow Knight', 'Completed', {
     startedAt: '2024-01-10',
     completedAt: '2024-11-02',
   });

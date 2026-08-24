@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
+import { signIn } from './support/auth';
 import { column, seed } from './support/board';
 
 /**
@@ -16,6 +17,11 @@ import { column, seed } from './support/board';
 
 test.beforeEach(async ({ page }) => {
   resetDatabase();
+
+  // Every board route is behind [Authorize] now, and the session is a cookie on this page's
+  // context — which is also why the helpers below seed through page.request rather than the
+  // standalone request fixture, since those two keep separate cookie jars.
+  await signIn(page);
   await page.goto('/board');
 });
 
@@ -32,8 +38,8 @@ test('finding a game puts it on the board without leaving it', async ({ page }) 
   await expect(column(page, 'Backlog').getByText('Hollow Knight')).toBeVisible();
 });
 
-test('a game you already logged is not offered a second time', async ({ page, request }) => {
-  await seed(request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
+test('a game you already logged is not offered a second time', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'InProgress', { startedAt: '2026-08-10' });
   await page.reload();
 
   await page.getByRole('searchbox', { name: 'Search games' }).fill('celeste');

@@ -266,7 +266,8 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
         db,
         Igdb,
         Options.Create(new IgdbOptions { ClientId = "id", ClientSecret = "secret" }),
-        NullLogger<GameCatalogService>.Instance);
+        NullLogger<GameCatalogService>.Instance,
+        new FakeCurrentUser(UserId));
 
     private Task<int> CountMediaAsync() => WithDbAsync(db => db.Media.CountAsync(Ct));
 }

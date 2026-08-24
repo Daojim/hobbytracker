@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { psql, resetDatabase } from './support/database';
+import { signIn } from './support/auth';
 import { awaitChecked, awaitEstimate } from './support/hltb';
 import { card, openJournal, seed, setSort, titlesIn } from './support/board';
 
@@ -18,15 +19,20 @@ import { card, openJournal, seed, setSort, titlesIn } from './support/board';
 
 test.beforeEach(async ({ page }) => {
   resetDatabase();
+
+  // Every board route is behind [Authorize] now, and the session is a cookie on this page's
+  // context — which is also why the helpers below seed through page.request rather than the
+  // standalone request fixture, since those two keep separate cookie jars.
+  await signIn(page);
   await page.goto('/board');
 });
 
-test('adding a title to the board fetches how long it takes', async ({ page, request }) => {
+test('adding a title to the board fetches how long it takes', async ({ page }) => {
   // The one gesture that produces the numbers without anybody running maintenance. Everything
   // the integration knows how to do runs behind this: the bundles are read, the search endpoint
   // is found by the pair rule, the handshake is done, and the search is answered.
-  const mediaId = await seed(request, 'Celeste', 'Backlog');
-  await awaitEstimate(request, mediaId);
+  const mediaId = await seed(page.request, 'Celeste', 'Backlog');
+  await awaitEstimate(page.request, mediaId);
 
   await page.reload();
   await expect(
@@ -40,12 +46,12 @@ test('adding a title to the board fetches how long it takes', async ({ page, req
   await expect(page.getByText('Completionist: 38 h')).toBeVisible();
 });
 
-test('a backfill brings the numbers to a library that predates them', async ({ page, request }) => {
-  const mediaId = await seed(request, 'Hollow Knight', 'Backlog');
+test('a backfill brings the numbers to a library that predates them', async ({ page }) => {
+  const mediaId = await seed(page.request, 'Hollow Knight', 'Backlog');
 
   // Let the lookup adding it triggered finish first, so what follows is unambiguous rather than
   // racing it.
-  await awaitEstimate(request, mediaId);
+  await awaitEstimate(page.request, mediaId);
 
   // Now make it a title from before the feature existed. media rows are only ever written by a
   // search, so columns added to the schema stay empty on the library you already have — that is
@@ -60,11 +66,11 @@ test('a backfill brings the numbers to a library that predates them', async ({ p
 
   // 202 with a count of what was queued, not of what changed: at a floor of seconds per request
   // the answers arrive long after the reply has gone.
-  const queued = await request.post('/api/games/hltb/refresh');
+  const queued = await page.request.post('/api/games/hltb/refresh');
   expect(queued.status()).toBe(202);
   expect(((await queued.json()) as { queued: number }).queued).toBeGreaterThanOrEqual(1);
 
-  await awaitEstimate(request, mediaId);
+  await awaitEstimate(page.request, mediaId);
   await page.reload();
   await expect(
     card(page, 'Hollow Knight').getByRole('img', { name: 'About 27 hours to finish' }),
@@ -73,10 +79,9 @@ test('a backfill brings the numbers to a library that predates them', async ({ p
 
 test('a title HowLongToBeat has never heard of says so rather than showing nothing', async ({
   page,
-  request,
 }) => {
   // The stub's catalogue has no Stardew Valley at all, so the search comes back empty.
-  const mediaId = await seed(request, 'Stardew Valley', 'Backlog');
+  const mediaId = await seed(page.request, 'Stardew Valley', 'Backlog');
   await awaitChecked(mediaId);
 
   await page.reload();
@@ -88,16 +93,15 @@ test('a title HowLongToBeat has never heard of says so rather than showing nothi
 
 test('a title filed under another name is refused rather than guessed at', async ({
   page,
-  request,
 }) => {
   // HowLongToBeat calls it "Anthem: Legion of Dawn" and IGDB just says "Anthem", which scores
   // nowhere near the threshold. Refusing is the correct answer — a wrong number is worse than
   // none, because the question being asked is whether this fits in a weekend. Pokemon Scarlet
   // is the real library's version of this, and it is what the pin exists for.
-  const mediaId = await seed(request, 'Anthem', 'Backlog');
+  const mediaId = await seed(page.request, 'Anthem', 'Backlog');
   await awaitChecked(mediaId);
 
-  const game = await request.get(`/api/games/${mediaId}`);
+  const game = await page.request.get(`/api/games/${mediaId}`);
   expect((await game.json()) as { hltbId: number | null }).toMatchObject({
     hltbId: null,
     hltbMainStoryHours: null,
@@ -110,9 +114,8 @@ test('a title filed under another name is refused rather than guessed at', async
 
 test('pinning the id by hand brings the numbers to a title nothing matched', async ({
   page,
-  request,
 }) => {
-  const mediaId = await seed(request, 'Anthem', 'Backlog');
+  const mediaId = await seed(page.request, 'Anthem', 'Backlog');
   await awaitChecked(mediaId);
 
   await page.reload();
@@ -148,10 +151,9 @@ test('pinning the id by hand brings the numbers to a title nothing matched', asy
 
 test('an id HowLongToBeat does not know is refused, not quietly stored', async ({
   page,
-  request,
 }) => {
-  const mediaId = await seed(request, 'Celeste', 'Backlog');
-  await awaitEstimate(request, mediaId);
+  const mediaId = await seed(page.request, 'Celeste', 'Backlog');
+  await awaitEstimate(page.request, mediaId);
 
   await page.reload();
   await openJournal(page, 'Celeste');
@@ -167,10 +169,9 @@ test('an id HowLongToBeat does not know is refused, not quietly stored', async (
 
 test('taking the pin back puts the title in the way of the next backfill', async ({
   page,
-  request,
 }) => {
-  const mediaId = await seed(request, 'Celeste', 'Backlog');
-  await awaitEstimate(request, mediaId);
+  const mediaId = await seed(page.request, 'Celeste', 'Backlog');
+  await awaitEstimate(page.request, mediaId);
 
   await page.reload();
   await openJournal(page, 'Celeste');
@@ -184,23 +185,22 @@ test('taking the pin back puts the title in the way of the next backfill', async
   // blank for good.
   expect(psql(`select hltb_checked_at is null from games where media_id = ${mediaId};`)).toBe('t');
 
-  const queued = await request.post('/api/games/hltb/refresh');
+  const queued = await page.request.post('/api/games/hltb/refresh');
   expect(((await queued.json()) as { queued: number }).queued).toBeGreaterThanOrEqual(1);
 });
 
 test('Time to beat orders the shortest first, and the unestimated last', async ({
   page,
-  request,
 }) => {
   // Deliberately not added in length order, so the sort has something to do.
-  const knight = await seed(request, 'Hollow Knight', 'Backlog');
-  const stardew = await seed(request, 'Stardew Valley', 'Backlog');
-  const celeste = await seed(request, 'Celeste', 'Backlog');
-  const wilds = await seed(request, 'Outer Wilds', 'Backlog');
+  const knight = await seed(page.request, 'Hollow Knight', 'Backlog');
+  const stardew = await seed(page.request, 'Stardew Valley', 'Backlog');
+  const celeste = await seed(page.request, 'Celeste', 'Backlog');
+  const wilds = await seed(page.request, 'Outer Wilds', 'Backlog');
 
-  await awaitEstimate(request, knight);
-  await awaitEstimate(request, celeste);
-  await awaitEstimate(request, wilds);
+  await awaitEstimate(page.request, knight);
+  await awaitEstimate(page.request, celeste);
+  await awaitEstimate(page.request, wilds);
   // Stardew is the one HowLongToBeat has never heard of, so it only ever gets a stamp.
   await awaitChecked(stardew);
 

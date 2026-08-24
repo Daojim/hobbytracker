@@ -284,6 +284,12 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
             var finished = new LogEntry
             {
                 MediaId = mediaId,
+
+                // Built by hand rather than through GivenLogEntryAsync, so ownership has to be
+                // said out loud. An unowned pass belongs to nobody, and the board will not find
+                // it — which reads as a transition that silently did nothing.
+                UserId = UserId,
+
                 Status = LogStatus.Completed,
                 LoggedAt = Clock.UtcNow,
                 CompletedAt = Eastern(2024, 3, 2),

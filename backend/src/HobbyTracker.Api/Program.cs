@@ -123,6 +123,11 @@ builder.Services.AddOptions<AuthOptions>()
 builder.Services.AddSingleton<IValidateOptions<AuthOptions>, ValidateAuthOptions>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Whose rows a request is about. See CurrentUser for why this is injected into the services
+// rather than applied as an EF global query filter.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {

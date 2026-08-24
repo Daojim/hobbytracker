@@ -1,11 +1,13 @@
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HobbyTracker.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/library")]
 public class LibraryController(ILibraryService library) : ControllerBase
 {

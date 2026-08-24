@@ -1,11 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HobbyTracker.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/games")]
 public class GamesController(IGameCatalogService catalog, IHltbService hltb) : ControllerBase
 {
