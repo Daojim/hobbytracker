@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { removeCurrentPass, reorderColumn, transition } from '../api/library';
-import { BOARD_STATUSES, columnKey, gameKey, yearFor } from './keys';
+import { columnKey, gameKey, yearFor } from './keys';
+import { BOARD_STATUSES } from './columns';
 import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
 
@@ -235,10 +236,18 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
 
   return {
     /**
-     * The close button on Playing. `from` is the column the card sits in, which is its status.
+     * A move from the card's options menu. `from` is the column the card sits in, which is its
+     * status — the caller knows it for free, and the mutation needs it to know which two columns
+     * to put back if the request fails.
+     *
+     * The same mutation the drag ends in, deliberately, so a menu move inherits the optimistic
+     * update, the rollback, the reorder that follows it in manual sort, and both invalidations
+     * without any of it being written twice. It replaced a `drop` that was this with `to` fixed
+     * to 'Dropped', which was all the old close button could ever ask for.
      */
-    drop: (mediaId: number, from: LogStatus) => move.mutate({ mediaId, from, to: 'Dropped' }),
-    /** The close button on Backlog, where the pass goes rather than moving to Dropped. */
+    move: (mediaId: number, from: LogStatus, to: LogStatus) =>
+      move.mutate({ mediaId, from, to }),
+    /** Taking the current pass off the board, which is the one ending a drag cannot express. */
     remove: (mediaId: number) => remove.mutate(mediaId),
     /** The card under the cursor, so the drag has something to follow. */
     dragging,

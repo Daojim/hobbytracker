@@ -1,10 +1,12 @@
+import { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
 import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
 import { genreStripe, resolveGenre } from './genres';
-import type { LibraryItem } from '../api/types';
+import { otherColumns } from './columns';
+import type { LibraryItem, LogStatus } from '../api/types';
 
 /**
  * A stable handle on the button that opens a title's journal.
@@ -15,6 +17,15 @@ import type { LibraryItem } from '../api/types';
  * the title as plain text, so there is never a second element with the same id.
  */
 export const cardTitleId = (mediaId: number) => `card-title-${mediaId}`;
+
+/**
+ * The same handle on the options corner, and it exists for the same reason.
+ *
+ * Escape has to hand the keyboard back to the control that opened the menu, and by then a
+ * background refetch may have remounted the card underneath it. A ref captured on the way in
+ * would be pointing at a detached node; an id finds whatever is there now.
+ */
+export const cardMenuId = (mediaId: number) => `card-menu-${mediaId}`;
 
 /**
  * Removing a title, in the same three parts the drawer's deletes use.
@@ -31,18 +42,34 @@ export interface CardRemoval {
   onConfirm: () => void;
 }
 
+/**
+ * Whether this card's options are open, held above the board for `CardRemoval`'s reason exactly.
+ *
+ * The settings menu keeps its own open state and can: nothing remounts the header. Cards are
+ * remounted by every refetch, and a menu that shut itself halfway through a choice because a
+ * column refreshed would be a menu nobody could use. One card at a time falls out of holding it
+ * there, which is what the board already does with the confirm.
+ */
+export interface CardMenu {
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+}
+
 export interface CardFaceProps {
   item: LibraryItem;
-  /** Moves the title to Dropped. Offered on Playing only. Omitted by the drag preview. */
-  onDrop?: (mediaId: number) => void;
-  /** Deleting the current pass. Offered on Backlog only. Omitted by the drag preview. */
+  /** Moves the title to another column. Omitted by the drag preview. */
+  onMove?: (mediaId: number, to: LogStatus) => void;
+  /** Deleting the current pass. Omitted by the drag preview. */
   removal?: CardRemoval;
+  /** The options corner and its panel. Omitted by the drag preview, which offers nothing. */
+  menu?: CardMenu;
   /** Opens the journal for this title. Omitted by the drag preview for the same reason. */
   onOpen?: (mediaId: number) => void;
 }
 
 /** Everything a card shows. Shared with the drag preview, which must not be a second sortable. */
-export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
+export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps) {
   const lastActivity = formatJournalDate(item.lastActivity);
 
   // The chosen genre, or the one the game would be painted as. The stripe is decoration and the
@@ -50,16 +77,37 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
   const genre = resolveGenre(item.genres, item.primaryGenre);
   const stripe = genreStripe(genre);
 
-  // What the close corner does is not the same thing in every column. Dropped is a record of a
-  // game you started and gave up on: the right ending for one you were playing, and the wrong
-  // one for a game you never began, which would be claiming a playthrough that never happened.
-  // So Backlog deletes the pass instead — and the title goes with it when that was its only
-  // one. Completed and Dropped get neither: finishing something cannot be given up on, and
-  // dropping something already dropped is a no-op that would still cost a request. Absent
-  // rather than disabled, because a control that is never usable is not a control.
-  const droppable = onDrop !== undefined && item.currentStatus === 'InProgress';
-  const removable = removal !== undefined && item.currentStatus === 'Backlog';
-  const confirming = removable && removal.confirming;
+  // The corner offers the same thing from every column now, which is the change. It used to be
+  // a single × meaning *drop* on Playing and *remove* on Backlog, absent on the other two — so
+  // which of the two endings a card offered was decided by where it sat rather than by you, and
+  // a title in Completed had no control at all. Dropping is still not removing; both are simply
+  // reachable from anywhere, alongside the three moves that used to need a drag.
+  const confirming = removal !== undefined && removal.confirming;
+
+  // A press anywhere else shuts the menu, which is the settings menu's mechanism exactly:
+  // `pointerdown` rather than `click`, attached only while open, tested against a wrapper that
+  // holds the corner as well as the panel. There is no other way to hear a press outside — and
+  // unlike Escape there is no second listener to disagree with, since nothing else in the app
+  // listens for one. It doubles as what closes the menu when a drag begins, because dnd-kit's
+  // gesture starts with a pointerdown on some other card.
+  const options = useRef<HTMLDivElement>(null);
+  const menuOpen = menu?.open ?? false;
+  const closeMenu = menu?.onClose;
+
+  useEffect(() => {
+    if (!menuOpen || closeMenu === undefined) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!options.current?.contains(event.target as Node)) {
+        closeMenu();
+      }
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [menuOpen, closeMenu]);
 
   // Both warnings name the title, which is what lets the confirm buttons stay two plain words:
   // anyone reading the card in order has just been told which one it means.
@@ -203,21 +251,94 @@ export function CardFace({ item, onDrop, removal, onOpen }: CardFaceProps) {
         )}
       </div>
 
-      {(droppable || removable) && !confirming && (
-        <button
-          type="button"
-          aria-label={
-            removable ? `Remove ${item.title} from your board` : `Drop ${item.title}`
-          }
-          // Without this the card's drag listeners see the press first. The pointer sensor's
-          // activation distance already stops a click becoming a drag; this stops the press
-          // being claimed at all.
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => (removable ? removal.onAsk() : onDrop?.(item.mediaId))}
-          className="h-5 w-5 shrink-0 rounded text-muted hover:bg-hover hover:text-fg"
+      {menu !== undefined && !confirming && (
+        <div
+          ref={options}
+          // Holds the corner and the panel together, so the press that opens the menu is inside
+          // the region the outside-click listener tests against and does not close it again.
+          //
+          // Escape is caught here rather than at the document, unlike the settings menu. The
+          // journal drawer already listens there, and the search bar records why a second
+          // listener for one key is how two of them start disagreeing about which press was
+          // meant for whom. Bubbling reaches this from the corner and from every item, which is
+          // everywhere focus can be while the menu is open, so a container handler is enough.
+          onKeyDown={(event) => {
+            if (event.key === 'Escape' && menu.open) {
+              menu.onClose();
+              document.getElementById(cardMenuId(item.mediaId))?.focus();
+            }
+          }}
+          className="relative"
         >
-          ×
-        </button>
+          <button
+            type="button"
+            id={cardMenuId(item.mediaId)}
+            aria-label={`Options for ${item.title}`}
+            aria-expanded={menu.open}
+            // Without this the card's drag listeners see the press first. The pointer sensor's
+            // activation distance already stops a click becoming a drag; this stops the press
+            // being claimed at all. dnd-kit's keyboard sensor refuses to start from a nested
+            // element on its own, so Space and Enter here need nothing.
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => (menu.open ? menu.onClose() : menu.onOpen())}
+            className="h-5 w-5 shrink-0 rounded text-muted hover:bg-hover hover:text-fg"
+          >
+            ⋯
+          </button>
+
+          {menu.open && (
+            <div
+              // A group of buttons rather than role="menu". That role promises arrow-key roving
+              // focus, and taking it without implementing the keyboard contract is worse than a
+              // set of buttons that behaves exactly as it announces — which is what the settings
+              // menu is too. The name is on the group, so the items can stay two or three words:
+              // the e2e card() locator filters on a card's own text, and an item carrying a
+              // title would make it match any card whose menu mentioned another card's game.
+              role="group"
+              aria-label={`Options for ${item.title}`}
+              onPointerDown={(event) => event.stopPropagation()}
+              className="absolute right-0 z-10 mt-1 flex w-44 flex-col rounded-lg border border-line bg-surface p-1 shadow-xl"
+            >
+              {otherColumns(item.currentStatus).map((column) => (
+                <button
+                  key={column.status}
+                  type="button"
+                  onClick={() => {
+                    menu.onClose();
+                    onMove?.(item.mediaId, column.status);
+                  }}
+                  className="rounded px-2 py-1 text-left text-sm hover:bg-hover"
+                >
+                  Move to {column.label}
+                </button>
+              ))}
+
+              <hr className="my-1 border-line-soft" />
+
+              {/* Asks rather than removes, and the menu gets out of the way so the question is
+                  not put behind the thing that asked it. The confirm it opens is the one that was
+                  already here: a delete is not one drag from undone, unlike everything above.
+
+                  Not red at rest, which was the first attempt and is the mistake this codebase
+                  has written down twice. Ember's --danger is #ff8e7a and its --accent is
+                  #f2545b, so a red word here would sit one hue from every link and current
+                  choice in the app and read as the emphasised item rather than the dangerous
+                  one. What separates it is the rule above it and the word "Remove"; the colour
+                  arrives on hover, as ConfirmDelete's own ask does, and the filled chip that
+                  actually destroys something is still the only thing wearing the fill. */}
+              <button
+                type="button"
+                onClick={() => {
+                  menu.onClose();
+                  removal?.onAsk();
+                }}
+                className="rounded px-2 py-1 text-left text-sm hover:bg-hover hover:text-danger"
+              >
+                Remove from board
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </>
   );
@@ -246,14 +367,15 @@ export const CARD_CLASS =
 
 export interface CardProps {
   item: LibraryItem;
-  onDrop: (mediaId: number) => void;
+  onMove: (mediaId: number, to: LogStatus) => void;
   removal: CardRemoval;
+  menu: CardMenu;
   onOpen: (mediaId: number) => void;
   /** False outside `manual` sort, where a drag would imply a ranking the API will not store. */
   draggable: boolean;
 }
 
-export function Card({ item, onDrop, removal, onOpen, draggable }: CardProps) {
+export function Card({ item, onMove, removal, menu, onOpen, draggable }: CardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.mediaId,
     // Read back by the drag handlers: a drop needs to know which column the card came from, and
@@ -262,22 +384,39 @@ export function Card({ item, onDrop, removal, onOpen, draggable }: CardProps) {
     disabled: !draggable,
   });
 
+  // dnd-kit's aria-disabled says "this sortable cannot be dragged", which is true and is not
+  // what the attribute means here. It is the other half of the role it stamps — see below — and
+  // on a listitem it is not a valid claim at all, while both a screen reader and Playwright
+  // read it as disabling everything inside the card. Outside manual sort that would be the
+  // title, which opens the journal, and the options corner, which is the whole point of this
+  // change: a move through the menu is not a drag and never needed one to be on offer.
+  //
+  // What is actually on offer is proved by attempting a drag, in "sorting is a view" — an
+  // attribute a person cannot see was standing in for the gesture and got it wrong.
+  const { 'aria-disabled': _sortableDisabled, ...sortableAttributes } = attributes;
+
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      {...attributes}
+      {...sortableAttributes}
       {...listeners}
       // dnd-kit stamps role="button" so a sortable is announced as operable. Restored here
       // because the card contains a real button, and an interactive element inside another one
       // is ambiguous to a screen reader. The focusability the keyboard sensor needs comes from
       // its tabIndex, which survives.
       role="listitem"
+      // Lifted while its menu is open, and it has to be. `@container` on CARD_CLASS implies
+      // `contain: layout`, which makes every card a stacking context — so a panel hanging past
+      // the bottom of one card is painted *under* the card after it, and under the cards of
+      // whichever column sits below at two-across widths. Nothing clips it; it is only painted
+      // behind. z-10 leaves the drawer's z-20 and the settings menu's z-30 above it, which is
+      // the order those three want.
       className={`${CARD_CLASS} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''} ${
         isDragging ? 'opacity-40' : ''
-      }`}
+      } ${menu.open ? 'relative z-10' : ''}`}
     >
-      <CardFace item={item} onDrop={onDrop} removal={removal} onOpen={onOpen} />
+      <CardFace item={item} onMove={onMove} removal={removal} menu={menu} onOpen={onOpen} />
     </li>
   );
 }

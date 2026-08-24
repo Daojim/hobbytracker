@@ -23,6 +23,16 @@ export interface ColumnRemoval {
   onConfirm: (mediaId: number) => void;
 }
 
+/**
+ * Which card has its options open, if any. Same shape and same reasoning as ColumnRemoval:
+ * one at a time, held above the board because a refetch remounts cards.
+ */
+export interface ColumnMenu {
+  mediaId: number | null;
+  onOpen: (mediaId: number) => void;
+  onClose: () => void;
+}
+
 export interface ColumnProps {
   hobby: string;
   status: LogStatus;
@@ -35,8 +45,10 @@ export interface ColumnProps {
   onYearChange?: (year: number | undefined) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  onDrop: (mediaId: number) => void;
+  /** Moves a card to another column. The column it leaves is this one, so it goes unsaid. */
+  onMove: (mediaId: number, to: LogStatus) => void;
   removal: ColumnRemoval;
+  menu: ColumnMenu;
   onOpen: (mediaId: number) => void;
 }
 
@@ -50,8 +62,9 @@ export function Column({
   onYearChange,
   collapsed = false,
   onToggleCollapse,
-  onDrop,
+  onMove,
   removal,
+  menu,
   onOpen,
 }: ColumnProps) {
   const headingId = useId();
@@ -116,12 +129,17 @@ export function Column({
                 <Card
                   key={item.mediaId}
                   item={item}
-                  onDrop={onDrop}
+                  onMove={onMove}
                   removal={{
                     confirming: removal.mediaId === item.mediaId,
                     onAsk: () => removal.onAsk(item.mediaId),
                     onCancel: removal.onCancel,
                     onConfirm: () => removal.onConfirm(item.mediaId),
+                  }}
+                  menu={{
+                    open: menu.mediaId === item.mediaId,
+                    onOpen: () => menu.onOpen(item.mediaId),
+                    onClose: menu.onClose,
                   }}
                   onOpen={onOpen}
                   // Every other mode is a read-only view. Offering a drag there would promise a

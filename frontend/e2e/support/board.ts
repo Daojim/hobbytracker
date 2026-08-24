@@ -153,3 +153,18 @@ export async function writeNote(page: Page, body: string): Promise<void> {
   await page.getByRole('button', { name: 'Add note' }).click();
   await expect(page.getByRole('dialog').getByText(body)).toBeVisible();
 }
+
+/**
+ * Opens a card's options and picks one of them.
+ *
+ * The item's own text carries no title — the name is on the group — so the click is scoped to
+ * the card rather than to the page. Two cards' menus can never be open at once, but scoping it
+ * is what makes the locator say which card it means.
+ */
+export async function chooseOption(page: Page, title: string, option: string): Promise<void> {
+  await card(page, title).getByRole('button', { name: `Options for ${title}` }).click();
+  await card(page, title)
+    .getByRole('group', { name: `Options for ${title}` })
+    .getByRole('button', { name: option })
+    .click();
+}

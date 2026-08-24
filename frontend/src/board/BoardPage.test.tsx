@@ -93,4 +93,69 @@ describe('BoardPage', () => {
       expect(screen.getByRole('button', { name: 'Celeste' })).toHaveFocus(),
     );
   });
+
+  it('keeps one card asking at a time, however many are on the board', async () => {
+    // Which card has its options open lives here rather than in the card, so opening a second
+    // one closes the first without either of them knowing about the other. Two open menus on
+    // one board would be two questions nobody asked.
+    boardServer({
+      columns: {
+        Backlog: [
+          libraryItem({ mediaId: 3001, title: 'Celeste' }),
+          libraryItem({ mediaId: 3002, title: 'Hollow Knight' }),
+        ],
+      },
+    });
+
+    renderWithProviders(<BoardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
+    expect(screen.getByRole('group', { name: 'Options for Celeste' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Hollow Knight' }));
+
+    expect(screen.getByRole('group', { name: 'Options for Hollow Knight' })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Options for Celeste' })).not.toBeInTheDocument();
+  });
+
+  it('moves a title to the column it was told, without a drag', async () => {
+    // The whole point. jsdom has no layout and no pointer events, so this is the only layer
+    // that can say a move happened without one — the drag itself belongs to Playwright.
+    const board = boardServer({
+      columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] },
+    });
+
+    renderWithProviders(<BoardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
+
+    await waitFor(() =>
+      expect(board.transitions).toContainEqual({ mediaId: 3001, status: 'Completed' }),
+    );
+  });
+
+  it('closes the options on Escape and hands the keyboard back to the corner', async () => {
+    // Focus goes back by id rather than to a stored element, for the reason the drawer does:
+    // a refetch remounts the card, and the node the menu was opened from is then detached.
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
+
+    renderWithProviders(<BoardPage />);
+    const corner = await screen.findByRole('button', { name: 'Options for Celeste' });
+    await userEvent.click(corner);
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByRole('group', { name: 'Options for Celeste' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Options for Celeste' })).toHaveFocus();
+  });
+
+  it('closes the options when the press lands somewhere else', async () => {
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
+
+    renderWithProviders(<BoardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
+
+    await userEvent.click(screen.getByRole('heading', { name: 'Playing 0' }));
+
+    expect(screen.queryByRole('group', { name: 'Options for Celeste' })).not.toBeInTheDocument();
+  });
 });

@@ -7,6 +7,7 @@ import { Column } from './Column';
 import { EntryDrawer } from '../journal/EntryDrawer';
 import { useBoard } from './useBoard';
 import { yearFor } from './keys';
+import { COLUMNS } from './columns';
 import type { Hobby } from '../shell/hobbies';
 import type { LibrarySort, LogStatus } from '../api/types';
 
@@ -18,13 +19,6 @@ import type { LibrarySort, LogStatus } from '../api/types';
  * or a year on one of them cost nothing on the other three.
  */
 const HOBBY: Hobby = 'games';
-
-const COLUMNS: readonly { status: LogStatus; label: string }[] = [
-  { status: 'Backlog', label: 'Backlog' },
-  { status: 'InProgress', label: 'Playing' },
-  { status: 'Completed', label: 'Completed' },
-  { status: 'Dropped', label: 'Dropped' },
-];
 
 const ALL_MANUAL: Record<LogStatus, LibrarySort> = {
   Backlog: 'manual',
@@ -47,6 +41,10 @@ export function BoardPage() {
   // id rather than by a stored element — and a confirm that closes itself when a background
   // refetch lands is one nobody can trust. One at a time, as the drawer's deletes are.
   const [removingFor, setRemovingFor] = useState<number | null>(null);
+  // And which card has its options open, held here for exactly the same reason. One at a time
+  // falls out of that, which is what you want anyway: two open menus on one board is two
+  // questions nobody asked.
+  const [menuFor, setMenuFor] = useState<number | null>(null);
 
   // Which card it was opened from, so the keyboard can be handed back to it on the way out.
   const openedFrom = useRef<number | null>(null);
@@ -98,7 +96,7 @@ export function BoardPage() {
                 onToggleCollapse={
                   status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
                 }
-                onDrop={(mediaId) => board.drop(mediaId, status)}
+                onMove={(mediaId, to) => board.move(mediaId, status, to)}
                 removal={{
                   mediaId: removingFor,
                   onAsk: setRemovingFor,
@@ -107,6 +105,11 @@ export function BoardPage() {
                     setRemovingFor(null);
                     board.remove(mediaId);
                   },
+                }}
+                menu={{
+                  mediaId: menuFor,
+                  onOpen: setMenuFor,
+                  onClose: () => setMenuFor(null),
                 }}
                 onOpen={(mediaId) => {
                   openedFrom.current = mediaId;
