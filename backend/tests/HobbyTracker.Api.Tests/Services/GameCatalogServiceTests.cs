@@ -199,6 +199,28 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
     }
 
     [Fact]
+    public async Task Hands_back_no_more_than_was_asked_for()
+    {
+        // The client asks IGDB two questions — relevance and slug prefix — so it can answer
+        // with up to twice the limit. Ranking happens over all of it and the cut comes after,
+        // which is the entire point: the prefix half is usually where the good matches are,
+        // and trimming first would throw them away before anything had looked at them.
+        Igdb.SetResults("many",
+            FakeIgdbClient.Game(1, "Alpha"),
+            FakeIgdbClient.Game(2, "Beta"),
+            FakeIgdbClient.Game(3, "Gamma"),
+            FakeIgdbClient.Game(4, "Delta"),
+            FakeIgdbClient.Game(5, "Epsilon"));
+
+        var results = await SearchAsync("many", 3);
+
+        results.Count.ShouldBe(3);
+
+        // And the catalogue grew by what a person could actually have seen, not by what was
+        // fetched to decide it.
+        (await CountMediaAsync()).ShouldBe(3);
+    }
+    [Fact]
     public async Task Concurrent_identical_searches_do_not_create_duplicates()
     {
         Igdb.SetResults("halo",

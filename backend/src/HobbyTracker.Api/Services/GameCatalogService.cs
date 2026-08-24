@@ -51,19 +51,29 @@ public sealed class GameCatalogService(
     public async Task<IReadOnlyList<GameDto>> SearchAsync(
         string search, int? limit, CancellationToken cancellationToken)
     {
-        var results = await igdb.SearchGamesAsync(
-            search, limit ?? options.Value.DefaultSearchLimit, cancellationToken);
+        var wanted = limit ?? options.Value.DefaultSearchLimit;
+        var found = await igdb.SearchGamesAsync(search, wanted, cancellationToken);
 
-        if (results.Count == 0)
+        if (found.Count == 0)
         {
             return [];
         }
 
+        // Ranked here rather than asked for in the query: IGDB refuses a search carrying a
+        // sort outright, with a 406 saying so. See IgdbRelevance for what it is fixing.
+        //
+        // Cut back to what was asked for only *after* ranking, and before the upsert. The
+        // client answers two questions at once and so can hand back twice this many, and
+        // trimming first would throw away the prefix matches that are usually the good ones.
+        // Trimming before the upsert is what keeps the catalogue growing at the rate it
+        // always did — searching still writes one row per result a person could have seen.
+        List<IgdbGame> results = [.. IgdbRelevance.Rank(search, found).Take(wanted)];
+
         var stored = await UpsertAsync(results, cancellationToken);
 
-        // Hand results back in IGDB's relevance order. That ordering is the entire value of
-        // an APIcalypse `search`, and the database has no idea it exists — reading the rows
-        // back in id order would put whichever title we happened to see first at the top.
+        // Hand results back in the ranked order. IGDB's relevance is most of it and the
+        // database has no idea it exists — reading the rows back in id order would put
+        // whichever title we happened to see first at the top.
         return
         [
             .. results
