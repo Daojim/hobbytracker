@@ -36,11 +36,12 @@ test('adding a title to the board fetches how long it takes', async ({ page }) =
 
   await page.reload();
   await expect(
-    card(page, 'Celeste').getByRole('img', { name: 'About 8 hours to finish' }),
+    card(page, 'Celeste').getByRole('img', { name: 'About 20 hours to finish' }),
   ).toBeVisible();
 
   // All three in the drawer, under HowLongToBeat's own names; only main story on the card.
   await openJournal(page, 'Celeste');
+  await expect(page.getByText('All play styles: 20 h')).toBeVisible();
   await expect(page.getByText('Main story: 8 h')).toBeVisible();
   await expect(page.getByText('Main + Extra: 12.5 h')).toBeVisible();
   await expect(page.getByText('Completionist: 38 h')).toBeVisible();
@@ -57,7 +58,8 @@ test('a backfill brings the numbers to a library that predates them', async ({ p
   // search, so columns added to the schema stay empty on the library you already have — that is
   // what the backfill is for, and there is no other way to arrive at that state through the app.
   psql(
-    'update games set hltb_id = null, hltb_checked_at = null, hltb_main_story_hours = null, '
+    'update games set hltb_id = null, hltb_checked_at = null, hltb_all_styles_hours = null, '
+    + 'hltb_main_story_hours = null, '
     + `hltb_main_extra_hours = null, hltb_completionist_hours = null where media_id = ${mediaId};`,
   );
 
@@ -73,7 +75,7 @@ test('a backfill brings the numbers to a library that predates them', async ({ p
   await awaitEstimate(page.request, mediaId);
   await page.reload();
   await expect(
-    card(page, 'Hollow Knight').getByRole('img', { name: 'About 27 hours to finish' }),
+    card(page, 'Hollow Knight').getByRole('img', { name: 'About 41.8 hours to finish' }),
   ).toBeVisible();
 });
 
@@ -104,7 +106,7 @@ test('a title filed under another name is refused rather than guessed at', async
   const game = await page.request.get(`/api/games/${mediaId}`);
   expect((await game.json()) as { hltbId: number | null }).toMatchObject({
     hltbId: null,
-    hltbMainStoryHours: null,
+    hltbAllStylesHours: null,
   });
 
   await page.reload();
@@ -125,6 +127,7 @@ test('pinning the id by hand brings the numbers to a title nothing matched', asy
 
   // Fetched there and then rather than queued, because the point of typing an id is to find out
   // whether it was the right one. So the numbers are on screen without waiting for a worker.
+  await expect(page.getByText('All play styles: 24 h')).toBeVisible();
   await expect(page.getByText('Main story: 13 h')).toBeVisible();
   await expect(page.getByText('Completionist: 55 h')).toBeVisible();
 
@@ -137,14 +140,14 @@ test('pinning the id by hand brings the numbers to a title nothing matched', asy
 
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(
-    card(page, 'Anthem').getByRole('img', { name: 'About 13 hours to finish' }),
+    card(page, 'Anthem').getByRole('img', { name: 'About 24 hours to finish' }),
   ).toBeVisible();
 
   // Stored, not just on screen — and stored as the id, which is what every later refresh
   // fetches instead of matching again.
   await page.reload();
   await expect(
-    card(page, 'Anthem').getByRole('img', { name: 'About 13 hours to finish' }),
+    card(page, 'Anthem').getByRole('img', { name: 'About 24 hours to finish' }),
   ).toBeVisible();
   expect(psql(`select hltb_id from games where media_id = ${mediaId};`)).toBe('9105');
 });
@@ -211,12 +214,17 @@ test('Time to beat orders the shortest first, and the unestimated last', async (
 
   await setSort(page, 'Backlog', 'Time to beat');
 
-  // Main story only, so the sort means one thing: what can I finish this weekend. A title with
-  // no estimate goes last rather than sorting as though nobody having timed it meant it took no
-  // time — the same treatment an unrated title gets under Rating.
+  // On the headline figure, which is the number the cards print — a column sorted shortest
+  // first on a figure nobody can see reads as broken. A title with no estimate goes last rather
+  // than sorting as though nobody having timed it meant it took no time, which is the same
+  // treatment an unrated title gets under Rating.
+  //
+  // The stub's all-styles figures deliberately order these differently from its main-story
+  // ones — Outer Wilds is 17 against Celeste's 20, where main story has Celeste at 8 and Outer
+  // Wilds at 15. Otherwise this spec would pass whichever field the sort happened to read.
   await expect.poll(() => titlesIn(page, 'Backlog')).toEqual([
-    'Celeste',
     'Outer Wilds',
+    'Celeste',
     'Hollow Knight',
     'Stardew Valley',
   ]);

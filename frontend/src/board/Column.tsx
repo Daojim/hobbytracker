@@ -74,8 +74,15 @@ export function Column({
     queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
   });
 
-  // Registered whether or not the column is collapsed: a collapsed Dropped column is still
-  // somewhere a card can be dragged to.
+  // The ref goes on the section, and it has to. It used to hang off the card list below, which
+  // is not rendered while the column is collapsed — so a closed Dropped column had no rect at
+  // all, `closestCorners` could never pick it, and a card let go over that corner of the board
+  // landed in Completed instead, which is next to it and does have one. Registering the hook
+  // was never enough on its own; a droppable with no node is not a droppable.
+  //
+  // The section exists collapsed or open and is `min-h-24`, so Dropped is a real target the
+  // whole time — which is the point of it, since dropping something is exactly the moment you
+  // have not got the column open.
   const { setNodeRef, isOver } = useDroppable({ id: droppableId(status), data: { status } });
 
   const items = data?.items ?? [];
@@ -83,6 +90,7 @@ export function Column({
 
   return (
     <section
+      ref={setNodeRef}
       aria-labelledby={headingId}
       className={`flex min-h-24 flex-col rounded-xl border p-3 transition-colors ${
         muted ? 'border-dropped/30 opacity-70' : 'border-line-soft'
@@ -112,7 +120,7 @@ export function Column({
       </div>
 
       {!collapsed && (
-        <div ref={setNodeRef} className="flex flex-1 flex-col gap-cardgap">
+        <div className="flex flex-1 flex-col gap-cardgap">
           {isPending && <p className="text-sm text-muted">Loading…</p>}
           {error !== null && (
             <p role="alert" className="text-sm text-danger">

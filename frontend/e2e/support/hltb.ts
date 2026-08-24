@@ -19,8 +19,8 @@ export async function awaitEstimate(
     .poll(
       async () => {
         const response = await request.get(`/api/games/${mediaId}`);
-        const game = (await response.json()) as { hltbMainStoryHours: number | null };
-        return game.hltbMainStoryHours;
+        const game = (await response.json()) as { hltbAllStylesHours: number | null };
+        return game.hltbAllStylesHours;
       },
       { message: `HowLongToBeat estimate for media ${mediaId}`, timeout: 20_000 },
     )

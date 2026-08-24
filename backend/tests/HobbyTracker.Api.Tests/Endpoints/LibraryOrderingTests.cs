@@ -243,7 +243,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         await WithDbAsync(async db =>
         {
             var game = await db.Games.SingleAsync(candidate => candidate.Id == mediaId, Ct);
-            game.HltbMainStoryHours = estimate;
+            game.HltbAllStylesHours = estimate;
             await db.SaveChangesAsync(Ct);
         });
 

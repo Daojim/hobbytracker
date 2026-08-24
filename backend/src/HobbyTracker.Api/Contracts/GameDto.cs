@@ -29,6 +29,7 @@ public sealed record GameDto(
     /// HowLongToBeat's three completion times, in hours. Any of them can be null on its own —
     /// a game with a main-story time and no completionist time is ordinary, not an error.
     /// </summary>
+    decimal? HltbAllStylesHours,
     decimal? HltbMainStoryHours,
     decimal? HltbMainExtraHours,
     decimal? HltbCompletionistHours)
@@ -43,6 +44,7 @@ public sealed record GameDto(
         game.PrimaryGenre,
         game.ExternalId,
         SeedData.Sources.NameFor(game.SourceId),
+        game.HltbAllStylesHours,
         game.HltbMainStoryHours,
         game.HltbMainExtraHours,
         game.HltbCompletionistHours);

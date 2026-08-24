@@ -193,6 +193,7 @@ public sealed class HltbService(
     private static void Apply(HltbGame source, Game target)
     {
         target.HltbId = source.Id;
+        target.HltbAllStylesHours = source.AllStylesHours;
         target.HltbMainStoryHours = source.MainStoryHours;
         target.HltbMainExtraHours = source.MainExtraHours;
         target.HltbCompletionistHours = source.CompletionistHours;
@@ -200,6 +201,7 @@ public sealed class HltbService(
 
     private static void ClearTimes(Game game)
     {
+        game.HltbAllStylesHours = null;
         game.HltbMainStoryHours = null;
         game.HltbMainExtraHours = null;
         game.HltbCompletionistHours = null;

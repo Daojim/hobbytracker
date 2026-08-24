@@ -199,11 +199,13 @@ public sealed class UserScopingTests(PostgresFixture postgres) : DatabaseTestBas
     }
 
     [Fact]
-    public async Task Someone_elses_card_cannot_be_closed()
+    public async Task Someone_elses_card_cannot_be_removed_from_the_board()
     {
+        // Sharper than it was since this began deleting every pass rather than the current one:
+        // an unscoped version would empty a stranger's history of a title in one request.
         var (mediaId, entryId) = await GivenTheirsAsync();
 
-        var response = await Client.DeleteAsync($"/api/library/{mediaId}/current", Ct);
+        var response = await Client.DeleteAsync($"/api/library/{mediaId}", Ct);
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         (await WithDbAsync(db => db.LogEntries.AnyAsync(e => e.Id == entryId, Ct))).ShouldBeTrue();

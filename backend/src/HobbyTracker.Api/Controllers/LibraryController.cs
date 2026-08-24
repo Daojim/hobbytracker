@@ -77,21 +77,24 @@ public class LibraryController(ILibraryService library) : ControllerBase
     }
 
     /// <summary>
-    /// Takes a title off the board by deleting its current pass — what closing a Backlog card
-    /// does.
+    /// Takes a title off your board — what <em>Remove from board</em> in a card's menu does.
     ///
-    /// Closing is not dropping. Dropped records a game you started and gave up on, so a title
-    /// you never began has nothing to abandon. Deleting the current pass covers both endings
-    /// with one rule: a title with a single pass leaves the board, and a title with an older
-    /// completion underneath goes back to showing that.
+    /// Every pass of yours against it, notes and all. Removing is not dropping: Dropped records
+    /// a game you started and gave up on, and is a column rather than an ending.
+    ///
+    /// This replaced a <c>DELETE .../current</c> that took the newest pass only. That put a
+    /// title replayed five times five presses away from leaving the board, and made each press
+    /// look like a failure, since the card came back in whichever column the pass underneath sat
+    /// in. Deleting one named pass is still possible and is the drawer's, through
+    /// <c>DELETE /api/log-entries/{id}</c>.
     /// </summary>
-    [HttpDelete("{mediaId:int}/current")]
+    [HttpDelete("{mediaId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> RemoveCurrentPass(
+    public async Task<IActionResult> RemoveFromBoard(
         int mediaId, CancellationToken cancellationToken)
     {
-        var removed = await library.RemoveCurrentPassAsync(mediaId, cancellationToken);
+        var removed = await library.RemoveFromBoardAsync(mediaId, cancellationToken);
         return removed ? NoContent() : NotFound();
     }
 

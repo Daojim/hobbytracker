@@ -27,6 +27,7 @@ public sealed class HltbClientTests
           "game_alias":"Hollow Knight: Voidheart Edition, HK",
           "game_type":"game",
           "release_world":2017,
+          "comp_all":150549,
           "comp_main":97203,"comp_plus":149717,"comp_100":236159,
           "comp_main_count":2740,"comp_plus_count":4662,"comp_100_count":2021
         }]}
@@ -134,6 +135,11 @@ public sealed class HltbClientTests
         game.Name.ShouldBe("Hollow Knight");
         game.Aliases.ShouldBe(["Hollow Knight: Voidheart Edition", "HK"]);
         game.ReleaseYear.ShouldBe(2017);
+        // The headline number the site prints, and its own statistic rather than any function
+        // of the three below it: the mean of them is 44.6 and the median 39, both of which
+        // HowLongToBeat also publishes, under comp_all_avg and comp_all_med. These are the real
+        // values off game 26286, where the page says 42 Hours.
+        game.AllStylesHours.ShouldBe(41.82m);
         game.MainStoryHours.ShouldBe(27.0m);
         game.MainExtraHours.ShouldBe(41.59m);
         game.CompletionistHours.ShouldBe(65.6m);
@@ -146,11 +152,12 @@ public sealed class HltbClientTests
         // takes no time to finish; the column has a check constraint refusing it for that reason.
         var client = CreateClient(out _, Responses(Ok("""
             {"count":1,"data":[{"game_id":174355,"game_name":"Fire Emblem: Fortune's Weave",
-             "release_world":2026,"comp_main":0,"comp_plus":0,"comp_100":0}]}
+             "release_world":2026,"comp_all":0,"comp_main":0,"comp_plus":0,"comp_100":0}]}
             """)));
 
         var game = (await client.SearchAsync("Fire Emblem", Ct)).ShouldHaveSingleItem();
 
+        game.AllStylesHours.ShouldBeNull();
         game.MainStoryHours.ShouldBeNull();
         game.MainExtraHours.ShouldBeNull();
         game.CompletionistHours.ShouldBeNull();

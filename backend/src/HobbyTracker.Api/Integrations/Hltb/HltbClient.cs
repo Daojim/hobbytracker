@@ -20,6 +20,7 @@ public sealed record HltbGame(
     string Name,
     IReadOnlyList<string> Aliases,
     int? ReleaseYear,
+    decimal? AllStylesHours,
     decimal? MainStoryHours,
     decimal? MainExtraHours,
     decimal? CompletionistHours);
@@ -316,6 +317,7 @@ public sealed partial class HltbClient(
         [.. (source.GameAlias ?? string.Empty)
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
         YearOf(source.ReleaseWorld),
+        HoursOf(source.CompAll),
         HoursOf(source.CompMain),
         HoursOf(source.CompPlus),
         HoursOf(source.Comp100));

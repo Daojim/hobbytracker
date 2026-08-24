@@ -111,9 +111,14 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
 
   // Both warnings name the title, which is what lets the confirm buttons stay two plain words:
   // anyone reading the card in order has just been told which one it means.
+  //
+  // The count is the whole of the second one. Removing takes every pass and everything written
+  // during them, so a title carrying a completion and two replays is losing three records — and
+  // "off your board" on its own reads like it is only losing a card. Deleting a single pass is
+  // still possible; it is in the drawer, where the pass is named and dated.
   const warning =
     item.entryCount > 1
-      ? `Only this pass. ${item.title} stays, showing the one before it.`
+      ? `Takes ${item.title} off your board — all ${item.entryCount} playthroughs, and their notes.`
       : `Takes ${item.title} off your board.`;
 
   return (
@@ -220,14 +225,22 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
             )}
             {/* Marked with a tilde and named in full to a screen reader, because the number
                 alone is ambiguous: the drawer prints "31.5 h" for what a pass took *you*, and
-                this is how long the game takes anyone. Main story only — the other two tiers
-                are a drawer reading, where there is room to name which is which. */}
-            {item.hltbMainStoryHours !== null && (
+                this is how long the game takes anyone.
+
+                The headline figure HowLongToBeat prints, not main story, which is what this
+                showed first. A card has room for one number and it should be the one the site
+                leads with — 42 hours for Hollow Knight, where main story is 27 and
+                completionist 65.6. All four are a drawer reading, where each can be named.
+
+                It is also what `sort=hours` orders on, and the two have to stay the same field:
+                a column sorted shortest-first on a number the cards do not show reads as
+                broken. */}
+            {item.hltbAllStylesHours !== null && (
               <span
                 role="img"
-                aria-label={`About ${item.hltbMainStoryHours} hours to finish`}
+                aria-label={`About ${item.hltbAllStylesHours} hours to finish`}
               >
-                ~{formatHours(item.hltbMainStoryHours)}
+                ~{formatHours(item.hltbAllStylesHours)}
               </span>
             )}
             {genre !== null && <span>{genre}</span>}
@@ -299,6 +312,30 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
               onPointerDown={(event) => event.stopPropagation()}
               className="absolute right-0 z-10 mt-1 flex w-44 flex-col rounded-lg border border-line bg-surface p-1 shadow-xl"
             >
+              {/* The same drawer the title opens, and worth being here twice: the title is the
+                  one gesture on a card that shares its surface with the drag, so an item that
+                  cannot be mistaken for the start of one belongs beside the moves.
+
+                  "Open journal" rather than a noun for the thing — every other hobby gets this
+                  menu unmodified, and a journal is a journal whether it is about a game, a film
+                  or an album. It is also what this drawer is called everywhere else here. */}
+              {onOpen !== undefined && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      menu.onClose();
+                      onOpen(item.mediaId);
+                    }}
+                    className="rounded px-2 py-1 text-left text-sm hover:bg-hover"
+                  >
+                    Open journal
+                  </button>
+
+                  <hr className="my-1 border-line-soft" />
+                </>
+              )}
+
               {otherColumns(item.currentStatus).map((column) => (
                 <button
                   key={column.status}
@@ -319,20 +356,23 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
                   not put behind the thing that asked it. The confirm it opens is the one that was
                   already here: a delete is not one drag from undone, unlike everything above.
 
-                  Not red at rest, which was the first attempt and is the mistake this codebase
-                  has written down twice. Ember's --danger is #ff8e7a and its --accent is
-                  #f2545b, so a red word here would sit one hue from every link and current
-                  choice in the app and read as the emphasised item rather than the dangerous
-                  one. What separates it is the rule above it and the word "Remove"; the colour
-                  arrives on hover, as ConfirmDelete's own ask does, and the filled chip that
-                  actually destroys something is still the only thing wearing the fill. */}
+                  A translucent danger *fill* rather than danger text, which was the first
+                  attempt and is the mistake this codebase has written down twice: Ember's
+                  --danger is #ff8e7a and its --accent is #f2545b, so a red word here would sit
+                  one hue from every link and current choice in the app and read as the
+                  emphasised item rather than the dangerous one. A fill is a shape the accent
+                  never wears — the rule the danger chip already follows — and it deepens under
+                  the cursor so the thing that destroys something is the thing that reddens as
+                  you reach for it. The label stays `text-fg` at both opacities, which is what
+                  keeps this legible: `--fg` is proven on `--surface`, and a tint this light
+                  moves the ground too little to spend that. */}
               <button
                 type="button"
                 onClick={() => {
                   menu.onClose();
                   removal?.onAsk();
                 }}
-                className="rounded px-2 py-1 text-left text-sm hover:bg-hover hover:text-danger"
+                className="rounded bg-danger/10 px-2 py-1 text-left text-sm hover:bg-danger/25"
               >
                 Remove from board
               </button>

@@ -56,6 +56,20 @@ public class Game : Media
     /// </summary>
     public decimal? HltbMainStoryHours { get; set; }
 
+    /// <summary>
+    /// The headline number HowLongToBeat prints at the top of a game page, and what a card
+    /// shows — 42 hours for Hollow Knight, whose main story is 27 and completionist 65.6.
+    ///
+    /// Fetched rather than worked out, because it is not derivable from the three above it. It
+    /// is HLTB own statistic over every submission of every play style: the mean of the three
+    /// is 44.6 and the median is 39, and both of those are separate fields on the same payload.
+    /// Verified against the live page before this column existed.
+    ///
+    /// Null on the same terms as the others, and null for every row logged before this column
+    /// did — POST /api/games/hltb/refresh is what fills those in.
+    /// </summary>
+    public decimal? HltbAllStylesHours { get; set; }
+
     /// <inheritdoc cref="HltbMainStoryHours"/>
     public decimal? HltbMainExtraHours { get; set; }
 

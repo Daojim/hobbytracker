@@ -113,13 +113,17 @@ describe('parseHltbId', () => {
 
 describe('hltbTiers', () => {
   const game = {
+    hltbAllStylesHours: 41.82,
     hltbMainStoryHours: 27,
     hltbMainExtraHours: 41.59,
     hltbCompletionistHours: 65.6,
   };
 
-  it("lists the three in HowLongToBeat's own order, under its own names", () => {
+  it("lists them in HowLongToBeat's own order, under its own names", () => {
+    // The headline first, because it is the figure the site leads with and the one the card
+    // carries; the three below it are the breakdown.
     expect(hltbTiers(game)).toEqual([
+      { label: 'All play styles', hours: 41.82 },
       { label: 'Main story', hours: 27 },
       { label: 'Main + Extra', hours: 41.59 },
       { label: 'Completionist', hours: 65.6 },
@@ -130,6 +134,7 @@ describe('hltbTiers', () => {
     // Ordinary, not an error: an obscure game often has a main-story time and nothing else.
     // Rendering "Completionist —" would make missing data look like a broken row.
     expect(hltbTiers({ ...game, hltbCompletionistHours: null })).toEqual([
+      { label: 'All play styles', hours: 41.82 },
       { label: 'Main story', hours: 27 },
       { label: 'Main + Extra', hours: 41.59 },
     ]);
@@ -140,6 +145,7 @@ describe('hltbTiers', () => {
     // three, and say it only when there is genuinely nothing.
     expect(
       hltbTiers({
+        hltbAllStylesHours: null,
         hltbMainStoryHours: null,
         hltbMainExtraHours: null,
         hltbCompletionistHours: null,

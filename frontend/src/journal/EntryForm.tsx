@@ -106,16 +106,21 @@ export function EntryForm({
   const mine = parseHours(hours).value ?? null;
 
   /**
-   * The difference, against Main Story alone.
+   * The difference, against the headline figure alone.
    *
-   * Three deltas would be arithmetic rather than a reading, and main story is what the card and
-   * the Time to beat sort both mean by "how long does this take" — so it is the one your own
-   * hours are worth holding up against.
+   * Four deltas would be arithmetic rather than a reading, and this is the one the card and the
+   * Time to beat sort both mean by "how long does this take" — so it is what your own hours are
+   * worth holding up against. It followed those two here from Main Story, and should keep
+   * following them: a delta against a tier nobody is looking at is a number with no question.
+   *
+   * It is also the better comparison on its own terms. All play styles is what everybody took,
+   * however they played; a completionist run held up against Main Story reads as wildly over,
+   * when it is only over for a tier it was never doing.
    */
   const delta =
-    mine === null || estimates.hltbMainStoryHours === null
+    mine === null || estimates.hltbAllStylesHours === null
       ? null
-      : Number((mine - estimates.hltbMainStoryHours).toFixed(2));
+      : Number((mine - estimates.hltbAllStylesHours).toFixed(2));
 
   // IGDB's list, plus whatever is already recorded when that list has stopped mentioning it.
   // Dropping a stored value on a save the reader made about something else is not a correction.

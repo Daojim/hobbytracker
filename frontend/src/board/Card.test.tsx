@@ -94,16 +94,18 @@ describe('Card', () => {
   it('shows how long the game takes, marked as an estimate rather than as your own hours', () => {
     // The tilde is doing real work. The drawer prints "31.5 h" for what a pass took you, so an
     // unmarked number on a card would read as the same claim about a game you have not started.
-    renderCard(libraryItem({ title: 'Hollow Knight', hltbMainStoryHours: 27 }));
+    // The headline figure rather than main story, which is what this used to show. Hollow
+    // Knight's main story is 27 and the number the site leads with is 42.
+    renderCard(libraryItem({ title: 'Hollow Knight', hltbAllStylesHours: 42 }));
 
-    expect(screen.getByText('~27 h')).toBeInTheDocument();
+    expect(screen.getByText('~42 h')).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: 'About 27 hours to finish' }),
+      screen.getByRole('img', { name: 'About 42 hours to finish' }),
     ).toBeInTheDocument();
   });
 
   it('says nothing about length for a title HowLongToBeat has not been matched to', () => {
-    renderCard(libraryItem({ hltbMainStoryHours: null }));
+    renderCard(libraryItem({ hltbAllStylesHours: null }));
 
     expect(screen.queryByText(/h$/)).not.toBeInTheDocument();
   });
@@ -220,6 +222,21 @@ describe('Card', () => {
     ).toEqual(expected);
   });
 
+  it('opens the journal from the menu as well as from the title', async () => {
+    // A second door to the same drawer. The title is the discoverable one and stays the primary,
+    // but it is also the one gesture on a card that competes with the drag — so a menu item that
+    // cannot be mistaken for the start of one is worth having beside it.
+    //
+    // "Open journal" rather than "Edit game": every other hobby gets this menu unchanged, and a
+    // journal is a journal whether the thing is a game, a film or an album.
+    const { onOpen, menu } = renderOpen(libraryItem({ mediaId: 42, title: 'Celeste' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open journal' }));
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(42);
+    expect(menu.onClose).toHaveBeenCalledOnce();
+  });
+
   it('reports where the title is going, and the title, not the position it was in', async () => {
     const { onMove } = renderOpen(
       libraryItem({ mediaId: 42, title: 'Celeste', currentStatus: 'Backlog' }),
@@ -285,13 +302,14 @@ describe('Card', () => {
     expect(screen.getByText('Takes Celeste off your board.')).toBeInTheDocument();
   });
 
-  it('says the earlier pass survives when there is one underneath', () => {
-    // A finished game dragged back to Backlog gets a fresh entry rather than overwriting the
-    // completion, so changing your mind about the replay leaves that completion standing.
-    renderCard(libraryItem({ title: 'Celeste', entryCount: 2 }), true);
+  it('counts the playthroughs it would take with it, when there is more than one', () => {
+    // The number is the whole warning. Removing takes every pass and everything written during
+    // them, so a title carrying a 2024 completion and two replays is losing three records —
+    // and "off your board" alone reads like it is losing a card.
+    renderCard(libraryItem({ title: 'Celeste', entryCount: 3 }), true);
 
     expect(
-      screen.getByText('Only this pass. Celeste stays, showing the one before it.'),
+      screen.getByText('Takes Celeste off your board — all 3 playthroughs, and their notes.'),
     ).toBeInTheDocument();
   });
 

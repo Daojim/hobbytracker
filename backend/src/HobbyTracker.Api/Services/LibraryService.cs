@@ -27,15 +27,15 @@ public interface ILibraryService
         int mediaId, LogStatus target, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes the title's current pass — what closing a Backlog card does. False when it has
-    /// never been logged.
+    /// Takes a title off your board by deleting every pass of yours against it — what
+    /// <em>Remove from board</em> does. False when you have never logged it.
     ///
-    /// Which entry that is gets decided here rather than by the caller, for the same reason
-    /// <see cref="TransitionAsync"/> decides it: the board holds no entry id, and one read from
-    /// a card rendered a moment ago can already be pointing at a pass that stopped being
-    /// current.
+    /// Every pass rather than the current one, which is what this did before and what made
+    /// removing a replayed title take one press per playthrough. Deleting a single named pass is
+    /// the drawer's job, through the log-entry endpoint, where the pass is on screen with its
+    /// dates; a board card is one row per title and cannot say which pass you meant.
     /// </summary>
-    Task<bool> RemoveCurrentPassAsync(int mediaId, CancellationToken cancellationToken);
+    Task<bool> RemoveFromBoardAsync(int mediaId, CancellationToken cancellationToken);
 
     Task ReorderAsync(ReorderRequest request, CancellationToken cancellationToken);
 }
@@ -122,7 +122,7 @@ public sealed class LibraryService(
                 // error. This is terminal, so nothing filters on it afterwards.
                 (row.Media as Game)!.Genres,
                 (row.Media as Game)!.PrimaryGenre,
-                (row.Media as Game)!.HltbMainStoryHours,
+                (row.Media as Game)!.HltbAllStylesHours,
 
                 // The last thing you wrote about this title, from *any* pass of yours —
                 // deliberately unlike every other field on this row, all of which come from
@@ -225,23 +225,36 @@ public sealed class LibraryService(
         return await ItemAsync(mediaId, cancellationToken);
     }
 
-    public async Task<bool> RemoveCurrentPassAsync(int mediaId, CancellationToken cancellationToken)
+    public async Task<bool> RemoveFromBoardAsync(int mediaId, CancellationToken cancellationToken)
     {
-        var latest = await LatestEntryFor(mediaId).FirstOrDefaultAsync(cancellationToken);
-        if (latest is null)
+        var userId = user.Id;
+
+        // Every pass of yours, and every pass of *only* yours. The title is shared — two people
+        // searching "Hollow Knight" get the same media row — so a delete keyed on the media id
+        // alone would empty a stranger's history of it in one request, with nothing to tell them
+        // what happened.
+        var mine = await db.LogEntries
+            .Where(entry => entry.MediaId == mediaId && entry.UserId == userId)
+            .ToListAsync(cancellationToken);
+
+        if (mine.Count == 0)
         {
-            // In the catalog but not on the board — there is no pass to take off it.
+            // In the catalog but not on your board — there is nothing to take off it.
             return false;
         }
 
-        // The current pass, and only that one. A mistaken drag to Completed and back leaves an
-        // entry recording nothing that happened, and that is worth taking back; the completion
-        // underneath it is a record of something that did, and is not.
+        // All of them, which is what "Remove from board" says and did not used to do. Deleting
+        // only the current pass was defensible on paper and wrong in the hand: a title replayed
+        // five times took five presses, and each one looked like a failure because the card
+        // sprang back to whichever column the pass underneath was in.
         //
-        // Nothing here asks whether this was the last pass. BoardQuery already filters on
-        // `media.LogEntries.Any()`, so a title with none left stops being on the board of its
-        // own accord — the library is titles you have logged something against.
-        db.LogEntries.Remove(latest);
+        // Deleting one pass at a time is still possible and is the drawer's job, where the pass
+        // is named and its dates are on screen. A board card is one row per title and has no
+        // way to say which pass you meant.
+        //
+        // The notes go too, by cascade, because a note belongs to the pass it was written
+        // during. Nothing here has to know that.
+        db.LogEntries.RemoveRange(mine);
         await db.SaveChangesAsync(cancellationToken);
         return true;
     }
@@ -396,8 +409,12 @@ public sealed class LibraryService(
             .OrderBy(row => row.Latest.Rating == null)
             .ThenByDescending(row => row.Latest.Rating),
 
-        // Shortest first — the question is "what can I finish this weekend" — and a title
-        // nothing has matched to HowLongToBeat last, rather than sorting as though nobody
+        // Shortest first, on the same number the card prints, and that is the whole rule: a
+        // column ordered by a figure nobody can see reads as broken. This used to order on main
+        // story, which is what the card showed then; both moved to the headline All Styles
+        // number together, and they have to keep moving together.
+        //
+        // A title nothing has matched to HowLongToBeat sorts last, rather than as though nobody
         // having timed it meant it took no time.
         //
         // The downcast is confined to this one arm on purpose. BoardQuery is what every Where
@@ -405,8 +422,8 @@ public sealed class LibraryService(
         // empty the whole board; here the worst case is that this one mode breaks. See the
         // comment on BoardQuery, and the test that asserts this column comes back non-empty.
         LibrarySort.Hours => query
-            .OrderBy(row => (row.Media as Game)!.HltbMainStoryHours == null)
-            .ThenBy(row => (row.Media as Game)!.HltbMainStoryHours),
+            .OrderBy(row => (row.Media as Game)!.HltbAllStylesHours == null)
+            .ThenBy(row => (row.Media as Game)!.HltbAllStylesHours),
 
         // Manual: the user's own ranking. Every other mode is a read-only view that leaves
         // Position untouched, which is why dragging is only offered in this one.
@@ -463,7 +480,7 @@ public sealed class LibraryService(
                 row.Latest.CompletedAt ?? row.Latest.StartedAt,
                 (row.Media as Game)!.Genres,
                 (row.Media as Game)!.PrimaryGenre,
-                (row.Media as Game)!.HltbMainStoryHours,
+                (row.Media as Game)!.HltbAllStylesHours,
 
                 // As in ListAsync, predicate and all. This copy has to exist: it is what a drag
                 // or a menu move answers with, and a field arriving null here and populated on

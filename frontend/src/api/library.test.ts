@@ -15,7 +15,7 @@ const item: LibraryItem = {
   lastActivity: '2026-08-21T01:30:00+00:00',
   genres: [],
   primaryGenre: null,
-  hltbMainStoryHours: null,
+  hltbAllStylesHours: null,
   latestNotePreview: null,
 };
 

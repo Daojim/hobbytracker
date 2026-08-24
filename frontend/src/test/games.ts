@@ -15,6 +15,7 @@ export function game(overrides: Partial<Game> = {}): Game {
     primaryGenre: null,
     externalId: '3003',
     source: 'igdb',
+    hltbAllStylesHours: null,
     hltbMainStoryHours: null,
     hltbMainExtraHours: null,
     hltbCompletionistHours: null,

@@ -37,6 +37,17 @@ public sealed class HltbGameJson
     /// </summary>
     public JsonElement? ReleaseWorld { get; set; }
 
+    /// <summary>
+    /// The headline number HowLongToBeat prints at the top of a game page — 42 Hours for
+    /// Hollow Knight, where main story is 27 and completionist is 65.6.
+    ///
+    /// Its own statistic over all 9,426 submissions rather than anything derivable from the
+    /// three below it. The mean of the three is 44.6, which is a *different* field on this
+    /// payload (comp_all_avg), and the median is 39 (comp_all_med). Checked against the live
+    /// page: comp_all is 150,549 seconds and the page says 42 Hours.
+    /// </summary>
+    public int CompAll { get; set; }
+
     public int CompMain { get; set; }
     public int CompPlus { get; set; }
 

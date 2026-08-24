@@ -156,5 +156,5 @@ public sealed class HltbMatcherTests
         HltbMatcher.Match(title, releaseYear, candidates, Options);
 
     private static HltbGame Candidate(int id, string name, int? year, params string[] aliases) =>
-        new(id, name, aliases, year, 10m, 20m, 30m);
+        new(id, name, aliases, year, 15m, 10m, 20m, 30m);
 }

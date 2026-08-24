@@ -226,14 +226,16 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
-    public async Task A_board_row_carries_the_main_story_estimate()
+    public async Task A_board_row_carries_the_headline_estimate_and_not_the_tiers()
     {
-        // Only main story reaches the card. The other two are a drawer reading, where there is
-        // room to name them; three numbers in a card's metadata row would be a table.
+        // Only the headline number reaches a card, which has room for a number rather than a
+        // table. It is also deliberately *not* main story: the four tiers are a drawer reading,
+        // where each can be named, and the card prints what HowLongToBeat prints.
         var mediaId = await GivenGameAsync("Hollow Knight");
         await WithDbAsync(async db =>
         {
             var game = await db.Games.SingleAsync(g => g.Id == mediaId, Ct);
+            game.HltbAllStylesHours = 41.82m;
             game.HltbMainStoryHours = 27m;
             game.HltbMainExtraHours = 41.59m;
             await db.SaveChangesAsync(Ct);
@@ -242,7 +244,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
 
-        item.HltbMainStoryHours.ShouldBe(27m);
+        item.HltbAllStylesHours.ShouldBe(41.82m);
     }
 
     [Fact]
@@ -256,7 +258,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
 
-        item.HltbMainStoryHours.ShouldBeNull();
+        item.HltbAllStylesHours.ShouldBeNull();
     }
 
     [Fact]

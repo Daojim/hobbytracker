@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
-import { removeCurrentPass, reorderColumn, transition } from '../api/library';
+import { removeFromBoard, reorderColumn, transition } from '../api/library';
 import { columnKey, gameKey, yearFor } from './keys';
 import { BOARD_STATUSES } from './columns';
 import { useBoardSensors } from './sensors';
@@ -161,17 +161,16 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
   });
 
   /**
-   * Closing a Backlog card. Deliberately not optimistic, unlike `move`: a drag has to feel
-   * instant, but this already took two clicks and a confirm, and matching the drawer's delete is
-   * simpler than a rollback nothing is waiting on.
+   * Remove from board. Deliberately not optimistic, unlike `move`: a drag has to feel instant,
+   * but this already took two clicks and a confirm, and matching the drawer's delete is simpler
+   * than a rollback nothing is waiting on.
    */
   const remove = useMutation({
-    mutationFn: (mediaId: number) => removeCurrentPass(mediaId),
+    mutationFn: (mediaId: number) => removeFromBoard(mediaId),
 
     // The whole hobby, not the column prefix a move settles with. A move names both columns it
-    // touches; this one does not know where the title lands until the server has answered —
-    // deleting a Backlog pass laid over a 2024 completion puts the card in Completed, which is
-    // a column nobody mentioned.
+    // touches; this one names none — every pass of yours goes, and they can be spread across all
+    // four, so the columns that change are only knowable from what was there.
     onSettled: (_data, _error, mediaId) => {
       void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
       void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });

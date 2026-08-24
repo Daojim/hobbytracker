@@ -109,6 +109,25 @@ test('the options menu drops a game, and dragging it out picks it back up', asyn
 });
 
 
+test('a card can be dragged into Dropped while Dropped is still collapsed', async ({ page }) => {
+  // Dropped starts out of the way, and used to stop being a drop target entirely while it was:
+  // the droppable ref hung off the card list, which is not rendered when the column is closed.
+  // So the column had no rect, closestCorners could never pick it, and a card let go over that
+  // corner of the board landed in Completed — which is next to it and does have one.
+  const mediaId = await seed(page.request, 'Anthem', 'InProgress', { startedAt: '2026-05-01' });
+  await page.reload();
+
+  await expect(page.getByRole('button', { name: 'Show Dropped' })).toBeVisible();
+  await drag(page, card(page, 'Anthem'), column(page, 'Dropped'));
+
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0]?.status)
+    .toBe('Dropped');
+
+  // And it went nowhere near Completed, which is the column it used to land in.
+  expect(await titlesIn(page, 'Completed')).not.toContain('Anthem');
+});
+
 test('removing a backlog game takes it off the board rather than dropping it', async ({
   page,
 }) => {
@@ -129,11 +148,12 @@ test('removing a backlog game takes it off the board rather than dropping it', a
   expect(await titlesIn(page, 'Dropped')).not.toContain('Celeste');
 });
 
-test('closing a replay you thought better of gives the finished pass back', async ({
+test('removing a replayed title takes every pass, not one press per playthrough', async ({
   page,
 }) => {
-  // Dragging a finished game to Backlog inserts a fresh entry rather than editing the
-  // completion. Changing your mind has to undo exactly that much and no more.
+  // The bug this rule was changed for. Removing used to delete the current pass alone, so a
+  // title carrying a completion and a replay came *back* on the first press — in Completed,
+  // reading exactly like the remove had failed — and stacking replays meant one press each.
   const mediaId = await seed(page.request, 'Hollow Knight', 'Completed', {
     startedAt: '2024-01-10',
     completedAt: '2024-03-02',
@@ -150,12 +170,17 @@ test('closing a replay you thought better of gives the finished pass back', asyn
   await expect(card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' })).toBeVisible();
 
   await chooseOption(page, 'Hollow Knight', 'Remove from board');
-  await expect(page.getByText(/Only this pass\./)).toBeVisible();
+  // The count is the warning: two records are going, not a card.
+  await expect(page.getByText(/all 2 playthroughs, and their notes/)).toBeVisible();
   await page.getByRole('button', { name: 'Really remove?' }).click();
 
-  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
-  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(1);
-  expect((await entriesFor(page.request, mediaId))[0]?.completedAt).not.toBeNull();
+  // Gone from every column, in one press.
+  await expect(card(page, 'Hollow Knight')).toBeHidden();
+  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  for (const status of ['Backlog', 'InProgress', 'Completed', 'Dropped'] as const) {
+    expect(await titlesIn(page, status)).not.toContain('Hollow Knight');
+  }
+  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(0);
 });
 
 test('a finished game replayed from the menu keeps the completion, as a drag does', async ({

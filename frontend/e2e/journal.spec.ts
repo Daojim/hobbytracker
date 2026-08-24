@@ -401,13 +401,14 @@ test('how long a pass took is recorded against that pass', async ({ page }) => {
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await expect(page.getByText('Main story: 8 h')).toBeVisible();
+  await expect(page.getByText('All play styles: 20 h')).toBeVisible();
 
   await page.getByLabel('Hours played').fill('31.5');
   await page.getByRole('button', { name: 'Save' }).click();
 
-  // Measured against Main Story alone: three deltas is arithmetic rather than a reading.
-  await expect(page.getByText('you: 31.5 h (+23.5)')).toBeVisible();
+  // Measured against the headline figure alone: four deltas is arithmetic rather than a
+  // reading, and this is the one the card and the Time to beat sort both mean.
+  await expect(page.getByText('you: 31.5 h (+11.5)')).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
   await page.reload();

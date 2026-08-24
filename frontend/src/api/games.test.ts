@@ -14,6 +14,7 @@ const celeste: Game = {
   source: 'igdb',
   genres: [],
   primaryGenre: null,
+  hltbAllStylesHours: null,
   hltbMainStoryHours: null,
   hltbMainExtraHours: null,
   hltbCompletionistHours: null,
