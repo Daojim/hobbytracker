@@ -127,6 +127,7 @@ export interface HltbTier {
  * of "never matched".
  */
 export interface HltbEstimates {
+  hltbAllStylesHours: number | null;
   hltbMainStoryHours: number | null;
   hltbMainExtraHours: number | null;
   hltbCompletionistHours: number | null;
@@ -134,6 +135,9 @@ export interface HltbEstimates {
 
 export function hltbTiers(game: HltbEstimates): HltbTier[] {
   return [
+    // HowLongToBeat own name for it, and first because it is the figure the site leads with
+    // and the one the card carries. The three below break it down.
+    { label: 'All play styles', hours: game.hltbAllStylesHours },
     { label: 'Main story', hours: game.hltbMainStoryHours },
     { label: 'Main + Extra', hours: game.hltbMainExtraHours },
     { label: 'Completionist', hours: game.hltbCompletionistHours },

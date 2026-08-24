@@ -18,14 +18,6 @@ export const columnKey = (
   year: number | undefined,
 ) => ['library', hobby, status, { sort, year }] as const;
 
-/** Left to right, the order a title moves through. */
-export const BOARD_STATUSES: readonly LogStatus[] = [
-  'Backlog',
-  'InProgress',
-  'Completed',
-  'Dropped',
-];
-
 /**
  * The year applies to Completed and to nothing else.
  *

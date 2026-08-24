@@ -55,8 +55,11 @@ public sealed class FakeHltbClient : IHltbClient
         decimal? mainStory = null,
         decimal? mainExtra = null,
         decimal? completionist = null,
+        // After the tiers rather than before them, unlike HltbGame's own order, so that the
+        // call sites which pass those three positionally did not all have to move.
+        decimal? allStyles = null,
         string[]? aliases = null) =>
-        new(id, name, aliases ?? [], releaseYear, mainStory, mainExtra, completionist);
+        new(id, name, aliases ?? [], releaseYear, allStyles, mainStory, mainExtra, completionist);
 
     private void ThrowIfAsked()
     {

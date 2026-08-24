@@ -39,11 +39,15 @@ const SEARCH_PATH = 'warble';
  * what `PUT /api/games/{mediaId}/hltb` exists for.
  */
 const CATALOGUE = [
-  { id: 9101, name: 'Celeste', year: 2018, main: 8, plus: 12.5, hundred: 38 },
-  { id: 9102, name: 'Hades', year: 2020, main: 21, plus: 39, hundred: 95 },
-  { id: 9103, name: 'Hollow Knight', year: 2017, main: 27, plus: 41.5, hundred: 65 },
-  { id: 9104, name: 'Outer Wilds', year: 2019, main: 15, plus: 21, hundred: 30 },
-  { id: 9105, name: 'Anthem: Legion of Dawn', year: 2019, main: 13, plus: 30, hundred: 55 },
+  // `all` is deliberately not the mean of the other three, and not their median either. On
+  // the real site it is a separate statistic over every submission — Hollow Knight is 41.8
+  // where the mean is 44.7 — so a stub that computed it would let the client get away with
+  // computing it too, which was the first design and is wrong.
+  { id: 9101, name: 'Celeste', year: 2018, all: 20, main: 8, plus: 12.5, hundred: 38 },
+  { id: 9102, name: 'Hades', year: 2020, all: 42, main: 21, plus: 39, hundred: 95 },
+  { id: 9103, name: 'Hollow Knight', year: 2017, all: 41.8, main: 27, plus: 41.5, hundred: 65 },
+  { id: 9104, name: 'Outer Wilds', year: 2019, all: 17, main: 15, plus: 21, hundred: 30 },
+  { id: 9105, name: 'Anthem: Legion of Dawn', year: 2019, all: 24, main: 13, plus: 30, hundred: 55 },
 ];
 
 /** Times go over the wire in seconds. Turning them back into hours is the client's job. */
@@ -63,9 +67,11 @@ const asSearchResult = (game) => ({
   game_alias: '',
   game_type: 'game',
   release_world: game.year,
+  comp_all: seconds(game.all),
   comp_main: seconds(game.main),
   comp_plus: seconds(game.plus),
   comp_100: seconds(game.hundred),
+  comp_all_count: 205,
   comp_main_count: 120,
   comp_plus_count: 60,
   comp_100_count: 25,

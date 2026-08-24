@@ -7,15 +7,16 @@ using Microsoft.EntityFrameworkCore;
 namespace HobbyTracker.Api.Tests.Endpoints;
 
 /// <summary>
-/// Taking a title off the board — what closing a Backlog card does.
+/// Taking a title off the board — what <em>Remove from board</em> does.
 ///
-/// Dropping is for a game you started and gave up on. A game you never began has nothing to
-/// abandon, so closing it deletes the pass instead of moving it to a column that would claim
-/// you played it.
+/// Every pass of yours goes, not just the current one. This used to delete the current pass
+/// alone, which was defensible on paper and wrong to use: a title replayed five times took five
+/// presses to remove, each looking like a failure because the card sprang back to the column the
+/// pass underneath was in. "Remove from board" now means what it says.
 ///
-/// One rule covers both outcomes: the current pass goes, and only that one. A title with a
-/// single pass leaves the board because the library is titles you have logged something
-/// against; a title with an older completion underneath goes back to showing that.
+/// The pass-at-a-time delete still exists and is the drawer's — <c>DELETE /api/log-entries/{id}
+/// </c> — where the pass being deleted is named and visible. That is the right place for it: the
+/// board shows one card per title and has no vocabulary for which pass you meant.
 /// </summary>
 [Collection(DatabaseCollection.Name)]
 public sealed class RemovingFromBoardTests(PostgresFixture postgres) : DatabaseTestBase(postgres)
@@ -46,52 +47,37 @@ public sealed class RemovingFromBoardTests(PostgresFixture postgres) : DatabaseT
     }
 
     [Fact]
-    public async Task Removing_a_backlog_pass_over_a_completion_puts_the_title_back_in_completed()
+    public async Task Removing_takes_every_pass_rather_than_the_current_one()
     {
-        // Dragging a finished game back to Backlog inserts a fresh entry rather than editing the
-        // completion. Changing your mind about the replay has to undo exactly that much.
+        // The one this endpoint changed for. A game finished, replayed and dropped carries three
+        // passes; deleting the newest would put the card back in Completed, which reads as the
+        // remove having failed — and reads that way again on the next press, and the next.
         var mediaId = await GivenGameAsync("Celeste");
         await GivenLogEntryAsync(
             mediaId, LogStatus.Completed,
             startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
-        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 1, 5));
+        await GivenLogEntryAsync(mediaId, LogStatus.Dropped);
 
         (await RemoveAsync(mediaId)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        (await GetColumnAsync(LogStatus.Backlog)).Items.ShouldBeEmpty();
-        var completed = (await GetColumnAsync(LogStatus.Completed)).Items.ShouldHaveSingleItem();
-        completed.MediaId.ShouldBe(mediaId);
-        completed.EntryCount.ShouldBe(1);
+        (await EntriesAsync(mediaId)).ShouldBeEmpty();
+        (await GetColumnAsync(LogStatus.Completed)).Items.ShouldBeEmpty();
+        (await GetColumnAsync(LogStatus.Dropped)).Items.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task Removing_a_pass_takes_the_current_one_and_leaves_the_history_alone()
-    {
-        var mediaId = await GivenGameAsync("Celeste");
-        var completion = await GivenLogEntryAsync(
-            mediaId, LogStatus.Completed,
-            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
-        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
-
-        await RemoveAsync(mediaId);
-
-        var surviving = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
-        surviving.Id.ShouldBe(completion);
-        surviving.CompletedAt.ShouldNotBeNull();
-    }
-
-    [Fact]
-    public async Task Removing_a_pass_takes_its_notes_with_it()
+    public async Task Removing_takes_the_notes_of_every_pass_with_it()
     {
         // A note belongs to the pass it was written during, which is why the foreign key
-        // cascades. Nothing here should have to remember that separately.
+        // cascades. Nothing here should have to remember that separately — including for the
+        // passes underneath, which is what changed when this stopped being a one-pass delete.
         var mediaId = await GivenGameAsync("Celeste");
-        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
-        await WithDbAsync(async db =>
-        {
-            db.Notes.Add(new Note { LogEntryId = entryId, Body = "Heard good things." });
-            await db.SaveChangesAsync(Ct);
-        });
+        var completion = await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed, completedAt: Eastern(2024, 3, 2));
+        var replay = await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        await GivenNoteAsync(completion, "Loved it the first time.");
+        await GivenNoteAsync(replay, "Going back in.");
 
         await RemoveAsync(mediaId);
 
@@ -99,22 +85,39 @@ public sealed class RemovingFromBoardTests(PostgresFixture postgres) : DatabaseT
     }
 
     [Fact]
-    public async Task Removing_from_a_title_that_has_never_been_logged_is_a_404()
+    public async Task Removing_leaves_somebody_elses_passes_on_their_own_board()
     {
-        // In the catalog but not on the board, so there is no pass to take off it.
+        // The title is shared; the passes are not. Deleting every pass on a media row rather
+        // than every pass of *yours* would take a stranger's playthrough with it, and they would
+        // have no way of telling what happened.
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        var theirs = await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed, userId: await GivenUserAsync("Somebody Else"));
+
+        (await RemoveAsync(mediaId)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        var surviving = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        surviving.Id.ShouldBe(theirs);
+    }
+
+    [Fact]
+    public async Task Removing_a_title_that_has_never_been_logged_is_a_404()
+    {
+        // In the catalog but not on the board, so there is nothing to take off it.
         var mediaId = await GivenGameAsync();
 
         (await RemoveAsync(mediaId)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     [Fact]
-    public async Task Removing_from_an_unknown_title_is_a_404()
+    public async Task Removing_an_unknown_title_is_a_404()
     {
         (await RemoveAsync(999_999)).StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
 
     private Task<HttpResponseMessage> RemoveAsync(int mediaId) =>
-        Client.DeleteAsync($"/api/library/{mediaId}/current", Ct);
+        Client.DeleteAsync($"/api/library/{mediaId}", Ct);
 
     private Task<List<LogEntry>> EntriesAsync(int mediaId) => WithDbAsync(db => db.LogEntries
         .Where(entry => entry.MediaId == mediaId)

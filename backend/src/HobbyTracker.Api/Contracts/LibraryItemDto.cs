@@ -34,10 +34,31 @@ public sealed record LibraryItemDto(
     string? PrimaryGenre,
 
     /// <summary>
-    /// HowLongToBeat's main-story estimate, and only that one — the card has room for a number,
-    /// not a table, and the other two tiers are a drawer reading where they can be named.
+    /// The headline number HowLongToBeat prints at the top of a game page — 42 hours for Hollow
+    /// Knight — and the only one that reaches a card, which has room for a number rather than a
+    /// table. The four tiers behind it are a drawer reading, where they can be named.
     ///
-    /// Null for a row that is not a game, for the same reason as <see cref="Genres"/>, and null
-    /// for a game nothing has matched to HowLongToBeat yet.
+    /// This is what <c>sort=hours</c> orders on too, and the two have to stay the same field: a
+    /// column ordered by a figure nobody can see reads as broken.
+    ///
+    /// Null for a row that is not a game, for the same reason as <see cref="Genres"/>, null for
+    /// a game nothing has matched to HowLongToBeat, and null for one matched before this number
+    /// was fetched at all — POST /api/games/hltb/refresh fills those in.
     /// </summary>
-    decimal? HltbMainStoryHours);
+    decimal? HltbAllStylesHours,
+
+    /// <summary>
+    /// The opening of the most recent thing you wrote about this title, or null if you have
+    /// written nothing. The whole of it lives in the drawer; this is a preview and is named so,
+    /// because a field called <c>LatestNote</c> that is not the note would be a lie.
+    ///
+    /// Cut at <c>LibraryService.NotePreviewLength</c> characters. A note may be 4000, and
+    /// a board is up to four columns of a hundred rows — uncapped, this field would make the
+    /// board response scale with how much somebody writes. The cap is comfortably more than two
+    /// lines can show at the widest card, so what a reader sees cut is always the client's
+    /// line-clamp and never this.
+    ///
+    /// The most recent across *every* pass of yours, deliberately unlike everything else on the
+    /// row. See the projection in <c>LibraryService</c>.
+    /// </summary>
+    string? LatestNotePreview);

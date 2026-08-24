@@ -31,6 +31,7 @@ public class GameConfiguration : IEntityTypeConfiguration<Game>
             table.HasCheckConstraint(
                 "ck_games_hltb_hours_positive",
                 """
+                (hltb_all_styles_hours    IS NULL OR hltb_all_styles_hours    > 0) AND
                 (hltb_main_story_hours    IS NULL OR hltb_main_story_hours    > 0) AND
                 (hltb_main_extra_hours    IS NULL OR hltb_main_extra_hours    > 0) AND
                 (hltb_completionist_hours IS NULL OR hltb_completionist_hours > 0)
@@ -48,6 +49,7 @@ public class GameConfiguration : IEntityTypeConfiguration<Game>
 
         // Up to 999.99 hours, to the nearest hundredth — the same shape as
         // log_entries.hours_played, which is the number these get read against.
+        builder.Property(g => g.HltbAllStylesHours).HasPrecision(5, 2);
         builder.Property(g => g.HltbMainStoryHours).HasPrecision(5, 2);
         builder.Property(g => g.HltbMainExtraHours).HasPrecision(5, 2);
         builder.Property(g => g.HltbCompletionistHours).HasPrecision(5, 2);

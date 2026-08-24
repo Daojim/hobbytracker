@@ -23,6 +23,16 @@ export interface ColumnRemoval {
   onConfirm: (mediaId: number) => void;
 }
 
+/**
+ * Which card has its options open, if any. Same shape and same reasoning as ColumnRemoval:
+ * one at a time, held above the board because a refetch remounts cards.
+ */
+export interface ColumnMenu {
+  mediaId: number | null;
+  onOpen: (mediaId: number) => void;
+  onClose: () => void;
+}
+
 export interface ColumnProps {
   hobby: string;
   status: LogStatus;
@@ -35,8 +45,10 @@ export interface ColumnProps {
   onYearChange?: (year: number | undefined) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
-  onDrop: (mediaId: number) => void;
+  /** Moves a card to another column. The column it leaves is this one, so it goes unsaid. */
+  onMove: (mediaId: number, to: LogStatus) => void;
   removal: ColumnRemoval;
+  menu: ColumnMenu;
   onOpen: (mediaId: number) => void;
 }
 
@@ -50,8 +62,9 @@ export function Column({
   onYearChange,
   collapsed = false,
   onToggleCollapse,
-  onDrop,
+  onMove,
   removal,
+  menu,
   onOpen,
 }: ColumnProps) {
   const headingId = useId();
@@ -61,8 +74,15 @@ export function Column({
     queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
   });
 
-  // Registered whether or not the column is collapsed: a collapsed Dropped column is still
-  // somewhere a card can be dragged to.
+  // The ref goes on the section, and it has to. It used to hang off the card list below, which
+  // is not rendered while the column is collapsed — so a closed Dropped column had no rect at
+  // all, `closestCorners` could never pick it, and a card let go over that corner of the board
+  // landed in Completed instead, which is next to it and does have one. Registering the hook
+  // was never enough on its own; a droppable with no node is not a droppable.
+  //
+  // The section exists collapsed or open and is `min-h-24`, so Dropped is a real target the
+  // whole time — which is the point of it, since dropping something is exactly the moment you
+  // have not got the column open.
   const { setNodeRef, isOver } = useDroppable({ id: droppableId(status), data: { status } });
 
   const items = data?.items ?? [];
@@ -70,6 +90,7 @@ export function Column({
 
   return (
     <section
+      ref={setNodeRef}
       aria-labelledby={headingId}
       className={`flex min-h-24 flex-col rounded-xl border p-3 transition-colors ${
         muted ? 'border-dropped/30 opacity-70' : 'border-line-soft'
@@ -99,7 +120,7 @@ export function Column({
       </div>
 
       {!collapsed && (
-        <div ref={setNodeRef} className="flex flex-1 flex-col gap-cardgap">
+        <div className="flex flex-1 flex-col gap-cardgap">
           {isPending && <p className="text-sm text-muted">Loading…</p>}
           {error !== null && (
             <p role="alert" className="text-sm text-danger">
@@ -116,12 +137,17 @@ export function Column({
                 <Card
                   key={item.mediaId}
                   item={item}
-                  onDrop={onDrop}
+                  onMove={onMove}
                   removal={{
                     confirming: removal.mediaId === item.mediaId,
                     onAsk: () => removal.onAsk(item.mediaId),
                     onCancel: removal.onCancel,
                     onConfirm: () => removal.onConfirm(item.mediaId),
+                  }}
+                  menu={{
+                    open: menu.mediaId === item.mediaId,
+                    onOpen: () => menu.onOpen(item.mediaId),
+                    onClose: menu.onClose,
                   }}
                   onOpen={onOpen}
                   // Every other mode is a read-only view. Offering a drag there would promise a

@@ -141,9 +141,30 @@ export async function setSort(page: Page, status: LogStatus, mode: string): Prom
     .selectOption({ label: mode });
 }
 
-/** Writes a note on whichever pass has its compose box open — the current one, by default. */
+/**
+ * Writes a note on whichever pass has its compose box open — the current one, by default.
+ *
+ * The wait is scoped to the dialog, and has to be: a card carries the last thing you wrote
+ * about a title, so the note lands in two places at once and a bare getByText resolves to both.
+ * That is the feature working rather than a flake, but it is still a strict-mode violation.
+ */
 export async function writeNote(page: Page, body: string): Promise<void> {
   await page.getByRole('textbox', { name: 'New note' }).fill(body);
   await page.getByRole('button', { name: 'Add note' }).click();
-  await expect(page.getByText(body)).toBeVisible();
+  await expect(page.getByRole('dialog').getByText(body)).toBeVisible();
+}
+
+/**
+ * Opens a card's options and picks one of them.
+ *
+ * The item's own text carries no title — the name is on the group — so the click is scoped to
+ * the card rather than to the page. Two cards' menus can never be open at once, but scoping it
+ * is what makes the locator say which card it means.
+ */
+export async function chooseOption(page: Page, title: string, option: string): Promise<void> {
+  await card(page, title).getByRole('button', { name: `Options for ${title}` }).click();
+  await card(page, title)
+    .getByRole('group', { name: `Options for ${title}` })
+    .getByRole('button', { name: option })
+    .click();
 }

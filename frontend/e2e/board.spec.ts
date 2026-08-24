@@ -1,7 +1,16 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, column, drag, entriesFor, seed, titlesIn } from './support/board';
+import {
+  card,
+  chooseOption,
+  column,
+  drag,
+  entriesFor,
+  seed,
+  setSort,
+  titlesIn,
+} from './support/board';
 
 /**
  * The drag, in a real browser.
@@ -75,13 +84,13 @@ test('replaying a finished game keeps the finish', async ({ page }) => {
   expect(entries.some((entry) => entry.status === 'InProgress')).toBe(true);
 });
 
-test('the close button drops a game, and dragging it out picks it back up', async ({
+test('the options menu drops a game, and dragging it out picks it back up', async ({
   page,
 }) => {
   const mediaId = await seed(page.request, 'Anthem', 'InProgress', { startedAt: '2026-05-01' });
   await page.reload();
 
-  await card(page, 'Anthem').getByRole('button', { name: 'Drop Anthem' }).click();
+  await chooseOption(page, 'Anthem', 'Move to Dropped');
 
   await page.getByRole('button', { name: 'Show Dropped' }).click();
   await expect(column(page, 'Dropped').getByText('Anthem')).toBeVisible();
@@ -100,15 +109,35 @@ test('the close button drops a game, and dragging it out picks it back up', asyn
 });
 
 
-test('closing a backlog game takes it off the board rather than dropping it', async ({
+test('a card can be dragged into Dropped while Dropped is still collapsed', async ({ page }) => {
+  // Dropped starts out of the way, and used to stop being a drop target entirely while it was:
+  // the droppable ref hung off the card list, which is not rendered when the column is closed.
+  // So the column had no rect, closestCorners could never pick it, and a card let go over that
+  // corner of the board landed in Completed — which is next to it and does have one.
+  const mediaId = await seed(page.request, 'Anthem', 'InProgress', { startedAt: '2026-05-01' });
+  await page.reload();
+
+  await expect(page.getByRole('button', { name: 'Show Dropped' })).toBeVisible();
+  await drag(page, card(page, 'Anthem'), column(page, 'Dropped'));
+
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0]?.status)
+    .toBe('Dropped');
+
+  // And it went nowhere near Completed, which is the column it used to land in.
+  expect(await titlesIn(page, 'Completed')).not.toContain('Anthem');
+});
+
+test('removing a backlog game takes it off the board rather than dropping it', async ({
   page,
 }) => {
   // Dropped records a game you started and gave up on. Nothing was started here, so there is
-  // nothing to record — the title goes, and the catalog keeps the game itself.
+  // nothing to record — the title goes, and the catalog keeps the game itself. Both endings are
+  // in the menu now; this is still the one that is not a move.
   const mediaId = await seed(page.request, 'Celeste', 'Backlog');
   await page.reload();
 
-  await card(page, 'Celeste').getByRole('button', { name: 'Remove Celeste from your board' }).click();
+  await chooseOption(page, 'Celeste', 'Remove from board');
   await expect(page.getByText('Takes Celeste off your board.')).toBeVisible();
   await page.getByRole('button', { name: 'Really remove?' }).click();
 
@@ -119,11 +148,12 @@ test('closing a backlog game takes it off the board rather than dropping it', as
   expect(await titlesIn(page, 'Dropped')).not.toContain('Celeste');
 });
 
-test('closing a replay you thought better of gives the finished pass back', async ({
+test('removing a replayed title takes every pass, not one press per playthrough', async ({
   page,
 }) => {
-  // Dragging a finished game to Backlog inserts a fresh entry rather than editing the
-  // completion. Changing your mind has to undo exactly that much and no more.
+  // The bug this rule was changed for. Removing used to delete the current pass alone, so a
+  // title carrying a completion and a replay came *back* on the first press — in Completed,
+  // reading exactly like the remove had failed — and stacking replays meant one press each.
   const mediaId = await seed(page.request, 'Hollow Knight', 'Completed', {
     startedAt: '2024-01-10',
     completedAt: '2024-03-02',
@@ -139,15 +169,57 @@ test('closing a replay you thought better of gives the finished pass back', asyn
   // can be controlled instead of raced.
   await expect(card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' })).toBeVisible();
 
-  await card(page, 'Hollow Knight')
-    .getByRole('button', { name: 'Remove Hollow Knight from your board' })
-    .click();
-  await expect(page.getByText(/Only this pass\./)).toBeVisible();
+  await chooseOption(page, 'Hollow Knight', 'Remove from board');
+  // The count is the warning: two records are going, not a card.
+  await expect(page.getByText(/all 2 playthroughs, and their notes/)).toBeVisible();
   await page.getByRole('button', { name: 'Really remove?' }).click();
 
-  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
-  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(1);
-  expect((await entriesFor(page.request, mediaId))[0]?.completedAt).not.toBeNull();
+  // Gone from every column, in one press.
+  await expect(card(page, 'Hollow Knight')).toBeHidden();
+  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  for (const status of ['Backlog', 'InProgress', 'Completed', 'Dropped'] as const) {
+    expect(await titlesIn(page, status)).not.toContain('Hollow Knight');
+  }
+  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(0);
+});
+
+test('a finished game replayed from the menu keeps the completion, as a drag does', async ({
+  page,
+}) => {
+  // Only reachable this way. Completed had no corner control at all before the menu, so the
+  // rule that leaving Completed inserts a fresh pass rather than editing the old one had only
+  // ever been driven from a drag — and this route goes through the same endpoint for a reason.
+  const mediaId = await seed(page.request, 'Hollow Knight', 'Completed', {
+    startedAt: '2024-01-10',
+    completedAt: '2024-03-02',
+  });
+  await page.reload();
+
+  await chooseOption(page, 'Hollow Knight', 'Move to Playing');
+
+  await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
+  await expect(
+    card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
+  ).toBeVisible();
+
+  // Two passes, and the completion below is untouched.
+  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(2);
+  const entries = await entriesFor(page.request, mediaId);
+  expect(entries[0]?.status).toBe('InProgress');
+  expect(entries[1]?.completedAt).not.toBeNull();
+});
+
+test('the menu is offered outside manual sort, where a drag is not', async ({ page }) => {
+  // The two are not the same gesture and never were. Dragging is disabled in every other sort
+  // because it would promise a ranking the API will not store; a move through the menu stores
+  // nothing about order, so there is nothing for it to promise.
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+  await setSort(page, 'Backlog', 'Title');
+
+  await chooseOption(page, 'Celeste', 'Move to Playing');
+
+  await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
 });
 
 test('a reordered column stays reordered', async ({ page }) => {
@@ -194,7 +266,12 @@ test('sorting is a view, and leaves the ranking alone', async ({ page }) => {
   await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(['Celeste', 'Stardew Valley']);
 
   // Dragging is not on offer here, so it cannot write an order the API would refuse to store.
-  await expect(card(page, 'Celeste')).toHaveAttribute('aria-disabled', 'true');
+  // Attempted rather than asserted through an attribute: this used to read dnd-kit's
+  // aria-disabled off the card, which says the sortable is off and was taken by everything that
+  // reads it — Playwright included — as disabling the card's buttons too. Doing the gesture and
+  // finding nothing moved is the claim the test was making all along.
+  await drag(page, card(page, 'Celeste'), card(page, 'Stardew Valley'));
+  await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(['Celeste', 'Stardew Valley']);
 
   await column(page, 'Backlog')
     .getByRole('combobox', { name: 'Backlog order' })

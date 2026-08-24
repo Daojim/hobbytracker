@@ -47,10 +47,22 @@ export interface LibraryItem {
   /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
   primaryGenre: string | null;
   /**
-   * HowLongToBeat's main-story estimate, and only that one — a card has room for a number, not
-   * a table. Null for a row that is not a game, and for a game nothing has matched yet.
+   * The headline number HowLongToBeat prints, and the only one that reaches a card — which has
+   * room for a number rather than a table. Not main story: it is HLTB own figure across every
+   * play style, and is what `sort=hours` orders on too, so the column agrees with itself.
+   *
+   * Null for a row that is not a game, for a game nothing has matched, and for one matched
+   * before this number was fetched at all.
    */
-  hltbMainStoryHours: number | null;
+  hltbAllStylesHours: number | null;
+  /**
+   * The opening of the most recent thing you wrote about this title, cut by the server. The
+   * whole of it lives in the drawer; this is a preview and is named so.
+   *
+   * The latest across *every* pass of yours, unlike everything else on this row — a replay you
+   * have not written on yet still carries forward what you said the first time round.
+   */
+  latestNotePreview: string | null;
 }
 
 export interface Game {
@@ -65,10 +77,14 @@ export interface Game {
   externalId: string | null;
   source: string;
   /**
-   * HowLongToBeat's three completion times, in hours. Any one can be null on its own — an
-   * obscure title often has a main-story time and nothing else — and all three are null for a
+   * HowLongToBeat's headline figure and its three tiers, in hours. Any can be null on its own —
+   * an obscure title often has a main-story time and nothing else — and all four are null for a
    * title nothing has matched confidently.
+   *
+   * The headline is fetched, not averaged: on the real site it is a separate statistic over
+   * every submission, and the mean of the three tiers is a different number HLTB also publishes.
    */
+  hltbAllStylesHours: number | null;
   hltbMainStoryHours: number | null;
   hltbMainExtraHours: number | null;
   hltbCompletionistHours: number | null;

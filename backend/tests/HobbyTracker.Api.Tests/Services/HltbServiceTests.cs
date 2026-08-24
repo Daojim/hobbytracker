@@ -18,17 +18,19 @@ namespace HobbyTracker.Api.Tests.Services;
 public sealed class HltbServiceTests(PostgresFixture postgres) : DatabaseTestBase(postgres)
 {
     [Fact]
-    public async Task Writes_all_three_times_and_the_id_it_matched()
+    public async Task Writes_the_headline_and_all_three_tiers_and_the_id_it_matched()
     {
         var mediaId = await GivenGameAsync("Hollow Knight");
         Hltb.SetResults(
             "Hollow Knight",
-            FakeHltbClient.Game(26286, "Hollow Knight", 2017, 27m, 41.59m, 65.6m));
+            FakeHltbClient.Game(26286, "Hollow Knight", 2017, 27m, 41.59m, 65.6m, allStyles: 41.82m));
 
         (await UpdateAsync(mediaId)).ShouldBeTrue();
 
         var game = await GameAsync(mediaId);
         game.HltbId.ShouldBe(26286);
+        // The card's number, and the sort's. Fetched rather than averaged from the three below.
+        game.HltbAllStylesHours.ShouldBe(41.82m);
         game.HltbMainStoryHours.ShouldBe(27m);
         game.HltbMainExtraHours.ShouldBe(41.59m);
         game.HltbCompletionistHours.ShouldBe(65.6m);

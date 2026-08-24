@@ -1,20 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Card, type CardRemoval } from './Card';
+import { Card, type CardMenu, type CardRemoval } from './Card';
 import { libraryItem } from '../test/library';
 import { renderWithProviders } from '../test/render';
 import type { LogStatus } from '../api/types';
 
 /**
- * `removal.confirming` is a prop rather than card state, so the two halves are exercised
- * separately: clicking the corner asks, and being the card asked about renders the confirm.
+ * Both `removal.confirming` and `menu.open` are props rather than card state, so each is
+ * exercised in two halves: pressing the control asks for the thing, and being the card it was
+ * asked about renders it. Both live above the board for the same reason — a refetch remounts
+ * cards, and neither a confirm nor an open menu may quietly close itself when one lands.
  */
 function renderCard(
   item = libraryItem(),
   confirming = false,
-  onDrop = vi.fn(),
+  onMove = vi.fn(),
   onOpen = vi.fn(),
+  menuOpen = false,
 ) {
   const removal: CardRemoval = {
     confirming,
@@ -23,15 +26,29 @@ function renderCard(
     onConfirm: vi.fn(),
   };
 
+  const menu: CardMenu = { open: menuOpen, onOpen: vi.fn(), onClose: vi.fn() };
+
   const view = renderWithProviders(
-    <Card item={item} onDrop={onDrop} removal={removal} onOpen={onOpen} draggable />,
+    <Card
+      item={item}
+      onMove={onMove}
+      removal={removal}
+      menu={menu}
+      onOpen={onOpen}
+      draggable
+    />,
     { dnd: true },
   );
-  return { ...view, onDrop, onOpen, removal };
+  return { ...view, onMove, onOpen, removal, menu };
 }
 
-const removeButton = (title = 'Celeste') =>
-  screen.getByRole('button', { name: `Remove ${title} from your board` });
+/** The corner control, and the only thing that opens the options. */
+const optionsButton = (title = 'Celeste') =>
+  screen.getByRole('button', { name: `Options for ${title}` });
+
+/** A card with its menu already open, which is the state most of these are about. */
+const renderOpen = (item = libraryItem({ title: 'Celeste' }), onMove = vi.fn()) =>
+  renderCard(item, false, onMove, vi.fn(), true);
 
 /**
  * A card under something listening for the press, which is what a drag listener is.
@@ -54,8 +71,9 @@ function renderPressed() {
     <div onPointerDown={pressed}>
       <Card
         item={libraryItem({ title: 'Celeste', currentStatus: 'Backlog' })}
-        onDrop={vi.fn()}
+        onMove={vi.fn()}
         removal={removal}
+        menu={{ open: false, onOpen: vi.fn(), onClose: vi.fn() }}
         onOpen={vi.fn()}
         draggable
       />
@@ -76,16 +94,18 @@ describe('Card', () => {
   it('shows how long the game takes, marked as an estimate rather than as your own hours', () => {
     // The tilde is doing real work. The drawer prints "31.5 h" for what a pass took you, so an
     // unmarked number on a card would read as the same claim about a game you have not started.
-    renderCard(libraryItem({ title: 'Hollow Knight', hltbMainStoryHours: 27 }));
+    // The headline figure rather than main story, which is what this used to show. Hollow
+    // Knight's main story is 27 and the number the site leads with is 42.
+    renderCard(libraryItem({ title: 'Hollow Knight', hltbAllStylesHours: 42 }));
 
-    expect(screen.getByText('~27 h')).toBeInTheDocument();
+    expect(screen.getByText('~42 h')).toBeInTheDocument();
     expect(
-      screen.getByRole('img', { name: 'About 27 hours to finish' }),
+      screen.getByRole('img', { name: 'About 42 hours to finish' }),
     ).toBeInTheDocument();
   });
 
   it('says nothing about length for a title HowLongToBeat has not been matched to', () => {
-    renderCard(libraryItem({ hltbMainStoryHours: null }));
+    renderCard(libraryItem({ hltbAllStylesHours: null }));
 
     expect(screen.queryByText(/h$/)).not.toBeInTheDocument();
   });
@@ -119,7 +139,6 @@ describe('Card', () => {
     expect(screen.queryByRole('img', { name: /playthrough/ })).not.toBeInTheDocument();
   });
 
-
   it('names the genre it is painted as, so the colour never has to be learned', () => {
     // Ten hues is past what anyone can reliably tell apart, and past what colour-vision
     // deficiency leaves separable at all. The stripe is decoration; this is the information.
@@ -152,56 +171,109 @@ describe('Card', () => {
     expect(screen.queryByText('Indie')).not.toBeInTheDocument();
   });
 
-  it('offers a drop button on Playing, where giving up on a game did happen', () => {
-    renderCard(libraryItem({ title: 'Celeste', currentStatus: 'InProgress' }));
+  it('shows the last thing you wrote about it', () => {
+    // The journal is the point of the app, and until this it was entirely behind a click: the
+    // board could tell you what you scored a game and not one word of what you said about it.
+    renderCard(libraryItem({ latestNotePreview: 'Finally beat Hornet after forty tries.' }));
 
-    expect(screen.getByRole('button', { name: 'Drop Celeste' })).toBeInTheDocument();
+    expect(screen.getByText('Finally beat Hornet after forty tries.')).toBeInTheDocument();
+  });
+
+  it('says nothing at all when nothing has been written', () => {
+    // Not an empty line held open for a note that may never come. Most of a backlog has never
+    // been written on, and a column of cards each carrying a blank row is a raggeder board for
+    // no information.
+    const { container } = renderCard(libraryItem({ latestNotePreview: null }));
+
+    expect(container.querySelector('[data-note]')).toBeNull();
+  });
+
+  it('keeps the options shut until they are asked for', () => {
+    const { menu } = renderCard(libraryItem({ title: 'Celeste' }));
+
+    expect(screen.queryByRole('group', { name: 'Options for Celeste' })).not.toBeInTheDocument();
+
+    fireEvent.click(optionsButton());
+
+    expect(menu.onOpen).toHaveBeenCalledOnce();
+  });
+
+  it.each<[LogStatus, string[]]>([
+    ['Backlog', ['Move to Playing', 'Move to Completed', 'Move to Dropped']],
+    ['InProgress', ['Move to Backlog', 'Move to Completed', 'Move to Dropped']],
+    ['Completed', ['Move to Backlog', 'Move to Playing', 'Move to Dropped']],
+    ['Dropped', ['Move to Backlog', 'Move to Playing', 'Move to Completed']],
+  ])('offers every column but its own, from %s', (currentStatus, expected) => {
+    // The whole point of the menu: a move without a drag, from every column rather than the two
+    // that used to have a corner control at all. Dragging a card from the bottom of a forty-title
+    // Backlog up to Completed is a scroll and a hold; this is two clicks.
+    //
+    // Never its own column, because the API treats a move to the status a title already has as a
+    // silent no-op — an item that costs a request and changes nothing is worse than none.
+    renderOpen(libraryItem({ title: 'Celeste', currentStatus }));
+
+    const options = screen.getByRole('group', { name: 'Options for Celeste' });
+
     expect(
-      screen.queryByRole('button', { name: 'Remove Celeste from your board' }),
-    ).not.toBeInTheDocument();
+      within(options)
+        .getAllByRole('button')
+        .map((button) => button.textContent)
+        .filter((label) => label?.startsWith('Move')),
+    ).toEqual(expected);
   });
 
-  it('offers a remove button on Backlog, where there is nothing yet to give up on', () => {
-    // Dropped is a record of a game you started and abandoned. A game you never began has
-    // nothing to abandon, so closing it takes it off the board rather than moving it to a
-    // column that would claim you played it.
-    renderCard(libraryItem({ title: 'Celeste', currentStatus: 'Backlog' }));
+  it('opens the journal from the menu as well as from the title', async () => {
+    // A second door to the same drawer. The title is the discoverable one and stays the primary,
+    // but it is also the one gesture on a card that competes with the drag — so a menu item that
+    // cannot be mistaken for the start of one is worth having beside it.
+    //
+    // "Open journal" rather than "Edit game": every other hobby gets this menu unchanged, and a
+    // journal is a journal whether the thing is a game, a film or an album.
+    const { onOpen, menu } = renderOpen(libraryItem({ mediaId: 42, title: 'Celeste' }));
 
-    expect(removeButton()).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Drop Celeste' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Open journal' }));
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(42);
+    expect(menu.onClose).toHaveBeenCalledOnce();
   });
 
-  it.each<LogStatus>(['Completed', 'Dropped'])(
-    'offers neither on %s, where both would mean nothing',
-    (currentStatus) => {
-      renderCard(libraryItem({ title: 'Celeste', currentStatus }));
-
-      expect(screen.queryByRole('button', { name: 'Drop Celeste' })).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole('button', { name: 'Remove Celeste from your board' }),
-      ).not.toBeInTheDocument();
-    },
-  );
-
-  it('reports the title being dropped, not the position it was in', async () => {
-    const { onDrop } = renderCard(
-      libraryItem({ mediaId: 42, title: 'Celeste', currentStatus: 'InProgress' }),
+  it('reports where the title is going, and the title, not the position it was in', async () => {
+    const { onMove } = renderOpen(
+      libraryItem({ mediaId: 42, title: 'Celeste', currentStatus: 'Backlog' }),
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Drop Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
 
-    expect(onDrop).toHaveBeenCalledExactlyOnceWith(42);
+    expect(onMove).toHaveBeenCalledExactlyOnceWith(42, 'Completed');
   });
+
+  it.each<LogStatus>(['Backlog', 'InProgress', 'Completed', 'Dropped'])(
+    'offers both endings from %s, rather than one decided by the column',
+    (currentStatus) => {
+      // The corner used to mean *drop* on Playing and *remove* on Backlog, and be absent on the
+      // other two — so which of the two endings you got was chosen by where the card sat rather
+      // than by you. Dropping is still not removing; both are just reachable from anywhere now.
+      renderOpen(libraryItem({ title: 'Celeste', currentStatus }));
+
+      expect(screen.getByRole('button', { name: 'Remove from board' })).toBeInTheDocument();
+      if (currentStatus !== 'Dropped') {
+        expect(screen.getByRole('button', { name: 'Move to Dropped' })).toBeInTheDocument();
+      }
+    },
+  );
 
   it('asks before it removes a title, because a delete is not one drag from undone', async () => {
     // Dropping can be taken back by dragging the card out again. This cannot, so it does not
     // happen on a single click, which is the reasoning the drawer's deletes already follow.
-    const { removal } = renderCard(libraryItem({ mediaId: 42, title: 'Celeste' }));
+    const { removal, menu } = renderOpen(libraryItem({ mediaId: 42, title: 'Celeste' }));
 
-    await userEvent.click(removeButton());
+    await userEvent.click(screen.getByRole('button', { name: 'Remove from board' }));
 
     expect(removal.onAsk).toHaveBeenCalledOnce();
     expect(removal.onConfirm).not.toHaveBeenCalled();
+
+    // And the menu gets out of the way, or the question is asked behind the thing that asked it.
+    expect(menu.onClose).toHaveBeenCalledOnce();
   });
 
   it('removes the title once that is confirmed', async () => {
@@ -230,14 +302,40 @@ describe('Card', () => {
     expect(screen.getByText('Takes Celeste off your board.')).toBeInTheDocument();
   });
 
-  it('says the earlier pass survives when there is one underneath', () => {
-    // A finished game dragged back to Backlog gets a fresh entry rather than overwriting the
-    // completion, so changing your mind about the replay leaves that completion standing.
-    renderCard(libraryItem({ title: 'Celeste', entryCount: 2 }), true);
+  it('counts the playthroughs it would take with it, when there is more than one', () => {
+    // The number is the whole warning. Removing takes every pass and everything written during
+    // them, so a title carrying a 2024 completion and two replays is losing three records —
+    // and "off your board" alone reads like it is losing a card.
+    renderCard(libraryItem({ title: 'Celeste', entryCount: 3 }), true);
 
     expect(
-      screen.getByText('Only this pass. Celeste stays, showing the one before it.'),
+      screen.getByText('Takes Celeste off your board — all 3 playthroughs, and their notes.'),
     ).toBeInTheDocument();
+  });
+
+  it('names the card its options belong to, and says it once', () => {
+    // On the group rather than on every item. The items say "Move to Playing" and nothing more,
+    // because the e2e card() locator filters on a card's own text — an item carrying a title
+    // would make that locator match any card whose menu mentioned another card's game.
+    renderOpen(libraryItem({ title: 'Hollow Knight' }));
+
+    expect(screen.getByRole('group', { name: 'Options for Hollow Knight' })).toBeInTheDocument();
+    expect(screen.queryByText(/Move Hollow Knight to/)).not.toBeInTheDocument();
+  });
+
+  it('closes on Escape and hands the keyboard back to the corner', async () => {
+    // The drawer's rule and the settings menu's: a control that opened something is where focus
+    // belongs when it shuts, or the next Tab starts from the top of the document.
+    //
+    // Handled on the menu rather than at the document, deliberately. The drawer already listens
+    // for Escape there, and the search bar records why a second listener for one key is how two
+    // of them start disagreeing about which press was meant for whom.
+    const { menu } = renderOpen();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Playing' }));
+    await userEvent.keyboard('{Escape}');
+
+    expect(menu.onClose).toHaveBeenCalled();
   });
 
   it('opens the title it names', async () => {
@@ -265,13 +363,13 @@ describe('Card', () => {
     expect(pressed).toHaveBeenCalledOnce();
   });
 
-  it('keeps the close corner from starting one, because it is a small target', () => {
+  it('keeps the options corner from starting one, because it is a small target', () => {
     // The opposite call, deliberately: twenty pixels in the corner is a button and nothing else,
-    // and a hand that wobbles past the threshold there would drag the card rather than remove
-    // the title. The title has room for both gestures; this does not.
+    // and a hand that wobbles past the threshold there would drag the card rather than open the
+    // options. The title has room for both gestures; this does not.
     const { pressed } = renderPressed();
 
-    fireEvent.pointerDown(removeButton());
+    fireEvent.pointerDown(optionsButton());
 
     expect(pressed).not.toHaveBeenCalled();
   });

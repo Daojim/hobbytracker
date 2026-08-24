@@ -544,9 +544,10 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText(/No HowLongToBeat estimate yet/)).toBeInTheDocument();
   });
 
-  it('shows all three of HowLongToBeat\'s estimates', async () => {
+  it('shows the headline figure and all three of HowLongToBeat\'s tiers', async () => {
   journalServer({
     detail: gameDetail({
+      hltbAllStylesHours: 41.82,
       hltbMainStoryHours: 27,
       hltbMainExtraHours: 41.59,
       hltbCompletionistHours: 65.6,
@@ -556,7 +557,9 @@ describe('EntryDrawer', () => {
 
   open();
 
-  expect(await screen.findByText('Main story: 27 h')).toBeInTheDocument();
+  // The headline first: it is the figure the site leads with and the one the card carries.
+  expect(await screen.findByText('All play styles: 41.82 h')).toBeInTheDocument();
+  expect(screen.getByText('Main story: 27 h')).toBeInTheDocument();
   expect(screen.getByText('Main + Extra: 41.59 h')).toBeInTheDocument();
   expect(screen.getByText('Completionist: 65.6 h')).toBeInTheDocument();
 });
@@ -580,17 +583,22 @@ it('leaves out a tier nobody has submitted a time for, rather than showing a gap
   expect(screen.queryByText(/No HowLongToBeat estimate yet/)).not.toBeInTheDocument();
 });
 
-it('puts your hours next to the main story, and the difference between them', async () => {
+it('puts your hours next to the headline figure, and the difference between them', async () => {
+    // Against All play styles rather than Main story, which is what this compared to first. It
+    // followed the card and the Time to beat sort there, and it is the better comparison
+    // anyway: a completionist run held up against main story reads as wildly over, when it is
+    // only over for a tier it was never doing.
     journalServer({
       detail: gameDetail({
-        hltbMainStoryHours: 24.5,
+        hltbAllStylesHours: 24.5,
+        hltbMainStoryHours: 18,
         logEntries: [logEntry({ id: 7, hoursPlayed: 31 })],
       }),
     });
 
     open();
 
-    expect(await screen.findByText(/Main story: 24.5 h/)).toBeInTheDocument();
+    expect(await screen.findByText(/All play styles: 24.5 h/)).toBeInTheDocument();
     expect(screen.getByText(/you: 31 h/)).toBeInTheDocument();
     expect(screen.getByText(/\+6.5/)).toBeInTheDocument();
   });

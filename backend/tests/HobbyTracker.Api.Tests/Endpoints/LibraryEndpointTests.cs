@@ -226,14 +226,16 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
-    public async Task A_board_row_carries_the_main_story_estimate()
+    public async Task A_board_row_carries_the_headline_estimate_and_not_the_tiers()
     {
-        // Only main story reaches the card. The other two are a drawer reading, where there is
-        // room to name them; three numbers in a card's metadata row would be a table.
+        // Only the headline number reaches a card, which has room for a number rather than a
+        // table. It is also deliberately *not* main story: the four tiers are a drawer reading,
+        // where each can be named, and the card prints what HowLongToBeat prints.
         var mediaId = await GivenGameAsync("Hollow Knight");
         await WithDbAsync(async db =>
         {
             var game = await db.Games.SingleAsync(g => g.Id == mediaId, Ct);
+            game.HltbAllStylesHours = 41.82m;
             game.HltbMainStoryHours = 27m;
             game.HltbMainExtraHours = 41.59m;
             await db.SaveChangesAsync(Ct);
@@ -242,7 +244,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
 
-        item.HltbMainStoryHours.ShouldBe(27m);
+        item.HltbAllStylesHours.ShouldBe(41.82m);
     }
 
     [Fact]
@@ -256,7 +258,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
 
-        item.HltbMainStoryHours.ShouldBeNull();
+        item.HltbAllStylesHours.ShouldBeNull();
     }
 
     [Fact]
@@ -272,6 +274,68 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         item.Genres.ShouldBeNull();
         item.PrimaryGenre.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_board_row_carries_the_last_thing_you_wrote_about_it()
+    {
+        // The journal is the point of the app, and until this it was entirely behind a click:
+        // the board could tell you what you scored a game and not one word of what you said.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+        await GivenNoteAsync(entryId, "Finally beat Hornet after forty tries.");
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.LatestNotePreview.ShouldBe("Finally beat Hornet after forty tries.");
+    }
+
+    [Fact]
+    public async Task A_board_row_with_nothing_written_against_it_carries_no_note()
+    {
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.LatestNotePreview.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task The_newest_note_wins_across_every_pass_not_just_the_current_one()
+    {
+        // Deliberately unlike every other field on the row, all of which come from the current
+        // pass. A replay started this morning has nothing written on it yet, and what you said
+        // the first time round is still the last thing you said about this game.
+        //
+        // Seeded so insertion order is the opposite of written order: if this passed on the id
+        // tie-break rather than on written_at, it would be reading the wrong one and saying so.
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var finished = await GivenLogEntryAsync(mediaId, LogStatus.Completed);
+        await GivenNoteAsync(finished, "That B-side nearly broke me.", Eastern(2024, 6, 1, 21, 30));
+
+        var replay = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+        await GivenNoteAsync(replay, "Older than it looks.", Eastern(2023, 1, 1, 9, 0));
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.LatestNotePreview.ShouldBe("That B-side nearly broke me.");
+    }
+
+    [Fact]
+    public async Task A_long_note_reaches_the_board_cut_to_a_preview()
+    {
+        // A note may be 4000 characters and a board is four columns of a hundred rows. What a
+        // reader sees cut is the client's two-line clamp; this cap is only what stops the board
+        // response scaling with how much somebody writes.
+        var mediaId = await GivenGameAsync("Outer Wilds");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.Completed);
+        await GivenNoteAsync(entryId, new string('x', 500));
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.LatestNotePreview.ShouldBe(new string('x', 200));
     }
 
     private async Task<PagedResult<LibraryItemDto>> GetPageAsync(string url) =>

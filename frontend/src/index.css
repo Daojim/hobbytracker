@@ -325,4 +325,24 @@
   --color-genre-simulator: oklch(0.55 0.06 80);
   --color-genre-puzzle: oklch(0.75 0.13 160);
   --color-genre-adventure: oklch(0.75 0.13 80);
+
+  /*
+   * A provider's own colours, on the genre block's reasoning exactly: these are content rather
+   * than chrome. Google's blue means Google whatever the app is wearing, so they are not
+   * per-theme and they sit outside the five palette blocks. Here rather than as literals in the
+   * sign-in page's JSX so that this file stays the only place in the app that names a colour.
+   *
+   * Both marks sit on `--surface` behind a `--line` border, so they are graphics rather than
+   * text and the 4.5:1 rule does not reach them. Discord's blurple is the one to watch: it
+   * clears 3:1 against every theme's surface, which is the bar for a non-text mark, but it is
+   * the reason the button around it is bordered rather than relying on the mark to find itself.
+   *
+   * No digits in these names. `index.css.test.ts` reads tokens with /^\s*(--[a-z-]+):/, so a
+   * token called `--color-brand-g2` would be skipped rather than reported.
+   */
+  --color-brand-google-blue: #4285f4;
+  --color-brand-google-green: #34a853;
+  --color-brand-google-yellow: #fbbc05;
+  --color-brand-google-red: #ea4335;
+  --color-brand-discord: #5865f2;
 }

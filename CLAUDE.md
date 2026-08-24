@@ -37,7 +37,7 @@ outrank the thing it is named after. Three sections under
 **Ranking search results** — and the last two are worth reading before touching search,
 because both record rules that were tried against the live API and thrown away.
 
-**Auth is built**, on the `auth-preparations` branch, in five commits taken one at a time:
+**PR #14 is merged** — auth, in five commits taken one at a time:
 
 1. **the rail** — Google through the framework's generic `AddOAuth`, an httpOnly cookie, and a
    Google stub the real handler runs against end to end;
@@ -52,11 +52,34 @@ See **Auth** for all of it, and in particular **The five traps, every one of whi
 quietly** — the eager configuration read that broke 153 tests, the Vite proxy's `changeOrigin`,
 and the 302-instead-of-401 that hands `fetch` a page of HTML.
 
-Everything is green and everything has been run: backend 309, frontend 312, Playwright 74.
+**Three things living with the board turned up**, on the `card-menu-and-note-previews` branch,
+cut from `main` after #14 and not yet opened as a PR:
 
-Ten plans. The current one is
-`C:\Users\jimmy\.claude\plans\look-at-claude-md-to-iridescent-rain.md` — the auth phase, and
-the section below is what it turned into. Its one deviation is worth knowing: the frontend was
+1. **the sign-in marks** — both provider links were drawn in `--accent`, which is green on the
+   Shelf themes, so "Continue with Google" was a green button with no Google about it. Neutral
+   now, with the provider's own mark on the left. See **The frontend** under **Auth**;
+2. **the last thing you wrote, on the card** — a board row carries a preview of your most recent
+   note. See **Library is not the catalog**, which has the two things that make it safe;
+3. **an options menu on every card** — the `×` became a `⋯` offering the journal, the three
+   columns the card is not in, and both endings, from all four columns. See **Board semantics**.
+
+Then four more that the first days of using it turned up:
+
+4. **remove means remove** — every pass of yours, not the newest one, so a title replayed five
+   times is one press from leaving rather than five;
+5. **Dropped is a drop target while collapsed**, which it had never been: the droppable ref hung
+   off a card list that is not rendered when the column is shut;
+6. **sign-in is a card on a full-bleed ground**, and the card menu gained *Open journal* and a
+   translucent danger fill;
+7. **a card shows HowLongToBeat's headline figure**, fetched rather than averaged, and
+   `sort=hours` follows it. See **`comp_all` is the headline number**.
+
+Everything is green and everything has been run: backend 314, frontend 327, Playwright 78.
+
+Eleven plans. The current one is
+`C:\Users\jimmy\.claude\plans\read-claude-md-to-see-wondrous-crescent.md` — the three above, and
+what they turned into. `look-at-claude-md-to-iridescent-rain.md` is the auth phase before it. Its
+one deviation is worth knowing: the frontend was
 built **before** the `NOT NULL` migration rather than after, because the app is unusable in a
 browser between the scoping and the sign-in screen, and confirming a one-way discard is easier
 from a working board than from psql.
@@ -74,9 +97,10 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished.** The auth work is committed on `auth-preparations` and every suite
-is green; it has not been opened as a PR or merged to `main` yet. **Detail and review is the
-next phase** — see **Phases**. Four things worth knowing before a first run:
+**Nothing is half-finished.** Auth is merged. The three things above are committed on
+`card-menu-and-note-previews` and every suite is green; that branch has not been opened as a PR
+yet. **Detail and review is the next phase** — see **Phases**. Four things worth knowing before a
+first run:
 
 - **Sign-in credentials are required to boot.** Google *and* Discord, in user-secrets — the host
   fails deliberately and names the missing key. See **Running it**, which also has the stub
@@ -142,8 +166,9 @@ Decisions already made with the user, **settled — do not reopen**:
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
 | Scope | **`/board`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/search` redirects. No detail or year-review page yet |
 | Columns | Backlog · Playing · Completed, plus Dropped as a muted 4th, collapsed by default |
-| Dropped | close button on a **Playing** card; drag out of the Dropped column to un-drop |
-| Close button | On Backlog it **removes** the title; on Playing it drops. **Hidden on Completed and Dropped** |
+| Dropped | *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out of the Dropped column to un-drop |
+| Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board*. It replaced a `×` that meant *drop* on Playing and *remove* on Backlog and was absent on the other two |
+| Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
 | Year picker | above the Completed column only; Backlog and Playing ignore it |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
@@ -185,8 +210,8 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── lib/hours.ts  formatHours — display, so board/ need not reach into journal/
-│       ├── board/        the board. keys.ts owns the query key, sensors.ts owns the drag's
-│       │                 activation distance, and useBoard owns the writes
+│       ├── board/        the board. keys.ts owns the query key, columns.ts the four columns and
+│       │                 their labels, sensors.ts the drag's activation distance, useBoard the writes
 │       ├── journal/      the drawer over the board — rating, platform, dates, notes, earlier passes
 │       ├── search/       BoardSearch + SearchResult — the bar and strip above the board
 │       ├── shell/        AppHeader, the sign-in screen, the session gate, hobbies and providers
@@ -295,9 +320,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 309 tests
-cd frontend && npm test                             # frontend, 312 tests
-cd frontend && npm run test:e2e                     # 74 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 314 tests
+cd frontend && npm test                             # frontend, 327 tests
+cd frontend && npm run test:e2e                     # 78 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -419,7 +444,7 @@ is how the lookup tables keep their `_lu` suffix.
 | `hobby_lu` | `id`, `name` — games, movies, tv, anime, books, music |
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
-| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at` |
+| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_all_styles_hours`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at` |
 | `log_entries` | `id`, `user_id` (**NOT NULL**), `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `started_at`, `completed_at`, `logged_at` |
 | `notes` | `id`, `log_entry_id`, `body`, `written_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
@@ -774,7 +799,7 @@ still filtering them.
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
 | `GET /api/library/years?hobby=` | years with completions, newest first |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
-| `DELETE /api/library/{mediaId}/current` | take a title off the board — what closing a Backlog card calls |
+| `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours**, which is what *Remove from board* calls |
 | `PUT /api/library/order` | store one column's manual ranking |
 
 **Search** queries IGDB, upserts every result into `media` + `games`, and returns them **in
@@ -790,6 +815,28 @@ clears the change tracker, and re-reads.
 everything ever typed into a search box. `/api/library` joins to `log_entries` and returns only
 titles you actually recorded something about — one row per title regardless of replays, carrying
 `currentStatus`, `entryCount` and `latestRating`. Do not "fix" it to list all of `media`.
+
+**`latestNotePreview` is the one field on that row that does not come from the current pass.**
+Everything else — the status, the rating, the count, the date — is `Latest`; this is the most
+recent note across *every* pass of yours, so a replay begun this morning still shows what you
+said the first time round. Two consequences, both load-bearing:
+
+- **It carries its own `UserId` predicate.** Riding on `Latest` would have inherited
+  `BoardQuery`'s scoping for free, but reaching every pass on a title reaches a *shared* title —
+  without it a stranger's journal prints on your card. Notes have no user column, so it is a join,
+  as every query in `NoteService` is. `UserScopingTests.Someone_elses_note_never_reaches_my_card`
+  is the one that catches it.
+- **It lives in the two terminal DTO projections and nowhere near `BoardQuery`** — `ListAsync` and
+  `ItemAsync`, the licence the genre and HLTB downcasts already took. It matters more here: a
+  terminal subquery that fails to translate throws and names itself, where the same thing in
+  `BoardQuery` empties the board and says nothing. `ItemAsync` needs its own copy, or a move
+  answers with a null note that populates on the next refetch.
+
+It is cut to `LibraryService.NotePreviewLength` (200) on the wire, and the field says *preview*
+because of it. A note may be 4000 characters and a board is four columns of a hundred rows. The
+cap sits far enough out that what a reader sees cut is always the client's two-line clamp — which
+is what lets the cut answer to the card's width and the density setting, as a character count
+cannot.
 
 **`currentStatus` is the most recent entry's status**, ordered `logged_at DESC, id DESC`: a pass
 is current because it was recorded most recently, not because it happens to carry a date.
@@ -852,10 +899,42 @@ you actually started it. Every timestamp is an instant, stamped from `IJournalCl
 calendar day that turns out to be is a question only the reader asks. See **Time**.
 
 
-**Closing a Backlog card removes the title; closing a Playing card drops it.** Dropped is a
-record of a game you started and gave up on, so it is the right ending for one you were playing
-and the wrong one for one you never began — a Backlog card that moved there would be claiming a
-playthrough that never happened.
+**A card's corner is an `⋯` menu, and it offers the same things from every column.** *Open
+journal*, then a rule, then three moves — the columns this card is not in — then a rule, then
+*Remove from board*. The journal item is a second door to the drawer the title already opens,
+and worth having because the title is the one gesture on a card that shares its surface with the
+drag. It is called *Open journal* rather than a noun for the thing so that every other hobby
+gets this menu unmodified. `board/columns.ts` is
+the one list of the four columns and their labels, and `otherColumns` is what a card asks for its
+three; never its own, because `TransitionAsync` treats a move to the status a title already has
+as a silent no-op.
+
+**It replaced a `×`, and that is a reversal worth understanding rather than undoing.** The `×`
+meant *drop* on a Playing card and *remove* on a Backlog one, and was absent on Completed and
+Dropped — the reasoning being that Dropped is a record of a game you started and gave up on, so
+it is the wrong ending for one you never began, and that finishing something cannot be given up
+on. All of that is still true about the *endings*; what was wrong was letting the column choose
+which ending you got, and leaving half the board with no control at all. Both are offered
+everywhere now, and dropping is still not removing.
+
+The menu exists because dragging is the only other way to move a card, and dragging from the
+bottom of a forty-title Backlog to Completed is a scroll and a hold. **It is offered in every
+sort mode**, unlike the drag: a menu move writes no ranking, so there is none for it to promise.
+
+**Remove from board takes every pass of yours, not the current one**, and that is a change rather
+than a restatement. Deleting only the newest was defensible on paper and wrong in the hand: a
+title replayed five times was five presses from leaving the board, and each press looked like a
+failure because the card came straight back in whichever column the pass underneath sat in.
+`DELETE /api/library/{mediaId}` replaced `DELETE /api/library/{mediaId}/current` for it.
+
+**Deleting one pass is still possible and is the drawer's**, through `DELETE /api/log-entries/
+{id}`, where the pass is named and its dates are on screen. A board card is one row per title and
+has no vocabulary for which pass you meant — which is the whole reason the two live apart now.
+
+It reaches a completion, which the `×` never could. Not a new capability, since the drawer has
+always deleted any pass including a finished one, but a shorter road to it — which is why the
+confirm stayed, and why it counts what is going: "off your board" alone reads like a card is
+being lost rather than three records.
 
 `DELETE /api/library/{mediaId}/current` deletes the current pass and only that one, which covers
 both endings with a single rule: a title whose only pass that was leaves the board, because the
@@ -865,10 +944,50 @@ already filters on `LogEntries.Any()`, so that falls out. A new endpoint rather 
 log-entry delete because a board row holds no entry id, and one read from a card rendered a
 moment ago can already name a pass that stopped being current; the server re-reads.
 
-It confirms inline on the card, because a delete is not one drag from undone. **Which card is
-asking is held by `BoardPage`, not the card** — refetches remount cards, the same fact that makes
-focus go back to the drawer's opener by id — and holding it above the board also means only one
-card can be asking at a time, as the drawer's deletes already work.
+It confirms inline on the card, because a delete is not one drag from undone. Choosing *Remove
+from board* closes the menu and opens that confirm, so the question is not put behind the thing
+that asked it. **Which card is asking is held by `BoardPage`, not the card** — refetches remount
+cards, the same fact that makes focus go back to the drawer's opener by id — and holding it above
+the board also means only one card can be asking at a time, as the drawer's deletes already work.
+
+**Which card has its menu open is held there too, for that reason exactly**, and one open menu at
+a time falls out of it. Three more things about the menu, each of which had to be different from
+`SettingsMenu`, the only other menu in the app:
+
+- **Escape is handled on the menu container, not on `document`.** The drawer already listens
+  there, and `BoardSearch` records why a second listener for one key is how two of them start
+  disagreeing. Bubbling reaches the container from the corner and from every item, which is
+  everywhere focus can be while it is open. Focus goes back to the corner **by id** —
+  `cardMenuId`, beside `cardTitleId` and for its reason.
+- **Outside-click is still a `document` `pointerdown` listener**, because there is no other way
+  to hear a press elsewhere, and unlike Escape there is no second listener to disagree with. It
+  doubles as what closes the menu when a drag starts on another card.
+- **The open card takes `relative z-10`.** `@container` on `CARD_CLASS` implies `contain: layout`,
+  which makes every card a stacking context — so the panel was *painted under* the card below it,
+  and under another column's cards at two-across widths. Nothing clips it: no column or card sets
+  `overflow`. `z-10` leaves the drawer's `z-20` and the settings menu's `z-30` above it.
+
+**`aria-disabled` is dropped from the card**, and this is the second half of the `role="listitem"`
+override below it. dnd-kit stamps it when the sortable is off, which is true and is not what the
+attribute claims on a list item — both screen readers and Playwright read it as disabling every
+control *inside* the card, which outside manual sort is the title and the options corner. The e2e
+spec that used to assert it as a stand-in for "dragging is not on offer" now attempts the drag,
+which is what it was claiming all along.
+
+**The panel is a `role="group"` of buttons, not a `role="menu"`.** That role promises arrow-key
+roving focus, and taking it without the keyboard contract is worse than a set of buttons that
+behaves as it announces. The title is on the group's label and **never on an item**: the e2e
+`card()` locator filters on a card's own text, so an item carrying a title would make it match
+any card whose menu mentioned another card's game.
+
+***Remove from board* wears a translucent danger fill, not danger text.** `bg-danger/10` at rest,
+`bg-danger/25` under the cursor, and the label stays `--fg` at both. Red *text* was the first
+attempt and is the mistake written down twice already: Ember's `--danger` (`#ff8e7a`) is one hue
+from its `--accent` (`#f2545b`), so a red word there reads as the emphasised item rather than the
+dangerous one. A fill is a shape the accent never wears — the rule the danger chip already
+follows — and deepening it under the cursor makes the thing that destroys something the thing
+that reddens as you reach for it. The label keeps `--fg` because that pairing is proven on every
+surface and a tint this light moves the ground too little to spend it.
 
 **A card's surface carries two gestures, and the 8px activation distance is the whole of what
 tells them apart.** `useBoardSensors` in `board/sensors.ts` is the one place that decides it:
@@ -876,9 +995,12 @@ under the distance the drag never begins and the click lands on whatever button 
 over it dnd-kit adds a capture-phase `click` listener of its own, so the press that moved a card
 cannot also open its drawer. Nothing else is needed, and the title button therefore does **not**
 stop the pointer — it is most of the card's surface, and swallowing the press there left the drag
-only the margins to start from. The close corner does stop it, and that difference is the point:
-twenty pixels in the corner is a button and nothing else, where a hand that wobbles past the
-threshold would drag the card rather than remove the title.
+only the margins to start from. The options corner does stop it, and that difference is the
+point: twenty pixels in the corner is a button and nothing else, where a hand that wobbles past
+the threshold would drag the card rather than open its menu. The open panel stops the pointer as
+well, so a press on an item is never the start of a drag. Nothing is needed for the keyboard:
+dnd-kit's keyboard sensor refuses to activate from a nested element, so Space and Enter on the
+corner and on the items are already safe.
 
 **The test harness mounts cards under those same sensors**, which is why they are a module rather
 than a few lines inside `useBoard`. A bare `DndContext` takes dnd-kit's defaults, and those carry
@@ -897,10 +1019,13 @@ be one drag out of date.
 are read-only views that leave `position` untouched — which is what lets the UI enable dragging
 only in manual mode and still guarantee the ranking survives a look at the alphabetical order.
 
-`sort=hours` is HowLongToBeat's **main story** estimate, shortest first, with titles that have no
-estimate last — the same treatment an unrated title gets under `sort=rating`, rather than sorting
-as though nobody having timed a game meant it took no time. Main story alone, so the sort has one
-meaning: *what can I finish this weekend*. It is **not** `log_entries.hours_played`, which is how
+`sort=hours` is HowLongToBeat's **headline figure** — `hltb_all_styles_hours` — shortest first,
+with titles that have no estimate last, the same treatment an unrated title gets under
+`sort=rating` rather than sorting as though nobody having timed a game meant it took no time.
+
+**It is the same field the card prints, and the two have to keep moving together.** Both were
+main story first; a column ordered shortest-first on a number none of its cards show reads as
+broken, whichever number is the better one. It is **not** `log_entries.hours_played`, which is how
 long you took on one pass; that is a fact about a playthrough where this is a property of the
 title. The UI calls it **Time to beat**, named for the question rather than the column, because
 "Hours" alone reads as the hours you have put in.
@@ -991,15 +1116,18 @@ Decisions worth not re-litigating:
   *No HowLongToBeat estimate yet* honest now that there are three ways to have nothing. It takes
   the game rather than three loose numbers, since three nullable numbers in a row is exactly the
   argument list where two get swapped in silence.
-- **The difference is measured against Main Story alone.** Three deltas is arithmetic rather than
-  a reading, and main story is what the card and the *Time to beat* sort both mean by "how long
-  does this take". `parseHours` mirrors `PlaytimeHoursAttribute` on the text rather than the
-  float, one decimal place further out than the rating for the same reason; the 999.99 ceiling is
+- **The difference is measured against the headline figure alone.** Four deltas is arithmetic
+  rather than a reading, and this is what the card and the *Time to beat* sort both mean by "how
+  long does this take" — it followed them here from Main Story and should keep following them. It
+  is the better comparison on its own terms too: a completionist run held up against main story
+  reads as wildly over, when it is only over for a tier it was never doing. `parseHours` mirrors
+  `PlaytimeHoursAttribute` on the text rather than the float, one decimal place further out than the rating for the same reason; the 999.99 ceiling is
   a different failure, since overflowing `numeric(5,2)` throws rather than rounding.
-- **The estimate on a card is written `~27 h`** and announced as *About 27 hours to finish*. The
+- **The estimate on a card is written `~42 h`** and announced as *About 42 hours to finish*. The
   tilde is doing real work: the drawer prints `31.5 h` for what a pass took *you*, so an unmarked
-  number on a card for a game you have not started would read as the same kind of claim. Main
-  story only — a card has room for a number, not a table. `formatHours` lives in `src/lib/hours.ts`
+  number on a card for a game you have not started would read as the same kind of claim. The
+  headline figure only — a card has room for a number, not a table — and it is what the site
+  itself leads with, where main story would be one tier chosen out of four by us. `formatHours` lives in `src/lib/hours.ts`
   rather than `journal/fields.ts` so that `board/` need not reach into `journal/` to format one.
 - **The genre select is in the header, not the form.** Genre belongs to the title and the form
   submits one `PUT` to the log-entry endpoint, so putting it there would mean writing to two.
@@ -1050,9 +1178,12 @@ Decisions worth not re-litigating:
 - **Notes carry the time of day**, through `formatJournalDateTime` — built and tested since the
   timezone work and called by nothing until now. "Beat it at 9:30 PM" is the entry worth reading
   back; the date alone is a filing label.
-- **Writing a note invalidates only `gameKey(mediaId)`.** Unlike a save or a pass delete, nothing
-  a note does shows on the card — no rating, no count of passes, no date — so the board has
-  nothing to hear about.
+- **Writing a note invalidates the library as well as `gameKey(mediaId)`**, and it did not used
+  to. The old rule was that nothing a note does shows on a card — no rating, no count of passes,
+  no date — which was true right up until a card started carrying the last thing you wrote about
+  a title. All three of `useNotes`' mutations move something on the board now. The bare
+  `['library']` prefix rather than one hobby's, because that hook has no hobby: it is opened from
+  a card and knows only a media id.
 - **The form is keyed on the values it was seeded from**, not on the entry's id — `entrySeed` in
   `src/journal/fields.ts`. `useState` reads its initial value once, and a transition *edits the
   current entry in place* rather than adding one, so the id holds still while the values change
@@ -1203,6 +1334,12 @@ wrapper.
   game is, so they mean the same thing whatever the app is wearing. The `bg-genre-*` class names
   are load-bearing: `Card.test.tsx` asserts on them and it is the only styling assertion in the
   suite.
+- **The five `--color-brand-*` values sit in that same plain block**, on that same argument:
+  Google's blue means Google in every theme. They are the sign-in marks and nothing else, they
+  are invisible to `index.css.test.ts` (which enumerates the palette blocks, and that block has
+  no `--surface`), and they are what keeps this file the only one in the app naming a colour.
+  Note the constraint on the names: `index.css.test.ts` reads tokens with `/^\s*(--[a-z-]+):/`,
+  so a token containing a **digit** is silently skipped rather than reported.
 - **Whether a card has a border is a token too.** Shadow does almost nothing against Console's
   deep ground, so Console keeps an outline and the warm themes and Ember do not. That would
   otherwise have needed a component to know which theme it was in.
@@ -1393,6 +1530,11 @@ the list is shuffled.
   cookie session, `[Authorize]` on every controller, and 16 query sites scoped so one person sees
   nothing of another's. Five commits: the rail, the scoping, the frontend, the `NOT NULL`
   migration, and the second provider. See **Auth**.
+- **Living with auth — done.** Three things the first days of using a signed-in board turned up:
+  sign-in that looks like sign-in, the last thing you wrote showing on the card, and an options
+  menu so a move is not a drag. The last of those reversed a settled decision — the `×` that
+  meant a different thing per column and was absent on two of them — which the user reopened
+  deliberately. See **Board semantics**, **Library is not the catalog** and **Auth**.
 - **Detail and review — next.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
@@ -1570,10 +1712,26 @@ authorization concept for no gain. Use a cookie jar, or the browser.
   configuration to a client that only needs to draw two links.
 - **Each provider is a link, not a button.** Signing in is a top-level navigation answered with a
   302 that fetch cannot usefully follow.
-- **The sign-in links are bordered rather than filled, and that is a token decision.** `--accent`
-  has no paired foreground, because nothing in the app has ever put text on it — the settings
-  menu uses it for radio dots. Inventing `--accent-fg` would mean five new values and five new
-  rows in `index.css.test.ts`, for one button.
+- **The sign-in links are neutral, with the provider's own mark on the left** — `bg-surface`
+  behind `border-line` with `text-fg` on it, which is the bordered-control idiom the rest of the
+  app already wears, and full colour only inside the mark. That is what every site offering this
+  does, and it is also the cheap answer here: `--accent` has no paired foreground, because
+  nothing in the app has ever put text on it — the settings menu uses it for radio dots — so a
+  filled button would have meant inventing `--accent-fg` as five new values and five new rows in
+  `index.css.test.ts`. `--fg` on `--surface` is already asserted on every palette. Drawing the
+  links in the accent instead, which is what this did first, made *Continue with Google* a green
+  button with no Google about it.
+- **The two marks are the first SVG in the codebase**, inline for the reason the webfont is
+  self-hosted. Both carry `aria-hidden` and `focusable="false"`, so each link's accessible name
+  stays exactly `Continue with Google` and the four assertions that match on it needed no change.
+  `providers.ts` became `providers.tsx` so a mark can sit beside the label it belongs to, and a
+  third provider is still one entry there.
+- **The ground is the whole viewport and the screen is a card on it.** `bg-sunken` sat on a
+  `max-w-sm` `<main>` at first, so the theme's ground was a 384px strip down the middle with the
+  browser's own colour either side of it — most obvious on Ember, where the strip was near-black
+  and the margins were not. The card is `bg-surface` and so are the two links on it, separated by
+  their borders: giving them a different fill would make them the only raised thing in an app
+  whose controls are all outlines.
 - **`AppHeader` has no `banner` landmark**, and never did: it renders inside `BoardPage`'s
   `<main>`, and a `<header>` nested in `main` is not a banner. The specs locate the name and the
   sign-out control directly. Making it a real banner is a layout change nobody has asked for.
@@ -1651,9 +1809,9 @@ numbers beside how long *you* took. Decided with the user, **settled — do not 
 
 | | |
 |---|---|
-| Numbers | **All three** — Main Story, Main + Extra, Completionist, under HLTB's own names |
-| `sort=hours` | **Main Story only**, so the sort has exactly one meaning |
-| Where | All three in the drawer; **main story alone on a card**, which has room for a number, not a table |
+| Numbers | **The headline figure plus all three tiers** — All Play Styles, Main Story, Main + Extra, Completionist, under HLTB's own names |
+| `sort=hours` | **The headline figure**, the same one the card prints, so the column agrees with itself |
+| Where | All four in the drawer; **the headline figure alone on a card**, which has room for a number, not a table |
 | Matching | Auto-accept above a threshold *and* a margin; below either, **write nothing** |
 | Correcting | **In the drawer, by pinning an id.** Not psql, and not typed-in hours |
 | Fetching | Queued on add to the board, plus a backfill for what is already there |
@@ -1702,6 +1860,26 @@ them: times arrive in **seconds**; `0` means nobody has submitted one, not that 
 instant; and `release_world` is an integer year from the search but a date string from the page,
 which is why `HltbGameJson.ReleaseWorld` is a `JsonElement` — typing it either way makes the other
 endpoint throw.
+
+**`comp_all` is the headline number, and it is fetched rather than worked out.** It is what the
+site prints at the top of a game page and what a card and `sort=hours` both show, and it is not
+a function of the three tiers. Measured on game 26286 (Hollow Knight), where the page says
+**42 Hours**:
+
+| field | seconds | hours |
+|---|---|---|
+| `comp_all` | 150,549 | **41.82** |
+| `comp_main` | 97,204 | 27.00 |
+| `comp_plus` | 149,763 | 41.60 |
+| `comp_100` | 236,141 | 65.59 |
+| `comp_all_avg` | 160,697 | 44.64 |
+| `comp_all_med` | 140,400 | 39.00 |
+
+The mean of the three tiers is 44.6 and their median is 39 — and HLTB publishes both of those,
+as `comp_all_avg` and `comp_all_med`. So averaging the tiers would have produced a number that
+is on the payload, under a different name, and is not the one the page shows. `comp_all_count`
+equals the three tier counts added together, so it is the same submissions aggregated some other
+way; whatever that way is, it is theirs to know. **Do not compute this.**
 
 ### Two deviations from the IGDB mirror, both forced
 

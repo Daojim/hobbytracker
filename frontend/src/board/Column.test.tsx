@@ -15,8 +15,9 @@ function renderColumn(
       hobby="games"
       sort="manual"
       onSortChange={vi.fn()}
-      onDrop={vi.fn()}
+      onMove={vi.fn()}
       removal={{ mediaId: null, onAsk: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn() }}
+      menu={{ mediaId: null, onOpen: vi.fn(), onClose: vi.fn() }}
       onOpen={vi.fn()}
       {...props}
     />,
