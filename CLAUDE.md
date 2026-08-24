@@ -37,14 +37,32 @@ outrank the thing it is named after. Three sections under
 **Ranking search results** — and the last two are worth reading before touching search,
 because both record rules that were tried against the live API and thrown away.
 
-Everything is green and everything has been run: backend 270, frontend 296, Playwright 61. See
-**The redesign** for the whole of it, and for the four bugs it found on the way.
+**Auth is built**, on the `auth-preparations` branch, in five commits taken one at a time:
 
-Nine plans. The current one is
-`C:\Users\jimmy\.claude\plans\read-claude-md-to-get-giggly-hoare.md` — the width, navigation
-and search work, and the three sections about it below are what it turned into.
-`fluffy-pondering-brook.md` is the redesign before it: tokens, four themes, the density
-setting and the Shelf re-skin.
+1. **the rail** — Google through the framework's generic `AddOAuth`, an httpOnly cookie, and a
+   Google stub the real handler runs against end to end;
+2. **the scoping** — `ICurrentUser` through 16 query sites, `[Authorize]` on all four
+   controllers, and 19 second-user tests written red first;
+3. **the frontend** — a sign-in screen, a session gate, a global 401 handler, and your name in
+   the header;
+4. **`user_id` became `NOT NULL`** — the development board discarded, as agreed;
+5. **Discord**, which was a config block and a second link, as the design promised.
+
+See **Auth** for all of it, and in particular **The five traps, every one of which fails
+quietly** — the eager configuration read that broke 153 tests, the Vite proxy's `changeOrigin`,
+and the 302-instead-of-401 that hands `fetch` a page of HTML.
+
+Everything is green and everything has been run: backend 309, frontend 312, Playwright 74.
+
+Ten plans. The current one is
+`C:\Users\jimmy\.claude\plans\look-at-claude-md-to-iridescent-rain.md` — the auth phase, and
+the section below is what it turned into. Its one deviation is worth knowing: the frontend was
+built **before** the `NOT NULL` migration rather than after, because the app is unusable in a
+browser between the scoping and the sign-in screen, and confirming a one-way discard is easier
+from a working board than from psql.
+`read-claude-md-to-get-giggly-hoare.md` is the width, navigation and search work before it.
+`fluffy-pondering-brook.md` is the redesign: tokens, four themes, the density setting and the
+Shelf re-skin.
 `for-the-next-part-delightful-alpaca.md` is worth reading before touching HowLongToBeat —
 though see **What the plan got wrong** below, because three of its assumptions did not survive
 contact with the site. The earlier five are the board's:
@@ -56,17 +74,21 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished, and nothing is in flight.** #11, #12 and #13 are all merged and
-`main` is green. **Auth is the current phase** — see **Auth** below, which carries the four
-decisions already taken with the user and the order the work is worth doing in. Two things
-worth knowing before a first run:
+**Nothing is half-finished.** The auth work is committed on `auth-preparations` and every suite
+is green; it has not been opened as a PR or merged to `main` yet. **Detail and review is the
+next phase** — see **Phases**. Four things worth knowing before a first run:
 
+- **Sign-in credentials are required to boot.** Google *and* Discord, in user-secrets — the host
+  fails deliberately and names the missing key. See **Running it**, which also has the stub
+  route for when there is no provider app to hand.
+- **Use http://localhost:5173, not the API's port.** The whole sign-in has to stay on one
+  origin, and the Vite proxy is what makes that true.
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon
   itself if Docker Desktop is not running — Playwright reports a database that is not there as
   the same unhelpful "Process from config.webServer was not able to start" that a build lock
   does.
-- **A `dotnet run` of your own no longer stops the suite**, as of this branch. See **A dev
-  server used to block the e2e run** under **Tests** for what that cost and how it is held.
+- **A `dotnet run` of your own no longer stops the suite.** See **A dev server used to block the
+  e2e run** under **Tests** for what that cost and how it is held.
 
 ### Where HowLongToBeat has got to
 
@@ -118,7 +140,7 @@ Decisions already made with the user, **settled — do not reopen**:
 | | |
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
-| Scope | **`/board` only.** Search is a bar on it, not a screen; `/search` redirects. No detail or year-review page yet |
+| Scope | **`/board`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/search` redirects. No detail or year-review page yet |
 | Columns | Backlog · Playing · Completed, plus Dropped as a muted 4th, collapsed by default |
 | Dropped | close button on a **Playing** card; drag out of the Dropped column to un-drop |
 | Close button | On Backlog it **removes** the title; on Playing it drops. **Hidden on Completed and Dropped** |
@@ -126,9 +148,10 @@ Decisions already made with the user, **settled — do not reopen**:
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
-| Dev wiring | Vite proxy `/api` → `:5201`. **No CORS change needed or wanted** |
+| Dev wiring | Vite proxy `/api` → `:5201`, **`changeOrigin: false`** so sign-in stays on one origin. **No CORS change needed or wanted** |
 | Testing | Vitest + RTL + MSW for logic and components; Playwright for the drag |
-| E2E harness | Real API and real Postgres on a **separate `hobbytracker_e2e` database**, with IGDB stubbed. See **Tests** |
+| E2E harness | Real API and real Postgres on a **separate `hobbytracker_e2e` database**, with IGDB, HowLongToBeat and the OAuth provider stubbed. See **Tests** |
+| Sessions | An **httpOnly cookie**, and every board route is `[Authorize]`d. See **Auth** |
 | Timezone | `America/New_York`, server-configured, DST-following. See **Time** |
 | Timestamps | `started_at` / `completed_at` / `logged_at` are instants, not dates |
 
@@ -156,8 +179,8 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 ├── frontend/             Vite + React + TS SPA
 │   ├── index.html        stamps the chosen theme before the bundle loads. See The redesign
 │   ├── vite.config.ts    /api proxy to :5201, and the Vitest config
-│   ├── playwright.config.ts  starts the stub, the API and Vite itself
-│   ├── e2e/              drag specs, plus the IGDB stub and database helpers
+│   ├── playwright.config.ts  starts three stubs, the API and Vite itself
+│   ├── e2e/              drag specs, plus the IGDB, HowLongToBeat and Google stubs
 │   └── src/
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
@@ -166,7 +189,7 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
 │       │                 activation distance, and useBoard owns the writes
 │       ├── journal/      the drawer over the board — rating, platform, dates, notes, earlier passes
 │       ├── search/       BoardSearch + SearchResult — the bar and strip above the board
-│       ├── shell/        AppHeader and hobbies.ts — the bar, the nav, and the six slugs
+│       ├── shell/        AppHeader, the sign-in screen, the session gate, hobbies and providers
 │       ├── theme/        the four themes, the two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
@@ -182,13 +205,15 @@ Pinned packages: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.Enti
     │   │   └── Migrations/
     │   ├── Integrations/Igdb/        IGDB client, auth, wire DTOs
     │   ├── Integrations/Hltb/        HowLongToBeat session, client, throttle, wire DTOs
-    │   ├── Services/                 orchestration (IGDB → database → DTO)
+    │   │                             (no Integrations/Auth: the OAuth handler is the framework's)
+    │   ├── Services/                 orchestration (IGDB → database → DTO), and AuthService
     │   ├── Contracts/                what the API accepts and returns
     │   ├── Controllers/
     │   └── Infrastructure/           cross-cutting (exception handling, journal clock, JSON,
-    │                                 and the HowLongToBeat queue + its background worker)
+    │                                 the HowLongToBeat queue + its worker, AuthOptions,
+    │                                 ICurrentUser and ExternalSignIn)
     └── tests/HobbyTracker.Api.Tests/
-        ├── Infrastructure/           container fixture, host factory, fakes
+        ├── Infrastructure/           container fixture, host factory, fakes, TestAuthHandler
         ├── Data/  Services/  Integrations/  Endpoints/
 ```
 
@@ -211,6 +236,17 @@ docker compose up -d db                      # Postgres on localhost:5432
 dotnet user-secrets set "Igdb:ClientId" "..."     --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTracker.Api
 
+# One-time: sign-in credentials, one pair per provider. Both are required and the host will not
+# boot without them, naming the missing key. Register the apps at
+# https://console.cloud.google.com/apis/credentials and
+# https://discord.com/developers/applications, each with
+# http://localhost:5173/api/auth/{provider}/callback as an authorised redirect URI — the
+# frontend's port, not the API's. See The five traps under Auth for why that matters.
+dotnet user-secrets set "Auth:Google:ClientId" "..."      --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Auth:Google:ClientSecret" "..."  --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Auth:Discord:ClientId" "..."     --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Auth:Discord:ClientSecret" "..." --project backend/src/HobbyTracker.Api
+
 dotnet ef database update --project backend/src/HobbyTracker.Api --startup-project backend/src/HobbyTracker.Api
 dotnet run --project backend/src/HobbyTracker.Api   # http://localhost:5201
 
@@ -218,18 +254,36 @@ dotnet run --project backend/src/HobbyTracker.Api   # http://localhost:5201
 cd frontend && npm install && npm run dev     # http://localhost:5173
 ```
 
+**Use http://localhost:5173 rather than the API's port.** Sign-in has to stay on one origin, and
+the Vite proxy is what makes that true — see **Auth**.
+
+**No provider app to hand?** The e2e Google stub doubles as a local provider:
+`node frontend/e2e/support/google-stub.mjs`, then point `Auth:Google:AuthorizationEndpoint`,
+`TokenEndpoint` and `UserInfoEndpoint` at `http://localhost:5397/o/oauth2/v2/auth`, `/token` and
+`/v1/userinfo` in user-secrets. `dotnet user-secrets remove` them to go back to the real thing.
+
 `docker compose exec db psql -U admin -d hobbytracker` for a shell. Credentials are
 `admin`/`password` — a localhost throwaway, which is why they sit in
-`appsettings.Development.json` while the IGDB secrets do not.
+`appsettings.Development.json` while the IGDB and sign-in secrets do not.
 
-Startup **fails deliberately** if the IGDB credentials are missing (`ValidateOnStart`), naming
-the missing setting. That is the intended behaviour, not a bug to work around.
+Startup **fails deliberately** if the IGDB or sign-in credentials are missing
+(`ValidateOnStart`), naming the missing setting. That is the intended behaviour, not a bug to
+work around.
 
 After a migration adds a column IGDB owns, bring the library you already have up to date —
-`curl -X POST http://localhost:5201/api/games/refresh`. See **Genres and colour**.
+`POST /api/games/refresh`. See **Genres and colour**. HowLongToBeat has its own, which answers
+immediately rather than when the work is done — `POST /api/games/hltb/refresh`. See
+**HowLongToBeat**.
 
-HowLongToBeat has its own, and it answers immediately rather than when the work is done —
-`curl -X POST http://localhost:5201/api/games/hltb/refresh`. See **HowLongToBeat**.
+**Both now need a session, so a bare `curl` gets a 401.** They are `[Authorize]`d along with
+everything else, deliberately — see **`[Authorize]`, and one cost accepted**. Sign in in the
+browser and call them from its console, or drive `curl` with a cookie jar:
+
+```bash
+# Sign in once into a jar, then spend it. The redirect chain ends on the board.
+curl -c /tmp/jar -L "http://localhost:5173/api/auth/google/start?returnUrl=/board" -o /dev/null
+curl -b /tmp/jar -X POST http://localhost:5173/api/games/refresh
+```
 
 New migration:
 ```bash
@@ -241,9 +295,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 270 tests
-cd frontend && npm test                             # frontend, 296 tests
-cd frontend && npm run test:e2e                     # 61 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 309 tests
+cd frontend && npm test                             # frontend, 312 tests
+cd frontend && npm run test:e2e                     # 74 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -298,9 +352,10 @@ Choices worth not re-litigating:
   `text[]` columns, check constraints. A fake provider passes tests production fails.
 - **Migrations, not `EnsureCreated`.** `EnsureCreated` builds DDL from the model and skips
   migrations entirely, so anything expressed only in a migration would vanish.
-- **Respawn ignores `hobby_lu` and `source_lu`.** They are migration-managed reference data
-  whose ids `SeedData` exposes as compile-time constants; wiping them between tests shows up as
-  baffling foreign-key failures.
+- **Respawn ignores `hobby_lu` and `source_lu`, and only those.** They are migration-managed
+  reference data whose ids `SeedData` exposes as compile-time constants; wiping them between
+  tests shows up as baffling foreign-key failures. `users` is deliberately *not* on that
+  list: each test makes its own, which is what lets one test act as two people.
 - **`ApiFactory` runs under a "Testing" environment**, so `appsettings.Development.json` and
   user-secrets do not load and real IGDB credentials cannot leak into a test run.
 - **No `Microsoft.NET.Test.Sdk` or `xunit.runner.visualstudio`.** Those make the project support
@@ -317,11 +372,16 @@ list before it could assert anything at all.
 
 **The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit
 assertion there passes or fails for reasons unrelated to whether dragging a card works.
-`npm run test:e2e` starts four servers itself — no manual setup beyond `docker compose up -d db`:
+`npm run test:e2e` starts five servers itself — no manual setup beyond `docker compose up -d db`:
 
 - **A HowLongToBeat stub** (`e2e/support/hltb-stub.mjs`) on :5398, pointed at by `Hltb__BaseUrl`
   and running with `Hltb__MinSecondsBetweenRequests=0` — the politeness floor is two seconds a
   request and nothing here needs protecting from us. See **What the stub is for**.
+- **An OAuth provider stub** (`e2e/support/google-stub.mjs`) on :5397, pointed at by
+  `Auth__Google__*` and `Auth__Discord__*`. It is a provider rather than an endpoint — authorize,
+  token and user-info — so the framework's real handler runs against it unmodified, and it
+  refuses anything malformed rather than waving it through. See **The test harnesses** under
+  **Auth**.
 - **An IGDB stub** (`e2e/support/igdb-stub.mjs`) on :5399. `Igdb:BaseUrl` and `Igdb:TokenUrl` are
   plain options, so pointing them at it needs no production code — and it is what makes "seed
   through the API, never IGDB" possible at all, since `media` rows are *only* ever written by a
@@ -339,7 +399,9 @@ database that did not exist yet.
 **A separate `hobbytracker_e2e` database, on purpose.** The specs truncate between cases, and the
 development database holds the games you actually logged. One environment variable makes it
 impossible for a test run to delete your backlog. Truncation leaves `hobby_lu` and `source_lu`
-standing, exactly as Respawn does in the backend suite and for the same reason.
+standing, exactly as Respawn does in the backend suite and for the same reason — but it does
+take `users` and `auth_identities`, so a run starts with nobody signed up and one spec cannot
+be satisfied by the sign-in of the one before it.
 
 Working method: **write the failing test first.** The journal endpoints were driven that way,
 and the backfill suite over the schema-and-search code was written before any of them, so the
@@ -358,7 +420,7 @@ is how the lookup tables keep their `_lu` suffix.
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
 | `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at` |
-| `log_entries` | `id`, `user_id`, `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `started_at`, `completed_at`, `logged_at` |
+| `log_entries` | `id`, `user_id` (**NOT NULL**), `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `started_at`, `completed_at`, `logged_at` |
 | `notes` | `id`, `log_entry_id`, `body`, `written_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
@@ -687,8 +749,15 @@ still filtering them.
 
 ## API
 
+**Everything below `/api/auth` requires a session**, and answers **401** without one — see
+**Auth**. The four sign-in routes are the exception, and are the only anonymous ones.
+
 | Route | |
 |---|---|
+| `GET /api/auth/{provider}/start?returnUrl=` | 302 to Google or Discord. A navigation, not a fetch. A non-local `returnUrl` is a **400** |
+| `GET /api/auth/{provider}/callback` | the handler's own `CallbackPath`. There is no action behind it |
+| `GET /api/auth/me` | who is signed in, or **200 and a literal `null`**. Never 401 — see **Auth** |
+| `POST /api/auth/logout` | ends the session. POST, so an `<img>` cannot sign you out |
 | `GET /api/games?search=&limit=` | search IGDB, upsert, return |
 | `GET /api/games/{id}` | one stored game plus its log entries |
 | `POST /api/games/refresh` | re-fetch every IGDB title on the board. Maintenance; no UI |
@@ -1320,131 +1389,260 @@ the list is shuffled.
   hobby nav. The scope grew three times with the user: it began as tokens and appearance, gained
   themes, a settings menu, a density preference and a webfont, and then gained the layout and
   navigation work that living with it turned up. See **The redesign**.
-- **Auth — current.** Google OAuth first, Discord after, an httpOnly cookie session, and
-  real multi-user scoping. See **Auth**.
-- **Detail and review.** Game detail page and the year-in-review page.
+- **Auth — done.** Google and Discord through the framework's generic OAuth handler, an httpOnly
+  cookie session, `[Authorize]` on every controller, and 16 query sites scoped so one person sees
+  nothing of another's. Five commits: the rail, the scoping, the frontend, the `NOT NULL`
+  migration, and the second provider. See **Auth**.
+- **Detail and review — next.** Game detail page and the year-in-review page.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
 
-**Auth was deliberately deferred three times, and is now being built.** The original brief had
-it second. `log_entries.user_id` is nullable, so both the journal and the board work without a
-line of auth, and sequencing auth first would have left the app unable to do its job while it
-was built. That was a considered choice rather than an oversight, and it is now spent: the
-user has asked for it, so the deferral is history rather than guidance.
-
-The nullable `user_id` was always temporary. **Auth** says what happens to it, and what happens
-to the rows currently carrying null — which is not what this paragraph used to say, because
-the user chose to start clean rather than backfill.
+**Auth was deferred three times on purpose, and that is now history rather than guidance.** The
+original brief had it second. `log_entries.user_id` was nullable, so the journal and the board
+worked without a line of auth, and sequencing auth first would have left the app unable to do its
+job while it was built. The column is `NOT NULL` now, and the deferral is spent.
 
 The board is built hobby-parameterised (`/api/library?hobby=games`) even though only games
 exist, so the other hobbies' boards are a routing change rather than a rewrite.
 
 ## Auth
 
-**This is the current phase, and it is being built rather than deferred.** It was put off three
-times on purpose — see **Phases** — and the user has now asked for it, so that paragraph is
-history rather than guidance.
+**Done.** Google and Discord sign-in, an httpOnly cookie session, and every pass and note scoped
+to the person who wrote it. Five commits, each green on its own — the rail, the scoping, the
+frontend, the `NOT NULL` migration, and Discord.
 
 Decided with the user, **settled — do not reopen**:
 
 | | |
 |---|---|
-| Session | **An httpOnly cookie.** Not a JWT in localStorage, and not an in-memory access token |
-| Providers | **Google first, Discord after.** One provider proves the rail; the second is a config block |
-| Accounts | **Anyone can sign up.** Real multi-user, one board each — not a gate on a shared board |
-| Existing data | **Discarded.** No backfill; the board is rebuilt after signing in |
+| Session | **An httpOnly cookie**, self-contained and encrypted. Not a JWT, and no sessions table |
+| Mechanism | **The framework's generic `AddOAuth`**, not the `AddGoogle` package and not hand-rolled |
+| Providers | **Google and Discord**, both required at boot |
+| Accounts | **Anyone can sign up.** Real multi-user, one board each |
+| Scoping | **An injected `ICurrentUser`**, not an EF global query filter |
+| Existing data | **Discarded.** 16 passes and 3 notes went; the 414 catalogue rows stayed |
 
-### What already exists, and what it was built for
+### A provider is a config block
 
-The schema has been ready for this since the first migration, and reading it is the fastest way
-to understand the intended shape:
+`Integrations/` has no `Auth/` folder, because there is no client to write. Both
+`Microsoft.AspNetCore.Authentication.Cookies` and `.OAuth` are in the shared framework, so
+nothing joined `Directory.Packages.props`. The framework keeps the parts worth not hand-writing —
+the `state` parameter, the correlation cookie, PKCE, the code exchange — and leaves the two that
+are ours: reading user-info, and finding or creating the user.
 
-- **`users`** holds profile only — `display_name`, `role`, `created_at`. No credentials.
-- **`auth_identities`** holds one external login each: `provider`, `provider_user_id`, `email`.
-  **Unique on `(provider, provider_user_id)`**, which is the login lookup key and what stops one
-  Google account being attached to two users — that would let either sign in as the other.
-- The split is why **Google and Discord can land on the same account** later without producing
-  two profiles and two backlogs. `email` is informational and explicitly *not* a login key: people
-  change them, providers reuse them, and two providers can report the same one.
-- **`log_entries.user_id` is nullable**, and every row currently holds null.
+There is no first-party Discord package, so `AddGoogle` would have meant two shapes for one job.
+Instead `Program.cs` has a `Provider` local function, and a provider is a scheme name, a set of
+scopes and five settings. **A third one is two lines there, five values in `appsettings.json`,
+and a line in `frontend/src/shell/providers.ts`.**
 
-Nothing else exists. `Program.cs` has no authentication or authorization wiring at all, no
-controller carries `[Authorize]`, and there is no `Auth*` anything outside `Domain/`.
+- **One string does three jobs.** `AuthProviders.Google` is the OAuth scheme name, the
+  `{provider}` segment of the sign-in route, and the value stored in `auth_identities.provider`.
+  A mapping between them would be a table that can disagree with itself, and the disagreement
+  reads as one person signing in twice and collecting two boards.
+- **`ExternalSignIn` reads both providers with no per-provider reader.** Google says `sub` and
+  `name`; Discord says `id` and `global_name`, falling back to `username`. A short list of
+  aliases is the entire difference, and a class per provider would be ceremony.
+- **Endpoints are settings, not constants**, for the reason `Igdb:BaseUrl` is: it is what lets
+  the e2e suite point the *real* handler at a stub. Credentials go in **user-secrets**.
+- **`ValidateDataAnnotations` does not recurse into nested option objects.** A `[Required]` on
+  `AuthProviderOptions.ClientId` would look right and validate nothing at all, so
+  `ValidateAuthOptions` checks the blocks by hand — which is also what lets a failed boot name
+  `Auth:Google:ClientId` rather than say the section is invalid.
 
-### The session is a cookie, and the proxy is why
+### The five traps, every one of which fails quietly
 
-The frontend talks to `/api/...` on **its own origin** — Vite proxies to the API in development,
-which is also why the API has no CORS policy and wants none. That makes an httpOnly cookie the
-cheapest correct answer: the browser attaches it with no help, JavaScript can never read it, and
-an XSS bug anywhere in the app cannot exfiltrate the session. `credentials: 'include'` in
-`src/api/client.ts` is the whole of the frontend's part.
+Each of these was found by running the thing, not by reading it.
 
-The cost is that **the API and the app have to stay on one origin in production**, or the cookie
-needs `SameSite=None` plus the CORS policy this codebase has so far avoided. That is a deployment
-decision that has not been made yet and should be made before this ships, not after.
+- **The OAuth options must be resolved from the container, not read at build time.**
+  `builder.Configuration` is still being assembled while `Program.cs` runs, so a value captured
+  there misses any source added afterwards — which is exactly what `ApiFactory` does. It
+  surfaced as **all 153 endpoint tests 500ing on an empty ClientId**. `IgdbClient` already
+  resolves `IOptions` inside its configuring lambda for this reason; the cookie's expiry and
+  every provider's credentials now do the same.
+- **The Vite proxy's `changeOrigin` is `false`, and that is load-bearing.** ASP.NET builds the
+  OAuth redirect URI out of the incoming `Host`, so rewriting it sends the provider back to the
+  API's own port — an origin where the correlation cookie set on the app's port is not sent, and
+  where a session cookie would land somewhere the app cannot read. The whole sign-in has to stay
+  on one origin, which is the same property the cookie depends on in production.
+- **`OnRedirectToLogin` is overridden to a 401.** Without it the framework answers an
+  unauthenticated API call with a 302 to a login page; fetch follows it and the caller gets 200
+  and a lump of HTML, then fails while parsing JSON, miles from the cause.
+- **`CorrelationCookie.SameSite` defaults to `None`**, which browsers refuse without `Secure`, so
+  the flow fails on plain-http localhost with a correlation error naming nothing useful. `Lax` is
+  enough: the callback is a top-level navigation. The session cookie is `Lax` for the same
+  reason, and **not `Strict`**, which would withhold it on exactly that navigation.
+- **`Ok(null)` is a 204, not a 200 with a null body.** `HttpNoContentOutputFormatter` turns a
+  null `ObjectResult` into no body at all, and the caller then parses an empty string as JSON.
+  `GET /api/auth/me` uses `JsonResult`.
 
-### Multi-user is a data-leak surface, not a feature flag
+### `/api/auth/me` answers 200 and null, on purpose
 
-Anyone signing up means **every query that touches a user's data has to be scoped**, and missing
-one is not a bug but a stranger reading your journal. There are roughly **29 database query sites**
-across `LogEntryService` (7), `GameCatalogService` (7), `NoteService` (6), `HltbService` (5) and
-`LibraryService` (4).
+It is the frontend's "am I signed in" probe, so a 401 there would trip the very handler that
+redirects on a 401 — the query would send you to sign in on the strength of its own answer. It is
+also **the Playwright readiness URL**, which has to stay reachable before anybody has signed in;
+the board route it used before would 401 forever, and Playwright reports that as a server that
+never started.
 
-Not all of them need scoping, and the difference matters:
+`returnUrl` is refused with a **400** when it is not local, rather than quietly dropped: a link
+carrying a foreign one is either an attack or a bug, and both are worth hearing about.
+`Url.IsLocalUrl` is what catches `//evil.example`, which passes a naive leading-slash test and is
+a URL with no scheme rather than a path.
 
-- **`log_entries` and `notes` are per user.** Every read and every write.
-- **`media` and `games` are shared catalogue**, and must stay that way. Two people searching
-  "Hollow Knight" get the same row — that is the whole point of the upsert, and of
-  `hltb_id` being stored once rather than per person. Scoping the catalogue by user would
-  multiply it and re-fetch HowLongToBeat once per account.
+### Scoping: an injected `ICurrentUser`, and why not a query filter
 
-So the rule is: **`log_entries` and `notes` are scoped; `media`, `games` and the lookup tables are
-not.** `GameCatalogService.GetAsync` is the one that spans both — it returns a shared game plus
-*your* entries for it.
+An EF `HasQueryFilter` on `LogEntry` would scope every read automatically, including the note
+queries that have no user column to filter on. It is the wrong choice here, and the reasons are
+worth keeping:
 
-**The test that matters is the one that proves a second user sees nothing of the first.** Write it
-before the scoping, at the endpoint level, for the board, the drawer, a note and a status
-transition. A per-service unit test cannot catch a controller that forgot to pass the user.
+- **It is invisible at the call site.** A scoping rule nobody can see while reading the query is
+  one nobody can review.
+- **A filter going wrong empties the board rather than erroring** — the silent failure this
+  codebase has already paid for twice, over the TPT downcast and the projected `BoardRow`.
+- **`PostgresFixture.CreateDbContext()` builds a context by hand**, with no container to read a
+  filter's user out of.
+- **`HltbWorker` resolves a scope with no `HttpContext`.** With a filter its context scopes to
+  nobody; with injection, the paths that do not need a user simply never ask.
 
-### Order this is worth building in
+`ICurrentUser.Id` **throws** when nobody is signed in. Every path that reads it sits behind
+`[Authorize]`, so reaching it anonymously is a wiring mistake, and a 500 naming it beats a board
+quietly scoped to nobody. `IsSignedIn` exists for the background paths.
 
-Each of these is green on its own, which is the shape every phase here has used.
+**The rule: `log_entries` and `notes` are yours; `media`, `games` and the lookup tables are
+shared and must stay shared.** Two people searching "Hollow Knight" get the same row — that is
+the point of the upsert, and of `hltb_id` being stored once rather than per account.
 
-1. **The rail, with Google only.** Options + `ValidateOnStart` mirroring `IgdbOptions`, the
-   redirect and callback endpoints, identity lookup or creation, the cookie, and
-   `GET /api/auth/me`. No scoping yet, no `[Authorize]` yet — signing in changes nothing about
-   what you see, which is what keeps this commit small and reviewable.
-2. **Scope the data.** `user_id` on write, filtered on read, `[Authorize]` on the four
-   controllers, and the second-user tests above. This is the commit that can leak data, so it is
-   the one to review hardest.
-3. **`user_id` becomes `NOT NULL`.** A migration, after the table has been emptied — see below.
-4. **The frontend.** A sign-in screen, `credentials: 'include'`, a 401 handler that sends you to
-   sign-in rather than showing an error, and something in `AppHeader` saying who you are.
-5. **Discord.** A config block, a second button, and a test that two identities can point at one
-   user.
+Sixteen sites, of which three were subtler than the rest:
 
-### Two things to get right, and one to be careful with
+- **`LibraryService.BoardQuery` reaches `log_entries` three times, not once** — the `Any` filter,
+  the `EntryCount`, and the `Latest` projection. Scoping only the first leaves the count
+  including strangers' replays and `Latest` able to pick a stranger's entry; `Latest` decides the
+  column, so the symptom is your own Backlog title sitting under Completed. Un-scoping `Latest`
+  alone also breaks reordering, because `ReorderAsync` renumbers through `row.Latest`.
+- **`NoteService` has no column to filter.** All six queries reach through `n.LogEntry!.UserId`.
+  That is what makes a note id enough on its own at the API: the route needs no entry, but the
+  query still has to ask whose entry it was written during.
+- **`BoardPositions.TopOfColumnAsync` is `static` and takes the context as a parameter**, so it
+  is out of reach of injection and takes a `userId` instead. Left alone, one person's backlog
+  decides where another's new cards land.
 
-- **Follow the options pattern.** `AddOptions<AuthOptions>().Bind().Validate().ValidateOnStart()`,
-  exactly as `Igdb`, `Hltb` and `Journal` do, so a missing client secret fails the boot naming the
-  setting rather than 500ing on the first sign-in. Credentials go in **user-secrets**, never in
-  `appsettings.json` — the same rule the IGDB keys follow.
-- **`ApiFactory` has to be able to sign a test in.** The backend suite's 251→270 tests reach the
-  endpoints directly; once `[Authorize]` lands they all 401 unless the harness authenticates. A
-  test authentication handler registered in the "Testing" environment is the usual answer, and it
-  wants writing at the same time as step 2 rather than discovered during it.
-- **Discarding the board is deliberate and one-way.** The user chose to start clean rather than
-  backfill, so there is no adoption step. `log_entries` and `notes` get truncated before
-  `user_id` becomes `NOT NULL`. **Confirm it immediately before running it** — by then the board
-  may hold real games again, and this was decided while it held few.
+**Left unscoped deliberately:** `GameCatalogService.RefreshLibraryAsync` and
+`HltbService.BackfillAsync`. Both select on "any user has logged this" and both write only shared
+columns, so that is the right set for a maintenance sweep. Both carry a comment, because they
+read like missed sites.
 
-### What the e2e suite will need
+**404 rather than 403** throughout: whether somebody else's pass exists is itself their business.
 
-`resetDatabase()` truncates `notes, log_entries, games, media` and leaves the lookup tables — it
-will need `users` and `auth_identities` in that list, and `seed()` will need a user to log entries
-against. The IGDB and HowLongToBeat stubs are the precedent for the provider: **a Google stub the
-API is pointed at by configuration**, so the real callback code runs against it. Nothing in the
-suite should reach accounts.google.com, for the reason nothing reaches IGDB.
+`Endpoints/UserScopingTests.cs` is the suite that matters — 19 cases, all red before the scoping,
+and each checked afterwards by reverting **one** predicate at a time. Every one fails exactly the
+tests that name it and nothing else. A scoping test that was never red proves nothing.
+
+### `[Authorize]`, and one cost accepted
+
+On all four controllers, `GamesController` included: the catalogue is shared but it is not
+public, and an anonymous search is free IGDB traffic plus an unbounded write into `media`.
+
+**That puts the two maintenance refresh routes behind a session, so a bare `curl` no longer
+works.** Accepted rather than worked around — a role exemption for two routes would be a second
+authorization concept for no gain. Use a cookie jar, or the browser.
+
+### The frontend
+
+- **The gate is a route wrapper**, `RequireSession`, not a check inside `BoardPage`. Without one
+  the board answers 401 for each of its four columns and paints four red messages, which is a
+  true description of what happened and a useless one to be handed.
+- **It renders nothing while the session is in flight rather than guessing.** Guessing "signed
+  out" for that moment flashes the sign-in screen at a signed-in person on every reload, and
+  removing the guard fails three tests, not one.
+- **The session is a query, not a context.** There is no `createContext` anywhere in this
+  codebase. The theme layer gets to be local state precisely because "a component never asks what
+  theme it is in", which is exactly what a session is not. TanStack dedupes, so the gate and the
+  header asking separately is one request — and `renderWithProviders` needed no change at all.
+- **A 401 anywhere clears the session rather than surfacing as red text.** There was no global
+  error handling before this. `createQueryClient` writes null to the session key rather than
+  redirecting, because that module has no router and the session query already owns the answer.
+  Nothing 4xx is retried either; the default three attempts meant waiting out three rejections to
+  be told the same thing.
+- **`credentials: 'include'`** changes nothing today, since same-origin requests already carry
+  the cookie. It is there so the day the origins diverge is not also the day sign-in silently
+  stops working.
+- **Providers are a literal list** in `shell/providers.ts`, for the reason `THEMES` and `HOBBIES`
+  are: there is no endpoint, and inventing one would mean the server describing its own
+  configuration to a client that only needs to draw two links.
+- **Each provider is a link, not a button.** Signing in is a top-level navigation answered with a
+  302 that fetch cannot usefully follow.
+- **The sign-in links are bordered rather than filled, and that is a token decision.** `--accent`
+  has no paired foreground, because nothing in the app has ever put text on it — the settings
+  menu uses it for radio dots. Inventing `--accent-fg` would mean five new values and five new
+  rows in `index.css.test.ts`, for one button.
+- **`AppHeader` has no `banner` landmark**, and never did: it renders inside `BoardPage`'s
+  `<main>`, and a `<header>` nested in `main` is not a banner. The specs locate the name and the
+  sign-out control directly. Making it a real banner is a layout change nobody has asked for.
+
+### `user_id` is `NOT NULL`, and what that cost
+
+The development board was **discarded**, re-confirmed immediately before it ran rather than on
+the strength of a decision taken earlier: 16 passes across 13 titles and 3 notes, all unowned and
+so already invisible to a signed-in account. `media` and `games` were untouched, so every one of
+those titles is one search away.
+
+Two things had to change with the column:
+
+- **`DeleteBehavior.SetNull` became `Cascade`.** EF refuses `SetNull` against a non-nullable
+  foreign key and fails **model validation at boot**, not at runtime. Deleting an account now
+  takes its journal with it, which is the honest reading — a pass with no owner cannot exist, so
+  there is nothing to leave behind.
+- **The scaffolded `defaultValue: 0` was removed from the migration.** It would have emitted an
+  `UPDATE` turning every unowned pass into user 0 *and* left a `DEFAULT 0` on the column, so an
+  insert omitting the owner would silently claim to be somebody. Without it the migration is a
+  bare `SET NOT NULL` that fails immediately and says why. Checked with `ef migrations script`:
+  three statements, no `UPDATE`, no `DEFAULT`.
+
+### The test harnesses
+
+**The backend suite signs a test in by header**, through `TestAuthHandler`, registered only under
+the "Testing" environment — so nothing production authenticates with is what those tests trust.
+The division is deliberate: they are about authorization and scoping, and the OAuth dance that
+decides *who you are* is proved end to end against the stub instead. `DatabaseTestBase` creates a
+user after the reset and signs `Client` in as them, which is why the 270 tests that predate
+ownership needed no edit; `ClientFor(userId)` gives a second person and `AnonymousClient` none.
+
+**`e2e/support/google-stub.mjs` is a provider, not an endpoint** — authorize, token and
+user-info, with the real handler running against it unmodified. It **enforces the protocol rather
+than decorating it**, which is the whole reason it is worth having:
+
+- no `code_challenge` on the authorize request is a **400**, so turning PKCE off fails the suite
+  rather than passing quietly — checked by doing exactly that, which fails five specs;
+- a `code_verifier` that does not hash to it is a 400, the wrong `client_secret` is a 401,
+  user-info without its bearer is a 401, and a code works exactly once;
+- it serves **Discord's shape at Discord's address** as well, so the specs prove `ExternalSignIn`
+  reads both rather than reading a shape the stub was told to produce. Writing that turned up a
+  mangled bearer regex in the stub itself, which it duly reported as a failed sign-in.
+
+`POST /__identity` chooses who signs in next, which is what makes the two-user specs expressible
+at all.
+
+**Every spec signs in in its `beforeEach`, and seeds through `page.request`.** Playwright's
+standalone `request` fixture keeps its own cookie jar, so signing the page in leaves the seeding
+anonymous — a trap worth not rediscovering. `resetDatabase()` truncates `users` and
+`auth_identities` too, so a run starts with nobody signed up.
+
+### What is left
+
+- **Linking a second provider to an existing account.** The schema has been ready since the first
+  migration — `auth_identities` is unique on `(provider, provider_user_id)` and many rows may
+  point at one user — and a test pins that two identities give one board. What does not exist is
+  the deliberate act: signing in with Google and then attaching Discord. Until it does, **the
+  same person at two providers is two accounts**, and that is correct rather than a gap. Email is
+  informational and never a login key, because providers reuse addresses and trusting one to
+  merge accounts would let anybody who can get an address at either walk into the other's journal.
+- **The production origin.** The cookie is cheap only because the app and the API share one
+  origin through the proxy. Keeping that true in production is the cheap path; the alternative is
+  `SameSite=None` plus the CORS policy this codebase has deliberately avoided. **Still undecided,
+  and worth deciding before this ships rather than after.**
+- **Data Protection keys.** The self-contained cookie is encrypted with them. On Windows they
+  persist under `%LOCALAPPDATA%`, so development is fine, but an ephemeral container filesystem
+  signs everyone out on every restart.
+- **`users.role` is still unused.** It defaults to `"user"` and nothing reads it.
 
 ## HowLongToBeat
 

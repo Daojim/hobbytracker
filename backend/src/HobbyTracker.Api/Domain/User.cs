@@ -10,7 +10,10 @@ public class User
 
     public required string DisplayName { get; set; }
 
-    /// <summary>Coarse authorization role, e.g. "user" or "admin". Unused until auth lands.</summary>
+    /// <summary>
+    /// Coarse authorization role, e.g. "user" or "admin". Still unused: sign-in sets it to "user"
+    /// and nothing reads it. It is here for the day a route needs more than "is signed in".
+    /// </summary>
     public string Role { get; set; } = "user";
 
     public DateTimeOffset CreatedAt { get; set; }
