@@ -26,4 +26,22 @@ describe('SignInPage', () => {
     expect(screen.getByRole('link', { name: /google/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /discord/i })).toBeInTheDocument();
   });
+
+  it("carries each provider's own mark, and keeps it out of the link's name", () => {
+    // The mark is what makes these read as sign-in buttons rather than two links differing by a
+    // word. It is decoration: the label already names the provider, so a mark that contributed
+    // an accessible name would announce "Google Continue with Google" and stop matching the name
+    // a person would say. `aria-hidden` is the app's convention for exactly that — the genre
+    // stripe and the settings menu's radio dots both wear it.
+    const links = screen.getAllByRole('link');
+
+    expect(links.map((link) => link.querySelector('svg[aria-hidden="true"]') !== null)).toEqual([
+      true,
+      true,
+    ]);
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Continue with Google',
+      'Continue with Discord',
+    ]);
+  });
 });
