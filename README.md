@@ -180,6 +180,11 @@ Register `$PUBLIC_ORIGIN/api/auth/google/callback` and `$PUBLIC_ORIGIN/api/auth/
 as authorised redirect URIs on both provider apps. A mismatch is a sign-in refused on the
 provider's own error page, which this app never sees and cannot report.
 
+**Turn on HTTPS redirection at the proxy**, whatever it is called there. Pinning the origin means
+`UseHttpsRedirection` believes every request already arrived over TLS, so the app will never
+redirect one that did not -- and a page served over plain `http://` completes sign-in and then
+silently drops the session cookie, which is marked `Secure`.
+
 Migrations run themselves at startup, in Production only. The keys that encrypt the session cookie
 are persisted to a bind mount, because a container filesystem goes with the container and without
 somewhere durable every redeploy signs everybody out.

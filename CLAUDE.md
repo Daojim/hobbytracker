@@ -1670,6 +1670,15 @@ else in the suite is quietly running against an origin it never mentioned.
   decides from `Request.IsHttps`; `UseAuthentication` — where the callback's token exchange has to
   send *the same* `redirect_uri` the challenge sent — is later still. Being ahead of the first puts
   it ahead of both.
+- **Pinning the origin disables the app's own HTTPS redirect, so the edge has to do it.**
+  `UseHttpsRedirection` decides from `Request.IsHttps`, which the pin has already set true — so a
+  request that genuinely arrived over plain HTTP is never redirected, and nothing in the app can
+  tell. The proxy in front is the only party left that can still see the real scheme, and it has to
+  be told to redirect (Cloudflare calls it *Always Use HTTPS*; it is off by default). Left off, the
+  failure is silent and total: the page loads perfectly over `http://`, sign-in runs the entire
+  OAuth dance, and then the session cookie — marked `Secure`, because the pin says the scheme is
+  https — is dropped by the browser on arrival. You land back on the sign-in screen having done
+  everything right, with nothing anywhere reporting a problem.
 - **The challenge leg cannot catch a misplacement, and that is worth knowing rather than
   rediscovering.** `Challenge()` is issued from `AuthController`, which runs after the whole
   pipeline, so the redirect URI comes out right wherever the pin sits. It is the *callback* leg that
