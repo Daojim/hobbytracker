@@ -236,9 +236,9 @@ mistake happened twice, once leaving muted text at 3.8:1 for the life of the boa
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 314 tests
-cd frontend && npm test                             # frontend, 327 tests
-cd frontend && npm run test:e2e                     # 78 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend
+cd frontend && npm test                             # frontend
+cd frontend && npm run test:e2e                     # in a real browser
 ```
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
