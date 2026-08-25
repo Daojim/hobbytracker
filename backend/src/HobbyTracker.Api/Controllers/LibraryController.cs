@@ -45,7 +45,7 @@ public class LibraryController(ILibraryService library) : ControllerBase
             hobby, status, year, sort ?? LibrarySort.Manual, page, pageSize, cancellationToken));
     }
 
-    /// <summary>Years with completions, newest first, for the board's year picker.</summary>
+    /// <summary>Years with any activity, newest first, for the board's year picker.</summary>
     [HttpGet("years")]
     [ProducesResponseType<IReadOnlyList<int>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<int>>> Years(
@@ -56,7 +56,7 @@ public class LibraryController(ILibraryService library) : ControllerBase
             return problem;
         }
 
-        return Ok(await library.CompletionYearsAsync(hobby, cancellationToken));
+        return Ok(await library.ActivityYearsAsync(hobby, cancellationToken));
     }
 
     /// <summary>

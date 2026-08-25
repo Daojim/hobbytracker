@@ -56,6 +56,19 @@ export interface LibraryItem {
    */
   hltbAllStylesHours: number | null;
   /**
+   * Whether HowLongToBeat has yet to be asked about this title at all.
+   *
+   * Adding a title replies before the lookup has even begun — nothing a person does waits on
+   * HowLongToBeat — so this is what lets the board tell "no estimate, and one may still arrive"
+   * from "no estimate, and none is coming", and look again only while the first is true.
+   *
+   * The server reads it off `hltb_checked_at`, which is stamped on a refusal as well as on a
+   * match. That is the whole of what makes waiting on it safe: a title HowLongToBeat has never
+   * heard of stops being pending with nothing to show, where waiting on the hours would wait
+   * for ever. Always false for a row that is not a game.
+   */
+  hltbPending: boolean;
+  /**
    * The opening of the most recent thing you wrote about this title, cut by the server. The
    * whole of it lives in the drawer; this is a preview and is named so.
    *

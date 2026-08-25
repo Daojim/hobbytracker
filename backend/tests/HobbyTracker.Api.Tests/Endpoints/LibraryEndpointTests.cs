@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
@@ -245,6 +246,73 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
 
         item.HltbAllStylesHours.ShouldBe(41.82m);
+    }
+
+    [Fact]
+    public async Task A_board_row_says_when_it_is_still_waiting_on_HowLongToBeat()
+    {
+        // Nothing a person does waits on HowLongToBeat, so a title is added, replied about, and
+        // looked up afterwards by a worker. The board has no way of knowing the answer landed
+        // unless the row says it is still coming — and without that the card sat blank until
+        // something unrelated refetched it.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.HltbPending.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_board_row_stops_waiting_once_it_has_been_asked_about_even_on_a_miss()
+    {
+        // The half that makes this safe. hltb_checked_at is stamped on a refusal exactly as it
+        // is on a match — that is the entire reason the column exists — so a title HowLongToBeat
+        // has never heard of stops being pending with no hours to show for it. Reading this off
+        // the hours instead would leave the board waiting for ever on every unmatchable title.
+        var mediaId = await GivenGameAsync("Pokemon Scarlet");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        await WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(g => g.Id == mediaId, Ct);
+            game.HltbCheckedAt = DateTimeOffset.UtcNow;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.HltbPending.ShouldBeFalse();
+        item.HltbAllStylesHours.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_board_row_for_something_that_is_not_a_game_is_never_waiting()
+    {
+        // The TPT downcast's null answer means "no games row", which is not the same claim as
+        // "a game nobody has looked up yet" — and conflating them would have the movies board
+        // asking again for ever about titles HowLongToBeat was never going to be asked about.
+        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Some Film");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
+
+        item.HltbPending.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_moved_card_carries_the_same_waiting_flag_the_column_does()
+    {
+        // A transition answers with the row it just wrote, and the board puts that straight into
+        // the cache. If this projection disagreed with the column's, a drag would tell the board
+        // to stop waiting for a title still being looked up.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        var moved = await ReadAsync<LibraryItemDto>(await Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}/status", new StatusTransitionRequest(LogStatus.InProgress),
+            Json, Ct));
+
+        moved.HltbPending.ShouldBeTrue();
     }
 
     [Fact]

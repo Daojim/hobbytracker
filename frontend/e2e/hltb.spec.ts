@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { psql, resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitChecked, awaitEstimate } from './support/hltb';
-import { card, openJournal, seed, setSort, titlesIn } from './support/board';
+import { card, column, openJournal, seed, setSort, titlesIn } from './support/board';
 
 /**
  * How long a game takes, end to end.
@@ -45,6 +45,42 @@ test('adding a title to the board fetches how long it takes', async ({ page }) =
   await expect(page.getByText('Main story: 8 h')).toBeVisible();
   await expect(page.getByText('Main + Extra: 12.5 h')).toBeVisible();
   await expect(page.getByText('Completionist: 38 h')).toBeVisible();
+});
+
+test('the card fills its own estimate in, without a reload', async ({ page }) => {
+  // The gesture as a person actually performs it: find a game, add it, and keep looking at the
+  // board. Nothing a person does waits on HowLongToBeat, so the card arrives with no estimate
+  // and the number lands a few seconds later — and until the board learned to look again, the
+  // only ways to see it were a reload or some unrelated write that happened to refetch the
+  // column. This is the one spec that can prove it, because jsdom cannot run a poll against a
+  // worker that is genuinely behind.
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('celeste');
+  await page.getByRole('button', { name: 'Add Celeste to backlog' }).click();
+
+  await expect(column(page, 'Backlog').getByText('Celeste')).toBeVisible();
+
+  // No reload, no drag, no note — the column asks again on its own while the row says the
+  // lookup has not happened yet, and stops as soon as it says it has.
+  await expect(
+    card(page, 'Celeste').getByRole('img', { name: 'About 20 hours to finish' }),
+  ).toBeVisible({ timeout: 30_000 });
+});
+
+test('a title HowLongToBeat refuses stops the board waiting for it', async ({ page }) => {
+  // The other half, and the reason the row reports hltb_checked_at rather than the hours. The
+  // stub files Anthem as "Anthem: Legion of Dawn", which the matcher is right to refuse — so no
+  // estimate is ever coming, and a board that waited on the hours would wait for the rest of
+  // the session. Instead the lookup is stamped as done and the asking stops.
+  const mediaId = await seed(page.request, 'Anthem', 'Backlog');
+  await awaitChecked(mediaId);
+
+  await page.reload();
+  await expect(column(page, 'Backlog').getByText('Anthem')).toBeVisible();
+
+  // Nothing to show, and nothing still being waited for: the API says it has been asked.
+  const row = await page.request.get('/api/library?hobby=games&status=Backlog');
+  const body = (await row.json()) as { items: { title: string; hltbPending: boolean }[] };
+  expect(body.items.find((item) => item.title === 'Anthem')?.hltbPending).toBe(false);
 });
 
 test('a backfill brings the numbers to a library that predates them', async ({ page }) => {

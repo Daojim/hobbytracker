@@ -182,6 +182,65 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
+    public async Task The_year_narrows_playing_titles_by_when_they_were_started()
+    {
+        // Playing has no completion date — the transition into it clears one — so the only date
+        // it can answer to is the day it began. Filtering it on completed_at, which is what the
+        // year meant while it was the Completed column's own control, empties the column
+        // permanently instead.
+        await GivenInProgressAsync("Started long ago", "1", startedOn: Eastern(2019, 3, 2));
+        await GivenInProgressAsync("Started this year", "2", startedOn: Eastern(2026, 3, 2));
+
+        (await GetColumnAsync(LogStatus.InProgress, year: 2019)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Started long ago");
+    }
+
+    [Fact]
+    public async Task The_backlog_ignores_the_year_because_a_queue_is_not_a_record_of_one()
+    {
+        // Both timestamps are cleared by the rule that puts a title here, so a Backlog entry
+        // belongs to no year at all and every year would show an empty well. The queue is what
+        // you drag out of while you read a past year, so it is exempt from the question rather
+        // than answering it with nothing.
+        await GivenBacklogAsync("Waiting", "1");
+
+        (await GetColumnAsync(LogStatus.Backlog, year: 2019)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Waiting");
+        (await GetColumnAsync(LogStatus.Backlog, year: 2026)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Waiting");
+    }
+
+    [Fact]
+    public async Task A_dropped_title_answers_to_the_year_it_was_started_or_finished_in()
+    {
+        // Dropping leaves the timestamps alone, deliberately, so what an abandoned title carries
+        // depends on where it was abandoned from: a start, a completion from an earlier pass, or
+        // neither. Either date puts it in a year.
+        var started = await GivenInProgressAsync("Gave up on", "1", startedOn: Eastern(2019, 5, 5));
+        await MoveAsync(started, LogStatus.Dropped);
+
+        (await GetColumnAsync(LogStatus.Dropped, year: 2019)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Gave up on");
+        (await GetColumnAsync(LogStatus.Dropped, year: 2026)).Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task The_years_endpoint_offers_a_year_something_was_only_started_in()
+    {
+        // The picker's options and the columns' filter have to describe the same set of years.
+        // While the year meant completions alone, a year you began something in and finished
+        // nothing in was unreachable — the Playing column would have filtered on it correctly
+        // and there was no way to ask for it.
+        await GivenInProgressAsync("Still going", "1", startedOn: Eastern(2019, 3, 2));
+        await GivenCompletedAsync("Finished", "2", completedOn: Eastern(2024, 6, 1));
+
+        var years = await ReadAsync<List<int>>(
+            await Client.GetAsync("/api/library/years?hobby=games", Ct));
+
+        years.ShouldBe([2024, 2019]);
+    }
+
+    [Fact]
     public async Task A_completion_late_on_new_years_eve_belongs_to_the_year_it_was_here()
     {
         // 8pm on the 31st here is already the 1st in UTC. Extracting the year from the stored
@@ -256,6 +315,19 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         await Client.PostAsJsonAsync(
             "/api/log-entries",
             new CreateLogEntryRequest(mediaId, LogStatus.Backlog, null, null, null, null, null),
+            Json,
+            Ct);
+        return mediaId;
+    }
+
+    private async Task<int> GivenInProgressAsync(
+        string title, string externalId, DateTimeOffset? startedOn = null)
+    {
+        var mediaId = await GivenGameAsync(title, externalId);
+        await Client.PostAsJsonAsync(
+            "/api/log-entries",
+            new CreateLogEntryRequest(
+                mediaId, LogStatus.InProgress, null, null, startedOn, null, null),
             Json,
             Ct);
         return mediaId;

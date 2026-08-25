@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
-import { completionYears, libraryMediaIds, listColumn, reorderColumn, transition } from './library';
+import { activityYears, libraryMediaIds, listColumn, reorderColumn, transition } from './library';
 import type { LibraryItem, PagedResult } from './types';
 
 const item: LibraryItem = {
@@ -16,6 +16,7 @@ const item: LibraryItem = {
   genres: [],
   primaryGenre: null,
   hltbAllStylesHours: null,
+  hltbPending: false,
   latestNotePreview: null,
 };
 
@@ -73,11 +74,11 @@ describe('listColumn', () => {
   });
 });
 
-describe('completionYears', () => {
+describe('activityYears', () => {
   it('returns the years, newest first, as the API ordered them', async () => {
     const seen = capture('get', '/api/library/years', [2026, 2024]);
 
-    await expect(completionYears('games')).resolves.toEqual([2026, 2024]);
+    await expect(activityYears('games')).resolves.toEqual([2026, 2024]);
     expect(new URLSearchParams(seen.url).get('hobby')).toBe('games');
   });
 });

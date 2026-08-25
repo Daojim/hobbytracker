@@ -19,13 +19,27 @@ export const columnKey = (
 ) => ['library', hobby, status, { sort, year }] as const;
 
 /**
- * The year applies to Completed and to nothing else.
+ * The year applies to every column except Backlog.
  *
  * Kept in one place because the column's request and the drag's cache key must agree about it:
  * if they drift, a drag writes into a cache entry the column is not reading.
+ *
+ * Backlog is exempt rather than filtered. Both of its timestamps are cleared by the rule that
+ * puts a title there, so it belongs to no year and a year would empty it on every choice — and
+ * the queue is what you drag out of while reading a past year. The server holds the other half
+ * of this rule, deciding which date each column answers with; see `LibraryService.InYear`.
  */
 export const yearFor = (status: LogStatus, year: number | undefined) =>
-  status === 'Completed' ? year : undefined;
+  status === 'Backlog' ? undefined : year;
+
+/**
+ * The years the picker offers.
+ *
+ * Spelled here with the others because it is written to as well as read: a transition stamps
+ * started_at or completed_at, which is what this list is derived from, so a drag can bring a
+ * year into existence that the picker does not yet know about.
+ */
+export const yearsKey = (hobby: string) => ['library', hobby, 'years'] as const;
 
 /**
  * One title's journal: the game and every pass logged against it, as `getGame` answers it.

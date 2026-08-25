@@ -54,6 +54,20 @@ const CATALOGUE = [
   { id: 9105, name: 'Anthem: Legion of Dawn', year: 2019, all: 24, main: 13, plus: 30, hundred: 55 },
 ];
 
+/**
+ * How long the search takes to answer.
+ *
+ * Not padding. HowLongToBeat is a website, and the whole design rests on the answer arriving
+ * after the person has been replied to — a stub that answers in zero time lets the refetch that
+ * follows an add win a race it always loses in production, and a spec asserting that the card
+ * fills its own estimate in then passes whether or not the board ever looks again. Checked by
+ * removing the poll: with this delay that spec fails, and without it, it does not.
+ *
+ * Comfortably longer than the add's own refetch, comfortably shorter than one poll interval.
+ * Nothing waits on it that is not already polling.
+ */
+const SEARCH_DELAY_MS = 600;
+
 /** Times go over the wire in seconds. Turning them back into hours is the client's job. */
 const seconds = (hours) => Math.round(hours * 3600);
 
@@ -233,7 +247,13 @@ const server = createServer(async (request, response) => {
       terms.every((term) => game.name.toLowerCase().includes(term)),
     );
 
-    json(response, { count: matches.length, data: matches.map(asSearchResult) });
+    // The search, and only the search. Fetching a pinned id answers at once because that is the
+    // one route somebody is genuinely waiting on — see the pin control — and slowing it would
+    // be modelling something the real site does not do to us either.
+    setTimeout(
+      () => json(response, { count: matches.length, data: matches.map(asSearchResult) }),
+      SEARCH_DELAY_MS,
+    );
     return;
   }
 

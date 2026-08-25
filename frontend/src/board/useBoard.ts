@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
-import { columnKey, gameKey, yearFor } from './keys';
+import { columnKey, gameKey, yearFor, yearsKey } from './keys';
 import { BOARD_STATUSES } from './columns';
 import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
@@ -125,6 +125,13 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, from] });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, to] });
       void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+
+      // A move stamps a timestamp, and the years are derived from those — so a drag is one of
+      // the two things that can bring a new year into existence. Without this the first title
+      // finished in a new year vanishes from the board it was on and the year that would show
+      // it is not offered until a reload. The column keys above cannot cover it: 'years' is not
+      // a status, so no prefix of theirs reaches it.
+      void queryClient.invalidateQueries({ queryKey: yearsKey(hobby) });
     },
   });
 

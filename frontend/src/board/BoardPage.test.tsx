@@ -18,17 +18,60 @@ describe('BoardPage', () => {
     ).toEqual(['Backlog 0', 'Playing 0', 'Completed 0', 'Dropped 0']);
   });
 
-  it('puts the year picker above Completed and nowhere else', async () => {
-    // Backlog and Playing have no completion date to filter on, so a year control over them
-    // would be a question with no answer.
+  it('puts one year control above the board rather than one in a column', async () => {
+    // It used to sit in the Completed column's header, because completed_at was the only date
+    // the year meant. Now that it narrows three of the four columns, a control living inside
+    // one of them would be claiming to be about that column alone.
     boardServer({ years: [2026] });
 
     renderWithProviders(<BoardPage />);
 
-    const picker = await screen.findByRole('combobox', { name: 'Completed year' });
-    const completed = screen.getByRole('region', { name: 'Completed 0' });
-    expect(within(completed).getByRole('combobox', { name: 'Completed year' })).toBe(picker);
-    expect(screen.getAllByRole('combobox', { name: 'Completed year' })).toHaveLength(1);
+    const picker = await screen.findByRole('combobox', { name: 'Year' });
+    expect(screen.getAllByRole('combobox', { name: 'Year' })).toHaveLength(1);
+    expect(
+      within(screen.getByRole('region', { name: 'Completed 0' })).queryByRole('combobox', {
+        name: 'Year',
+      }),
+    ).not.toBeInTheDocument();
+    expect(picker).toHaveValue('2026');
+  });
+
+  it('opens on the latest year there is, not on all of them', async () => {
+    // The board is a record of a year, and the year you are in is the one you are adding to.
+    // "All years" is still there and is one choice away; it is just not where you start.
+    const board = boardServer({ years: [2026, 2024, 2019] });
+
+    renderWithProviders(<BoardPage />);
+    await screen.findByRole('combobox', { name: 'Year' });
+
+    await waitFor(() => expect(board.queriesFor('Completed')[0]?.get('year')).toBe('2026'));
+  });
+
+  it('narrows three columns by the year and leaves the backlog out of it', async () => {
+    // A Backlog entry has both timestamps cleared by the rule that puts it there, so it belongs
+    // to no year at all — and a Backlog narrowed by one would be an empty well on every year
+    // rather than the queue you drag out of while reading a past one.
+    const board = boardServer({ years: [2026] });
+
+    renderWithProviders(<BoardPage />);
+    await screen.findByRole('combobox', { name: 'Year' });
+
+    await waitFor(() => expect(board.queriesFor('Completed')[0]?.get('year')).toBe('2026'));
+    expect(board.queriesFor('InProgress')[0]?.get('year')).toBe('2026');
+    expect(board.queriesFor('Dropped')[0]?.get('year')).toBe('2026');
+    expect(board.queriesFor('Backlog')[0]?.has('year')).toBe(false);
+  });
+
+  it('takes the year off every request when All years is chosen', async () => {
+    const board = boardServer({ years: [2026, 2024] });
+
+    renderWithProviders(<BoardPage />);
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Year' }),
+      'All years',
+    );
+
+    await waitFor(() => expect(board.queriesFor('Completed').at(-1)?.has('year')).toBe(false));
   });
 
   it('collapses Dropped until asked, and still says how much is in it', async () => {
