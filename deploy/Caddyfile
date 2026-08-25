@@ -1,0 +1,41 @@
+# HobbyTracker's front door, inside the container network.
+#
+# TLS is not terminated here. Cloudflare does that at its edge and the tunnel hands this plain
+# HTTP, which is why the site address is a bare port rather than a hostname: naming one would set
+# Caddy off trying to obtain a certificate for a name it can never answer a challenge on. It also
+# keeps the deployment's public address out of a public repository.
+#
+# This mirrors the development topology deliberately. There, Vite serves the SPA and proxies /api
+# to Kestrel; here, Caddy does. The browser sees one origin either way, which is what lets the
+# session cookie stay SameSite=Lax and httpOnly with no CORS policy anywhere in the codebase.
+:80 {
+	encode gzip zstd
+
+	# Caddy preserves the incoming Host by default, so the API still sees the public hostname and
+	# AllowedHosts upstream still means something.
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+
+	handle {
+		root * /srv
+
+		# Vite fingerprints everything under /assets, so a file there never changes content -- a
+		# new build writes a new name. index.html is the exact opposite and must never be held:
+		# it is the thing that names the current bundle, so a cached copy pins a browser to the
+		# previous deployment with nothing anywhere saying so.
+		@fingerprinted path /assets/*
+		header @fingerprinted Cache-Control "public, max-age=31536000, immutable"
+
+		# Everything else is index.html -- by try_files below, whatever the address said. Matching
+		# on /index.html would catch almost none of it: the request path is /board or /, and the
+		# rewrite to index.html happens after this matcher has already decided.
+		@spa not path /assets/*
+		header @spa Cache-Control "no-cache"
+
+		# Routing is on the client, so /board is not a file. Without this a reload anywhere but
+		# the root is a 404 from a server that is holding the page.
+		try_files {path} /index.html
+		file_server
+	}
+}

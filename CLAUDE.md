@@ -27,6 +27,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses. See **HowLongToBeat** |
 | **The design layer** | Semantic tokens, four themes, two densities, and a board that works from 768px up. See **Design system** |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it. See **Auth** |
+| **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess. See **Deploying it** |
 
 **Detail and review is the next phase** — a game detail page and a year in review. See **What is
 next**, which also lists the smaller things named but not built.
@@ -126,7 +127,10 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 
 ```
 /                        monorepo root
+├── Dockerfile            two targets: the API, and Caddy serving the built SPA
+├── .dockerignore         keeps a Windows bin/ and node_modules out of the build context
 ├── docker-compose.yml    local Postgres 17
+├── deploy/               compose.yml, Caddyfile, .env.example, scripts/backup.sh
 ├── global.json           opts dotnet test into Microsoft.Testing.Platform
 ├── frontend/
 │   ├── index.html        stamps the chosen theme before the bundle loads. See Design system
@@ -1618,6 +1622,102 @@ are that wait. The backfill spec blanks the columns in psql first, because a tit
 feature is a state the app cannot reach, and `awaitChecked` reads `hltb_checked_at` straight out of
 Postgres, since a refused match changes no other field and nothing on the wire carries that column.
 
+## Deploying it
+
+Two containers behind one origin: **Caddy serves the built SPA and proxies `/api` to Kestrel**,
+which is the topology development already has through the Vite proxy. That is the whole reason to
+prefer it over teaching the API to serve static files — the browser sees one origin either way,
+which is the property the `SameSite=Lax` httpOnly cookie and the deliberate absence of CORS both
+rest on.
+
+| | |
+|---|---|
+| Images | **One `Dockerfile`, two targets** — `api` (aspnet:10) and `web` (Caddy plus `frontend/dist`) |
+| Compose | `deploy/compose.yml` — `api`, `db`, `caddy`, and `cloudflared` **behind a profile** |
+| Config | **Everything site-specific is an environment variable.** `deploy/.env.example` names them all |
+| Origin | **Pinned from configuration**, not read off `X-Forwarded-*` |
+| Migrations | Run themselves, **in Production only** |
+| Session keys | Persisted to a bind mount, or every redeploy signs everybody out |
+| Database | Publishes **no port at all**, not even on loopback |
+
+**`deploy/.env` is where a deployment actually lives, and it is gitignored.** No hostname, no host
+path and no secret is committed — this repository is public, and a compose file naming a private
+machine's directory layout is a thing that cannot be taken back. The committed file is generic;
+`.env` is what turns it into a deployment.
+
+### One omission, three failures
+
+Behind a proxy that terminates TLS the request reaches Kestrel as **plain HTTP, on whatever host
+the proxy used**. Three separate things read `Request.Scheme` and `Request.Host`, and all three are
+wrong at once:
+
+- The OAuth handler builds an `http://` **redirect URI, which Google refuses** for any host but
+  localhost. Sign-in is dead, and the refusal arrives on the provider's own page rather than in any
+  log of ours.
+- `CookieSecurePolicy.SameAsRequest` sees HTTP and issues the **session cookie without `Secure`**.
+- `UseHttpsRedirection` thinks every request needs redirecting, **and loops**.
+
+`PublicOrigin:Url` closes all three. `PublicOriginMiddleware` sets the scheme and host from it, and
+**is inert when the setting is absent** — which is development and both test harnesses, so nothing
+else in the suite is quietly running against an origin it never mentioned.
+
+- **Pinned from configuration rather than read from `X-Forwarded-*`.** Forwarded headers have to be
+  *trusted* to be believed, which means a `KnownProxies` list, which behind a tunnel is a container
+  address that changes whenever the container does. A pin depends on nothing the network is doing —
+  and the app really does have exactly one public address, so stating it is honest rather than a
+  workaround.
+- **It runs before `UseHttpsRedirection`, and that ordering is load-bearing.** That middleware
+  decides from `Request.IsHttps`; `UseAuthentication` — where the callback's token exchange has to
+  send *the same* `redirect_uri` the challenge sent — is later still. Being ahead of the first puts
+  it ahead of both.
+- **The challenge leg cannot catch a misplacement, and that is worth knowing rather than
+  rediscovering.** `Challenge()` is issued from `AuthController`, which runs after the whole
+  pipeline, so the redirect URI comes out right wherever the pin sits. It is the *callback* leg that
+  breaks — late, after a sign-in has appeared to work. So `PublicOriginTests` pins the ordering
+  through the redirect case instead, and that test was checked by moving the call one line down and
+  watching it go red.
+- **A malformed value fails the boot naming `PublicOrigin:Url`**, the guard `Journal:TimeZone` and
+  the sign-in credentials already get. **A path is refused too**: the callback is built from the
+  scheme, the host and the handler's own `CallbackPath`, so a value carrying one would be silently
+  losing a segment.
+
+### The things that fail quietly here
+
+- **Data Protection keys have to outlive the container.** The session cookie is self-contained and
+  encrypted with them, and a container filesystem goes with the container — so without somewhere
+  durable, every redeploy signs **everybody** out, and there are a lot of redeploys.
+  `DataProtection:KeyRingPath` is the setting; `SetApplicationName` sits beside it because keys are
+  found by application name, so a rename orphans the ring exactly as losing the directory would.
+- **That directory has to be writable by whoever the container runs as, and it is not an error when
+  it is not.** Data Protection falls back to keys held only in memory and says so in a log line
+  nobody is reading at the time. The compose file sets `user:` for this and for nothing else.
+- **Migrations are guarded to Production.** Both test harnesses already apply them their own way —
+  `PostgresFixture` for the backend suite, a `dotnet ef database update` chained into the API's own
+  command for Playwright — so an unguarded `Database.Migrate()` is a third caller racing them.
+- **`cloudflared` is behind a compose profile.** `docker compose up -d` brings up an app answering
+  on loopback and nowhere else; publishing it takes `--profile tunnel`, which somebody has to type.
+  **It also sits on the app's own network and no other**, which is a stronger guarantee than a
+  careful ingress list, because it holds even when the ingress is wrong.
+- **A required variable inside a profiled service would block the whole file.** Compose interpolates
+  everything before working out which services a profile selects, so `TUNNEL_TOKEN` is deliberately
+  *not* marked required with `:?` — it would refuse to start the app at all until the tunnel existed.
+- **`.dockerignore` must exclude `bin/` and `obj/`.** They hold Windows build output that would be
+  copied over the restore the SDK stage just did inside the image, and the result is a publish
+  mixing two platforms' artefacts rather than an error.
+- **The three native npm dependencies resolve on Linux from a Windows lockfile**, checked rather
+  than assumed: `@rolldown/binding`, `@tailwindcss/oxide` and `lightningcss` all ship per-platform
+  binaries, and `package-lock.json` records every variant including `linux-x64-gnu`. `npm ci` is
+  what keeps that true — `npm install` would rewrite the lockfile in the image.
+- **`index.html` must never be cached and `/assets/*` always should.** Vite fingerprints everything
+  under `assets`, so those files never change content; `index.html` is what names the current
+  bundle, so a held copy pins a browser to the previous deployment with nothing saying so.
+
+**Restart after pulling**, as ever — `docker compose up -d --build`, never a bare `git pull`. A
+running container goes on executing the image it started with.
+
+**Where a deployment is not code**: moving nameservers, creating the tunnel, registering the
+production redirect URIs on both provider apps, and writing `.env`. None of those live here.
+
 ## What is next
 
 **Phases are referred to by name, not by number**, anywhere outside this list. The order has changed
@@ -1638,6 +1738,10 @@ shuffled.
 - [x] **Living with it** — the things daily use turned up: the last note on the card, an options menu
       so a move is not a drag, removing that removes, two HowLongToBeat repairs, a year control over
       the whole board, and a card that fills in its own estimate.
+- [x] **Deployment** — an origin the app is told rather than left to guess, one Dockerfile with two
+      targets, a compose file with the tunnel behind a profile, session keys that outlive the
+      container, and migrations that run themselves in Production. See **Deploying it**. What is not
+      code — nameservers, the tunnel, the provider redirect URIs, `.env` — is deliberately not here.
 - [ ] **Detail and review — next.** A game detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery**.
 - [ ] **Other hobbies.** Movies/TV/anime/books/music — each a sibling detail table deriving from
@@ -1660,12 +1764,17 @@ only games exist, so the other hobbies' boards are a routing change rather than 
   than a gap. **Email is informational and never a login key**, because providers reuse addresses and
   trusting one to merge accounts would let anybody who can get an address at either walk into the
   other's journal.
-- **Decide the production origin**, before this ships rather than after. The cookie is cheap only
-  because the app and the API share one through the Vite proxy; the alternative is `SameSite=None`
-  plus the CORS policy this codebase has deliberately avoided. **Still undecided.**
-- **Data Protection keys.** The self-contained cookie is encrypted with them. On Windows they persist
-  under `%LOCALAPPDATA%`, so development is fine, but an ephemeral container filesystem signs everyone
-  out on every restart.
+- **`Auth:AllowNewAccounts` does not exist, and sign-up is wide open.** Correct while this ran on
+  localhost; on a public hostname it means anybody who finds the address gets an account. The
+  *scoping* is sound — nineteen tests, each checked red — so nobody reads anybody else's journal.
+  The exposure is resources: unbounded rows into `media`, the IGDB quota against a 4 req/s limit,
+  and unbounded HowLongToBeat lookups **from whatever address the app is deployed on**, at a site
+  with a documented history of blocking unofficial clients. That last one is the real risk. Until
+  the setting exists the gate belongs *in front of* the app rather than in it. Design when it is
+  wanted: a bool on `AuthOptions`, checked in `AuthService.SignInAsync` **before creating a user**
+  so existing accounts keep working while it is off, and flippable by environment variable without
+  a rebuild. One wrinkle — throwing inside `OnCreatingTicket` surfaces as a 500, and a refusal
+  wants a real error path.
 - **`Season` is not in the game-type filter**, so "Mario Kart" returns ten *Mario Kart Tour: … Tour*
   seasons and none of the actual games. One id in one clause. Nobody has asked for it.
 - **`users.role` is read by nothing.** It defaults to `"user"` and exists for a day that has not come.
@@ -1728,6 +1837,13 @@ control now exists for — is mostly the other problem.
 Each phase before the most recent was planned in a file under `C:\Users\jimmy\.claude\plans\`. Those
 are **machine-local and outside the repo** — useful history on this machine, absent everywhere else,
 and none of them is a source of truth. This file is.
+
+**One of them is not history: `deploying-on-ppserver.md`.** It is current, and it is the source of
+truth for how this app is hosted — where it runs, what has to be built first, and which hosting
+approaches were already ruled out and why. **Read it before proposing any deployment**; several
+obvious ones have been considered and rejected for stated reasons, and re-proposing them is repeated
+work. It stays machine-local deliberately, because it describes a private machine: **do not copy it
+into this repo, and do not publish it anywhere.**
 
 One is worth a warning if you open it: `for-the-next-part-delightful-alpaca.md`, the HowLongToBeat
 plan. Three of its assumptions did not survive contact with the site — it has an `HltbSessionHandler`

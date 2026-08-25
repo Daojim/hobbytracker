@@ -1,0 +1,34 @@
+# The build context is the repository root, and almost none of it belongs in an image.
+#
+# bin/ and obj/ are the ones that matter rather than merely bloat: they hold Windows build output
+# that would be copied over the restore the SDK stage just did inside the image, and the failure
+# is a publish that mixes two platforms' artefacts rather than an error.
+
+**/bin/
+**/obj/
+**/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+TestResults/
+
+# Nothing in the test projects is published, and leaving them out keeps the context small.
+backend/tests/
+
+.git/
+.github/
+.vs/
+.idea/
+.claude/
+
+# Never, under any circumstances, into an image.
+.env
+**/*.user
+
+# Documentation is for the repository, not the runtime.
+*.md
+LICENSE
+
+# The development database's compose file. deploy/ holds the one that matters here, and the
+# Caddyfile inside it is copied explicitly by the web stage.
+docker-compose.yml

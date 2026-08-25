@@ -153,6 +153,45 @@ curl -c jar -L "localhost:5173/api/auth/google/start?returnUrl=/board" -o /dev/n
 curl -b jar "localhost:5173/api/library?hobby=games"
 ```
 
+## Running it in production
+
+Two containers behind one origin: Caddy serves the built SPA and proxies `/api` to Kestrel. That
+mirrors the development topology, where Vite does the same job — so the browser only ever sees one
+origin, which is what lets the session cookie stay `SameSite=Lax` and httpOnly with no CORS policy
+anywhere in the codebase.
+
+```bash
+cp deploy/.env.example deploy/.env     # fill it in, then chmod 600
+docker compose -f deploy/compose.yml up -d --build
+```
+
+`deploy/.env` is the whole of a deployment — the public address, the database password, the IGDB
+and sign-in credentials. Nothing site-specific is committed.
+
+**The setting that is not optional is `PUBLIC_ORIGIN`.** Behind anything that terminates TLS — a
+reverse proxy, a tunnel, a load balancer — the request reaches the app as plain HTTP, and three
+separate things break at once: the OAuth redirect URI is built as `http://` and the provider
+refuses it outright, the session cookie is issued without `Secure`, and `UseHttpsRedirection`
+loops. Naming the public origin closes all three. It is pinned from configuration rather than read
+from `X-Forwarded-*`, because forwarded headers have to be *trusted* to be believed — and the app
+has exactly one public address anyway, so stating it is honest rather than a workaround.
+
+Register `$PUBLIC_ORIGIN/api/auth/google/callback` and `$PUBLIC_ORIGIN/api/auth/discord/callback`
+as authorised redirect URIs on both provider apps. A mismatch is a sign-in refused on the
+provider's own error page, which this app never sees and cannot report.
+
+Migrations run themselves at startup, in Production only. The keys that encrypt the session cookie
+are persisted to a bind mount, because a container filesystem goes with the container and without
+somewhere durable every redeploy signs everybody out.
+
+Adding `--profile tunnel` also starts a Cloudflare tunnel from `TUNNEL_TOKEN`. Without it the app
+answers on loopback and nowhere else, so publishing it is something you type rather than something
+that happens.
+
+**Sign-up is open to anyone who can reach the app.** The per-user scoping is thorough — nobody
+reads anybody else's journal — but there is no invite gate yet, so put an access policy in front of
+it or keep the address to yourself.
+
 ## Design notes
 
 The decisions here that were actually decisions, and what each one costs.
@@ -275,6 +314,8 @@ to prevent something, the test for it is checked by reintroducing the thing.
 - [x] Search that finds the game you meant, rather than the mod named after it
 - [x] Google and Discord sign-in, an httpOnly cookie session, and every pass and note scoped to
       whoever wrote it
+- [x] A deployment: one Dockerfile, Caddy in front, and an origin the app is told rather than left
+      to guess behind a proxy that terminates TLS
 - [ ] A game detail page, and a year in review
 - [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration
 
