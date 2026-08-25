@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { searchGames } from '../api/games';
 import { libraryMediaIds } from '../api/library';
@@ -31,6 +31,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 
 export function BoardSearch({ hobby }: BoardSearchProps) {
   const [term, setTerm] = useState('');
+  const boxRef = useRef<HTMLInputElement>(null);
   const settled = useDebounced(term.trim(), SEARCH_DEBOUNCE_MS);
   const queryClient = useQueryClient();
 
@@ -61,6 +62,15 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
 
   const onBoard = new Set([...(library.data ?? []), ...justAdded]);
 
+  // Pressing the button unmounts it — there is nothing left to clear — so it has to say where
+  // the keyboard goes next, or focus falls to the document body. Escape deliberately does not do
+  // this: it is handled on the container and so can be pressed from a control in the strip,
+  // where dragging focus back to the box would be moving it somewhere nobody asked for.
+  const clear = () => {
+    setTerm('');
+    boxRef.current?.focus();
+  };
+
   // Whether there is anything worth taking room from the board for. An idle box is a bar and
   // nothing else; the strip arrives with results, with "nothing matched", or with a failure, and
   // leaves again when the box is emptied.
@@ -80,16 +90,42 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
         }
       }}
     >
-      <label className="block max-w-xl">
-        <span className="sr-only">Search games</span>
-        <input
-          type="search"
-          value={term}
-          onChange={(event) => setTerm(event.target.value)}
-          placeholder="Search to add a game — Hollow Knight, Celeste, Outer Wilds…"
-          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm"
-        />
-      </label>
+      {/* The button is a sibling of the label, never a child of it. A wrapping label takes its
+          text content as the input's accessible name, so a button inside would make the box
+          announce itself as "Search games Clear search" — and the four specs that locate it by
+          name would stop finding it. */}
+      <div className="relative max-w-xl">
+        <label className="block">
+          <span className="sr-only">Search games</span>
+          <input
+            ref={boxRef}
+            type="search"
+            value={term}
+            onChange={(event) => setTerm(event.target.value)}
+            placeholder="Search to add a game — Hollow Knight, Celeste, Outer Wilds…"
+            // pr-9 leaves the button its corner. The arbitrary variant hides WebKit's own
+            // cancel button, which Chrome draws inside a type="search" box as soon as it has
+            // content — without it there are two × to choose from, one of them unstyled and
+            // unlabelled.
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 pr-9 text-sm [&::-webkit-search-cancel-button]:appearance-none"
+          />
+        </label>
+
+        {term !== '' && (
+          // Only when there is something to clear. A × that sits there doing nothing on an empty
+          // box reads as a control that has stopped working, which is the reasoning the hobby
+          // nav already follows for the five hobbies that do not exist yet.
+          <button
+            type="button"
+            aria-label="Clear search"
+            onClick={clear}
+            className="absolute inset-y-0 right-0 flex items-center rounded-r-lg px-3 text-muted hover:text-fg"
+          >
+            {/* The glyph is decoration; the button's name is the aria-label. */}
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
+      </div>
 
       {showStrip && (
         // Labelled rather than headed. A heading here would be a second h2 on the board, and the
