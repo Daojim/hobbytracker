@@ -74,8 +74,8 @@ commits cut from `main` after #14:
 Its migration clears `hltb_checked_at` on every row, so the backfill would pick up a library it
 had already checked. **That backfill has been run**, and the board carries the new number.
 
-**PR #16** — four things, in three commits cut from `main` after #15. Three of them were
-found by using the board rather than by planning to build them:
+**PR #16 is merged** — four things, in four commits cut from `main` after #15. Three of them
+were found by using the board rather than by planning to build them:
 
 1. **HowLongToBeat's automatic lookups were broken, and are fixed — two separate faults, both
    in the search half.** The site renamed its search endpoint from `bleed` to `search/site` —
@@ -127,10 +127,10 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished, and nothing is unmerged** once #16 is in. Every suite is green.
-**Detail and review is the next phase** — see **Phases**, and **What is worth doing next** below
-it for the smaller things that have been named but not built. Five things worth knowing before a
-first run:
+**Nothing is half-finished, and nothing is unmerged.** `main` is at #16 and every suite is
+green. **Detail and review is the next phase** — see **Phases**, and **What is worth doing next**
+below it for the smaller things that have been named but not built. Five things worth knowing
+before a first run:
 
 - **Sign-in credentials are required to boot.** Google *and* Discord, in user-secrets — the host
   fails deliberately and names the missing key. See **Running it**, which also has the stub
@@ -143,9 +143,11 @@ first run:
   does.
 - **A `dotnet run` of your own no longer stops the suite.** See **A dev server used to block the
   e2e run** under **Tests** for what that cost and how it is held.
-- **Restart the API after pulling #16.** A running `dotnet run` executes the binary it started
-  with, so the HowLongToBeat repairs are not live until it is restarted — which is most of why
-  the fix looked as though it had not worked. See **X may have slashes in it**.
+- **Restart the API after pulling anything.** A running `dotnet run` goes on executing the
+  binary it started with. That is obvious written down and is not obvious at the time: it is
+  most of why #16's HowLongToBeat repairs looked as though they had not worked, because the
+  half of the feature being tested by hand — pinning an id — needs no restart to keep working.
+  See **X may have slashes in it**.
 
 ### Where HowLongToBeat has got to
 
