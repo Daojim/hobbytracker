@@ -32,12 +32,17 @@ public class HltbOptions
     /// <summary>
     /// Where to look when the endpoint name cannot be scraped out of the site's JavaScript.
     ///
-    /// The name has already changed twice — "s", then "seek", then "bleed" — so the next rename
-    /// breaking the scrape is a matter of when. This is what lets that be corrected in
-    /// configuration rather than in a release.
+    /// The name has now changed three times — "s", then "seek", then "bleed", then
+    /// "search/site" — so the next rename breaking the scrape is a matter of when. This is what
+    /// lets that be corrected in configuration rather than in a release.
+    ///
+    /// It has to be kept current to be worth anything. It sat at "bleed" through the rename to
+    /// search/site, so when discovery did break the thing it fell back to was a name the site
+    /// had already retired: two ways of being wrong, one behind the other, and the log line
+    /// naming the fallback was the only clue that the first had happened at all.
     /// </summary>
     [Required(AllowEmptyStrings = false)]
-    public string FallbackSearchPath { get; set; } = "bleed";
+    public string FallbackSearchPath { get; set; } = "search/site";
 
     [Range(1, 120)]
     public int RequestTimeoutSeconds { get; set; } = 15;

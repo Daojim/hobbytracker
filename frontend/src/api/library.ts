@@ -12,7 +12,7 @@ import type { LibraryItem, LibrarySort, LogStatus, PagedResult, ReorderColumn } 
 export interface ColumnQuery {
   hobby: string;
   status: LogStatus;
-  /** Meaningful only for Completed. Omitted entirely when absent, not sent empty. */
+  /** Omitted entirely when absent, not sent empty. Which columns get one is `yearFor`. */
   year?: number;
   /** Defaults to `manual` server-side, which is the only mode dragging is offered in. */
   sort?: LibrarySort;
@@ -24,8 +24,14 @@ export function listColumn(query: ColumnQuery): Promise<PagedResult<LibraryItem>
   return apiJson<PagedResult<LibraryItem>>('/api/library', { query: { ...query } });
 }
 
-/** Years with completions, newest first — the year picker's options. */
-export function completionYears(hobby: string): Promise<number[]> {
+/**
+ * Years with any activity, newest first — the year picker's options.
+ *
+ * Any activity rather than completions alone, because the year narrows three of the four
+ * columns now and Playing is narrowed by a start. A year you began something in and finished
+ * nothing in has to be offerable, or the picker cannot ask for a board the columns would answer.
+ */
+export function activityYears(hobby: string): Promise<number[]> {
   return apiJson<number[]>('/api/library/years', { query: { hobby } });
 }
 

@@ -7,6 +7,7 @@ import { renderWithProviders } from '../test/render';
 
 const box = () => screen.getByRole('searchbox', { name: 'Search games' });
 const strip = () => screen.queryByRole('region', { name: 'Search results' });
+const clearButton = () => screen.queryByRole('button', { name: 'Clear search' });
 
 /**
  * Rendered on its own rather than through BoardPage, and not only for speed.
@@ -120,6 +121,37 @@ describe('BoardSearch', () => {
 
     await userEvent.clear(box());
 
+    await waitFor(() => expect(strip()).not.toBeInTheDocument());
+  });
+
+  it('offers nothing to clear while the box is empty', async () => {
+    // A control that does nothing is worse than no control: there is nothing to clear, and a
+    // dead × sitting in the box reads as something that has stopped working.
+    searchServer();
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+
+    expect(clearButton()).not.toBeInTheDocument();
+
+    await userEvent.type(box(), 'hollow');
+
+    expect(clearButton()).toBeInTheDocument();
+  });
+
+  it('clears the box and gives the keyboard back to it', async () => {
+    // The focus half is the part worth pinning. The button unmounts the moment it works, so
+    // without this the keyboard is left on the document body — which is a worse place to be
+    // than where it started, and only someone tabbing would ever notice.
+    searchServer({ results: [game({ title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await userEvent.type(box(), 'hollow');
+    await screen.findByRole('region', { name: 'Search results' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear search' }));
+
+    expect(box()).toHaveValue('');
+    expect(box()).toHaveFocus();
     await waitFor(() => expect(strip()).not.toBeInTheDocument());
   });
 

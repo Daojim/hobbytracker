@@ -48,6 +48,26 @@ public sealed record LibraryItemDto(
     decimal? HltbAllStylesHours,
 
     /// <summary>
+    /// Whether HowLongToBeat has yet to be asked about this title at all.
+    ///
+    /// It exists so the board can tell "no estimate, and one may still arrive" from "no estimate,
+    /// and none is coming". Adding a title replies before the lookup has begun — nothing a person
+    /// does waits on HowLongToBeat — so without this the card has no way to know an answer is on
+    /// its way and sits blank until something unrelated happens to refetch it.
+    ///
+    /// Read off <c>hltb_checked_at</c> rather than off the hours, and that is the whole of what
+    /// makes it safe to wait on: the column is stamped on a refusal exactly as it is on a match,
+    /// so a title HowLongToBeat has never heard of stops being pending with nothing to show. The
+    /// hours alone cannot say the difference, and a board waiting on them would wait for ever on
+    /// every unmatchable title.
+    ///
+    /// False — not true — for a row that is not a game. The TPT downcast answers null for a media
+    /// row with no games row behind it, and "there is no games row" is a different claim from
+    /// "nobody has looked yet"; conflating them would set the movies board polling for ever.
+    /// </summary>
+    bool HltbPending,
+
+    /// <summary>
     /// The opening of the most recent thing you wrote about this title, or null if you have
     /// written nothing. The whole of it lives in the drawer; this is a preview and is named so,
     /// because a field called <c>LatestNote</c> that is not the note would be a lie.

@@ -19,8 +19,10 @@ public interface ILibraryService
 
     Task<bool> HobbyExistsAsync(string hobby, CancellationToken cancellationToken);
 
-    /// <summary>Years in which something was finished, newest first — for the year picker.</summary>
-    Task<IReadOnlyList<int>> CompletionYearsAsync(string? hobby, CancellationToken cancellationToken);
+    /// <summary>
+    /// Years in which anything was started or finished, newest first — the picker's options.
+    /// </summary>
+    Task<IReadOnlyList<int>> ActivityYearsAsync(string? hobby, CancellationToken cancellationToken);
 
     /// <summary>Moves a title to a board column. Null when it has never been logged.</summary>
     Task<LibraryItemDto?> TransitionAsync(
@@ -124,6 +126,15 @@ public sealed class LibraryService(
                 (row.Media as Game)!.PrimaryGenre,
                 (row.Media as Game)!.HltbAllStylesHours,
 
+                // Still to be asked about, which is what tells the card whether looking
+                // again is worth anything. The type test is not decoration and it is not
+                // "(row.Media as Game) != null" either — EF elides that one as always true
+                // and the film comes back pending. "is Game" becomes the TPT join's own null
+                // check, which is the question actually being asked. Without it an unqualified
+                // "checked_at is null" calls every film pending for ever, and the movies board
+                // would poll for an answer nobody is coming with.
+                row.Media is Game && (row.Media as Game)!.HltbCheckedAt == null,
+
                 // The last thing you wrote about this title, from *any* pass of yours —
                 // deliberately unlike every other field on this row, all of which come from
                 // Latest. A replay begun this morning has nothing written on it yet, and what
@@ -154,15 +165,19 @@ public sealed class LibraryService(
         return new PagedResult<LibraryItemDto>(items, total, normalisedPage, normalisedSize);
     }
 
-    public async Task<IReadOnlyList<int>> CompletionYearsAsync(
+    public async Task<IReadOnlyList<int>> ActivityYearsAsync(
         string? hobby, CancellationToken cancellationToken)
     {
-        // Off the same projection the Completed column uses, so the picker can never offer a
-        // year that turns out to be empty.
-        var completions = await Filtered(
-                BoardQuery().AsNoTracking(), hobby, LogStatus.Completed, year: null)
-            .Where(row => row.Latest.CompletedAt != null)
-            .Select(row => row.Latest.CompletedAt!.Value)
+        // Both dates, off the same projection the columns filter on, so the picker can never
+        // offer a year that turns out to be empty in every column at once.
+        //
+        // Completions alone was right while the year was the Completed column's own control,
+        // and is not right now that Playing filters on a start: a year you began something in
+        // and finished nothing in would be a year the columns handle perfectly well and the
+        // picker has no way to ask for.
+        var activity = await Filtered(
+                BoardQuery().AsNoTracking(), hobby, status: null, year: null)
+            .Select(row => new { row.Latest.StartedAt, row.Latest.CompletedAt })
             .ToListAsync(cancellationToken);
 
         // The instant becomes a year here rather than in SQL. Postgres can only localise a
@@ -170,8 +185,10 @@ public sealed class LibraryService(
         // go in an index or a generated column — and a bare date_part would read whatever
         // timezone the session was opened with. At the size a personal catalogue reaches this is
         // a few hundred rows, which is a cheap price for the zone staying explicit.
-        return [.. completions
-            .Select(instant => clock.DayOf(instant).Year)
+        return [.. activity
+            .SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt })
+            .Where(instant => instant is not null)
+            .Select(instant => clock.DayOf(instant!.Value).Year)
             .Distinct()
             .OrderByDescending(year => year)];
     }
@@ -386,18 +403,64 @@ public sealed class LibraryService(
 
         if (year is { } span)
         {
-            // A half-open range of instants, not EXTRACT(year FROM completed_at). date_part on
-            // a timestamptz reads the session's timezone, so that query would answer
-            // differently depending on how the connection happened to be opened — and a game
-            // finished at 8pm on New Year's Eve would count towards the following year.
-            // Entries finished without a timestamp show up only when no year is asked for.
-            query = query.Where(row => row.Latest.CompletedAt != null
-                                       && row.Latest.CompletedAt >= span.From
-                                       && row.Latest.CompletedAt < span.To);
+            query = InYear(query, status, span);
         }
 
         return query;
     }
+
+    /// <summary>
+    /// Narrows a column to one calendar year, on the date that column is actually about.
+    ///
+    /// The year used to mean completed_at and nothing else, because it was the Completed
+    /// column's own control and no other column asked. Board-wide it cannot stay that: Backlog
+    /// and InProgress have their completion cleared by the very rules that put a title in them,
+    /// so one predicate for all four would leave three columns permanently empty and read as a
+    /// broken filter rather than a strict one.
+    ///
+    /// Every comparison is a half-open range of instants, never EXTRACT(year FROM …).
+    /// date_part on a timestamptz reads the session's timezone, so that query would answer
+    /// differently depending on how the connection happened to be opened — and a game finished
+    /// at 8pm on New Year's Eve would count towards the following year. A title whose relevant
+    /// date is null belongs to no year, and shows up only when none is asked for.
+    /// </summary>
+    private static IQueryable<BoardRow> InYear(
+        IQueryable<BoardRow> query, LogStatus? status, YearSpan span) => status switch
+    {
+        // Exempt, rather than answering with nothing. A Backlog entry has both timestamps
+        // cleared by rule, so "my 2019 backlog" is not a question the data can answer — and the
+        // useful behaviour is not an empty well but the queue you drag out of while reading a
+        // past year.
+        LogStatus.Backlog => query,
+
+        // Begun in that year. The transition into this column clears completed_at, so a start
+        // is the only date a title here has.
+        LogStatus.InProgress => query.Where(row =>
+            row.Latest.StartedAt != null
+            && row.Latest.StartedAt >= span.From
+            && row.Latest.StartedAt < span.To),
+
+        // Finished in that year, pointedly not begun in it. A game started in 2019 and finished
+        // in 2021 is a 2021 completion, and filing it under 2019 would make the year view
+        // disagree with the sentence a person would say about it.
+        LogStatus.Completed => query.Where(row =>
+            row.Latest.CompletedAt != null
+            && row.Latest.CompletedAt >= span.From
+            && row.Latest.CompletedAt < span.To),
+
+        // Dropped, and the whole library when no column is named: either date. Dropping leaves
+        // the timestamps alone on purpose, so an abandoned title carries a start, a completion
+        // from an earlier pass, or neither depending on where it was abandoned from. With no
+        // column named there is no one date to prefer, and "active in that year" is the only
+        // reading that does not quietly privilege one of the four.
+        _ => query.Where(row =>
+            (row.Latest.StartedAt != null
+             && row.Latest.StartedAt >= span.From
+             && row.Latest.StartedAt < span.To)
+            || (row.Latest.CompletedAt != null
+                && row.Latest.CompletedAt >= span.From
+                && row.Latest.CompletedAt < span.To)),
+    };
 
     private static IQueryable<BoardRow> Sorted(IQueryable<BoardRow> query, LibrarySort sort) => sort switch
     {
@@ -481,6 +544,15 @@ public sealed class LibraryService(
                 (row.Media as Game)!.Genres,
                 (row.Media as Game)!.PrimaryGenre,
                 (row.Media as Game)!.HltbAllStylesHours,
+
+                // Still to be asked about, which is what tells the card whether looking
+                // again is worth anything. The type test is not decoration and it is not
+                // "(row.Media as Game) != null" either — EF elides that one as always true
+                // and the film comes back pending. "is Game" becomes the TPT join's own null
+                // check, which is the question actually being asked. Without it an unqualified
+                // "checked_at is null" calls every film pending for ever, and the movies board
+                // would poll for an answer nobody is coming with.
+                row.Media is Game && (row.Media as Game)!.HltbCheckedAt == null,
 
                 // As in ListAsync, predicate and all. This copy has to exist: it is what a drag
                 // or a menu move answers with, and a field arriving null here and populated on

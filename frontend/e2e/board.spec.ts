@@ -279,16 +279,51 @@ test('sorting is a view, and leaves the ranking alone', async ({ page }) => {
   await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(before);
 });
 
-test('the year picker narrows Completed and nothing else', async ({ page }) => {
-  await seed(page.request, 'Celeste', 'Backlog');
+test('the board opens on the latest year there is', async ({ page }) => {
   await seed(page.request, 'Hades', 'Completed', { completedAt: '2024-11-02' });
   await seed(page.request, 'Outer Wilds', 'Completed', { completedAt: '2026-03-03' });
   await page.reload();
 
-  await expect.poll(() => titlesIn(page, 'Completed')).toHaveLength(2);
+  // Not "All years". The year you are in is the one you are adding to, and a board that opened
+  // on everything would be a wall of history for anyone who logs more than one year of it.
+  await expect(page.getByRole('combobox', { name: 'Year' })).toHaveValue('2026');
+  await expect.poll(() => titlesIn(page, 'Completed')).toEqual(['Outer Wilds']);
+});
 
-  await page.getByRole('combobox', { name: 'Completed year' }).selectOption('2024');
+test('the year narrows three columns and leaves the backlog alone', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Hades', 'Completed', { completedAt: '2024-11-02' });
+  await seed(page.request, 'Anthem', 'InProgress', { startedAt: '2024-05-06' });
+  await seed(page.request, 'Outer Wilds', 'Completed', { completedAt: '2026-03-03' });
+  await page.reload();
 
+  await page.getByRole('combobox', { name: 'Year' }).selectOption('2024');
+
+  // Completed answers with the year it was finished in, Playing with the year it was begun in.
+  // One predicate for both would empty Playing on every year, because the transition into that
+  // column clears the completion date.
   await expect.poll(() => titlesIn(page, 'Completed')).toEqual(['Hades']);
+  await expect.poll(() => titlesIn(page, 'InProgress')).toEqual(['Anthem']);
+
+  // The queue is exempt rather than filtered. Both of its timestamps are cleared by the rule
+  // that puts a title there, so it belongs to no year — and it is what you drag out of while
+  // you read a past one.
   await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(['Celeste']);
+
+  await page.getByRole('combobox', { name: 'Year' }).selectOption('All years');
+  await expect.poll(() => titlesIn(page, 'Completed')).toHaveLength(2);
+});
+
+test('a year offered by the picker is one something was only started in', async ({ page }) => {
+  // The options and the filter have to describe the same set of years. While the list was
+  // completions alone, a year you began something in and finished nothing in was a year the
+  // columns handled correctly and the picker could not ask for.
+  await seed(page.request, 'Anthem', 'InProgress', { startedAt: '2019-05-06' });
+  await page.reload();
+
+  const picker = page.getByRole('combobox', { name: 'Year' });
+  await expect(picker.getByRole('option', { name: '2019' })).toBeAttached();
+
+  await picker.selectOption('2019');
+  await expect.poll(() => titlesIn(page, 'InProgress')).toEqual(['Anthem']);
 });

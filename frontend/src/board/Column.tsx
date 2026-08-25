@@ -1,12 +1,12 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { listColumn } from '../api/library';
 import { Card } from './Card';
 import { SortSelect } from './SortSelect';
-import { YearPicker } from './YearPicker';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
+import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import type { LibrarySort, LogStatus } from '../api/types';
 
 /** The id a column droppable answers to, so a drop onto empty space still names a column. */
@@ -40,9 +40,11 @@ export interface ColumnProps {
   label: string;
   sort: LibrarySort;
   onSortChange: (sort: LibrarySort) => void;
-  /** Only Completed is given these; the other columns ignore the year by not asking for one. */
+/**
+   * The year this column is narrowed to, if any. The board decides which columns get one — see
+   * `yearFor` — and a column narrows itself by simply not asking.
+   */
   year?: number;
-  onYearChange?: (year: number | undefined) => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   /** Moves a card to another column. The column it leaves is this one, so it goes unsaid. */
@@ -59,7 +61,6 @@ export function Column({
   sort,
   onSortChange,
   year,
-  onYearChange,
   collapsed = false,
   onToggleCollapse,
   onMove,
@@ -69,10 +70,29 @@ export function Column({
 }: ColumnProps) {
   const headingId = useId();
 
+  // Until when this column is willing to keep asking about a title HowLongToBeat has not
+  // answered for yet. Zero means it is not waiting for anything. See estimates.ts.
+  const [pollUntil, setPollUntil] = useState(0);
+
   const { data, isPending, error } = useQuery({
     queryKey: columnKey(hobby, status, sort, year),
     queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
+
+    // A function rather than a number, and that is load-bearing. TanStack calls this to schedule
+    // each next ask, so the budget is re-read against the clock every time — where a number
+    // computed during render would be read once and never reconsidered, because a refetch that
+    // changes nothing does not re-render and so never revises it.
+    refetchInterval: () => (Date.now() < pollUntil ? ESTIMATE_POLL_MS : false),
   });
+
+  const waiting = waitingOn(data?.items);
+
+  // A fresh budget whenever the set of waiting titles changes, so a title added while the last
+  // one is still being looked up is not left on the tail end of somebody else's clock. When the
+  // set empties, the budget goes to zero and the asking stops on the next evaluation.
+  useEffect(() => {
+    setPollUntil(waiting === '' ? 0 : Date.now() + ESTIMATE_POLL_BUDGET_MS);
+  }, [waiting]);
 
   // The ref goes on the section, and it has to. It used to hang off the card list below, which
   // is not rendered while the column is collapsed — so a closed Dropped column had no rect at
@@ -112,9 +132,6 @@ export function Column({
         )}
 
         <div className="ml-auto flex items-center gap-1">
-          {onYearChange !== undefined && (
-            <YearPicker hobby={hobby} value={year} onChange={onYearChange} />
-          )}
           <SortSelect label={label} value={sort} onChange={onSortChange} />
         </div>
       </div>

@@ -22,13 +22,17 @@ import { createServer } from 'node:http';
 const PORT = Number(process.env.HLTB_STUB_PORT ?? 5398);
 
 /**
- * Deliberately not "bleed", which is what `Hltb:FallbackSearchPath` holds.
+ * Deliberately not whatever `Hltb:FallbackSearchPath` holds.
  *
- * If discovery broke, the client would fall back to /api/bleed, this stub would 404, and the
- * specs would fail — which is the point. Naming the stub's endpoint after the real one would let
- * the fallback quietly cover for a pair rule that had stopped working.
+ * If discovery broke, the client would fall back to the configured name, this stub would 404
+ * and the specs would fail — which is the point. Naming the stub's endpoint after the real one
+ * would let the fallback quietly cover for a pair rule that had stopped working.
+ *
+ * Two segments, because the real one has two. It was a single word here for as long as it was
+ * a single word on the site, which is how the pair rule came to reject a name with a slash in
+ * it and how this suite stayed green while every automatic lookup in the app was failing.
  */
-const SEARCH_PATH = 'warble';
+const SEARCH_PATH = 'warble/site';
 
 /**
  * What HowLongToBeat knows, which is not what IGDB knows — that disagreement is the feature.
@@ -49,6 +53,20 @@ const CATALOGUE = [
   { id: 9104, name: 'Outer Wilds', year: 2019, all: 17, main: 15, plus: 21, hundred: 30 },
   { id: 9105, name: 'Anthem: Legion of Dawn', year: 2019, all: 24, main: 13, plus: 30, hundred: 55 },
 ];
+
+/**
+ * How long the search takes to answer.
+ *
+ * Not padding. HowLongToBeat is a website, and the whole design rests on the answer arriving
+ * after the person has been replied to — a stub that answers in zero time lets the refetch that
+ * follows an add win a race it always loses in production, and a spec asserting that the card
+ * fills its own estimate in then passes whether or not the board ever looks again. Checked by
+ * removing the poll: with this delay that spec fails, and without it, it does not.
+ *
+ * Comfortably longer than the add's own refetch, comfortably shorter than one poll interval.
+ * Nothing waits on it that is not already polling.
+ */
+const SEARCH_DELAY_MS = 600;
 
 /** Times go over the wire in seconds. Turning them back into hours is the client's job. */
 const seconds = (hours) => Math.round(hours * 3600);
@@ -85,7 +103,7 @@ const asPageGame = (game) => ({ ...asSearchResult(game), release_world: game.yea
  * The decoy matters as much as the pair. `/api/game` is reached by a POST fetch and is the first
  * one a reader meets, which is exactly what the community clients take and what answers 404 on
  * the real site; it is here so that "take the first POST fetch" fails this suite rather than
- * passing it. Only `warble` is also referenced with /init, so only `warble` is the search.
+ * passing it. Only `warble/site` is also referenced with /init, so only it is the search.
  */
 const BUNDLE = [
   '(self.webpackChunk=self.webpackChunk||[]).push([[404],{',
@@ -229,7 +247,13 @@ const server = createServer(async (request, response) => {
       terms.every((term) => game.name.toLowerCase().includes(term)),
     );
 
-    json(response, { count: matches.length, data: matches.map(asSearchResult) });
+    // The search, and only the search. Fetching a pinned id answers at once because that is the
+    // one route somebody is genuinely waiting on — see the pin control — and slowing it would
+    // be modelling something the real site does not do to us either.
+    setTimeout(
+      () => json(response, { count: matches.length, data: matches.map(asSearchResult) }),
+      SEARCH_DELAY_MS,
+    );
     return;
   }
 

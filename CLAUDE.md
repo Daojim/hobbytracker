@@ -52,8 +52,8 @@ See **Auth** for all of it, and in particular **The five traps, every one of whi
 quietly** — the eager configuration read that broke 153 tests, the Vite proxy's `changeOrigin`,
 and the 302-instead-of-401 that hands `fetch` a page of HTML.
 
-**Three things living with the board turned up**, on the `card-menu-and-note-previews` branch,
-cut from `main` after #14 and not yet opened as a PR:
+**PR #15 is merged** — seven things the first days of using a signed-in board turned up, in six
+commits cut from `main` after #14:
 
 1. **the sign-in marks** — both provider links were drawn in `--accent`, which is green on the
    Shelf themes, so "Continue with Google" was a green button with no Google about it. Neutral
@@ -61,25 +61,55 @@ cut from `main` after #14 and not yet opened as a PR:
 2. **the last thing you wrote, on the card** — a board row carries a preview of your most recent
    note. See **Library is not the catalog**, which has the two things that make it safe;
 3. **an options menu on every card** — the `×` became a `⋯` offering the journal, the three
-   columns the card is not in, and both endings, from all four columns. See **Board semantics**.
-
-Then four more that the first days of using it turned up:
-
+   columns the card is not in, and both endings, from all four columns. See **Board semantics**;
 4. **remove means remove** — every pass of yours, not the newest one, so a title replayed five
    times is one press from leaving rather than five;
 5. **Dropped is a drop target while collapsed**, which it had never been: the droppable ref hung
    off a card list that is not rendered when the column is shut;
-6. **sign-in is a card on a full-bleed ground**, and the card menu gained *Open journal* and a
-   translucent danger fill;
+6. **sign-in became a card on a full-bleed ground**, and the card menu gained *Open journal* and
+   a translucent danger fill;
 7. **a card shows HowLongToBeat's headline figure**, fetched rather than averaged, and
    `sort=hours` follows it. See **`comp_all` is the headline number**.
 
-Everything is green and everything has been run: backend 314, frontend 327, Playwright 78.
+Its migration clears `hltb_checked_at` on every row, so the backfill would pick up a library it
+had already checked. **That backfill has been run**, and the board carries the new number.
 
-Eleven plans. The current one is
-`C:\Users\jimmy\.claude\plans\read-claude-md-to-see-wondrous-crescent.md` — the three above, and
-what they turned into. `look-at-claude-md-to-iridescent-rain.md` is the auth phase before it. Its
-one deviation is worth knowing: the frontend was
+**PR #16** — four things, in three commits cut from `main` after #15. Three of them were
+found by using the board rather than by planning to build them:
+
+1. **HowLongToBeat's automatic lookups were broken, and are fixed — two separate faults, both
+   in the search half.** The site renamed its search endpoint from `bleed` to `search/site` —
+   two segments — and the pair rule refused any candidate with a slash in it, so discovery found
+   nothing, fell back to a `bleed` the site had already retired, and got a 404. Underneath that,
+   **a title's punctuation was being sent as part of the search terms**, which empties the search
+   outright whenever the two sites disagree about a colon. Both were invisible for the same
+   reason: pinning an id by hand needs no handshake and never goes near either, so the half with
+   a person watching kept working. See **X may have slashes in it** and
+   **A colon can empty the search**;
+2. **the board is one year at a time** — one `Year` control above the whole board, opening on
+   the latest year there is, with Backlog exempt and each other column filtering on the date it
+   is actually about. `GET /api/library/years` answers with any activity now rather than with
+   completions. See **The board is one year at a time**;
+3. **the card fills its own estimate in.** A board row now says whether HowLongToBeat has been
+   asked about the title yet, and a column asks again while — and only while — one of its rows
+   is still waiting. Adding a game and watching the hours appear no longer needs a reload. See
+   **The card waits for its own estimate**;
+4. **a clear button on the search bar** — an × in the box's own corner, present only once there
+   is something to clear, which hands the keyboard back to the box on its way out. See
+   **Search on the board**;
+5. **a phase written down rather than built** — a grid of popular games and a calendar of
+   upcoming ones, so that filling the board is not always typing a title at a time. The shape is
+   the user's to workshop; what is recorded is the constraint around it. See **Discovery**.
+
+Everything is green and everything has been run: backend 325, frontend 336, Playwright 83.
+
+Eleven plans, and **#16 has none** — it was four things asked for one at a time in a single
+session, so the commits and this file are the whole record of it. The last plan is
+`C:\Users\jimmy\.claude\plans\read-claude-md-to-see-wondrous-crescent.md` — the first three of
+the seven above. **The other four are not in it**: they were asked for while it was being built,
+and the plan was not rewritten to cover them, so it is the record of a phase that grew rather
+than of one that was designed. `look-at-claude-md-to-iridescent-rain.md` is the auth phase before
+it. Its one deviation is worth knowing: the frontend was
 built **before** the `NOT NULL` migration rather than after, because the app is unusable in a
 browser between the scoping and the sign-in screen, and confirming a one-way discard is easier
 from a working board than from psql.
@@ -97,9 +127,9 @@ contact with the site. The earlier five are the board's:
 
 ### Picking this up
 
-**Nothing is half-finished.** Auth is merged. The three things above are committed on
-`card-menu-and-note-previews` and every suite is green; that branch has not been opened as a PR
-yet. **Detail and review is the next phase** — see **Phases**. Four things worth knowing before a
+**Nothing is half-finished, and nothing is unmerged** once #16 is in. Every suite is green.
+**Detail and review is the next phase** — see **Phases**, and **What is worth doing next** below
+it for the smaller things that have been named but not built. Five things worth knowing before a
 first run:
 
 - **Sign-in credentials are required to boot.** Google *and* Discord, in user-secrets — the host
@@ -113,6 +143,9 @@ first run:
   does.
 - **A `dotnet run` of your own no longer stops the suite.** See **A dev server used to block the
   e2e run** under **Tests** for what that cost and how it is held.
+- **Restart the API after pulling #16.** A running `dotnet run` executes the binary it started
+  with, so the HowLongToBeat repairs are not live until it is restarted — which is most of why
+  the fix looked as though it had not worked. See **X may have slashes in it**.
 
 ### Where HowLongToBeat has got to
 
@@ -169,7 +202,7 @@ Decisions already made with the user, **settled — do not reopen**:
 | Dropped | *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out of the Dropped column to un-drop |
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board*. It replaced a `×` that meant *drop* on Playing and *remove* on Backlog and was absent on the other two |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
-| Year picker | above the Completed column only; Backlog and Playing ignore it |
+| Year | **One control above the whole board**, defaulting to the latest year there is. Backlog is exempt; the other three filter on the date each is about. See **The board is one year at a time** |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
@@ -320,9 +353,9 @@ dotnet ef migrations add <Name> \
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend, 314 tests
-cd frontend && npm test                             # frontend, 327 tests
-cd frontend && npm run test:e2e                     # 78 specs in a real browser
+dotnet test --solution backend/HobbyTracker.slnx    # backend, 325 tests
+cd frontend && npm test                             # frontend, 336 tests
+cd frontend && npm run test:e2e                     # 83 specs in a real browser
 ```
 
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via
@@ -585,13 +618,15 @@ still valid, but `LogEntryService` sets it explicitly on every insert it makes.
   `JournalTimestampConverter` reads any value carrying neither `Z` nor `±hh:mm` as that wall-clock
   moment *here*, and passes explicit offsets through untouched.
 
-**The year filter is a range, not an `EXTRACT`.** `date_part('year', completed_at)` on a
+**The year filter is a range, not an `EXTRACT`.** It is also four rules rather than one — see
+**The board is one year at a time** — but every one of them compares instants.
+`date_part('year', completed_at)` on a
 `timestamptz` reads the session's timezone, so the same query would answer differently depending
 on how the connection was opened, and a game finished at 8pm on New Year's Eve would count toward
 the following year. `LibraryService.SpanOf` turns a year into `[Jan 1 here, next Jan 1 here)` and
 compares instants, which is both correct and index-friendly.
-`CompletionYearsAsync` cannot do that — it needs a year per row — so it selects the completed
-instants and groups them in C#. Postgres can only localise a `timestamptz` through `AT TIME ZONE`,
+`ActivityYearsAsync` cannot do that — it needs a year per row — so it selects the instants
+and groups them in C#. Postgres can only localise a `timestamptz` through `AT TIME ZONE`,
 which is `STABLE` rather than `IMMUTABLE` and so cannot be indexed or put in a generated column.
 At personal-catalogue scale that is a few hundred rows.
 
@@ -797,7 +832,7 @@ still filtering them.
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
 | `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date |
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
-| `GET /api/library/years?hobby=` | years with completions, newest first |
+| `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours**, which is what *Remove from board* calls |
 | `PUT /api/library/order` | store one column's manual ranking |
@@ -1007,6 +1042,61 @@ than a few lines inside `useBoard`. A bare `DndContext` takes dnd-kit's defaults
 no activation constraint — every press activates a drag from the first pixel and the click that
 follows is swallowed. The moment the title stopped eating its own press, that made the journal
 look unopenable in jsdom while working perfectly in a browser.
+
+### The board is one year at a time
+
+One `Year` control above the board, and it **opens on the latest year there is** rather than on
+all of them. A board is a record of a year, the year you are in is the one you are adding to, and
+a board that opened on everything would be a wall of history for anybody who logs more than one
+year of it. *All years* is still there and is one choice away.
+
+It replaced a picker that sat in the Completed column's header and narrowed that column alone.
+That was right while `completed_at` was the only date the year meant, and stopped being right the
+moment the point was to read a past year rather than to filter one column of it. **A control
+living inside one column while narrowing three would be claiming to be about that column.**
+
+**The year means a different date per column, and it has to.** One predicate for all four was the
+obvious version and is unusable: Backlog and InProgress have their completion cleared by the very
+rules that put a title in them, so `completed_at` board-wide leaves three columns permanently
+empty and reads as a broken filter rather than a strict one.
+
+| Column | Answers with |
+|---|---|
+| Backlog | **Nothing — it is exempt.** Both timestamps are cleared by the rule that puts a title there, so it belongs to no year; and it is what you drag out of while reading a past one |
+| Playing | `started_at`. The transition into this column clears `completed_at`, so a start is the only date it has |
+| Completed | `completed_at`, pointedly **not** `started_at`. A game begun in 2019 and finished in 2021 is a 2021 completion |
+| Dropped | **Either.** Dropping leaves the timestamps alone on purpose, so an abandoned title carries a start, a completion from an earlier pass, or neither |
+| *no column named* | Either, for Dropped's reason: with no column named there is no one date to prefer, and "active in that year" is the only reading that does not quietly privilege one of the four |
+
+`LibraryService.InYear` holds the server's half and `yearFor` in `frontend/src/board/keys.ts`
+holds the client's, which is only the Backlog exemption — the column asks for a year or it does
+not, and the server decides what one means. Both halves are named in each other's comments,
+because a column filtering on a date the client did not expect is invisible rather than loud.
+
+**`GET /api/library/years` answers with any activity now, not completions.** It had to move with
+the filter: a year you began something in and finished nothing in is a year the Playing column
+handles perfectly well, and while the list was completions alone the picker had no way to ask for
+it. Both dates, off the same projection the columns filter on, so the picker can never offer a
+year that is empty in every column at once.
+
+**A move invalidates the years as well as the two columns**, and that is easy to miss. A
+transition stamps `started_at` or `completed_at`, so a drag is one of only two things that can
+bring a year into existence — and the column keys cannot cover it, because `'years'` is not a
+status and no prefix of theirs reaches it. Without that line the first title finished in a new
+year vanishes from the board it was on and the year that would show it is not offered until a
+reload. `yearsKey` is in `keys.ts` with the others for exactly the reason they are.
+
+**The board renders nothing until the years arrive.** That is deliberate rather than a missing
+loading state: it opens on the latest year, so painting before they are known is a board showing
+every year — briefly, and then not — with four columns refetched on the way to the one it was
+always going to be. `YearPicker` held this same rule for this same reason while it owned the
+query, and it is now presentational, because the page has to hold that query to have anything to
+default to and two components reasoning about one loading state is how they start disagreeing.
+
+**One consequence worth knowing rather than fixing.** Completing a game while reading a past year
+makes its card leave the board — the completion is stamped *now*, so it belongs to this year, not
+the one on screen. That is the filter being honest, and it was already true of the Completed
+column's own picker; it is only more visible now that the year governs the whole board.
 
 **Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries
 take `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just
@@ -1446,6 +1536,19 @@ strip** over it, so the column a title will land in is on screen while you decid
 - **Escape is handled on the search, not on `document`.** The journal drawer already listens at
   the document, and two listeners for one key is how they start disagreeing about which of them a
   press was meant for.
+- **The clear × is a sibling of the `<label>`, never a child of it.** A wrapping label takes its
+  text content as the input's accessible name, so a button inside makes the box announce itself
+  as *Search games Clear search* — and the specs that locate it by name stop finding it.
+- **It hides WebKit's own cancel button**, through
+  `[&::-webkit-search-cancel-button]:appearance-none`. Chrome draws one inside a `type="search"`
+  box as soon as it has content, so without that rule there are two × in the corner, one of them
+  unstyled, unlabelled and invisible to every locator. jsdom renders neither, which is why
+  `the box clears from its own corner` is a Playwright spec.
+- **It is present only when there is something to clear**, and it moves focus to the box on its
+  way out. The button unmounts the moment it works, so without that the keyboard is left on the
+  document body. Escape deliberately does *not* move focus: it is handled on the container and so
+  can be pressed from a control in the strip, where dragging focus back to the box would be
+  moving it somewhere nobody asked for.
 - **The strip is `aria-label`led, not headed.** `BoardPage.test.tsx` asserts the board's four
   `<h2>`s as an exhaustive list, so a section heading here would have failed it. The landmark is
   worth having; the `<h2>` is not.
@@ -1530,12 +1633,26 @@ the list is shuffled.
   cookie session, `[Authorize]` on every controller, and 16 query sites scoped so one person sees
   nothing of another's. Five commits: the rail, the scoping, the frontend, the `NOT NULL`
   migration, and the second provider. See **Auth**.
-- **Living with auth — done.** Three things the first days of using a signed-in board turned up:
-  sign-in that looks like sign-in, the last thing you wrote showing on the card, and an options
-  menu so a move is not a drag. The last of those reversed a settled decision — the `×` that
-  meant a different thing per column and was absent on two of them — which the user reopened
-  deliberately. See **Board semantics**, **Library is not the catalog** and **Auth**.
+- **Living with auth — done**, merged as #15. Seven things the first days of using a signed-in
+  board turned up: sign-in that looks like sign-in, the last thing you wrote showing on the card,
+  an options menu so a move is not a drag, removing that removes, a Dropped column you can drop
+  into while it is shut, and the card carrying the number HowLongToBeat itself leads with.
+  Two settled decisions were reversed in it, both reopened by the user deliberately: the `×` that
+  meant a different thing per column and was absent on two of them, and `DELETE …/current`, which
+  took one pass per press. See **Board semantics**, **Library is not the catalog**,
+  **`comp_all` is the headline number** and **Auth**.
+- **Living with the board, again — done**, as #16. Two HowLongToBeat repairs that had
+  stopped every automatic lookup, a year control over the whole board, a card that fills in its
+  own estimate, and a clear button on the search. Three of the four were found by using the app
+  rather than by planning to build them, which is the same shape as the phase before it. See
+  **X may have slashes in it**, **A colon can empty the search**, **The board is one year at a
+  time** and **The card waits for its own estimate**.
 - **Detail and review — next.** Game detail page and the year-in-review page.
+- **Filling the board without searching — named, not designed.** Two ways in that are not a
+  search box: a **grid of cover art** for what is popular, and a **calendar** for what is coming.
+  Both exist because typing one title at a time is currently the only way anything reaches the
+  board. **The shape is deliberately unsettled** — the user has said outright that it still needs
+  workshopping — so what is written down is the half already known. See **Discovery** below.
 - **Other hobbies.** Movies/TV/anime/books/music — each a new sibling detail table deriving from
   `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
 
@@ -1544,8 +1661,104 @@ original brief had it second. `log_entries.user_id` was nullable, so the journal
 worked without a line of auth, and sequencing auth first would have left the app unable to do its
 job while it was built. The column is `NOT NULL` now, and the deferral is spent.
 
+### What is worth doing next, and is not a phase
+
+Small enough to sit inside whatever is being built, named here so they are not rediscovered.
+Each has a fuller entry where the code lives; this is the index.
+
+- **Sweep up titles with no headline figure when the worker starts.** The first thing to pick up.
+  See **The backfill is a thing you run, and that keeps catching people** under
+  **HowLongToBeat** — including the reason it was not simply done.
+- **Linking a second provider to an existing account.** The schema has been ready since the first
+  migration; what does not exist is the deliberate act. Until it does, the same person at two
+  providers is two accounts, which is correct rather than a gap. See **What is left** under
+  **Auth**.
+- **Decide the production origin**, before this ships rather than after. The cookie is cheap only
+  because the app and the API share one through the Vite proxy. See **What is left** under
+  **Auth**, which also has the Data Protection key problem beside it.
+- **`Season` is not in the game-type filter**, and "Mario Kart" therefore returns ten
+  *Mario Kart Tour: … Tour* seasons and none of the actual games. One id in one clause. Nobody
+  has asked for it. See **Game types**.
+- **`users.role` is read by nothing.** It defaults to `"user"` and exists for a day that has not
+  come.
+
 The board is built hobby-parameterised (`/api/library?hobby=games`) even though only games
 exist, so the other hobbies' boards are a routing change rather than a rewrite.
+
+### Discovery: a grid of what is popular, a calendar of what is coming
+
+**Not designed yet, and that is the point of writing it down now.** The user has asked for the
+phase to exist and said plainly that the shape still needs workshopping. Two things are known:
+**popular games are a grid of cover art**, and **upcoming games are a calendar**. Everything
+below is constraint the codebase already carries, gathered so that none of it has to be
+rediscovered while the design is being had. **None of it is a decision.**
+
+The reason for the phase is simple enough to state: a search box asks you to already know what
+you want. Filling a board — especially filling one *backwards*, which is what the year control
+now exists for — is mostly the other problem.
+
+**What is already true, and bears on it:**
+
+- **IGDB already hands over the popularity numbers, and they are deliberately never stored.**
+  `total_rating_count` and `hypes` are asked for on every search and thrown away, because they
+  are facts about how many people have played a game *today* rather than facts about the game. A
+  popular grid is therefore a live query by construction, and a stored "top games" table is the
+  thing this codebase has already decided against once. See **Ranking search results**.
+- **`hypes` is the unreleased half, and is already load-bearing.** An unreleased game has no
+  ratings by definition — Silksong sat on 220 hypes and nothing else for years, which was exactly
+  when it was most searched for. That is the signal an *upcoming* view runs on, and the ranking
+  rules already understand it.
+- **`first_release_date` is already read, in UTC, on purpose — and a calendar must not reuse
+  that.** `games.release_year` takes it in UTC rather than the journal zone because it is
+  compared against HowLongToBeat's bare `release_world` year, which belongs to no timezone. A
+  calendar is a human question about *days*, so it would be the fourth place the journal zone is
+  applied. **Time** currently says three; that sentence is a tripwire and should be updated
+  rather than quietly falsified.
+- **The catalogue grows by search, and only by search.** `media` rows are written by the IGDB
+  upsert, so whether *browsing* writes rows at all is a real decision rather than a detail: forty
+  covers idly scrolled would grow `media` faster than every search ever typed. The cheap answer
+  is that browsing upserts nothing and only adding does — but that is not how the search strip
+  works today, and the two should probably agree.
+- **"On your board" already exists and has to be reused.** A result already in your library shows
+  that rather than an add button, because a second Backlog entry is not a replay but the card
+  would render it as one. Knowing it needs the *whole* library, which is why
+  `libraryMediaIds()` pages to the end rather than stopping at the API's maximum page size. A
+  grid puts far more tiles on screen than the strip does and needs the same rule.
+- **`Season` finally bites here, and this is the phase that should settle it.**
+  `where game_type != (3,5)` drops mods and bundles; seasons are untouched, which is why
+  "Mario Kart" returns ten *Mario Kart Tour: … Tour* seasons and none of the actual games. That
+  is a live annoyance in search and a much worse one in a release calendar, where seasons and
+  episodes are precisely what a "coming soon" list fills with. See **Game types** — and note
+  **Bundle** is the arguable half that was left easy to take back.
+- **Nothing here caches, and this is where that stops being free.** Search reaches IGDB on every
+  call by design; the 300ms debounce is the only thing between typing "hollow" and six requests.
+  A calendar spanning months is several queries for data that changes daily rather than
+  per-keystroke, so a cache is worth having for the first time in this codebase. IGDB's limit is
+  4 requests a second.
+- **Covers compose at any size already.** `IgdbImage` builds from `cover.image_id` rather than
+  `cover.url`, which is pinned to thumbnail size — so a grid can ask for a larger one without a
+  new field or a migration. 5:7 is already the app's poster ratio, on the cards and on the search
+  strip's tiles.
+- **Adding while reading a past year already works.** A title added from anywhere lands in
+  Backlog with no dates, and Backlog is exempt from the year — so a card added while the board is
+  showing 2019 does not vanish. See **The board is one year at a time**.
+- **Games only, whatever it looks like.** IGDB is the only source with a client behind it, and
+  the nav says *Soon* for the other five.
+
+**What has to be workshopped**, phrased as the questions rather than as answers:
+
+- **A screen of its own, a strip like search, or a panel over the board?** `/search` was already
+  retired *into* the board once, and the reasoning — the column a title is about to land in
+  should be on screen while you decide — pulls against a full-page grid. It may pull less hard
+  for browsing than it did for searching.
+- **Popular by what, over what window?** `total_rating_count` and `hypes` are what the ranking
+  uses; IGDB also has a `popularity_primitives` endpoint nothing here has touched.
+- **What the calendar's unit is** — a month, a quarter, the rest of the year — and what a day
+  carrying eleven releases is supposed to look like.
+- **Whether the calendar is a way of adding at all**, or only of looking. A game that is not out
+  yet is a real Backlog entry, so it probably is.
+- **Where a title lands when added from either surface.** Backlog with no dates is the honest
+  default for something unplayed, and is what search already does.
 
 ## Auth
 
@@ -1829,11 +2042,12 @@ rediscovered at runtime rather than configured, because all of it moves:
 
 1. `GET /` → the Next.js bundles under `/_next/static/chunks/*.js`.
 2. **The pair rule**: the search endpoint is whichever `/api/X` is *also* referenced as
-   `/api/X/init`. Today X is `bleed`; it has been `s` and `seek` before. Taking the first
-   `fetch(..., {method:"POST"})` instead — the obvious reading, and what the community clients do —
-   picks `/api/game/`, which answers **404**. A 404 reads as a wrong URL rather than a wrong rule,
-   so it sends you hunting for a path suffix that was never there. `Hltb:FallbackSearchPath` is
-   where to correct the next rename without a release.
+   `/api/X/init`. Today X is **`search/site`**; it has been `s`, `seek` and `bleed` before.
+   Taking the first `fetch(..., {method:"POST"})` instead — the obvious reading, and what the
+   community clients do — picks `/api/game/`, which answers **404**. A 404 reads as a wrong URL
+   rather than a wrong rule, so it sends you hunting for a path suffix that was never there.
+   `Hltb:FallbackSearchPath` is where to correct the next rename without a release, and it has
+   to be **kept current to be worth anything** — see **X may have slashes in it** below.
 3. `GET /api/{X}/init?<epoch-ms>` → `{"token":..., "hpKey":"ign_...", "hpVal":...}`. The token
    decodes to `<ms>::<your-ip>|<your-user-agent>|<hpKey>|<hpVal>.<hmac>`.
 4. `POST /api/{X}` with `x-auth-token`, `x-hp-key`, `x-hp-val` — **and the body carrying a
@@ -1841,6 +2055,73 @@ rediscovered at runtime rather than configured, because all of it moves:
    answers 404, not 403, so a failed anti-bot check looks exactly like a wrong URL. A 403 means
    the token has gone off; re-run the handshake and retry **once**, which is what the site's own
    JavaScript does.
+
+#### X may have slashes in it, and assuming otherwise broke the whole feature
+
+The rename that actually happened, and the shape of a failure worth recognising again.
+
+`bleed` became **`search/site`** — two segments. Every name the site had used until then was a
+single word, so the pair rule refused any candidate with a slash in it, on no evidence beyond the
+three examples in front of it. Discovery then found nothing at all, fell back to
+`Hltb:FallbackSearchPath` — which still said `bleed`, a name the site had already retired — and
+that answered 404. **Two ways of being wrong, one behind the other**, and the log line naming the
+fallback was the only clue the first had happened.
+
+**What made it expensive to notice is that it takes out exactly half the feature.** Pinning an id
+by hand needs no handshake and never goes near discovery, so the correction path went on working
+while every automatic lookup failed — in a background worker that logs and swallows, which is
+right and which also means nothing reaches a screen. The symptom a person sees is "new games stop
+getting times, but typing the id still works", and that sentence names the culprit precisely: the
+handshake, and nothing else, is what the two paths do differently.
+
+So: **the guard is gone, and candidates are ordered before one is chosen** so a bundle offering
+more than one pair resolves the same way twice. Nothing has ever offered more than one; it is a
+tie-break rather than a preference. `HltbSessionTests.Finds_a_search_endpoint_whose_name_has_more_than_one_segment`
+pins the two-segment shape, and `hltb-stub.mjs` now serves `warble/site` rather than `warble`,
+so the e2e rail proves a multi-segment name end to end. That the stub was a single word for as
+long as the site was is exactly how the suite stayed green while the app was broken — **a stub
+that mirrors only today's shape cannot warn you about tomorrow's.**
+
+Verified against the live site rather than reasoned about: the fixed rule finds `search/site` in
+today's bundle, `/api/search/site/init` answers 200, and the search POST comes back with Hollow
+Knight at `comp_all` 150,544. Correct as of 24 August 2026.
+
+#### A colon can empty the search, so the terms are cleaned first
+
+The second half of the same outage, and the one that would still have been there after the
+endpoint was found again.
+
+`SearchAsync` split the title on spaces and sent the pieces as they were. **HowLongToBeat
+matches each term against its own title literally**, so a piece of punctuation the two sites
+disagree about does not cost you a worse result — it costs you every result:
+
+| sent | candidates |
+|---|---|
+| `Dragon Quest III HD-2D Remake` | 1 — the game, `comp_all` 42.32 |
+| `Dragon Quest III: HD-2D Remake` | **0** |
+
+**Nothing downstream can recover from that.** The matcher is handed an empty list and correctly
+refuses; `hltb_checked_at` is stamped on the miss, exactly as designed; and the title is then
+never asked about again until the recheck window passes. A refusal that should have been a match
+is indistinguishable from Pokémon Scarlet's genuine one.
+
+IGDB and HowLongToBeat disagree about colons, hyphens and apostrophes constantly, so this is the
+ordinary case rather than an edge. `TermsOf` folds accents and turns everything that is not a
+letter or a digit into a space. **Safe as well as necessary**, measured rather than assumed: ten
+real titles were run against the live site both ways, nine were identical, and the colon was
+rescued. A term carrying no punctuation is unchanged by it.
+
+**It deliberately does not call `HltbMatcher`'s normalisation**, which looks like the same job.
+That one folds roman numerals to digits — right when comparing two strings already in hand, and
+wrong in a query, because the site writes "III" and matches nothing for "3". It also lower-cases
+and drops a leading "The". The two are near neighbours that must not be merged, and
+`Folds_the_accents_but_leaves_the_numerals_alone` is the test that says so.
+
+Verified through the real client and the real matcher against the live site: Dragon Quest III
+with and without the colon both resolve to 92790 at 42.32 hours, and Marvel's Spider-Man: Miles
+Morales, NieR: Automata, Clair Obscur: Expedition 33, Silent Hill 2 (the 2024 one, separated from
+the 2001 one by the release year) and Astro Bot all match. Pokémon Scarlet is still refused, and
+still correctly — HowLongToBeat has it only as "Pokémon Scarlet and Violet".
 
 **`User-Agent` and `Referer` are both load-bearing, measured rather than guessed.** The handshake
 answers `403 {"error":"Access Denied"}` without either and 200 with both; `Accept` and `Origin`
@@ -1947,6 +2228,96 @@ not a ledger.
 `ApplyMetadata`.** That method's contract — its own comment, and two tests — is that an IGDB
 refresh cannot touch the `hltb_*` columns. A separate service keeps that true by construction.
 
+### The card waits for its own estimate
+
+Adding a title replies before the lookup has begun — that is the design, not a shortcut — so the
+hours land on the row some seconds after the card is already on screen. Nothing told the board.
+The only things that refetched a column were a drag, a note or a reload, so the ordinary way to
+discover your estimate had arrived was to go and do something unrelated to it.
+
+**`LibraryItemDto.HltbPending` is what the board needed and did not have.** It lets a row say
+"no estimate, and one may still be coming" apart from "no estimate, and none is". A column then
+asks again while, and only while, one of its own rows is waiting — so a settled board makes no
+requests at all, and the column holding the new card is the only one that does.
+
+**It is read off `hltb_checked_at`, and that is the whole of what makes looping on it safe.**
+The column is stamped on a refusal exactly as it is on a match — which is the reason it exists —
+so a title HowLongToBeat has never heard of stops being pending with nothing to show for it.
+Polling on "the hours are null" instead would poll for ever on every unmatchable title, and a
+real library has several: Pokémon Scarlet is one.
+
+Four things worth not rediscovering:
+
+- **The projection is `row.Media is Game && …`, not `(row.Media as Game) != null && …`.** EF
+  elides the second as always true, so every film comes back pending and the movies board polls
+  for an answer nobody is bringing. `is Game` becomes the TPT join's own null check, which is the
+  question actually being asked. It cost a red test to find, and that test is
+  `A_board_row_for_something_that_is_not_a_game_is_never_waiting`.
+- **It is in both terminal DTO projections**, `ListAsync` and `ItemAsync`, on the licence the
+  genre and HLTB downcasts already took and never in `BoardQuery`. A transition answers with the
+  row it just wrote and the board puts that straight into the cache, so if the two disagreed a
+  drag would tell the board to stop waiting for a title still being looked up.
+- **`refetchInterval` is a function, not a number.** TanStack calls it to schedule each next ask,
+  so the budget is re-read against the clock every time. A number computed during render is read
+  once and never revised, because a refetch that changes nothing does not re-render.
+- **There is a budget, `ESTIMATE_POLL_BUDGET_MS`.** `hltb_checked_at` stays null when
+  `Hltb:Enabled` is off or the site is refusing us, so "still pending" is not by itself a promise
+  that the waiting ends. Without the budget a board in that state asks for the rest of the
+  session. It restarts whenever the set of waiting titles changes, so a game added while the last
+  one is still being looked up is not left on the tail end of somebody else's clock.
+
+**The stub had to start taking a moment for any of this to be testable.** `hltb-stub.mjs`
+answered a search instantly, which let the refetch that follows an add win a race it always loses
+in production — so the spec asserting the card fills itself in passed whether or not the board
+ever looked again. Checked by removing the poll and watching it pass. `SEARCH_DELAY_MS` is 600ms
+on the search alone; the by-id fetch still answers at once, because that is the one route
+somebody is genuinely waiting on. With the delay in place, removing the poll fails the spec.
+
+**Not covered, and deliberately:** the drawer. Its three tiers do not refresh themselves while it
+is open. The pin control writes synchronously and refetches, so the path a person waits on is
+already immediate, and a dialog that repaints under the reader is worse than one that does not.
+
+### The backfill is a thing you run, and that keeps catching people
+
+**To build: `HltbWorker` should sweep up titles with no numbers when it starts.** This is the
+next thing worth doing in this area, and it is written down here because it has now bitten twice.
+
+The shape of the problem. `media` rows are only ever written by a search, so a column added to
+the schema is empty on the library you already have until something goes and asks — and the only
+thing that asks is `POST /api/games/hltb/refresh`, which has no UI, sits behind `[Authorize]`,
+and nobody would think to run. Adding `hltb_all_styles_hours` therefore took every card's estimate
+away until it was run by hand. The migration clearing `hltb_checked_at` was necessary but not
+sufficient: it made the backfill *able* to pick those rows up, and still nothing picked the
+backfill up.
+
+What it should do: on startup, enqueue the same set `BackfillAsync` selects — library titles
+whose `hltb_checked_at` is null or older than `Hltb:RecheckAfterDays`. The queue, the worker, the
+politeness floor and the swallow-and-log are all already there; this is a `BackgroundService`
+starting the thing that already exists, not a new path.
+
+**Three things to get right, and the reason this was not simply done:**
+
+- **It makes the app reach HowLongToBeat without being asked**, and this is a site that would
+  rather not be read by a program. That is why the backfill is explicit today. `Hltb:Enabled`
+  must gate the sweep as it gates the worker, and the sweep must be its own setting besides —
+  somebody running this locally to look at the board should not become traffic.
+- **`ApiFactory` removes `HltbWorker` from the host entirely**, because left in it looks titles
+  up on a background thread while tests assert about the rows it is writing. A sweep that runs
+  from the worker inherits that, which is right; a sweep that runs from anywhere else does not,
+  and would make the suite flake in a way that reads as a database problem.
+- **It must not re-ask on every restart.** `hltb_checked_at` is stamped on a miss as well as a
+  hit for exactly this reason, so the selection above is already correct — but a sweep makes a
+  restart loop expensive in a way a manual backfill never was, and the recheck window is the only
+  thing standing between a crash-loop and a few hundred requests.
+
+Until it exists: **after any migration that adds an `hltb_*` column, run the backfill**, and say
+so in the same breath as the migration. It is one line from the browser console while signed in,
+and CLAUDE.md is where somebody would look for it:
+
+```js
+await fetch('/api/games/hltb/refresh', { method: 'POST' }).then(r => r.json())
+```
+
 **Storing the matched id is load-bearing, and was missed on the first pass.** A confident match
 writes `hltb_id`, and every later refresh fetches *that id* instead of searching and matching
 again. Without it every backfill quietly becomes a full re-match, and the numbers can drift onto a
@@ -2040,10 +2411,13 @@ configured — which is exactly what makes this worth running.
 
 Three deliberate choices, each of which is what stops a spec passing for the wrong reason:
 
-- **Its search endpoint is `warble`, pointedly not `bleed`.** `bleed` is what
-  `Hltb:FallbackSearchPath` holds, so naming the stub's endpoint after the real one would let the
-  fallback quietly cover for a pair rule that had stopped working. Checked by breaking it: strip
-  the `/init` reference out of the bundle and **all eight specs fail**.
+- **Its search endpoint is `warble/site`, pointedly not whatever `Hltb:FallbackSearchPath`
+  holds.** Naming the stub's endpoint after the real one would let the fallback quietly cover for
+  a pair rule that had stopped working. Checked by breaking it: strip the `/init` reference out
+  of the bundle and **all eight specs fail**. It is two segments because the real one is two
+  segments — it was a single word here for as long as it was a single word on the site, which is
+  precisely how this suite stayed green through the rename that broke every automatic lookup in
+  the app. See **X may have slashes in it**.
 - **The bundle carries a decoy.** `/api/game` is referenced from a POST fetch and is the first
   one a reader meets — the obvious reading, what the community clients take, and what answers 404
   on the real site. It is there so "take the first POST fetch" fails this suite rather than

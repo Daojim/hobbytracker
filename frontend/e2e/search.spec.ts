@@ -55,6 +55,27 @@ test('a search that matches nothing says so', async ({ page }) => {
   await expect(page.getByText('Nothing matched “zzzzzz”.')).toBeVisible();
 });
 
+test('the box clears from its own corner, and keeps the keyboard', async ({ page }) => {
+  // A real browser is the only place the interesting half of this shows. Chrome draws its own
+  // cancel button inside a type="search" box as soon as it has content, so without the rule that
+  // hides it there are two × in that corner — one of them unstyled, unlabelled and invisible to
+  // every locator here. jsdom renders neither and would call this passing either way.
+  const box = page.getByRole('searchbox', { name: 'Search games' });
+  await box.fill('hollow');
+  await expect(page.getByRole('region', { name: 'Search results' })).toBeVisible();
+
+  const clear = page.getByRole('button', { name: 'Clear search' });
+  await expect(clear).toHaveCount(1);
+  await clear.click();
+
+  await expect(box).toHaveValue('');
+  await expect(box).toBeFocused();
+
+  // Gone with the text, because there is nothing left to clear.
+  await expect(clear).toHaveCount(0);
+  await expect(page.getByRole('region', { name: 'Search results' })).toHaveCount(0);
+});
+
 test('the results give the board back when the search is cleared', async ({ page }) => {
   const results = page.getByRole('region', { name: 'Search results' });
 

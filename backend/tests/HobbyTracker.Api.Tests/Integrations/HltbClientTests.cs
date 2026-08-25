@@ -116,10 +116,41 @@ public sealed class HltbClientTests
 
         await client.SearchAsync("  Hollow   Knight ", Ct);
 
-        var terms = JsonDocument.Parse(stub.Requests[0].Body!).RootElement
-            .GetProperty("searchTerms").EnumerateArray().Select(term => term.GetString());
+        TermsOf(stub).ShouldBe(["Hollow", "Knight"]);
+    }
 
-        terms.ShouldBe(["Hollow", "Knight"]);
+    [Fact]
+    public async Task Drops_punctuation_from_the_terms_it_searches_on()
+    {
+        // Measured against the live site rather than reasoned about. HowLongToBeat matches each
+        // term against its own title literally, so a colon IGDB writes and HowLongToBeat does
+        // not takes the entire search to nothing: "Dragon Quest III: HD-2D Remake" answers with
+        // zero candidates where "Dragon Quest III HD-2D Remake" answers with the game. Nothing
+        // downstream can recover from that — the matcher is handed an empty list and correctly
+        // refuses, so the title is stamped as checked and never asked about again.
+        //
+        // Cleaning is never worse: ten real titles were tried both ways and nine were identical,
+        // because a term carrying no punctuation is unchanged by this.
+        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)));
+
+        await client.SearchAsync("Dragon Quest III: HD-2D Remake", Ct);
+
+        TermsOf(stub).ShouldBe(["Dragon", "Quest", "III", "HD", "2D", "Remake"]);
+    }
+
+    [Fact]
+    public async Task Folds_the_accents_but_leaves_the_numerals_alone()
+    {
+        // Two halves of one rule, and the second is why this cannot call HltbMatcher.Normalise.
+        // The accent has to go, because the two sites disagree about it. The roman numeral must
+        // *not* be folded to a digit the way the matcher folds it: the matcher is comparing two
+        // strings already in hand, where this is a query against a site that writes "III" and
+        // would match nothing at all for "3".
+        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)));
+
+        await client.SearchAsync("Pokémon Version VII", Ct);
+
+        TermsOf(stub).ShouldBe(["Pokemon", "Version", "VII"]);
     }
 
     [Fact]
@@ -296,6 +327,11 @@ public sealed class HltbClientTests
 
     private static (HttpStatusCode, string, string)[] Responses(
         params (HttpStatusCode, string, string)[] responses) => responses;
+
+    /// <summary>The terms a search actually went out with.</summary>
+    private static IEnumerable<string?> TermsOf(StubHttpMessageHandler stub) =>
+        JsonDocument.Parse(stub.Requests[0].Body!).RootElement
+            .GetProperty("searchTerms").EnumerateArray().Select(term => term.GetString());
 
     private static HltbClient CreateClient(
         out StubHttpMessageHandler stub, (HttpStatusCode, string, string)[] responses) =>
