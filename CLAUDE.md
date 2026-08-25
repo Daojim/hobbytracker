@@ -1691,6 +1691,13 @@ else in the suite is quietly running against an origin it never mentioned.
 - **That directory has to be writable by whoever the container runs as, and it is not an error when
   it is not.** Data Protection falls back to keys held only in memory and says so in a log line
   nobody is reading at the time. The compose file sets `user:` for this and for nothing else.
+- **`AllowedHosts` has to keep `localhost` on the list, and forgetting it misdirects.** The compose
+  file binds Caddy to `127.0.0.1` as the local debugging handle, and a request arriving that way
+  carries `Host: localhost` — which the public hostname alone rejects with a bare 400 *"Invalid
+  Hostname"* from host filtering, before any of this application runs. **Static files keep working**,
+  because Caddy answers those itself and never reaches the API, so the symptom is a board that loads
+  perfectly and an API that refuses every call on it. Only somebody already on the host can send that
+  header, since the port is published nowhere else, so allowing it costs nothing.
 - **Migrations are guarded to Production.** Both test harnesses already apply them their own way —
   `PostgresFixture` for the backend suite, a `dotnet ef database update` chained into the API's own
   command for Playwright — so an unguarded `Database.Migrate()` is a third caller racing them.
