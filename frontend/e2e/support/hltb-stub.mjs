@@ -22,13 +22,17 @@ import { createServer } from 'node:http';
 const PORT = Number(process.env.HLTB_STUB_PORT ?? 5398);
 
 /**
- * Deliberately not "bleed", which is what `Hltb:FallbackSearchPath` holds.
+ * Deliberately not whatever `Hltb:FallbackSearchPath` holds.
  *
- * If discovery broke, the client would fall back to /api/bleed, this stub would 404, and the
- * specs would fail — which is the point. Naming the stub's endpoint after the real one would let
- * the fallback quietly cover for a pair rule that had stopped working.
+ * If discovery broke, the client would fall back to the configured name, this stub would 404
+ * and the specs would fail — which is the point. Naming the stub's endpoint after the real one
+ * would let the fallback quietly cover for a pair rule that had stopped working.
+ *
+ * Two segments, because the real one has two. It was a single word here for as long as it was
+ * a single word on the site, which is how the pair rule came to reject a name with a slash in
+ * it and how this suite stayed green while every automatic lookup in the app was failing.
  */
-const SEARCH_PATH = 'warble';
+const SEARCH_PATH = 'warble/site';
 
 /**
  * What HowLongToBeat knows, which is not what IGDB knows — that disagreement is the feature.
@@ -85,7 +89,7 @@ const asPageGame = (game) => ({ ...asSearchResult(game), release_world: game.yea
  * The decoy matters as much as the pair. `/api/game` is reached by a POST fetch and is the first
  * one a reader meets, which is exactly what the community clients take and what answers 404 on
  * the real site; it is here so that "take the first POST fetch" fails this suite rather than
- * passing it. Only `warble` is also referenced with /init, so only `warble` is the search.
+ * passing it. Only `warble/site` is also referenced with /init, so only it is the search.
  */
 const BUNDLE = [
   '(self.webpackChunk=self.webpackChunk||[]).push([[404],{',

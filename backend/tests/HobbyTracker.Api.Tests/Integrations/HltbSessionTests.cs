@@ -32,6 +32,16 @@ public sealed class HltbSessionTests
         let d=await fetch("/api/bleed",{method:"POST",headers:{"x-hp-key":k}});
         """;
 
+    /// <summary>
+    /// The bundle as the site serves it today: the endpoint is /api/search/site, and the decoy
+    /// POST to /api/game/ is still the first thing a reader meets.
+    /// </summary>
+    private const string MultiSegmentBundle = """
+        let a=await fetch("/api/game/",{method:"POST"});
+        let b=await fetch("/api/search/site/init?"+Date.now());
+        let c=await fetch("/api/search/site",{method:"POST",headers:{"x-hp-key":k}});
+        """;
+
     private const string Init =
         """{"token":"tok-1","hpKey":"ign_abc123","hpVal":"deadbeef"}""";
 
@@ -49,6 +59,20 @@ public sealed class HltbSessionTests
         credentials.Token.ShouldBe("tok-1");
         credentials.HpKey.ShouldBe("ign_abc123");
         credentials.HpVal.ShouldBe("deadbeef");
+    }
+
+    [Fact]
+    public async Task Finds_a_search_endpoint_whose_name_has_more_than_one_segment()
+    {
+        // The rename that actually happened. "bleed" became "search/site" — two segments — and
+        // the pair rule only ever looked at names with no slash in them, so it found nothing,
+        // fell back to a "bleed" that now answers 404, and every automatic lookup stopped.
+        // Pinning by hand went on working throughout, because fetching a known id needs no
+        // handshake and so never comes through here — which is why the broken half of the
+        // feature was the half with no way of saying so.
+        var session = CreateSession(out _, bundle: MultiSegmentBundle);
+
+        (await session.GetAsync(Ct)).SearchPath.ShouldBe("search/site");
     }
 
     [Fact]

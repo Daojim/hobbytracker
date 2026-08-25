@@ -119,6 +119,15 @@ public sealed partial class HltbSession(
     /// Taking the first POST fetch instead — the obvious reading, and what the community clients
     /// do — picks /api/game/ out of a real bundle, which answers 404. A 404 reads as a wrong URL
     /// rather than a wrong rule, so it sends you looking for a path suffix that does not exist.
+    ///
+    /// X may contain slashes, and that is not a detail. Every name the site has used until now
+    /// was a single word — s, seek, bleed — so the pair rule refused anything with a slash in
+    /// it, on no evidence beyond the three examples in front of it. The endpoint then became
+    /// search/site, discovery stopped finding anything at all, and the fallback it dropped to
+    /// was a name the site had already retired. What made that expensive to notice is that it
+    /// takes out only half the feature: pinning an id by hand needs no handshake and never comes
+    /// through here, so the working half kept working and the broken half failed in a background
+    /// worker that logs and swallows.
     /// </summary>
     private async Task<string> DiscoverSearchPathAsync(
         HttpClient client, CancellationToken cancellationToken)
@@ -144,9 +153,12 @@ public sealed partial class HltbSession(
                 .Select(match => match.Groups[1].Value)
                 .ToHashSet(StringComparer.Ordinal);
 
-            var found = referenced.FirstOrDefault(name =>
-                !name.Contains('/', StringComparison.Ordinal)
-                && referenced.Contains($"{name}/init"));
+            // Ordered rather than taken as they come, so that a bundle offering more than one
+            // pair resolves the same way twice. Nothing has ever offered more than one — this is
+            // a tie-break, not a preference between them.
+            var found = referenced
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .FirstOrDefault(name => referenced.Contains($"{name}/init"));
 
             if (found is not null)
             {

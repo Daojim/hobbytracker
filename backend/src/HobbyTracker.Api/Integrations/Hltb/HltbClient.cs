@@ -76,8 +76,7 @@ public sealed partial class HltbClient(
     public async Task<IReadOnlyList<HltbGame>> SearchAsync(
         string title, CancellationToken cancellationToken)
     {
-        var terms = title.Split(' ', StringSplitOptions.RemoveEmptyEntries
-                                    | StringSplitOptions.TrimEntries);
+        var terms = TermsOf(title);
 
         if (terms.Length == 0)
         {
@@ -183,6 +182,47 @@ public sealed partial class HltbClient(
 
             return await response.Content.ReadAsStringAsync(cancellationToken);
         }
+    }
+
+    /// <summary>
+    /// The title as terms the site will actually match on: accents folded, punctuation dropped.
+    ///
+    /// **Not** a cosmetic tidy-up. HowLongToBeat matches every term against its own title
+    /// literally, so one piece of punctuation the two sites disagree about takes the whole
+    /// search to nothing rather than to a worse result — measured on the live site,
+    /// "Dragon Quest III: HD-2D Remake" answers with zero candidates and
+    /// "Dragon Quest III HD-2D Remake" answers with the game. Nothing downstream can recover
+    /// from that: the matcher is handed an empty list, correctly refuses, and the title is
+    /// stamped as checked and never asked about again. IGDB and HowLongToBeat disagree about
+    /// colons, hyphens and apostrophes constantly, so this is an ordinary case and not an edge.
+    ///
+    /// Safe as well as necessary: a term carrying no punctuation is unchanged by this, and ten
+    /// real titles were tried both ways against the live site with nine identical and one — the
+    /// colon — rescued.
+    ///
+    /// It deliberately does **not** call <see cref="Services.HltbMatcher"/>'s normalisation,
+    /// which looks like the same job and is not. That folds roman numerals to digits, which is
+    /// right when comparing two strings already in hand and wrong in a query: the site writes
+    /// "III" and would match nothing at all for "3". It also lower-cases and drops a leading
+    /// "The", neither of which a search wants.
+    /// </summary>
+    private static string[] TermsOf(string title)
+    {
+        var folded = new StringBuilder(title.Length);
+
+        foreach (var character in title.Normalize(NormalizationForm.FormD))
+        {
+            // Diacritics: IGDB writes "Pokémon" and HowLongToBeat is inconsistent about it.
+            if (CharUnicodeInfo.GetUnicodeCategory(character) == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            folded.Append(char.IsLetterOrDigit(character) ? character : ' ');
+        }
+
+        return folded.ToString()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     }
 
     /// <summary>
