@@ -13,21 +13,33 @@
 
 set -euo pipefail
 
-# Everything runs from the compose directory: `docker compose` needs to find compose.yml, and
-# BACKUP_DIR is read from the .env sitting beside it.
+# Everything runs from the compose directory: `docker compose` needs to find compose.yml, and the
+# settings below are read from the .env sitting beside it.
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
-if [ -f .env ]; then
-	set -a
-	# shellcheck disable=SC1091
-	. ./.env
-	set +a
-fi
+# Reads one key out of .env WITHOUT letting the shell interpret the file.
+#
+# This is the whole reason there is a function rather than `set -a; . ./.env`. That file is
+# docker-compose syntax, not shell, and a value there may legitimately contain `;`, `#`, a space
+# or a `$` -- none of which survive being sourced. ALLOWED_HOSTS carries a semicolon so that the
+# loopback debugging handle works, and sourcing it ran `localhost` as a command and took this
+# script out on its first run.
+env_value() {
+	[ -f .env ] || return 0
+	sed -n "s/^$1=//p" .env | head -n 1
+}
 
-BACKUP_DIR="${BACKUP_DIR:?set BACKUP_DIR in .env, on a different disk from the database}"
-RETAIN_DAYS="${BACKUP_RETAIN_DAYS:-14}"
-DB_NAME="${POSTGRES_DB:-hobbytracker}"
-DB_USER="${POSTGRES_USER:-hobbytracker}"
+BACKUP_DIR="$(env_value BACKUP_DIR)"
+: "${BACKUP_DIR:?set BACKUP_DIR in .env, on a different disk from the database}"
+
+RETAIN_DAYS="$(env_value BACKUP_RETAIN_DAYS)"
+DB_NAME="$(env_value POSTGRES_DB)"
+DB_USER="$(env_value POSTGRES_USER)"
+
+# The same defaults the compose file applies, so the two cannot disagree about what to dump.
+RETAIN_DAYS="${RETAIN_DAYS:-14}"
+DB_NAME="${DB_NAME:-hobbytracker}"
+DB_USER="${DB_USER:-hobbytracker}"
 
 mkdir -p "$BACKUP_DIR"
 target="$BACKUP_DIR/hobbytracker-$(date +%Y-%m-%d_%H%M%S).sql.gz"
