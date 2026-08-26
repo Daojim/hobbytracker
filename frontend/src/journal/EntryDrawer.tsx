@@ -20,6 +20,15 @@ const STATUS_LABEL: Record<LogStatus, string> = {
   Dropped: 'Dropped',
 };
 
+/**
+ * What a band of the drawer is titled in.
+ *
+ * Shared rather than written twice, because the pass's heading and the journal's are the same
+ * thing at the same level and the whole point of them is that they match. It is the type
+ * "Earlier passes" already wears, which is the app's one way of saying "a section starts here".
+ */
+const BAND_HEADING = 'text-xs font-medium tracking-wide text-muted uppercase';
+
 /** What Tab can land on. Mirrors the browser's own idea of it closely enough for one panel. */
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
@@ -301,8 +310,18 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
 
             {/* The pass ends and the writing about it begins. Same rule as the header's, and the
                 reason the notes are outside the form in the first place: each note is its own row
-                and its own write, so nothing above this line reaches anything below it. */}
-            <hr className="border-line-soft" />
+                and its own write, so nothing above this line reaches anything below it.
+
+                `my-1` because the two rules sit in containers with different gaps — the header's
+                is a child of the panel at gap-4, this one a child of the pass at gap-3 — so
+                without it the second is 12px clear of its neighbours where the first is 16px, and
+                two rules doing the same job at different weights reads as a mistake. */}
+            <hr className="my-1 border-line-soft" />
+
+            {/* The third band gets a heading like the other two. It says Journal rather than
+                Notes because that is what this drawer is called everywhere else — the card's
+                menu opens a journal, and every other hobby gets the word unmodified. */}
+            <p className={BAND_HEADING}>Journal</p>
 
             <NoteList notes={current.notes} composeOpen {...noteProps(current.id)} />
           </PassSection>
@@ -393,9 +412,7 @@ function PassSection({ entry, heading, lead = false, children }: PassSectionProp
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
       <p
         id={headingId}
-        className={
-          lead ? 'text-xs font-medium tracking-wide text-muted uppercase' : 'text-sm text-muted'
-        }
+        className={lead ? BAND_HEADING : 'text-sm text-muted'}
       >
         {heading}
       </p>

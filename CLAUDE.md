@@ -880,7 +880,16 @@ Settled:
 - **Three bands, separated by a rule each**: what the game *is*, the pass you are on, and what you
   wrote during it. The same `border-line-soft` the settings menu puts between its three groups, and
   the same job — the drawer was one column of controls at one weight, where the first two are about
-  entirely different things and the third writes to a different endpoint again.
+  entirely different things and the third writes to a different endpoint again. The lower two open
+  with a heading in **one shared class, `BAND_HEADING`** — the pass says what it is (*Completed*,
+  *Backlog*), the notes say *Journal*, which is the word the card's menu already opens them by and
+  the one every other hobby gets unmodified. Shared rather than written twice because matching is
+  the entire point of them.
+- **The second rule carries `my-1` and the first carries nothing**, which is what makes them the
+  same. They sit in containers with different gaps — the header's rule is a child of the panel at
+  `gap-4`, the notes' rule a child of the pass at `gap-3` — so left alone the second sits 12px
+  clear of its neighbours where the first sits 16px. Two rules doing one job at two weights reads
+  as a mistake rather than as a rhythm.
 - **The genre select and the HowLongToBeat pin sit in the header, not the form.** Both belong to the
   title, and `EntryForm` submits one `PUT` to the log-entry endpoint, so putting them there would
   mean writing to two. The genre select saves on change; the pin does not — see **The pin**. They
