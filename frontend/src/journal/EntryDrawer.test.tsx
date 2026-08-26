@@ -834,6 +834,22 @@ describe('EntryDrawer', () => {
     expect(journal.genresSet[0]).toEqual({ mediaId: 3003, genre: 'Adventure' });
   });
 
+  it('names the developer under the title, and leaves the platforms to the field that sets one', async () => {
+    // This line was the game's whole byline once, so it carried both. The platforms have a
+    // control of their own three rows down, and a list of them under the title said nothing you
+    // could act on — a spec sheet where a byline belongs. Who made it is the fact that does not
+    // appear anywhere else in the drawer.
+    journalServer({
+      detail: gameDetail({ platforms: ['PC', 'Switch'], developers: ['Team Cherry'] }),
+    });
+
+    open();
+
+    expect(await screen.findByText('Team Cherry')).toBeInTheDocument();
+    // The words still exist as options in the Platform select; what is gone is the joined line.
+    expect(screen.queryByText(/PC, Switch/)).not.toBeInTheDocument();
+  });
+
   it('offers the platforms the game came out on, and no platform at all', async () => {
     // Already loaded by getGame, so there is no second request to make for this.
     journalServer({ detail: gameDetail({ platforms: ['PC', 'Switch'] }) });

@@ -21,6 +21,12 @@ export interface HltbPinProps {
  * The link is the other half. HowLongToBeat's name for a game is often not IGDB's, which is the
  * entire reason a matcher exists, so no column stores the matched title — following the link is
  * how you check that the numbers belong to the game you meant.
+ *
+ * **It renders a label and a control as siblings, not a row of its own**, so that the drawer's
+ * header grid can put its label in the same track as the Genre one above it and give the two
+ * controls a shared left edge. The alternative was both files naming the same label width and
+ * agreeing by luck. The cost is stated rather than hidden: this expects to sit in a two-track
+ * grid, which is why the error spans both columns explicitly.
  */
 export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
   const id = useId();
@@ -70,11 +76,12 @@ export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
   }
 
   return (
-    <div className="flex flex-col gap-1 text-xs text-muted">
-      <div className="flex items-center gap-2">
-        <label htmlFor={id} className="font-medium">
-          HowLongToBeat ID
-        </label>
+    <>
+      <label htmlFor={id} className="font-medium">
+        HowLongToBeat ID
+      </label>
+
+      <div className="flex flex-wrap items-center gap-2">
         <input
           id={id}
           type="text"
@@ -107,13 +114,15 @@ export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
         )}
       </div>
 
-      {/* The local rule wins when it fires, because it is what stopped the request going. */}
+      {/* The local rule wins when it fires, because it is what stopped the request going.
+          col-span-2 because this is a grid child now — left in the control's track it would sit
+          under the box and drag the label's row taller with it. */}
       {(refusal ?? error) !== null && (
-        <p role="alert" className="text-danger">
+        <p role="alert" className="col-span-2 text-danger">
           {refusal ?? error}
         </p>
       )}
-    </div>
+    </>
   );
 }
 

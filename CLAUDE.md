@@ -863,9 +863,33 @@ Settled:
   phrasing, cannot be styled, and has to be stubbed in every test that walks past it. Each button in
   the history names the pass it would take, because they all otherwise say the same word.
 - **Deleting the last pass takes the title off the board**, and says so first.
+- **Three bands, separated by a rule each**: what the game *is*, the pass you are on, and what you
+  wrote during it. The same `border-line-soft` the settings menu puts between its three groups, and
+  the same job — the drawer was one column of controls at one weight, where the first two are about
+  entirely different things and the third writes to a different endpoint again.
 - **The genre select and the HowLongToBeat pin sit in the header, not the form.** Both belong to the
   title, and `EntryForm` submits one `PUT` to the log-entry endpoint, so putting them there would
-  mean writing to two. The genre select saves on change; the pin does not — see **The pin**.
+  mean writing to two. The genre select saves on change; the pin does not — see **The pin**. They
+  share a **two-track grid** so their controls line up, `max-content` on the first track so the
+  wider label sets the column without either naming a width — which would have been one magic
+  number in two files agreeing by luck. **`HltbPin` therefore renders a label and a control as
+  siblings rather than a row of its own**, and says so at its own top: a component that has to sit
+  inside a particular grid is not a thing to find out from the outside.
+- **Under the title is the developer, and only the developer.** It carried the platforms too while
+  it was the game's one byline, but those have a control three rows down — a list of them there was
+  a spec sheet where a name belongs, and the developer is the only fact on that line that appears
+  nowhere else in the drawer.
+- **The current pass's heading is a band heading; an earlier pass's is not.** `PassSection` takes a
+  `lead` flag and the only thing it changes is the type. The current pass opens a band between two
+  rules, as the header above and the notes below do, so it wears the uppercase the app already uses
+  for one — the same type "Earlier passes" itself is set in. An earlier pass is a row *inside* that
+  group, and matching it would nest two levels of the same shout.
+- **Delete sits on the Save row, hard right, through an `actions` slot on `EntryForm`.** It used to
+  sit under the form in the column every field label occupies, at the size every field label is set
+  in, saying one word — so it read as a heading for whatever came next rather than as a button. A
+  slot rather than a `ConfirmDelete` prop, because the form has no business knowing that deleting a
+  pass exists; what it owns is the row its own button is on. That row is `flex-wrap`, since a
+  confirm replaces one word with a sentence naming what it would take.
 - **The rating is a slider plus a number box**, `step="0.1"` over 1.0–10.0. Stars reach nineteen
   values, which would quietly retire the decimal place `numeric(3,1)` exists for. A range input has
   no empty state, so "not rated" is said out loud — blank box, dimmed track, `aria-valuetext`, and a
@@ -1696,7 +1720,13 @@ The stub's catalogue disagrees with IGDB's on purpose: Stardew Valley is missing
 as "Anthem: Legion of Dawn", which scores about 0.29 against IGDB's bare "Anthem" and is correctly
 refused — which makes the pin's specs about something real. **Adding a title already queues a
 lookup**, so most specs need only wait; `awaitEstimate` and `awaitChecked` in `e2e/support/hltb.ts`
-are that wait. The backfill spec blanks the columns in psql first, because a title predating the
+are that wait. **`estimate(page, tier)` beside them is how a spec names one of the four numbers**,
+and it is there because the alternative scattered: the tiers used to be spans reading
+`Main story: 8 h`, so nine assertions across `hltb.spec.ts` and `journal.spec.ts` each hard-coded
+that string, and turning them into label-and-value pairs broke all nine at once. Worse, it broke
+them *silently for a commit* — the change came with a new `layout.spec.ts` case and running that
+file alone proved nothing about the two that actually named tiers. **After changing markup the
+drawer shares, run the whole e2e suite rather than the spec that looks related.** The backfill spec blanks the columns in psql first, because a title predating the
 feature is a state the app cannot reach, and `awaitChecked` reads `hltb_checked_at` straight out of
 Postgres, since a refused match changes no other field and nothing on the wire carries that column.
 

@@ -189,20 +189,30 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
           </p>
         )}
 
-        {detail !== undefined && (
-          <p className="text-xs text-muted">
-            {[detail.platforms.join(', '), detail.developers.join(', ')]
-              .filter((line) => line !== '')
-              .join(' · ')}
-          </p>
+        {/* Who made it, and nothing else. This carried the platforms too while it was the game's
+            only byline, but they have a control of their own further down — a list of them here
+            was a spec sheet where a name belongs, and the one fact it stated that nothing else
+            in the drawer does is the developer. */}
+        {detail !== undefined && detail.developers.length > 0 && (
+          <p className="text-xs text-muted">{detail.developers.join(', ')}</p>
         )}
 
+        {/* The two things that belong to the title rather than to a pass, in one band.
 
-        {/* A property of the title, so it sits in the header describing the game rather than in
-            the form describing a pass — which submits one PUT to a different endpoint and would
-            otherwise be writing to two. Saves on change; there is nothing to hold back. */}
+            Both sit in the header for the same reason: they describe the game, where EntryForm
+            below submits one PUT about a pass to a different endpoint — putting either there
+            would mean one form writing to two places.
+
+            A grid rather than two independent rows, so the two controls share a left edge.
+            `max-content` on the first track is what lets the wider label set the column for both
+            without either of them naming a width — the alternative was the same magic number
+            written down twice, in two files, agreeing by luck.
+
+            HltbPin renders straight into these tracks rather than into a wrapper of its own. The
+            coupling is stated at its own top too, since a component that has to sit inside a
+            particular grid is not a thing to discover from the outside. */}
         {detail !== undefined && (
-          <div className="flex items-center gap-2 text-xs text-muted">
+          <div className="grid grid-cols-[max-content_1fr] items-center gap-x-3 gap-y-2 text-xs text-muted">
             <label htmlFor={genreId} className="font-medium">
               Genre
             </label>
@@ -212,7 +222,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
               onChange={(event) =>
                 setGenre.mutate(event.target.value === '' ? null : event.target.value)
               }
-              className="rounded border border-line bg-surface px-1 py-0.5 text-xs"
+              className="justify-self-start rounded border border-line bg-surface px-1 py-0.5 text-xs"
             >
               {/* Not "Not recorded": null here means "use the automatic pick", so the option
                   says which one that is. */}
@@ -223,25 +233,28 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
                 </option>
               ))}
             </select>
+
+            <HltbPin
+              // Re-seeds when the stored id changes — after a pin of your own, or after the
+              // queue matches the title while the drawer is open. EntryForm is keyed for the
+              // same reason: useState reads its initial value once. A refused pin leaves the id
+              // alone, so what was typed stays in the box to be corrected.
+              key={detail.hltbId}
+              hltbId={detail.hltbId}
+              saving={setHltbId.isPending}
+              error={setHltbId.error === null ? null : setHltbId.error.message}
+              onPin={(hltbId) => setHltbId.mutate(hltbId)}
+            />
           </div>
         )}
 
-        {detail !== undefined && (
-          <HltbPin
-            // Re-seeds when the stored id changes — after a pin of your own, or after the
-            // queue matches the title while the drawer is open. EntryForm is keyed for the
-            // same reason: useState reads its initial value once. A refused pin leaves the id
-            // alone, so what was typed stays in the box to be corrected.
-            key={detail.hltbId}
-            hltbId={detail.hltbId}
-            saving={setHltbId.isPending}
-            error={setHltbId.error === null ? null : setHltbId.error.message}
-            onPin={(hltbId) => setHltbId.mutate(hltbId)}
-          />
-        )}
+        {/* Everything above is about the game; everything below is about one pass through it.
+            The rule is where that changes, and it is the same `border-line-soft` the settings
+            menu puts between its three groups. */}
+        {detail !== undefined && <hr className="border-line-soft" />}
 
         {current !== undefined && detail !== undefined && (
-          <PassSection entry={current} heading={STATUS_LABEL[current.status]}>
+          <PassSection entry={current} heading={STATUS_LABEL[current.status]} lead>
             <EntryForm
               // Remounts when a different card is opened, so the inputs reload rather than
               // keeping the last title's half-typed rating — and when this pass changes
@@ -260,17 +273,29 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
                 )
               }
               onEdit={() => setSaved(false)}
+              // On the Save row, hard right, rather than under it. It stood in the column every
+              // field label stands in, at the size every field label is set in, saying one word —
+              // so it read as a heading for whatever came next rather than as the button it is.
+              // Beside Save it is unmistakably an action, and the two things you can do to this
+              // pass end up on one line, at opposite ends, which is where a destructive one wants
+              // to be relative to the ordinary one.
+              actions={
+                <ConfirmDelete
+                  label="Delete this pass"
+                  warning={
+                    onlyPass
+                      ? `The only pass — deleting it takes ${detail.title} off your board.`
+                      : null
+                  }
+                  {...deleteProps(current.id)}
+                />
+              }
             />
 
-            <ConfirmDelete
-              label="Delete this pass"
-              warning={
-                onlyPass
-                  ? `The only pass — deleting it takes ${detail.title} off your board.`
-                  : null
-              }
-              {...deleteProps(current.id)}
-            />
+            {/* The pass ends and the writing about it begins. Same rule as the header's, and the
+                reason the notes are outside the form in the first place: each note is its own row
+                and its own write, so nothing above this line reaches anything below it. */}
+            <hr className="border-line-soft" />
 
             <NoteList notes={current.notes} composeOpen {...noteProps(current.id)} />
           </PassSection>
@@ -334,6 +359,16 @@ interface PassSectionProps {
   entry: LogEntry;
   /** What the pass is called, and what names the region a screen reader can jump to. */
   heading: string;
+  /**
+   * Whether this is the pass the drawer is *about*, rather than one of the ones underneath it.
+   *
+   * Only the styling differs, and it differs because the two are not the same kind of thing. The
+   * current pass opens a band of the drawer, between two rules, the way the header above it and
+   * the notes below it do — so it takes the uppercase heading this app already uses for a band,
+   * the one "Earlier passes" itself wears. An earlier pass is a row inside that group, and
+   * giving it the same weight would put two levels of the same shout inside one another.
+   */
+  lead?: boolean;
   children: ReactNode;
 }
 
@@ -344,12 +379,17 @@ interface PassSectionProps {
  * problem — several passes on one screen, each carrying identically-named controls, and tests
  * and screen readers both needing to say which one they mean.
  */
-function PassSection({ entry, heading, children }: PassSectionProps) {
+function PassSection({ entry, heading, lead = false, children }: PassSectionProps) {
   const headingId = `pass-${entry.id}`;
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <p id={headingId} className="text-sm text-muted">
+      <p
+        id={headingId}
+        className={
+          lead ? 'text-xs font-medium tracking-wide text-muted uppercase' : 'text-sm text-muted'
+        }
+      >
         {heading}
       </p>
       {children}

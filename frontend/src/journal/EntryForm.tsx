@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { journalDateInput } from '../lib/time';
 import { formatHours } from '../lib/hours';
 import {
@@ -37,6 +37,14 @@ export interface EntryFormProps {
   /** What the API objected to, keyed by field, so it can be shown where it belongs. */
   serverErrors: Record<string, string[]>;
   onSave: (update: UpdateLogEntry) => void;
+  /**
+   * Whatever else can be done to this pass, on the Save row and pushed to its far end.
+   *
+   * A slot rather than a `ConfirmDelete` prop, because this form has no business knowing that
+   * deleting a pass is a thing — it submits one PUT and that is all it does. What it does own is
+   * the row its own button sits on, which is the only thing a second action needed from it.
+   */
+  actions?: ReactNode;
 }
 
 /**
@@ -55,6 +63,7 @@ export function EntryForm({
   serverErrors,
   onSave,
   onEdit,
+  actions,
 }: EntryFormProps) {
   const ids = useId();
 
@@ -339,7 +348,9 @@ export function EntryForm({
         </Field>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* flex-wrap, because the slot on the end can grow: a delete that has been asked about
+          replaces one word with a sentence naming what it would take. */}
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
           disabled={saving}
@@ -361,6 +372,8 @@ export function EntryForm({
             Saved
           </span>
         )}
+
+        {actions !== undefined && <div className="ml-auto">{actions}</div>}
       </div>
     </form>
   );
