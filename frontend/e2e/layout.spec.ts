@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { card, column, seed } from './support/board';
+import { card, column, openJournal, seed } from './support/board';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
+import { awaitEstimate } from './support/hltb';
 import type { LogStatus } from '../src/api/types';
 
 /**
@@ -133,4 +134,70 @@ test('a cover grows with the column it is in', async ({ page }) => {
   await expect
     .poll(async () => (await boxOf(cover(page, 'Celeste'), "Celeste's cover at 1920")).width)
     .toBeGreaterThan(narrow.width * 1.25);
+});
+
+/**
+ * HowLongToBeat's four estimates, in both boxes the journal opens in.
+ *
+ * The only layer that can check this. The grid's column count comes from a container query on the
+ * dialog's own width, so what decides it is a `max-w-*` in the stylesheet rather than anything a
+ * component knows — and jsdom, which has no box model, reports whatever the class list last said.
+ *
+ * Both cases run at one viewport on purpose, and that is the claim rather than a convenience: the
+ * drawer is `max-w-md` on a 4K monitor exactly as it is on a laptop, so a viewport breakpoint
+ * would have answered the wrong question entirely. Only the journal setting changes between them.
+ *
+ * What it protects is the defect this replaced. Four spans in a wrapping flex row fitted three
+ * across the drawer and dropped Completionist onto a second line under nothing, its name no
+ * longer above the number it belonged to — which is invisible to every other layer here.
+ *
+ * The two cases answer *different numbers* about the same component at the same viewport, which
+ * is what makes them worth having rather than a pair that agree by construction. Nothing but the
+ * container query can produce both: a locator that found nothing fails `toHaveCount`, and a grid
+ * that did not reflow — one column everywhere, or four everywhere — takes one of the two down.
+ */
+test.describe('the estimates read the same in the drawer as in the modal', () => {
+  /** How many tiers share the top row. Reflow is the whole mechanism, so rows are the measure. */
+  async function tiersAcross(page: Page): Promise<number> {
+    const tiers = page.getByRole('dialog').locator('[data-hltb-tier]');
+    await expect(tiers).toHaveCount(4);
+
+    const boxes = await Promise.all(
+      (await tiers.all()).map((tier, at) => boxOf(tier, `estimate ${at + 1}`)),
+    );
+    const top = Math.min(...boxes.map((box) => box.y));
+
+    // A pixel of tolerance, as columnsAcross takes: a grid track's origin is not always whole.
+    return boxes.filter((box) => Math.abs(box.y - top) < 2).length;
+  }
+
+  /** The journal's box is a preference on the root element, so it is set where a person sets it. */
+  async function openIn(page: Page, view: 'Drawer' | 'Modal'): Promise<void> {
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('radio', { name: view }).click();
+    await page.keyboard.press('Escape');
+    await openJournal(page, 'Hollow Knight');
+  }
+
+  test.beforeEach(async ({ page }) => {
+    // Hollow Knight is the one title the stub gives all four tiers, which is what makes "two
+    // across" and "four across" different numbers rather than the same one.
+    const mediaId = await seed(page.request, 'Hollow Knight', 'Completed');
+    await awaitEstimate(page.request, mediaId);
+    await page.goto('/board');
+  });
+
+  test('two across in the drawer, where four would not fit', async ({ page }) => {
+    await openIn(page, 'Drawer');
+
+    expect(await tiersAcross(page)).toBe(2);
+  });
+
+  test('four across in the modal, which is the row that was always right there', async ({
+    page,
+  }) => {
+    await openIn(page, 'Modal');
+
+    expect(await tiersAcross(page)).toBe(4);
+  });
 });

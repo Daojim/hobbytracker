@@ -11,7 +11,7 @@
  *
  * Ordered specific before generic. `Indie`, `Arcade` and most of the rest of IGDB's vocabulary
  * are absent on purpose: they say almost nothing about what an evening with the game is like,
- * and ten hues is already more than anyone can tell apart at a glance — which is why the card
+ * and eleven hues is already more than anyone can tell apart at a glance — which is why the card
  * prints the genre's name as well as painting it.
  */
 export interface Genre {
@@ -22,6 +22,12 @@ export interface Genre {
 }
 
 export const GENRES: readonly Genre[] = [
+  // Above RPG, and that is the one placement here worth defending. Visual Novel is the most
+  // specific thing IGDB says about a game — it names the form rather than the subject matter,
+  // and a game that is one is an evening of reading however else it is tagged. RPG is one of
+  // IGDB's broadest words: it covers Skyrim, Diablo and Disco Elysium alike. A game carrying
+  // both is usually a visual novel with battles in it. One line to move if that reads wrong.
+  { igdb: 'Visual Novel', stripe: 'bg-genre-visual-novel' },
   { igdb: 'Role-playing (RPG)', stripe: 'bg-genre-rpg' },
   { igdb: 'Shooter', stripe: 'bg-genre-shooter' },
   { igdb: 'Platform', stripe: 'bg-genre-platform' },

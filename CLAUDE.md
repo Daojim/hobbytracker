@@ -22,10 +22,10 @@ Everything below is built, merged and green. Nothing is half-finished.
 | | |
 |---|---|
 | **The board** | Four columns, drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board. See **The board and its API** |
-| **The journal** | A drawer over the board — rating, platform, dates, hours, dated notes, every earlier pass. See **The journal drawer** |
+| **The journal** | A drawer over the board in three ruled bands — the game, the pass, the notes. Rating, platform, dates, hours, dated notes, every earlier pass. See **The journal drawer** |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. See **IGDB and search** |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses. See **HowLongToBeat** |
-| **The design layer** | Semantic tokens, four themes, two densities, and a board that works from 768px up. See **Design system** |
+| **The design layer** | Semantic tokens, seven themes, two densities, and a board that works from 768px up. See **Design system** |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it. See **Auth** |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess. See **Deploying it** |
 
@@ -141,12 +141,13 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── lib/hours.ts  formatHours — display, so board/ need not reach into journal/
+│       ├── lib/useWheelStep.ts  a non-passive wheel listener; React's onWheel cannot cancel
 │       ├── board/        keys.ts owns every query key, columns.ts the four columns,
 │       │                 sensors.ts the drag's activation distance, useBoard the writes
 │       ├── journal/      the drawer over the board
 │       ├── search/       the bar and result strip above the board
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
-│       ├── theme/        the four themes, two densities, and the menu that picks them
+│       ├── theme/        the seven themes, two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── Directory.Packages.props   ALL package versions (central management)
@@ -748,6 +749,19 @@ than a few lines inside `useBoard`. A bare `DndContext` takes dnd-kit's defaults
 activation constraint — every press activates a drag from the first pixel and the click that follows
 is swallowed, which made the journal look unopenable in jsdom while working perfectly in a browser.
 
+**A column tints from dnd-kit's `over`, not from its own `useDroppable().isOver`, and the difference
+is the whole of why an occupied column used to feel closed.** `isOver` is true only when `over` *is*
+that droppable — but `over` is whatever the cursor is nearest, and inside a column that is almost
+always one of its cards, because a column with anything in it is mostly cards. So the tint appeared
+on the empty strip below the last card and nowhere else, and the empty strip is where people learned
+to aim. **The drop was never blocked**: `onDragEnd` has always read the target status off whatever is
+under the cursor, and a card carries `{ status }` in its sortable data exactly as the column does in
+its droppable data. One comparison against that answers "would a drag land here" without caring which
+kind of thing replied. It stays true while reordering inside one column, which is correct — that is
+where the card is going to land. Pinned by two e2e cases, one dropping onto the middle of a stack and
+one asserting the tint mid-gesture with the button still down; the second was red and the first was
+green before the change, which is what said the defect was the answer rather than the drop.
+
 ### The board is one year at a time
 
 One `Year` control above the board, **opening on the latest year there is** rather than on all of
@@ -863,23 +877,89 @@ Settled:
   phrasing, cannot be styled, and has to be stubbed in every test that walks past it. Each button in
   the history names the pass it would take, because they all otherwise say the same word.
 - **Deleting the last pass takes the title off the board**, and says so first.
+- **Three bands, separated by a rule each**: what the game *is*, the pass you are on, and what you
+  wrote during it. The same `border-line-soft` the settings menu puts between its three groups, and
+  the same job — the drawer was one column of controls at one weight, where the first two are about
+  entirely different things and the third writes to a different endpoint again.
 - **The genre select and the HowLongToBeat pin sit in the header, not the form.** Both belong to the
   title, and `EntryForm` submits one `PUT` to the log-entry endpoint, so putting them there would
-  mean writing to two. The genre select saves on change; the pin does not — see **The pin**.
+  mean writing to two. The genre select saves on change; the pin does not — see **The pin**. They
+  share a **two-track grid** so their controls line up, `max-content` on the first track so the
+  wider label sets the column without either naming a width — which would have been one magic
+  number in two files agreeing by luck. **`HltbPin` therefore renders a label and a control as
+  siblings rather than a row of its own**, and says so at its own top: a component that has to sit
+  inside a particular grid is not a thing to find out from the outside.
+- **Under the title is the developer, and only the developer.** It carried the platforms too while
+  it was the game's one byline, but those have a control three rows down — a list of them there was
+  a spec sheet where a name belongs, and the developer is the only fact on that line that appears
+  nowhere else in the drawer. **It lives inside the title block rather than beside it**, which is
+  not tidying: the panel is a flex column with `gap-4`, and that gap is what holds the three bands
+  apart — left as a sibling, the spacing built to separate *the game* from *this pass* was also
+  separating a heading from the line belonging to it, 24px of nothing. Grouped, the 8px left is the
+  leading between an 18px heading and a 12px line rather than any spacing at all. The close button
+  stays outside the group, so it keeps its corner however far the title wraps.
+- **The current pass's heading is a band heading; an earlier pass's is not.** `PassSection` takes a
+  `lead` flag and the only thing it changes is the type. The current pass opens a band between two
+  rules, as the header above and the notes below do, so it wears the uppercase the app already uses
+  for one — the same type "Earlier passes" itself is set in. An earlier pass is a row *inside* that
+  group, and matching it would nest two levels of the same shout.
+- **Delete sits on the Save row, hard right, through an `actions` slot on `EntryForm`.** It used to
+  sit under the form in the column every field label occupies, at the size every field label is set
+  in, saying one word — so it read as a heading for whatever came next rather than as a button. A
+  slot rather than a `ConfirmDelete` prop, because the form has no business knowing that deleting a
+  pass exists; what it owns is the row its own button is on. That row is `flex-wrap`, since a
+  confirm replaces one word with a sentence naming what it would take.
+- **The wheel steps all three numbers, at the grain each control is for.** A notch on the rating bar
+  is a whole point, on the exact-rating box a tenth, and on hours played half an hour — the same
+  split the two rating controls already carry, where the bar is for finding roughly where a game
+  sits and the box is for saying exactly. **It cannot be React's `onWheel`**: React registers
+  `wheel` at the root as a *passive* listener, so `preventDefault()` there does nothing but warn and
+  the drawer scrolls out from under the control while the value changes. `useWheelStep` in
+  `src/lib/useWheelStep.ts` attaches a `{ passive: false }` listener to the node itself, which is
+  the only way to take the gesture. Three more things it has to get right: the step **calls `onEdit`
+  itself**, because a wheel changes state without the DOM raising an event and the form's one
+  `onChange` never hears it — "Saved" would go on claiming the server has what is on screen; the
+  rating **rounds to one decimal place**, since 8 + 0.1 is 8.100000000000001 and `parseRating`
+  counts places in the *text*; and hours **stops above zero rather than clamping into range**,
+  because clamping would make a scroll *down* from 0.25 raise it to 0.5. **The cost, stated:** a
+  wheel over one of these controls is taken from the drawer's own scrolling, so reading a long
+  journal with the pointer resting on the rating bar changes the rating. Gating on focus rather than
+  hover is the fix if that ever bites, and is one condition in the hook.
 - **The rating is a slider plus a number box**, `step="0.1"` over 1.0–10.0. Stars reach nineteen
   values, which would quietly retire the decimal place `numeric(3,1)` exists for. A range input has
   no empty state, so "not rated" is said out loud — blank box, dimmed track, `aria-valuetext`, and a
   Clear button absent when there is nothing to clear. The slider carries the field's label and the
   box is **"Exact rating"**, because two controls on one value need two names. Native rather than
   `appearance-none`, which removes the thumb and leaves nothing to grab.
-- **Hours played sits beside all three of HowLongToBeat's estimates**, one `<span>` each so they wrap
-  independently and a test can name the tier it means. `hltbTiers` in `src/journal/fields.ts` drops
-  the tiers nobody has submitted a time for, so an empty list is the whole of *never matched* — one
-  condition instead of three. It takes the game rather than three loose numbers, since three nullable
-  numbers in a row is exactly the argument list where two get swapped in silence.
-- **The difference is measured against the headline figure alone.** Four deltas is arithmetic rather
-  than a reading, and a completionist run held up against main story reads as wildly over when it is
-  only over for a tier it was never doing.
+- **Hours played sits above all four of HowLongToBeat's estimates**, which are a `<dl>` in a grid:
+  **two columns in the drawer, four in the modal, switching at 32rem of container.** They were four
+  spans in a wrapping flex row, which has exactly one width it looks right at — the modal had it and
+  the drawer never did, where three fitted and Completionist dropped to a second line under nothing,
+  its name no longer above the number it belonged to. Wrapping cannot be tuned out of that: the two
+  boxes differ by 200-odd pixels by design. **A `@container`, not a viewport breakpoint** — the
+  drawer is `max-w-md` on a 4K monitor exactly as on a laptop — and **the `@container` is on the
+  wrapper, never on the grid itself**, since a container query unit resolves against the nearest
+  *ancestor* container and an element cannot query itself. That trap already cost `--card-pad` its
+  `cqi`. A `<dl>` because a label and its number now share a cell, so a reflow moves the pair or
+  neither. `hltbTiers` in `src/journal/fields.ts` drops the tiers nobody has submitted a time for,
+  so an empty list is the whole of *never matched* — one condition instead of three. It takes the
+  game rather than three loose numbers, since three nullable numbers in a row is exactly the
+  argument list where two get swapped in silence.
+- **The estimates are a filled blue chip, and the blue is the same on every theme.** They are
+  HowLongToBeat's numbers rather than this app's, so they wear one colour whatever the app is
+  wearing — the genre stripes' argument, which is why `--color-hltb` and `--color-hltb-fg` sit in the
+  plain `@theme` block beside them rather than in the palettes. **The window is much narrower than it
+  looks**: white on the fill has to clear 4.5:1, which caps its luminance, and the chip has to stay a
+  shape on Console's near-black, which puts a floor under it. `#1f6feb` reads 4.63:1 under white and
+  3.6–4.6:1 on the light and dark grounds. A friendlier, more HowLongToBeat-looking `#4a90d9` reads
+  white at **3.34:1** and is simply not available while the label is white. See **A fixed chip and a
+  mid-tone theme** under **Design system** for the one ground it cannot clear.
+- **The difference is measured against the headline figure alone, and it sits beside your own box
+  rather than in that grid.** Four deltas is arithmetic rather than a reading, and a completionist
+  run held up against main story reads as wildly over when it is only over for a tier it was never
+  doing. It used to be a fifth item among the estimates, which was fine while they were a row of
+  spans and wrong the moment they became a block: it is a fact about you where those four are facts
+  about the game.
 - **The estimate on a card is written `~42 h`**, announced as *About 42 hours to finish*. The tilde is
   doing real work: the drawer prints `31.5 h` for what a pass took *you*, so an unmarked number on a
   card would read as the same kind of claim. `formatHours` lives in `src/lib/hours.ts` so `board/`
@@ -952,10 +1032,24 @@ plus a palette here would be two orderings that must agree, which is the failure
 already paid for once over which pass the board calls current.
 
 Ordered **specific before generic**, and deliberately short — `Indie`, `Arcade` and most of IGDB's
-twenty-odd are absent because they say almost nothing about what an evening with the game is like. Ten
-hues is already past what anyone with common colour-vision deficiency can separate, which is why **the
-card prints the genre's name as well as painting it** and why the stripe is `aria-hidden`. Match on
-the trimmed, lower-cased name, so IGDB renaming a parenthetical does not silently unpaint a genre.
+twenty-odd are absent because they say almost nothing about what an evening with the game is like.
+Eleven hues is already past what anyone with common colour-vision deficiency can separate, which is
+why **the card prints the genre's name as well as painting it** and why the stripe is `aria-hidden`.
+Match on the trimmed, lower-cased name, so IGDB renaming a parenthetical does not silently unpaint a
+genre.
+
+**`Visual Novel` is first in the list, above even RPG**, and that placement is the one here worth
+defending rather than assuming. It names the *form* rather than the subject, so a game that is one is
+an evening of reading however else it is tagged; `Role-playing (RPG)` is one of IGDB's broadest words
+and covers Skyrim, Diablo and Disco Elysium alike. A title carrying both is usually a visual novel
+with battles in it. **One line in `GENRES` to move**, and the drawer's genre select overrides it per
+title regardless.
+
+**Its class name is the first with a hyphen in it, and the test that nearly refused it is the lesson.**
+`genres.test.ts` asserted `/^bg-genre-[a-z]+$/` — a rule invented from ten names that happened to be
+one word each, exactly the shape of the guard that refused HowLongToBeat's `search/site` for having a
+slash in it. The rule that was actually meant is *whole literal, lower case*, and a hyphen never
+violated it. Widened rather than worked around.
 
 - **The stripe is a child of `CardFace`, not a class on `CARD_CLASS`** — `CardFace` is what the drag
   preview wears, so a child reaches it free. **It always renders, `bg-transparent` when there is
@@ -970,7 +1064,10 @@ the trimmed, lower-cased name, so IGDB renaming a parenthetical does not silentl
 pairs under 0.10 apart in OKLab, which at a 4px stripe is the same colour twice. **Measure before
 changing one**: the arithmetic is written down beside the values in `index.css`, and the pair a person
 notices is rarely the closest pair. The floor is Strategy against Adventure at 0.087, known and
-accepted.
+accepted. **Visual Novel was measured before it was added**, as that rule asks: `oklch(0.64 0.19 328)`
+sits 0.150 from Fighting and 0.152 from Racing, both in the comfortable band. The magenta corner was
+the only room left — a cyan around hue 200 lands 0.091 from Shooter, which is the same colour twice at
+stripe width.
 
 **`POST /api/games/refresh` is the IGDB backfill**, and it has no UI — a maintenance action of the
 same tier as fixing a bad `hltb_id` in psql. It re-fetches every IGDB-sourced title **in the library**
@@ -989,15 +1086,17 @@ count of what was queued.
 ## Design system
 
 The board wears a real design: **Shelf** — borderless cards lifting on a shadow, a warm ground,
-columns as tinted wells — in **Public Sans**, with four themes and two densities behind one menu in
+columns as tinted wells — in **Public Sans**, with seven themes and two densities behind one menu in
 the header.
 
 | | |
 |---|---|
 | Look | **Shelf**, chosen from a rendered mockup rather than a description |
 | Type | **Public Sans**, self-hosted through `@fontsource-variable` |
-| Themes | **Four + System**: Shelf Light, Shelf Dark, Console, Ember |
+| Themes | **Seven + System**: Shelf Light, Frost, Almanac, Dusk, Shelf Dark, Console, Ember |
+| Registers | **Three lights, one mid-tone, three darks.** Dusk is the mid one, and the only theme that is neither paper nor near-black |
 | Red | **Ember's alone.** Not forced into the others |
+| HLTB | **One blue on every theme** — the estimates are that site's numbers. See **A fixed chip and a mid-tone theme** |
 | Accent | **A per-theme token.** There is no brand colour |
 | Rating | **Coloured by what it says** — under 6 red, 6–8 orange, 8 and over yellow |
 | Danger | **Never colour alone** — a filled chip the accent never wears |
@@ -1014,7 +1113,7 @@ The user's own words on red, which is the principle the whole theme layer is sha
 > while the other themes are well fit together, rather than forcing red to work with it.
 
 Ember is that theme, and its surfaces are **neutral charcoal rather than red-tinted** — tinting them
-was mocked up and rejected by eye, because a red ground shifts the ten genre hues against it and those
+was mocked up and rejected by eye, because a red ground shifts the eleven genre hues against it and those
 mean something. So red appears where the app is speaking — links, focus, the current choice — and
 never behind text or beneath a cover. Its accent is `#f2545b`, a true red; it began as a vermilion and
 read as orange. **On Ember's near-black surface a red has to sit fairly light to clear 4.5:1 at all**
@@ -1070,8 +1169,9 @@ Each is invisible in development and each has a test that was checked by breakin
 - **`system` and Shelf Dark say the same thing twice**, because CSS cannot alias a media query to a
   selector. `index.css.test.ts` compares the two blocks declaration by declaration.
 - **Contrast.** `index.css.test.ts` checks `fg`, `muted`, `accent`, `rating` and `danger` against every
-  ground they sit on across all five palette blocks, plus the chip's label against its own fill —
-  forty assertions. It exists because the same mistake happened twice: `text-neutral-500` sat at
+  ground they sit on across all eight palette blocks, plus the chip's label against its own fill —
+  eighty assertions, and a theme adds ten of them by existing. It exists because the same mistake
+  happened twice: `text-neutral-500` sat at
   **3.8:1** on the dark theme for the life of the board, and then `--danger-fg` was set near-white on
   every theme, which is right where the fill is a deep red and **2.07:1** where the fill is a light
   salmon. **The fill and its ink move in opposite directions per theme.**
@@ -1081,7 +1181,34 @@ Each is invisible in development and each has a test that was checked by breakin
   thing can *store* rather than whether it is `undefined`, which was the bug in the first attempt.
 - **Screenshots are how a visual claim gets checked.** A throwaway spec under `e2e/` that seeds a
   board, switches theme and writes PNGs is worth writing again whenever this area changes — it is what
-  caught the unreadable chip. Do not commit it.
+  caught the unreadable chip. Do not commit it. **Wait after switching theme before you shoot**:
+  `Column` carries `transition-colors`, so a column's well animates to the new palette while the
+  cards and the page ground switch instantly. A shot taken straight after the click catches every
+  well one theme behind, which looks exactly like a token that failed to apply — and telling those
+  two apart costs far more than the half-second the wait costs.
+- **A new theme has two lists to join, and only one of them fails loudly.** `THEMES` in
+  `src/theme/theme.ts` is what the menu reads; the pre-paint script in `index.html` carries its own
+  literal copy and stamps *nothing* for a name outside it — deliberately, since that is also how an
+  unknown stored value falls back to the system palette. So a theme missing from the second list is
+  offered, chosen, stored, and then repainted after the bundle mounts on every load: the flash the
+  script exists to prevent, on the one theme nobody would test for it. `theme.test.ts` reads
+  `index.html` and holds it now; it was written for this change and caught exactly that.
+
+### A fixed chip and a mid-tone theme cannot both clear 3:1
+
+Worth writing down because it looks like a colour that was picked badly and is not — it is arithmetic,
+and it will come back for any future theme in that register.
+
+The HowLongToBeat chip is one fill on every theme. Carrying white text caps its luminance at 0.177,
+and 3:1 from there needs a ground **above 0.630 or below 0.026**. Everything between is unreachable,
+for any blue, light or dark. Dusk's ground is **0.058** — squarely in the gap, because that is what a
+mid-tone theme *is*. So the chip reads 2.10:1 there against 3.6–4.6:1 everywhere else.
+
+`index.css.test.ts` therefore asserts the chip against the **lightest and darkest** grounds in the app
+rather than against each theme in turn. Per-theme would have quietly encoded "this app may not have a
+mid-tone theme", which is a rule nobody agreed to; the extremes still catch a fill drifting towards
+either end, which is the failure that was actually worth catching. The chip's own label reads 4.63:1
+on it regardless, and on Dusk it separates by saturation as much as by brightness.
 
 ### The board at every width
 
@@ -1628,7 +1755,13 @@ The stub's catalogue disagrees with IGDB's on purpose: Stardew Valley is missing
 as "Anthem: Legion of Dawn", which scores about 0.29 against IGDB's bare "Anthem" and is correctly
 refused — which makes the pin's specs about something real. **Adding a title already queues a
 lookup**, so most specs need only wait; `awaitEstimate` and `awaitChecked` in `e2e/support/hltb.ts`
-are that wait. The backfill spec blanks the columns in psql first, because a title predating the
+are that wait. **`estimate(page, tier)` beside them is how a spec names one of the four numbers**,
+and it is there because the alternative scattered: the tiers used to be spans reading
+`Main story: 8 h`, so nine assertions across `hltb.spec.ts` and `journal.spec.ts` each hard-coded
+that string, and turning them into label-and-value pairs broke all nine at once. Worse, it broke
+them *silently for a commit* — the change came with a new `layout.spec.ts` case and running that
+file alone proved nothing about the two that actually named tiers. **After changing markup the
+drawer shares, run the whole e2e suite rather than the spec that looks related.** The backfill spec blanks the columns in psql first, because a title predating the
 feature is a state the app cannot reach, and `awaitChecked` reads `hltb_checked_at` straight out of
 Postgres, since a refused match changes no other field and nothing on the wire carries that column.
 
@@ -1781,6 +1914,15 @@ shuffled.
       targets, a compose file with the tunnel behind a profile, session keys that outlive the
       container, and migrations that run themselves in Production. See **Deploying it**. What is not
       code — nameservers, the tunnel, the provider redirect URIs, `.env` — is deliberately not here.
+- [x] **A polish pass** — three themes in registers the app had none of (two more lights and its
+      first mid-tone), a Visual Novel genre, HowLongToBeat's four estimates as a grid of blue chips
+      that reads in the drawer as well as the modal, the journal drawer cut into three ruled bands,
+      the wheel stepping the rating and the hours, and a column that says it will take a card
+      wherever over it you are. Three things it turned up are written down where they bite rather
+      than here: why a fixed chip and a mid-tone ground **cannot** both clear 3:1 (**Design
+      system**), that a new theme has two lists to join and only one fails loudly (same), and that
+      changing markup the drawer shares wants the whole e2e suite rather than the spec that looks
+      related (**Testing it**, under HowLongToBeat).
 - [ ] **Detail and review — next.** A game detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery**.
 - [ ] **Other hobbies.** Movies/TV/anime/books/music — each a sibling detail table deriving from

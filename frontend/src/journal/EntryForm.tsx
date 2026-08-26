@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { journalDateInput } from '../lib/time';
 import { formatHours } from '../lib/hours';
 import {
@@ -11,7 +11,13 @@ import {
   parseRating,
 } from './fields';
 import type { HltbEstimates } from './fields';
+import { useWheelStep } from '../lib/useWheelStep';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
+
+/** What one notch of the wheel is worth on each of the three numbers this form holds. */
+const RATING_BAR_GRAIN = 1;
+const RATING_BOX_GRAIN = 0.1;
+const HOURS_GRAIN = 0.5;
 
 export interface EntryFormProps {
   entry: LogEntry;
@@ -37,6 +43,14 @@ export interface EntryFormProps {
   /** What the API objected to, keyed by field, so it can be shown where it belongs. */
   serverErrors: Record<string, string[]>;
   onSave: (update: UpdateLogEntry) => void;
+  /**
+   * Whatever else can be done to this pass, on the Save row and pushed to its far end.
+   *
+   * A slot rather than a `ConfirmDelete` prop, because this form has no business knowing that
+   * deleting a pass is a thing — it submits one PUT and that is all it does. What it does own is
+   * the row its own button sits on, which is the only thing a second action needed from it.
+   */
+  actions?: ReactNode;
 }
 
 /**
@@ -55,6 +69,7 @@ export function EntryForm({
   serverErrors,
   onSave,
   onEdit,
+  actions,
 }: EntryFormProps) {
   const ids = useId();
 
@@ -92,6 +107,53 @@ export function EntryForm({
     setRating('');
     setThumb(UNRATED_THUMB);
   }
+
+  /**
+   * The wheel over either rating control.
+   *
+   * One value, two grains, matching what the two controls are already for: the bar is where you
+   * find roughly where a game sits, so a notch there is a whole point; the box is where you say
+   * exactly, so a notch there is a tenth.
+   *
+   * It reads from `thumb` rather than from the text when the text will not parse, because the
+   * text passes through "8." on its way to 8.5 and the handle is the last thing that *was* a
+   * number. Rounding to one decimal place is not tidying: `parseRating` counts the places in the
+   * text and 8 + 0.1 is 8.100000000000001, which has fourteen of them and is refused by the rule
+   * this form exists to state.
+   */
+  function stepRating(grain: number, direction: 1 | -1) {
+    const from = parseRating(rating).value ?? thumb;
+    const next = Math.min(10, Math.max(1, Number((from + grain * direction).toFixed(1))));
+
+    setThumb(next);
+    setRating(String(next));
+    // A wheel changes the value without the DOM raising a change event, so the `onChange` on the
+    // form never hears it — and "Saved" would go on claiming the server has what is on screen.
+    onEdit();
+  }
+
+  /** The wheel over hours played. Half an hour, which is the grain anybody records a session in. */
+  function stepHours(direction: 1 | -1) {
+    const from = parseHours(hours).value ?? 0;
+    const next = Number((from + HOURS_GRAIN * direction).toFixed(2));
+
+    // The column is numeric(5,2) and greater than zero, so the wheel stops where the rule does.
+    // Clamping into range instead would mean scrolling *down* from 0.25 raising it to 0.5.
+    if (next <= 0 || next > 999.99) {
+      return;
+    }
+
+    setHours(String(next));
+    onEdit();
+  }
+
+  const sliderWheel = useWheelStep<HTMLInputElement>((direction) =>
+    stepRating(RATING_BAR_GRAIN, direction),
+  );
+  const ratingBoxWheel = useWheelStep<HTMLInputElement>((direction) =>
+    stepRating(RATING_BOX_GRAIN, direction),
+  );
+  const hoursWheel = useWheelStep<HTMLInputElement>(stepHours);
 
   const messageFor = (field: string) => errors[field] ?? serverErrors[field]?.join(' ');
 
@@ -185,6 +247,7 @@ export function EntryForm({
               first and the one arrow keys reach. aria-valuetext is what keeps an unrated pass
               from being announced as the 1.0 the handle happens to be parked on. */}
           <input
+            ref={sliderWheel}
             id={`${ids}-rating`}
             type="range"
             min="1"
@@ -199,6 +262,7 @@ export function EntryForm({
           />
 
           <input
+            ref={ratingBoxWheel}
             type="number"
             step="0.1"
             min="1"
@@ -227,38 +291,78 @@ export function EntryForm({
 
 
       <Field id={`${ids}-hours`} label="Hours played" message={messageFor('hoursPlayed')}>
-        <div className="flex flex-wrap items-baseline gap-3">
-          <input
-            id={`${ids}-hours`}
-            type="number"
-            step="0.1"
-            min="0"
-            placeholder="—"
-            value={hours}
-            onChange={(event) => setHours(event.target.value)}
-            className="w-24 rounded border border-line bg-surface px-2 py-1 text-sm"
-          />
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <input
+              ref={hoursWheel}
+              id={`${ids}-hours`}
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="—"
+              value={hours}
+              onChange={(event) => setHours(event.target.value)}
+              className="w-24 rounded border border-line bg-surface px-2 py-1 text-sm"
+            />
 
-          {/* One span per tier rather than one assembled string: they wrap independently on a
-              narrow drawer, and a test can name the tier it means. */}
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted">
-            {tiers.length === 0 ? (
-              <span>No HowLongToBeat estimate yet</span>
-            ) : (
-              tiers.map((tier) => (
-                <span key={tier.label}>
-                  {tier.label}: {formatHours(tier.hours)}
-                </span>
-              ))
-            )}
-
+            {/* Beside your own box rather than in among the four estimates, which is where it
+                used to sit. It is a fact about you and they are facts about the game, and once
+                the four became a block of their own a fifth item in it was the odd one out. */}
             {delta !== null && (
-              <span>
+              <span className="text-xs text-muted">
                 you: {formatHours(mine)} ({delta > 0 ? '+' : ''}
                 {delta})
               </span>
             )}
           </div>
+
+          {tiers.length === 0 ? (
+            <p className="text-xs text-muted">No HowLongToBeat estimate yet</p>
+          ) : (
+            /*
+             * A grid off the dialog's own width, not the window's.
+             *
+             * These were four spans in a wrapping flex row, which is a layout with exactly one
+             * good width. The modal has it — all four sat on one line — and the drawer never
+             * did: three fitted and Completionist dropped to a second line, under nothing, with
+             * its name no longer above the number it belonged to. Wrapping cannot be tuned out
+             * of that, because the two boxes differ by 200-odd pixels by design.
+             *
+             * So the column count is chosen rather than fallen into: two in the drawer, four in
+             * the modal, switching at 32rem of *container*. A viewport breakpoint would be the
+             * wrong question — the drawer is `max-w-md` on a 4K monitor exactly as it is on a
+             * laptop — which is the same reason a card sizes its cover from its column.
+             *
+             * `@container` is on the wrapper and never on the grid itself. A container query
+             * unit resolves against the nearest *ancestor* container, so an element cannot
+             * query itself: `@container @lg:grid-cols-4` on one node silently measures the
+             * viewport instead. index.css records the same trap costing `--card-pad` its cqi.
+             *
+             * A <dl> because that is what these are — four names and their values. It also
+             * gives each pair a wrapper to share, which is the whole fix: a reflow now moves a
+             * label and its number together or moves neither.
+             */
+            <div className="@container">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 @lg:grid-cols-4">
+                {tiers.map((tier) => (
+                  // data-hltb-tier because there is no role that says "one name and its number":
+                  // a <dt>/<dd> pair maps to nothing a locator can ask for. The same reason
+                  // data-cover and data-genre-stripe exist, and e2e/layout.spec.ts is what reads
+                  // it — the column count is a box-model claim and jsdom has no box model.
+                  <div key={tier.label} data-hltb-tier="" className="flex flex-col items-start gap-1">
+                    <dt className="text-xs text-muted">{tier.label}</dt>
+                    {/* HowLongToBeat's own colour, not the theme's — see index.css. Filled
+                        rather than tinted text because these are the numbers the drawer is
+                        actually for, and a row of muted spans was the one thing here nobody
+                        could find at a glance. */}
+                    <dd className="rounded bg-hltb px-2 py-0.5 text-xs font-semibold text-hltb-fg">
+                      {formatHours(tier.hours)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
         </div>
       </Field>
 
@@ -300,7 +404,9 @@ export function EntryForm({
         </Field>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* flex-wrap, because the slot on the end can grow: a delete that has been asked about
+          replaces one word with a sentence naming what it would take. */}
+      <div className="flex flex-wrap items-center gap-3">
         <button
           type="submit"
           disabled={saving}
@@ -322,6 +428,8 @@ export function EntryForm({
             Saved
           </span>
         )}
+
+        {actions !== undefined && <div className="ml-auto">{actions}</div>}
       </div>
     </form>
   );

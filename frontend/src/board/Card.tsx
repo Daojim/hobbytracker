@@ -73,7 +73,7 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   const lastActivity = formatJournalDate(item.lastActivity);
 
   // The chosen genre, or the one the game would be painted as. The stripe is decoration and the
-  // name beside the rating is the information — ten hues is past what colour alone can carry.
+  // name beside the rating is the information — eleven hues is past what colour alone can carry.
   const genre = resolveGenre(item.genres, item.primaryGenre);
   const stripe = genreStripe(genre);
 

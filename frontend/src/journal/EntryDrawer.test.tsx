@@ -544,46 +544,53 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText(/No HowLongToBeat estimate yet/)).toBeInTheDocument();
   });
 
-  it('shows the headline figure and all three of HowLongToBeat\'s tiers', async () => {
-  journalServer({
-    detail: gameDetail({
-      hltbAllStylesHours: 41.82,
-      hltbMainStoryHours: 27,
-      hltbMainExtraHours: 41.59,
-      hltbCompletionistHours: 65.6,
-      logEntries: [logEntry({ id: 7 })],
-    }),
+  it("shows the headline figure and all three of HowLongToBeat's tiers", async () => {
+    journalServer({
+      detail: gameDetail({
+        hltbAllStylesHours: 41.82,
+        hltbMainStoryHours: 27,
+        hltbMainExtraHours: 41.59,
+        hltbCompletionistHours: 65.6,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
+
+    open();
+
+    // Each tier is asserted as a *pair* rather than as one string, which is the whole of what
+    // changed here. They used to be four spans reading "Main story: 27 h", and four spans in a
+    // wrapping flex row is a layout that comes apart at exactly one width: the drawer's, where
+    // three fitted and Completionist dropped to a second line under nothing in particular. A
+    // name and its number now share a grid cell, so a reflow moves the pair or neither.
+    const tier = async (label: string) => (await screen.findByText(label)).closest('div')!;
+
+    // The headline first: it is the figure the site leads with and the one the card carries.
+    expect(within(await tier('All play styles')).getByText('41.82 h')).toBeInTheDocument();
+    expect(within(await tier('Main story')).getByText('27 h')).toBeInTheDocument();
+    expect(within(await tier('Main + Extra')).getByText('41.59 h')).toBeInTheDocument();
+    expect(within(await tier('Completionist')).getByText('65.6 h')).toBeInTheDocument();
   });
 
-  open();
+  it('leaves out a tier nobody has submitted a time for, rather than showing a gap', async () => {
+    // An obscure title with a main-story time and nothing else is ordinary. Printing
+    // "Completionist: —" would make that read as a broken row rather than as missing data.
+    journalServer({
+      detail: gameDetail({
+        hltbMainStoryHours: 27,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
 
-  // The headline first: it is the figure the site leads with and the one the card carries.
-  expect(await screen.findByText('All play styles: 41.82 h')).toBeInTheDocument();
-  expect(screen.getByText('Main story: 27 h')).toBeInTheDocument();
-  expect(screen.getByText('Main + Extra: 41.59 h')).toBeInTheDocument();
-  expect(screen.getByText('Completionist: 65.6 h')).toBeInTheDocument();
-});
+    open();
 
-it('leaves out a tier nobody has submitted a time for, rather than showing a gap', async () => {
-  // An obscure title with a main-story time and nothing else is ordinary. Printing
-  // "Completionist: —" would make that read as a broken row rather than as missing data.
-  journalServer({
-    detail: gameDetail({
-      hltbMainStoryHours: 27,
-      hltbMainExtraHours: null,
-      hltbCompletionistHours: null,
-      logEntries: [logEntry({ id: 7 })],
-    }),
+    expect(await screen.findByText('Main story')).toBeInTheDocument();
+    expect(screen.queryByText(/Completionist/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No HowLongToBeat estimate yet/)).not.toBeInTheDocument();
   });
 
-  open();
-
-  expect(await screen.findByText('Main story: 27 h')).toBeInTheDocument();
-  expect(screen.queryByText(/Completionist/)).not.toBeInTheDocument();
-  expect(screen.queryByText(/No HowLongToBeat estimate yet/)).not.toBeInTheDocument();
-});
-
-it('puts your hours next to the headline figure, and the difference between them', async () => {
+  it('puts your hours next to the headline figure, and the difference between them', async () => {
     // Against All play styles rather than Main story, which is what this compared to first. It
     // followed the card and the Time to beat sort there, and it is the better comparison
     // anyway: a completionist run held up against main story reads as wildly over, when it is
@@ -598,7 +605,8 @@ it('puts your hours next to the headline figure, and the difference between them
 
     open();
 
-    expect(await screen.findByText(/All play styles: 24.5 h/)).toBeInTheDocument();
+    expect(await screen.findByText('All play styles')).toBeInTheDocument();
+    expect(screen.getByText('24.5 h')).toBeInTheDocument();
     expect(screen.getByText(/you: 31 h/)).toBeInTheDocument();
     expect(screen.getByText(/\+6.5/)).toBeInTheDocument();
   });
@@ -824,6 +832,120 @@ it('puts your hours next to the headline figure, and the difference between them
 
     await waitFor(() => expect(journal.genresSet).toHaveLength(1));
     expect(journal.genresSet[0]).toEqual({ mediaId: 3003, genre: 'Adventure' });
+  });
+
+  describe('the wheel', () => {
+    // Up is more and down is less, which is the one thing a person will assume without being
+    // told. `deltaY` is negative for a wheel pushed away, so the sign is inverted on the way in.
+    const up = { deltaY: -100 };
+    const down = { deltaY: 100 };
+
+    async function openRated(value: number | null = 8) {
+      journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, rating: value })] }) });
+      open();
+      await screen.findByRole('slider', { name: 'Rating' });
+    }
+
+    it('steps the rating a whole point on the slider', async () => {
+      // A whole point on the bar and a tenth in the box, which is the split the two controls
+      // already carry: the slider is for finding roughly where a game sits and the box is for
+      // saying exactly. One notch of the wheel should mean what one control is for.
+      await openRated(8);
+
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(9);
+
+      fireEvent.wheel(slider(), down);
+      fireEvent.wheel(slider(), down);
+      expect(rating()).toHaveValue(7);
+    });
+
+    it('steps the rating a tenth on the box', async () => {
+      await openRated(8);
+
+      fireEvent.wheel(rating(), up);
+      expect(rating()).toHaveValue(8.1);
+
+      fireEvent.wheel(rating(), down);
+      fireEvent.wheel(rating(), down);
+      expect(rating()).toHaveValue(7.9);
+    });
+
+    it('cannot be scrolled past either end of the scale', async () => {
+      // The column is numeric(3,1) checked to 1.0-10.0, so a wheel that ran past the end would
+      // be building a 400 rather than a rating.
+      await openRated(9.5);
+
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(10);
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(10);
+    });
+
+    it('starts an unrated pass from the bottom of the scale rather than from nothing', async () => {
+      // The handle is parked at 1 while nothing is rated, so that is where a wheel picks up
+      // from — and either direction commits to a rating, because scrolling a slider is not
+      // something you do by accident. Clear is one button away.
+      await openRated(null);
+      expect(rating()).toHaveValue(null);
+
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(2);
+    });
+
+    it('takes the confirmation back, as typing into a field does', async () => {
+      // The form hears every field through one `onChange` on the <form>, and React raises that
+      // from real DOM events. A wheel sets state directly, so nothing reaches it — which would
+      // leave "Saved" standing beside a rating that is no longer the one the server has. The
+      // step handlers call onEdit themselves for exactly this.
+      journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, rating: 8 })] }) });
+
+      open();
+      await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+      expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+
+      fireEvent.wheel(slider(), up);
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('steps hours played by half an hour, and never down to nothing', async () => {
+      // Half an hour, because that is the grain anybody records a session in. It stops above
+      // zero rather than at it: the column refuses 0, so a wheel that reached it would be
+      // producing a value the save is going to bounce.
+      journalServer({
+        detail: gameDetail({ logEntries: [logEntry({ id: 7, hoursPlayed: 1 })] }),
+      });
+      open();
+
+      const hours = await screen.findByRole('spinbutton', { name: 'Hours played' });
+
+      fireEvent.wheel(hours, up);
+      expect(hours).toHaveValue(1.5);
+
+      fireEvent.wheel(hours, down);
+      fireEvent.wheel(hours, down);
+      expect(hours).toHaveValue(0.5);
+
+      fireEvent.wheel(hours, down);
+      expect(hours).toHaveValue(0.5);
+    });
+  });
+
+  it('names the developer under the title, and leaves the platforms to the field that sets one', async () => {
+    // This line was the game's whole byline once, so it carried both. The platforms have a
+    // control of their own three rows down, and a list of them under the title said nothing you
+    // could act on — a spec sheet where a byline belongs. Who made it is the fact that does not
+    // appear anywhere else in the drawer.
+    journalServer({
+      detail: gameDetail({ platforms: ['PC', 'Switch'], developers: ['Team Cherry'] }),
+    });
+
+    open();
+
+    expect(await screen.findByText('Team Cherry')).toBeInTheDocument();
+    // The words still exist as options in the Platform select; what is gone is the joined line.
+    expect(screen.queryByText(/PC, Switch/)).not.toBeInTheDocument();
   });
 
   it('offers the platforms the game came out on, and no platform at all', async () => {
