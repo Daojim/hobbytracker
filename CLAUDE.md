@@ -1644,6 +1644,7 @@ rest on.
 |---|---|
 | Images | **One `Dockerfile`, two targets** — `api` (aspnet:10) and `web` (Caddy plus `frontend/dist`) |
 | Compose | `deploy/compose.yml` — `api`, `db`, `caddy`, and `cloudflared` **behind a profile** |
+| Redeploy | `deploy/scripts/deploy.sh` — **run, never automatic.** Pushing deploys nothing |
 | Config | **Everything site-specific is an environment variable.** `deploy/.env.example` names them all |
 | Origin | **Pinned from configuration**, not read off `X-Forwarded-*` |
 | Migrations | Run themselves, **in Production only** |
@@ -1737,6 +1738,18 @@ else in the suite is quietly running against an origin it never mentioned.
 - **`index.html` must never be cached and `/assets/*` always should.** Vite fingerprints everything
   under `assets`, so those files never change content; `index.html` is what names the current
   bundle, so a held copy pins a browser to the previous deployment with nothing saying so.
+
+**Redeploying is `scripts/deploy.sh` on the server, and it is a thing you run.** Pushing to GitHub
+does not deploy anything — there is no CI, no webhook and no watcher, deliberately. A rebuild drops
+the app for a few seconds, and deploying every push unattended spends the review a pull request was
+for. The script refuses a clone with local edits, reports the commits it moved through, and fails
+loudly if the API does not answer afterwards, because *up* is not the same as *answering*.
+
+Two things in it are less obvious than they look. **It copies `compose.yml` out of the clone before
+deploying**, since the file the server reads is a copy and a change in the repository reaches it no
+other way. And **the whole body is wrapped in a function**, because the script overwrites itself
+with the newer copy as its last act — bash reads a script incrementally as it runs, so wrapping is
+what forces the file to be parsed before any of it executes.
 
 **Restart after pulling**, as ever — `docker compose up -d --build`, never a bare `git pull`. A
 running container goes on executing the image it started with.
