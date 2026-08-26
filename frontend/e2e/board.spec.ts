@@ -43,6 +43,58 @@ test('dragging out of Backlog starts the clock', async ({ page }) => {
   expect((await entriesFor(page.request, mediaId))[0]?.startedAt).not.toBeNull();
 });
 
+test('a column already holding cards takes another one, wherever in the stack you let go', async ({
+  page,
+}) => {
+  // Letting go over a column that already had cards in it looked like it did nothing, so the
+  // habit was to find the empty space below the stack and aim at that. The drop was never the
+  // problem — onDragEnd has always read the status off whatever is under the cursor, card or
+  // column — which is why this passes on both the top of a stack and the middle of one.
+  //
+  // What was missing is the answer: see the highlight test below.
+  await seed(page.request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Hades', 'Completed');
+  await seed(page.request, 'Outer Wilds', 'Completed');
+  await seed(page.request, 'Hollow Knight', 'Completed');
+  await page.reload();
+
+  await drag(page, card(page, 'Celeste'), card(page, 'Outer Wilds'));
+
+  await expect.poll(() => titlesIn(page, 'Completed')).toContain('Celeste');
+  await expect.poll(() => titlesIn(page, 'Backlog')).not.toContain('Celeste');
+});
+
+test('a column says it will take the card while the cursor is over one of its cards', async ({
+  page,
+}) => {
+  // The whole of what was wrong. A column tints itself while a drag is over it, and it read
+  // that off its own `useDroppable` — which is true only when dnd-kit's `over` *is* that
+  // droppable, never when it is one of the cards inside it. So a column with cards in it
+  // answered a drag over its own contents with nothing at all, and the only place that lit up
+  // was the empty strip below the last card. The drop worked the whole time; nothing said so.
+  await seed(page.request, 'Celeste', 'Backlog');
+  await seed(page.request, 'Hades', 'Completed');
+  await page.reload();
+
+  const from = await card(page, 'Celeste').boundingBox();
+  const onto = await card(page, 'Hades').boundingBox();
+  if (from === null || onto === null) {
+    throw new Error('both cards have to be on screen');
+  }
+
+  // Held mid-gesture rather than using drag(), because the claim is about what is on screen
+  // while the button is still down.
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2 + 20, { steps: 5 });
+  await page.mouse.move(onto.x + onto.width / 2, onto.y + onto.height / 2, { steps: 20 });
+
+  await expect(column(page, 'Completed')).toHaveClass(/bg-drop/);
+  await expect(column(page, 'Backlog')).not.toHaveClass(/bg-drop/);
+
+  await page.mouse.up();
+});
+
 test('dragging back to Backlog takes the timestamps with it', async ({ page }) => {
   const mediaId = await seed(page.request, 'Hades', 'InProgress', { startedAt: '2026-05-01' });
   await page.reload();

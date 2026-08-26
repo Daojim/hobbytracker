@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useDroppable } from '@dnd-kit/core';
+import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { listColumn } from '../api/library';
 import { Card } from './Card';
@@ -103,7 +103,28 @@ export function Column({
   // The section exists collapsed or open and is `min-h-24`, so Dropped is a real target the
   // whole time — which is the point of it, since dropping something is exactly the moment you
   // have not got the column open.
-  const { setNodeRef, isOver } = useDroppable({ id: droppableId(status), data: { status } });
+  const { setNodeRef } = useDroppable({ id: droppableId(status), data: { status } });
+
+  // Whether a drag would land here, which is *not* the same question as this droppable being
+  // the one under the cursor — and reading `isOver` off the hook above was the whole of what
+  // made an occupied column feel closed.
+  //
+  // dnd-kit's `over` is whatever the cursor is nearest, and inside a column that is almost
+  // always one of its cards rather than the column itself: a column with anything in it is
+  // mostly cards. So `isOver` was false for every part of the column a person would actually
+  // aim at, and the only strip that tinted was the empty space below the last card. The drop
+  // was never blocked — `onDragEnd` has always read the status off whatever is under the
+  // cursor, card or column — but nothing on screen said so, so the empty space is where people
+  // learned to aim.
+  //
+  // Both answers carry `{ status }` in their drag data, the column from the droppable above and
+  // a card from its sortable, so asking what the target *column* is takes one comparison and no
+  // knowledge of which kind of thing answered.
+  //
+  // It stays true while reordering inside one column, which is right: that is where the card
+  // is going to land.
+  const { over } = useDndContext();
+  const isOver = (over?.data.current as { status?: LogStatus } | undefined)?.status === status;
 
   const items = data?.items ?? [];
   const muted = status === 'Dropped';
