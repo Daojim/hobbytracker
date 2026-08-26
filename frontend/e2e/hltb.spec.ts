@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { psql, resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { awaitChecked, awaitEstimate } from './support/hltb';
+import { awaitChecked, awaitEstimate, estimate } from './support/hltb';
 import { card, column, openJournal, seed, setSort, titlesIn } from './support/board';
 
 /**
@@ -41,10 +41,10 @@ test('adding a title to the board fetches how long it takes', async ({ page }) =
 
   // All three in the drawer, under HowLongToBeat's own names; only main story on the card.
   await openJournal(page, 'Celeste');
-  await expect(page.getByText('All play styles: 20 h')).toBeVisible();
-  await expect(page.getByText('Main story: 8 h')).toBeVisible();
-  await expect(page.getByText('Main + Extra: 12.5 h')).toBeVisible();
-  await expect(page.getByText('Completionist: 38 h')).toBeVisible();
+  await expect(estimate(page, 'All play styles')).toContainText('20 h');
+  await expect(estimate(page, 'Main story')).toContainText('8 h');
+  await expect(estimate(page, 'Main + Extra')).toContainText('12.5 h');
+  await expect(estimate(page, 'Completionist')).toContainText('38 h');
 });
 
 test('the card fills its own estimate in, without a reload', async ({ page }) => {
@@ -163,9 +163,9 @@ test('pinning the id by hand brings the numbers to a title nothing matched', asy
 
   // Fetched there and then rather than queued, because the point of typing an id is to find out
   // whether it was the right one. So the numbers are on screen without waiting for a worker.
-  await expect(page.getByText('All play styles: 24 h')).toBeVisible();
-  await expect(page.getByText('Main story: 13 h')).toBeVisible();
-  await expect(page.getByText('Completionist: 55 h')).toBeVisible();
+  await expect(estimate(page, 'All play styles')).toContainText('24 h');
+  await expect(estimate(page, 'Main story')).toContainText('13 h');
+  await expect(estimate(page, 'Completionist')).toContainText('55 h');
 
   // And the link is how you check it matched the game you meant, which is why no column stores
   // HowLongToBeat's title for it.
@@ -202,7 +202,7 @@ test('an id HowLongToBeat does not know is refused, not quietly stored', async (
   await expect(page.getByText('HowLongToBeat has no game 424242.')).toBeVisible();
 
   // The title keeps what it had. A pin that answered nothing would look like it worked.
-  await expect(page.getByText('Main story: 8 h')).toBeVisible();
+  await expect(estimate(page, 'Main story')).toContainText('8 h');
   expect(psql(`select hltb_id from games where media_id = ${mediaId};`)).toBe('9101');
 });
 

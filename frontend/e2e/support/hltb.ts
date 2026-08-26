@@ -1,4 +1,4 @@
-import { expect, type APIRequestContext } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { psql } from './database';
 
 /**
@@ -42,4 +42,19 @@ export async function awaitChecked(mediaId: number): Promise<void> {
       { message: `HowLongToBeat lookup for media ${mediaId}`, timeout: 20_000 },
     )
     .toBe('t');
+}
+
+/**
+ * One of HowLongToBeat's estimates in the drawer, found by the tier it belongs to.
+ *
+ * These used to be four spans reading "Main story: 8 h", so a spec could name one with a single
+ * string. They are a grid of label-and-value pairs now — which is the whole point of the change,
+ * since a wrapping row could separate a tier's name from its number — so a locator has to find
+ * the pair and read the value out of it.
+ *
+ * Scoped to the dialog because the board behind carries the same headline figure on a card, and
+ * `hasText` is a substring test that "Main story" and "Main + Extra" stay clear of either way.
+ */
+export function estimate(page: Page, tier: string): Locator {
+  return page.getByRole('dialog').locator('[data-hltb-tier]').filter({ hasText: tier });
 }

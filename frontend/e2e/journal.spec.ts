@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { awaitEstimate } from './support/hltb';
+import { awaitEstimate, estimate } from './support/hltb';
 import {
   card,
   column,
@@ -401,7 +401,7 @@ test('how long a pass took is recorded against that pass', async ({ page }) => {
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await expect(page.getByText('All play styles: 20 h')).toBeVisible();
+  await expect(estimate(page, 'All play styles')).toContainText('20 h');
 
   await page.getByLabel('Hours played').fill('31.5');
   await page.getByRole('button', { name: 'Save' }).click();
