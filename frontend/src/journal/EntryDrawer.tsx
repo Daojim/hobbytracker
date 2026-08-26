@@ -170,9 +170,24 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
         className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-xl outline-none 2xl:max-w-lg modal:inset-4 modal:m-auto modal:h-fit modal:max-h-[86vh] modal:max-w-2xl modal:rounded-xl modal:border modal:p-6 3xl:modal:max-w-3xl"
       >
         <div className="flex items-start gap-3">
-          <h2 id={titleId} className="flex-1 text-lg font-semibold">
-            {detail?.title ?? 'Loading…'}
-          </h2>
+          {/* The title and its byline are one thing, so they are one element. They were two
+              children of the panel before, which put the panel's own `gap-4` between them — the
+              spacing that separates the three bands from each other, doing the job of separating
+              a heading from the line that belongs to it. A byline is not a band. */}
+          <div className="min-w-0 flex-1">
+            <h2 id={titleId} className="text-lg font-semibold">
+              {detail?.title ?? 'Loading…'}
+            </h2>
+
+            {/* Who made it, and nothing else. This carried the platforms too while it was the
+                game's only byline, but they have a control of their own further down — a list of
+                them here was a spec sheet where a name belongs, and the one fact it stated that
+                nothing else in the drawer does is the developer. */}
+            {detail !== undefined && detail.developers.length > 0 && (
+              <p className="text-xs text-muted">{detail.developers.join(', ')}</p>
+            )}
+          </div>
+
           <button
             type="button"
             aria-label="Close"
@@ -187,14 +202,6 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
           <p role="alert" className="text-sm text-danger">
             {game.error.message}
           </p>
-        )}
-
-        {/* Who made it, and nothing else. This carried the platforms too while it was the game's
-            only byline, but they have a control of their own further down — a list of them here
-            was a spec sheet where a name belongs, and the one fact it stated that nothing else
-            in the drawer does is the developer. */}
-        {detail !== undefined && detail.developers.length > 0 && (
-          <p className="text-xs text-muted">{detail.developers.join(', ')}</p>
         )}
 
         {/* The two things that belong to the title rather than to a pass, in one band.
