@@ -53,6 +53,134 @@
 }
 
 /*
+ * ---- Frost: cool paper. Shelf Light's counterweight, and nothing else changes. ----
+ *
+ * The app had one light theme and three dark ones, and the light one is warm — cream ground,
+ * green accent. This is the same room lit from a window rather than a lamp: a blue-grey ground,
+ * ink that is cool rather than brown, and a steel-blue accent. The genre hues shift least of any
+ * theme here, because the ground is within a hair of neutral.
+ */
+[data-theme='frost'] {
+  color-scheme: light;
+
+  --surface: #fbfcfe;
+  --sunken: #e4e9f0;
+  --hover: #eef1f7;
+  --line: #d3dae4;
+  --line-soft: #e2e7ee;
+  --fg: #101720;
+  --muted: #5a6675;
+  --accent: #1a5f9e;
+  /* Shelf Light's red, unchanged. It is proven against a near-white ground and this is one, and
+     a second deep red picked by eye would only be a second thing to keep above 4.5:1. */
+  --danger: #a8281f;
+  --ok: #1f6b3a;
+  /* 0.062 off `--well`, which is Shelf Light's figure. The first value was 0.108 and flashed
+     harder than any other theme when a card crossed a column. */
+  --drop: #e6eefa;
+  --dropped: #97a3b2;
+  --scrim: rgb(16 23 32 / 0.28);
+  --well: #f2f5fa;
+  --rating-low: #b3261e;
+  --rating-mid: #a1560a;
+  --rating-high: #7d6a00;
+  --danger-fg: #fff6f4;
+  --card-shadow: 0 1px 2px rgb(16 23 32 / 0.07), 0 5px 14px rgb(16 23 32 / 0.06);
+  --card-line: transparent;
+}
+
+/*
+ * ---- Almanac: aged paper and ink, the way a catalogue of things you have finished looks. ----
+ *
+ * The one theme with a ground that is a real colour rather than a near-neutral, which is the
+ * point of it and also its whole cost: a cream at 0.87 luminance shifts the warm genre hues —
+ * Strategy, Adventure, Simulator — against it more than any other theme does. That is the
+ * argument that got a red-tinted Ember rejected, so it is worth saying out loud rather than
+ * discovering. It is accepted here because the tint is a fifth of Ember's proposed one and
+ * because a card prints its genre's name beside the stripe regardless.
+ *
+ * Plum for the accent, and it is the only unused hue left. Green is Shelf Light's, blue is
+ * Frost's, red is Ember's and would collide with `danger` on a theme that has no reason to
+ * repeat that problem; amber is Dusk's and cannot clear 4.5:1 on paper anyway.
+ */
+[data-theme='almanac'] {
+  color-scheme: light;
+
+  --surface: #f7f0e0;
+  --sunken: #e5d9bf;
+  --hover: #efe6d1;
+  --line: #d9cbab;
+  --line-soft: #e5dbc3;
+  --fg: #2a2318;
+  --muted: #675a44;
+  --accent: #7a3a68;
+  --danger: #a3271d;
+  --ok: #3d6b2c;
+  /* Far enough from `--well` to read as a column lighting up. #e9ecd5 was the first value and
+     moved the ground by 0.003 against this theme's already-cream well — nothing anyone would
+     notice mid-drag, which is the one moment it has to be noticed. 0.064 now, which is Shelf
+     Light's figure; the light themes are the ones this has to be measured on, since a dark
+     theme shifts a fraction of that in absolute terms and far more in ratio. */
+  --drop: #d9e6c6;
+  --dropped: #a3947b;
+  --scrim: rgb(42 35 24 / 0.3);
+  --well: #f1e9d5;
+  --rating-low: #b3261e;
+  --rating-mid: #96520a;
+  --rating-high: #6f5e00;
+  --danger-fg: #fdf4ef;
+  --card-shadow: 0 1px 2px rgb(42 35 24 / 0.09), 0 5px 14px rgb(42 35 24 / 0.07);
+  --card-line: transparent;
+}
+
+/*
+ * ---- Dusk: dim slate. Neither paper nor near-black, which is a register the app had none of. ----
+ *
+ * The three dark themes all sit near 0.01 relative luminance — they differ in temperature, not
+ * in how dark they are. This one is at 0.058: dark enough to read at night, light enough that it
+ * never reads as a black screen with text on it.
+ *
+ * A mid ground squeezes contrast from both sides, and that is what shapes every value here. `fg`
+ * and `muted` both have to be light, so `muted` is only a little quieter than `fg` rather than
+ * half its weight — there is no room for more, and 4.5:1 is the floor it cannot go under. The
+ * accent is amber because a mid slate is the one ground in this app where a warm accent is the
+ * thing that separates furthest from it.
+ *
+ * The card keeps an outline, as Console's does and for Console's reason: a shadow needs a ground
+ * it can darken, and this one is already halfway there.
+ *
+ * One consequence, measured and accepted: the HowLongToBeat chip reads 2.10:1 against this
+ * ground where it manages 3.6–4.6:1 on every other theme. No fixed fill can do better — see the
+ * note beside `--color-hltb`, and `index.css.test.ts`, which says why it does not assert it.
+ */
+[data-theme='dusk'] {
+  color-scheme: dark;
+
+  --surface: #3b4552;
+  --sunken: #2a323c;
+  --hover: #46515f;
+  --line: #515d6c;
+  --line-soft: #45505e;
+  --fg: #f0f4f9;
+  --muted: #b8c3d0;
+  --accent: #ffb454;
+  --danger: #ffa393;
+  --ok: #7ad6a0;
+  --drop: #35494b;
+  --dropped: #808b99;
+  --scrim: rgb(0 0 0 / 0.55);
+  --well: #343e4a;
+  /* Lighter than the other dark themes' reds. #ff8080 is the value that would match them and it
+     lands at 4.01:1 here — a mid ground gives a light red much less to work against. */
+  --rating-low: #ff9494;
+  --rating-mid: #ffb066;
+  --rating-high: #ffd270;
+  --danger-fg: #2a1512;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 16px rgb(0 0 0 / 0.25);
+  --card-line: #515d6c;
+}
+
+/*
  * `system` stamps no attribute, so this is what answers for it. The values are Shelf Dark's,
  * repeated: a media query cannot be aliased to a selector in CSS, and there is no way to say
  * "these two conditions share a palette". `index.css.test.ts` compares the two blocks and fails
@@ -141,7 +269,7 @@
  * ---- Ember: charcoal, with red as the heat rather than the room. ----
  *
  * The surfaces are deliberately neutral. Tinting them red was the alternative and was rejected
- * by eye: a red ground shifts the ten genre hues against it, and those mean something. So red
+ * by eye: a red ground shifts the eleven genre hues against it, and those mean something. So red
  * appears only where the app is speaking — links, focus, the current choice — and never behind
  * text or beneath a cover.
  *
@@ -289,7 +417,7 @@
  *
  * Every lightness sits in [0.48, 0.75] — the band that stays visible against every theme's
  * surface, light or dark, which is why none of them needs a variant. Lightness varies as well as
- * hue because ten hues is past what anyone with common colour-vision deficiency can separate;
+ * hue because eleven hues is past what anyone with common colour-vision deficiency can separate;
  * the card prints the genre's name for the same reason.
  *
  * These ten were picked by the user against a live board rather than derived, and they are the
@@ -326,10 +454,17 @@
   --color-genre-puzzle: oklch(0.75 0.13 160);
   --color-genre-adventure: oklch(0.75 0.13 80);
 
+  /* Measured before it was added, as the note above asks. Its nearest neighbour is Fighting at
+     0.150 and then Racing at 0.152 — both inside the comfortable band, and well clear of the
+     0.087 floor this palette already accepts between Strategy and Adventure. The magenta corner
+     was the only room left: a cyan around hue 200 lands 0.091 from Shooter, which is the same
+     colour twice at stripe width. */
+  --color-genre-visual-novel: oklch(0.64 0.19 328);
+
   /*
    * A provider's own colours, on the genre block's reasoning exactly: these are content rather
    * than chrome. Google's blue means Google whatever the app is wearing, so they are not
-   * per-theme and they sit outside the five palette blocks. Here rather than as literals in the
+   * per-theme and they sit outside the eight palette blocks. Here rather than as literals in the
    * sign-in page's JSX so that this file stays the only place in the app that names a colour.
    *
    * Both marks sit on `--surface` behind a `--line` border, so they are graphics rather than
@@ -345,4 +480,25 @@
   --color-brand-google-yellow: #fbbc05;
   --color-brand-google-red: #ea4335;
   --color-brand-discord: #5865f2;
+
+  /*
+   * HowLongToBeat's estimates, which are that site's numbers rather than this app's.
+   *
+   * Content, not chrome, on the genre stripes' argument exactly: the four figures in the drawer
+   * come from somewhere else and say so, so they wear one colour whatever the app is wearing and
+   * they sit here rather than in the eight palette blocks. It is the same reason the two provider
+   * marks above are not per-theme.
+   *
+   * The blue is narrower than it looks, and was measured rather than picked. White on it has to
+   * clear 4.5:1, which puts a ceiling on how light it can be; the chip also has to stay a visible
+   * shape against Console's near-black, which puts a floor under it. That leaves a window of
+   * roughly [0.125, 0.183] relative luminance and nothing outside it works at all — a friendlier,
+   * more HowLongToBeat-looking #4a90d9 reads white text at 3.34:1 and is simply not available
+   * while the label is white.
+   *
+   * #1f6feb sits at 4.63:1 under white and 3.57–3.76:1 on the four grounds, which is the best
+   * margin on both counts of anything in the window. `index.css.test.ts` holds both halves.
+   */
+  --color-hltb: #1f6feb;
+  --color-hltb-fg: #ffffff;
 }

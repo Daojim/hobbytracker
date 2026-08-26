@@ -140,7 +140,7 @@ describe('Card', () => {
   });
 
   it('names the genre it is painted as, so the colour never has to be learned', () => {
-    // Ten hues is past what anyone can reliably tell apart, and past what colour-vision
+    // Eleven hues is past what anyone can reliably tell apart, and past what colour-vision
     // deficiency leaves separable at all. The stripe is decoration; this is the information.
     renderCard(libraryItem({ genres: ['Adventure', 'Indie', 'Platform'], primaryGenre: null }));
 

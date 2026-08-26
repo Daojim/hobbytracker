@@ -44,6 +44,9 @@ function contrast(a: string, b: string): number {
 /** Every block that defines a full palette, by the name a person would call it. */
 const PALETTES: readonly (readonly [string, string])[] = [
   ['Shelf Light', "[data-theme='shelf-light'] {"],
+  ['Frost', "[data-theme='frost'] {"],
+  ['Almanac', "[data-theme='almanac'] {"],
+  ['Dusk', "[data-theme='dusk'] {"],
   ['a dark OS with no choice made', ':root:not([data-theme]) {'],
   ['Shelf Dark', "[data-theme='shelf-dark'] {"],
   ['Console', "[data-theme='console'] {"],
@@ -94,6 +97,64 @@ describe('contrast', () => {
       });
     });
   }
+});
+
+/**
+ * HowLongToBeat's own colour, which is deliberately not per-theme.
+ *
+ * The four estimates are that site's numbers, and the chip says so whatever the app is wearing —
+ * the genre stripes' reasoning exactly, which is why these live in the plain `@theme` block
+ * beside them rather than in the eight palette blocks. So it is checked once here instead of once
+ * per theme above.
+ *
+ * Checked at all because a fill and its own label are the one pair in this stylesheet that move
+ * together, and that is precisely how `--danger-fg` came to be near-white on a light salmon and
+ * read at 2:1. A colour that is the same on every theme cannot be corrected by a theme, so the
+ * one value has to clear the bar on every ground there is.
+ */
+describe('the HowLongToBeat chip', () => {
+  const shared = paletteAfter('@theme {');
+  const value = (token: string) => {
+    const found = shared[`--${token}`];
+    expect(found, `the shared block has no --${token}`).toBeDefined();
+
+    return found!;
+  };
+
+  it('can be read', () => {
+    expect(contrast(value('color-hltb-fg'), value('color-hltb'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('has not drifted to either end of the range of grounds it sits on', () => {
+    // The two extremes, pointedly not every theme, and the reason is arithmetic rather than
+    // laziness.
+    //
+    // One fill that is the same on every theme cannot clear 3:1 against a *mid-tone* ground.
+    // Carrying white text caps the fill's luminance at 0.177, and 3:1 from there needs a ground
+    // above 0.630 or below 0.026 — so everything in between is unreachable by construction, for
+    // any blue, dark or light. Dusk's ground is 0.058 and Dusk is the theme that is deliberately
+    // neither paper nor near-black. Asserting 3:1 per theme would therefore have said "this app
+    // may not have a mid-tone theme", which is a rule nobody agreed to and not one this test is
+    // entitled to impose.
+    //
+    // What is still worth holding is that the fill has not wandered towards either end, where it
+    // *would* disappear into the themes that live there. Between the lightest ground and the
+    // darkest, a chip clear of both is clear enough everywhere — 2.10:1 on Dusk is the price,
+    // paid by a chip whose white label reads at 4.63:1 and which differs from that ground in
+    // saturation as much as in brightness.
+    const surfaces = PALETTES.map(([name, marker]) => {
+      const surface = paletteAfter(marker)['--surface'];
+      expect(surface, `${name} has no --surface`).toBeDefined();
+
+      return surface!;
+    }).sort((a, b) => luminance(a) - luminance(b));
+
+    const darkest = surfaces[0]!;
+    const lightest = surfaces[surfaces.length - 1]!;
+
+    expect(contrast(value('color-hltb'), lightest)).toBeGreaterThanOrEqual(3);
+    expect(contrast(value('color-hltb'), darkest)).toBeGreaterThanOrEqual(3);
+  });
 });
 
 describe('the palette', () => {

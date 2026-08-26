@@ -26,7 +26,13 @@ export const JOURNAL_KEY = 'hobbytracker.journal';
  */
 export const THEMES = [
   { value: 'system', label: 'System', hint: 'Follows your device' },
+  // Light, then the one mid-tone, then dark. The menu is this list in order, and grouping it by
+  // how bright the room is means the choice a reader is making — usually "something lighter" or
+  // "something darker" — runs the same way down the panel.
   { value: 'shelf-light', label: 'Shelf Light', hint: 'Warm paper' },
+  { value: 'frost', label: 'Frost', hint: 'Cool paper' },
+  { value: 'almanac', label: 'Almanac', hint: 'Aged paper' },
+  { value: 'dusk', label: 'Dusk', hint: 'Dim slate' },
   { value: 'shelf-dark', label: 'Shelf Dark', hint: 'Warm dark' },
   { value: 'console', label: 'Console', hint: 'Cool and deep' },
   { value: 'ember', label: 'Ember', hint: 'Charcoal and red' },

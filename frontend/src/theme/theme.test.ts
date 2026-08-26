@@ -6,6 +6,7 @@ import {
   DENSITY_KEY,
   JOURNAL_ATTRIBUTE,
   JOURNAL_KEY,
+  THEMES,
   THEME_ATTRIBUTE,
   THEME_KEY,
   applyDensity,
@@ -120,5 +121,26 @@ describe('theme preferences', () => {
     expect(html).toContain(DENSITY_KEY);
     expect(html).toContain(THEME_ATTRIBUTE);
     expect(html).toContain(DENSITY_ATTRIBUTE);
+  });
+
+  it('is offering no theme the pre-paint script would refuse to stamp', () => {
+    // The keys above were the only copy this checked, and they are not the only copy there is.
+    // That script carries its own literal list of theme names and stamps nothing for a value
+    // outside it — deliberately, because that is also how an unknown stored value falls back to
+    // the system palette. The cost is that adding a theme here and forgetting it there is
+    // invisible in development and silent in production: the menu offers the theme, choosing it
+    // works, and then every reload paints the default first and swaps once the bundle mounts.
+    // Which is the flash the script exists to prevent, on the one theme nobody tested for it.
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+
+    for (const theme of THEMES) {
+      if (theme.value === 'system') {
+        continue;
+      }
+
+      expect(html, `the pre-paint script never stamps ${theme.label}`).toContain(
+        `'${theme.value}'`,
+      );
+    }
   });
 });

@@ -227,38 +227,77 @@ export function EntryForm({
 
 
       <Field id={`${ids}-hours`} label="Hours played" message={messageFor('hoursPlayed')}>
-        <div className="flex flex-wrap items-baseline gap-3">
-          <input
-            id={`${ids}-hours`}
-            type="number"
-            step="0.1"
-            min="0"
-            placeholder="—"
-            value={hours}
-            onChange={(event) => setHours(event.target.value)}
-            className="w-24 rounded border border-line bg-surface px-2 py-1 text-sm"
-          />
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <input
+              id={`${ids}-hours`}
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="—"
+              value={hours}
+              onChange={(event) => setHours(event.target.value)}
+              className="w-24 rounded border border-line bg-surface px-2 py-1 text-sm"
+            />
 
-          {/* One span per tier rather than one assembled string: they wrap independently on a
-              narrow drawer, and a test can name the tier it means. */}
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs text-muted">
-            {tiers.length === 0 ? (
-              <span>No HowLongToBeat estimate yet</span>
-            ) : (
-              tiers.map((tier) => (
-                <span key={tier.label}>
-                  {tier.label}: {formatHours(tier.hours)}
-                </span>
-              ))
-            )}
-
+            {/* Beside your own box rather than in among the four estimates, which is where it
+                used to sit. It is a fact about you and they are facts about the game, and once
+                the four became a block of their own a fifth item in it was the odd one out. */}
             {delta !== null && (
-              <span>
+              <span className="text-xs text-muted">
                 you: {formatHours(mine)} ({delta > 0 ? '+' : ''}
                 {delta})
               </span>
             )}
           </div>
+
+          {tiers.length === 0 ? (
+            <p className="text-xs text-muted">No HowLongToBeat estimate yet</p>
+          ) : (
+            /*
+             * A grid off the dialog's own width, not the window's.
+             *
+             * These were four spans in a wrapping flex row, which is a layout with exactly one
+             * good width. The modal has it — all four sat on one line — and the drawer never
+             * did: three fitted and Completionist dropped to a second line, under nothing, with
+             * its name no longer above the number it belonged to. Wrapping cannot be tuned out
+             * of that, because the two boxes differ by 200-odd pixels by design.
+             *
+             * So the column count is chosen rather than fallen into: two in the drawer, four in
+             * the modal, switching at 32rem of *container*. A viewport breakpoint would be the
+             * wrong question — the drawer is `max-w-md` on a 4K monitor exactly as it is on a
+             * laptop — which is the same reason a card sizes its cover from its column.
+             *
+             * `@container` is on the wrapper and never on the grid itself. A container query
+             * unit resolves against the nearest *ancestor* container, so an element cannot
+             * query itself: `@container @lg:grid-cols-4` on one node silently measures the
+             * viewport instead. index.css records the same trap costing `--card-pad` its cqi.
+             *
+             * A <dl> because that is what these are — four names and their values. It also
+             * gives each pair a wrapper to share, which is the whole fix: a reflow now moves a
+             * label and its number together or moves neither.
+             */
+            <div className="@container">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 @lg:grid-cols-4">
+                {tiers.map((tier) => (
+                  // data-hltb-tier because there is no role that says "one name and its number":
+                  // a <dt>/<dd> pair maps to nothing a locator can ask for. The same reason
+                  // data-cover and data-genre-stripe exist, and e2e/layout.spec.ts is what reads
+                  // it — the column count is a box-model claim and jsdom has no box model.
+                  <div key={tier.label} data-hltb-tier="" className="flex flex-col items-start gap-1">
+                    <dt className="text-xs text-muted">{tier.label}</dt>
+                    {/* HowLongToBeat's own colour, not the theme's — see index.css. Filled
+                        rather than tinted text because these are the numbers the drawer is
+                        actually for, and a row of muted spans was the one thing here nobody
+                        could find at a glance. */}
+                    <dd className="rounded bg-hltb px-2 py-0.5 text-xs font-semibold text-hltb-fg">
+                      {formatHours(tier.hours)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
         </div>
       </Field>
 

@@ -25,7 +25,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The journal** | A drawer over the board — rating, platform, dates, hours, dated notes, every earlier pass. See **The journal drawer** |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. See **IGDB and search** |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses. See **HowLongToBeat** |
-| **The design layer** | Semantic tokens, four themes, two densities, and a board that works from 768px up. See **Design system** |
+| **The design layer** | Semantic tokens, seven themes, two densities, and a board that works from 768px up. See **Design system** |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it. See **Auth** |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess. See **Deploying it** |
 
@@ -146,7 +146,7 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── journal/      the drawer over the board
 │       ├── search/       the bar and result strip above the board
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
-│       ├── theme/        the four themes, two densities, and the menu that picks them
+│       ├── theme/        the seven themes, two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── Directory.Packages.props   ALL package versions (central management)
@@ -872,14 +872,35 @@ Settled:
   Clear button absent when there is nothing to clear. The slider carries the field's label and the
   box is **"Exact rating"**, because two controls on one value need two names. Native rather than
   `appearance-none`, which removes the thumb and leaves nothing to grab.
-- **Hours played sits beside all three of HowLongToBeat's estimates**, one `<span>` each so they wrap
-  independently and a test can name the tier it means. `hltbTiers` in `src/journal/fields.ts` drops
-  the tiers nobody has submitted a time for, so an empty list is the whole of *never matched* — one
-  condition instead of three. It takes the game rather than three loose numbers, since three nullable
-  numbers in a row is exactly the argument list where two get swapped in silence.
-- **The difference is measured against the headline figure alone.** Four deltas is arithmetic rather
-  than a reading, and a completionist run held up against main story reads as wildly over when it is
-  only over for a tier it was never doing.
+- **Hours played sits above all four of HowLongToBeat's estimates**, which are a `<dl>` in a grid:
+  **two columns in the drawer, four in the modal, switching at 32rem of container.** They were four
+  spans in a wrapping flex row, which has exactly one width it looks right at — the modal had it and
+  the drawer never did, where three fitted and Completionist dropped to a second line under nothing,
+  its name no longer above the number it belonged to. Wrapping cannot be tuned out of that: the two
+  boxes differ by 200-odd pixels by design. **A `@container`, not a viewport breakpoint** — the
+  drawer is `max-w-md` on a 4K monitor exactly as on a laptop — and **the `@container` is on the
+  wrapper, never on the grid itself**, since a container query unit resolves against the nearest
+  *ancestor* container and an element cannot query itself. That trap already cost `--card-pad` its
+  `cqi`. A `<dl>` because a label and its number now share a cell, so a reflow moves the pair or
+  neither. `hltbTiers` in `src/journal/fields.ts` drops the tiers nobody has submitted a time for,
+  so an empty list is the whole of *never matched* — one condition instead of three. It takes the
+  game rather than three loose numbers, since three nullable numbers in a row is exactly the
+  argument list where two get swapped in silence.
+- **The estimates are a filled blue chip, and the blue is the same on every theme.** They are
+  HowLongToBeat's numbers rather than this app's, so they wear one colour whatever the app is
+  wearing — the genre stripes' argument, which is why `--color-hltb` and `--color-hltb-fg` sit in the
+  plain `@theme` block beside them rather than in the palettes. **The window is much narrower than it
+  looks**: white on the fill has to clear 4.5:1, which caps its luminance, and the chip has to stay a
+  shape on Console's near-black, which puts a floor under it. `#1f6feb` reads 4.63:1 under white and
+  3.6–4.6:1 on the light and dark grounds. A friendlier, more HowLongToBeat-looking `#4a90d9` reads
+  white at **3.34:1** and is simply not available while the label is white. See **A fixed chip and a
+  mid-tone theme** under **Design system** for the one ground it cannot clear.
+- **The difference is measured against the headline figure alone, and it sits beside your own box
+  rather than in that grid.** Four deltas is arithmetic rather than a reading, and a completionist
+  run held up against main story reads as wildly over when it is only over for a tier it was never
+  doing. It used to be a fifth item among the estimates, which was fine while they were a row of
+  spans and wrong the moment they became a block: it is a fact about you where those four are facts
+  about the game.
 - **The estimate on a card is written `~42 h`**, announced as *About 42 hours to finish*. The tilde is
   doing real work: the drawer prints `31.5 h` for what a pass took *you*, so an unmarked number on a
   card would read as the same kind of claim. `formatHours` lives in `src/lib/hours.ts` so `board/`
@@ -952,10 +973,24 @@ plus a palette here would be two orderings that must agree, which is the failure
 already paid for once over which pass the board calls current.
 
 Ordered **specific before generic**, and deliberately short — `Indie`, `Arcade` and most of IGDB's
-twenty-odd are absent because they say almost nothing about what an evening with the game is like. Ten
-hues is already past what anyone with common colour-vision deficiency can separate, which is why **the
-card prints the genre's name as well as painting it** and why the stripe is `aria-hidden`. Match on
-the trimmed, lower-cased name, so IGDB renaming a parenthetical does not silently unpaint a genre.
+twenty-odd are absent because they say almost nothing about what an evening with the game is like.
+Eleven hues is already past what anyone with common colour-vision deficiency can separate, which is
+why **the card prints the genre's name as well as painting it** and why the stripe is `aria-hidden`.
+Match on the trimmed, lower-cased name, so IGDB renaming a parenthetical does not silently unpaint a
+genre.
+
+**`Visual Novel` is first in the list, above even RPG**, and that placement is the one here worth
+defending rather than assuming. It names the *form* rather than the subject, so a game that is one is
+an evening of reading however else it is tagged; `Role-playing (RPG)` is one of IGDB's broadest words
+and covers Skyrim, Diablo and Disco Elysium alike. A title carrying both is usually a visual novel
+with battles in it. **One line in `GENRES` to move**, and the drawer's genre select overrides it per
+title regardless.
+
+**Its class name is the first with a hyphen in it, and the test that nearly refused it is the lesson.**
+`genres.test.ts` asserted `/^bg-genre-[a-z]+$/` — a rule invented from ten names that happened to be
+one word each, exactly the shape of the guard that refused HowLongToBeat's `search/site` for having a
+slash in it. The rule that was actually meant is *whole literal, lower case*, and a hyphen never
+violated it. Widened rather than worked around.
 
 - **The stripe is a child of `CardFace`, not a class on `CARD_CLASS`** — `CardFace` is what the drag
   preview wears, so a child reaches it free. **It always renders, `bg-transparent` when there is
@@ -970,7 +1005,10 @@ the trimmed, lower-cased name, so IGDB renaming a parenthetical does not silentl
 pairs under 0.10 apart in OKLab, which at a 4px stripe is the same colour twice. **Measure before
 changing one**: the arithmetic is written down beside the values in `index.css`, and the pair a person
 notices is rarely the closest pair. The floor is Strategy against Adventure at 0.087, known and
-accepted.
+accepted. **Visual Novel was measured before it was added**, as that rule asks: `oklch(0.64 0.19 328)`
+sits 0.150 from Fighting and 0.152 from Racing, both in the comfortable band. The magenta corner was
+the only room left — a cyan around hue 200 lands 0.091 from Shooter, which is the same colour twice at
+stripe width.
 
 **`POST /api/games/refresh` is the IGDB backfill**, and it has no UI — a maintenance action of the
 same tier as fixing a bad `hltb_id` in psql. It re-fetches every IGDB-sourced title **in the library**
@@ -989,15 +1027,17 @@ count of what was queued.
 ## Design system
 
 The board wears a real design: **Shelf** — borderless cards lifting on a shadow, a warm ground,
-columns as tinted wells — in **Public Sans**, with four themes and two densities behind one menu in
+columns as tinted wells — in **Public Sans**, with seven themes and two densities behind one menu in
 the header.
 
 | | |
 |---|---|
 | Look | **Shelf**, chosen from a rendered mockup rather than a description |
 | Type | **Public Sans**, self-hosted through `@fontsource-variable` |
-| Themes | **Four + System**: Shelf Light, Shelf Dark, Console, Ember |
+| Themes | **Seven + System**: Shelf Light, Frost, Almanac, Dusk, Shelf Dark, Console, Ember |
+| Registers | **Three lights, one mid-tone, three darks.** Dusk is the mid one, and the only theme that is neither paper nor near-black |
 | Red | **Ember's alone.** Not forced into the others |
+| HLTB | **One blue on every theme** — the estimates are that site's numbers. See **A fixed chip and a mid-tone theme** |
 | Accent | **A per-theme token.** There is no brand colour |
 | Rating | **Coloured by what it says** — under 6 red, 6–8 orange, 8 and over yellow |
 | Danger | **Never colour alone** — a filled chip the accent never wears |
@@ -1014,7 +1054,7 @@ The user's own words on red, which is the principle the whole theme layer is sha
 > while the other themes are well fit together, rather than forcing red to work with it.
 
 Ember is that theme, and its surfaces are **neutral charcoal rather than red-tinted** — tinting them
-was mocked up and rejected by eye, because a red ground shifts the ten genre hues against it and those
+was mocked up and rejected by eye, because a red ground shifts the eleven genre hues against it and those
 mean something. So red appears where the app is speaking — links, focus, the current choice — and
 never behind text or beneath a cover. Its accent is `#f2545b`, a true red; it began as a vermilion and
 read as orange. **On Ember's near-black surface a red has to sit fairly light to clear 4.5:1 at all**
@@ -1070,8 +1110,9 @@ Each is invisible in development and each has a test that was checked by breakin
 - **`system` and Shelf Dark say the same thing twice**, because CSS cannot alias a media query to a
   selector. `index.css.test.ts` compares the two blocks declaration by declaration.
 - **Contrast.** `index.css.test.ts` checks `fg`, `muted`, `accent`, `rating` and `danger` against every
-  ground they sit on across all five palette blocks, plus the chip's label against its own fill —
-  forty assertions. It exists because the same mistake happened twice: `text-neutral-500` sat at
+  ground they sit on across all eight palette blocks, plus the chip's label against its own fill —
+  eighty assertions, and a theme adds ten of them by existing. It exists because the same mistake
+  happened twice: `text-neutral-500` sat at
   **3.8:1** on the dark theme for the life of the board, and then `--danger-fg` was set near-white on
   every theme, which is right where the fill is a deep red and **2.07:1** where the fill is a light
   salmon. **The fill and its ink move in opposite directions per theme.**
@@ -1081,7 +1122,34 @@ Each is invisible in development and each has a test that was checked by breakin
   thing can *store* rather than whether it is `undefined`, which was the bug in the first attempt.
 - **Screenshots are how a visual claim gets checked.** A throwaway spec under `e2e/` that seeds a
   board, switches theme and writes PNGs is worth writing again whenever this area changes — it is what
-  caught the unreadable chip. Do not commit it.
+  caught the unreadable chip. Do not commit it. **Wait after switching theme before you shoot**:
+  `Column` carries `transition-colors`, so a column's well animates to the new palette while the
+  cards and the page ground switch instantly. A shot taken straight after the click catches every
+  well one theme behind, which looks exactly like a token that failed to apply — and telling those
+  two apart costs far more than the half-second the wait costs.
+- **A new theme has two lists to join, and only one of them fails loudly.** `THEMES` in
+  `src/theme/theme.ts` is what the menu reads; the pre-paint script in `index.html` carries its own
+  literal copy and stamps *nothing* for a name outside it — deliberately, since that is also how an
+  unknown stored value falls back to the system palette. So a theme missing from the second list is
+  offered, chosen, stored, and then repainted after the bundle mounts on every load: the flash the
+  script exists to prevent, on the one theme nobody would test for it. `theme.test.ts` reads
+  `index.html` and holds it now; it was written for this change and caught exactly that.
+
+### A fixed chip and a mid-tone theme cannot both clear 3:1
+
+Worth writing down because it looks like a colour that was picked badly and is not — it is arithmetic,
+and it will come back for any future theme in that register.
+
+The HowLongToBeat chip is one fill on every theme. Carrying white text caps its luminance at 0.177,
+and 3:1 from there needs a ground **above 0.630 or below 0.026**. Everything between is unreachable,
+for any blue, light or dark. Dusk's ground is **0.058** — squarely in the gap, because that is what a
+mid-tone theme *is*. So the chip reads 2.10:1 there against 3.6–4.6:1 everywhere else.
+
+`index.css.test.ts` therefore asserts the chip against the **lightest and darkest** grounds in the app
+rather than against each theme in turn. Per-theme would have quietly encoded "this app may not have a
+mid-tone theme", which is a rule nobody agreed to; the extremes still catch a fill drifting towards
+either end, which is the failure that was actually worth catching. The chip's own label reads 4.63:1
+on it regardless, and on Dusk it separates by saturation as much as by brightness.
 
 ### The board at every width
 
@@ -1781,6 +1849,10 @@ shuffled.
       targets, a compose file with the tunnel behind a profile, session keys that outlive the
       container, and migrations that run themselves in Production. See **Deploying it**. What is not
       code — nameservers, the tunnel, the provider redirect URIs, `.env` — is deliberately not here.
+- [x] **Three more themes and a chip** — a Visual Novel genre, HowLongToBeat's four estimates as a
+      grid of blue chips that reads in the drawer as well as the modal, and three themes in registers
+      the app had none of: two more lights and its first mid-tone. See **Design system**, which now
+      also records why a fixed chip and a mid-tone ground cannot both clear 3:1.
 - [ ] **Detail and review — next.** A game detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery**.
 - [ ] **Other hobbies.** Movies/TV/anime/books/music — each a sibling detail table deriving from

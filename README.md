@@ -4,7 +4,7 @@ A personal hobby-tracking and journaling app — what you played, when, and what
 it. Games first, with movies, TV, anime, books and music sharing the same schema later.
 
 **Status: working end to end, front and back, behind a sign-in.** A kanban board with a drag, a
-journal drawer over it, IGDB search, HowLongToBeat estimates, four themes, and Google/Discord
+journal drawer over it, IGDB search, HowLongToBeat estimates, seven themes, and Google/Discord
 OAuth with every pass and note scoped to whoever wrote it. The next things to build are a game
 detail page and a year in review — see [Roadmap](#roadmap).
 
@@ -272,9 +272,9 @@ separate "clear the rating" from "leave it alone" without an `Optional<T>` wrapp
 the operation the app hits most.
 
 **Every colour in the app has a semantic name, and `index.css` is the only file that names one.**
-Four themes and two densities are blocks of custom properties there; no component knows a colour,
+Seven themes and two densities are blocks of custom properties there; no component knows a colour,
 so adding a theme is a table of values and one line of TypeScript. A test checks every foreground
-against every ground it sits on, across all five palette blocks — it exists because the same
+against every ground it sits on, across all eight palette blocks — it exists because the same
 mistake happened twice, once leaving muted text at 3.8:1 for the life of the board.
 
 ## Tests
@@ -321,6 +321,9 @@ to prevent something, the test for it is checked by reintroducing the thing.
       whoever wrote it
 - [x] A deployment: one Dockerfile, Caddy in front, and an origin the app is told rather than left
       to guess behind a proxy that terminates TLS
+- [x] Three more themes, in registers the board had none of — two more lights and its first
+      mid-tone — plus a Visual Novel genre and HowLongToBeat's estimates as chips that read the
+      same in the drawer as in the modal
 - [ ] A game detail page, and a year in review
 - [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration
 

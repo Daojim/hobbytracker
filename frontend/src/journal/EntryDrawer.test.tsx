@@ -544,46 +544,53 @@ describe('EntryDrawer', () => {
     expect(await screen.findByText(/No HowLongToBeat estimate yet/)).toBeInTheDocument();
   });
 
-  it('shows the headline figure and all three of HowLongToBeat\'s tiers', async () => {
-  journalServer({
-    detail: gameDetail({
-      hltbAllStylesHours: 41.82,
-      hltbMainStoryHours: 27,
-      hltbMainExtraHours: 41.59,
-      hltbCompletionistHours: 65.6,
-      logEntries: [logEntry({ id: 7 })],
-    }),
+  it("shows the headline figure and all three of HowLongToBeat's tiers", async () => {
+    journalServer({
+      detail: gameDetail({
+        hltbAllStylesHours: 41.82,
+        hltbMainStoryHours: 27,
+        hltbMainExtraHours: 41.59,
+        hltbCompletionistHours: 65.6,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
+
+    open();
+
+    // Each tier is asserted as a *pair* rather than as one string, which is the whole of what
+    // changed here. They used to be four spans reading "Main story: 27 h", and four spans in a
+    // wrapping flex row is a layout that comes apart at exactly one width: the drawer's, where
+    // three fitted and Completionist dropped to a second line under nothing in particular. A
+    // name and its number now share a grid cell, so a reflow moves the pair or neither.
+    const tier = async (label: string) => (await screen.findByText(label)).closest('div')!;
+
+    // The headline first: it is the figure the site leads with and the one the card carries.
+    expect(within(await tier('All play styles')).getByText('41.82 h')).toBeInTheDocument();
+    expect(within(await tier('Main story')).getByText('27 h')).toBeInTheDocument();
+    expect(within(await tier('Main + Extra')).getByText('41.59 h')).toBeInTheDocument();
+    expect(within(await tier('Completionist')).getByText('65.6 h')).toBeInTheDocument();
   });
 
-  open();
+  it('leaves out a tier nobody has submitted a time for, rather than showing a gap', async () => {
+    // An obscure title with a main-story time and nothing else is ordinary. Printing
+    // "Completionist: —" would make that read as a broken row rather than as missing data.
+    journalServer({
+      detail: gameDetail({
+        hltbMainStoryHours: 27,
+        hltbMainExtraHours: null,
+        hltbCompletionistHours: null,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
 
-  // The headline first: it is the figure the site leads with and the one the card carries.
-  expect(await screen.findByText('All play styles: 41.82 h')).toBeInTheDocument();
-  expect(screen.getByText('Main story: 27 h')).toBeInTheDocument();
-  expect(screen.getByText('Main + Extra: 41.59 h')).toBeInTheDocument();
-  expect(screen.getByText('Completionist: 65.6 h')).toBeInTheDocument();
-});
+    open();
 
-it('leaves out a tier nobody has submitted a time for, rather than showing a gap', async () => {
-  // An obscure title with a main-story time and nothing else is ordinary. Printing
-  // "Completionist: —" would make that read as a broken row rather than as missing data.
-  journalServer({
-    detail: gameDetail({
-      hltbMainStoryHours: 27,
-      hltbMainExtraHours: null,
-      hltbCompletionistHours: null,
-      logEntries: [logEntry({ id: 7 })],
-    }),
+    expect(await screen.findByText('Main story')).toBeInTheDocument();
+    expect(screen.queryByText(/Completionist/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No HowLongToBeat estimate yet/)).not.toBeInTheDocument();
   });
 
-  open();
-
-  expect(await screen.findByText('Main story: 27 h')).toBeInTheDocument();
-  expect(screen.queryByText(/Completionist/)).not.toBeInTheDocument();
-  expect(screen.queryByText(/No HowLongToBeat estimate yet/)).not.toBeInTheDocument();
-});
-
-it('puts your hours next to the headline figure, and the difference between them', async () => {
+  it('puts your hours next to the headline figure, and the difference between them', async () => {
     // Against All play styles rather than Main story, which is what this compared to first. It
     // followed the card and the Time to beat sort there, and it is the better comparison
     // anyway: a completionist run held up against main story reads as wildly over, when it is
@@ -598,7 +605,8 @@ it('puts your hours next to the headline figure, and the difference between them
 
     open();
 
-    expect(await screen.findByText(/All play styles: 24.5 h/)).toBeInTheDocument();
+    expect(await screen.findByText('All play styles')).toBeInTheDocument();
+    expect(screen.getByText('24.5 h')).toBeInTheDocument();
     expect(screen.getByText(/you: 31 h/)).toBeInTheDocument();
     expect(screen.getByText(/\+6.5/)).toBeInTheDocument();
   });
