@@ -321,9 +321,10 @@ to prevent something, the test for it is checked by reintroducing the thing.
       whoever wrote it
 - [x] A deployment: one Dockerfile, Caddy in front, and an origin the app is told rather than left
       to guess behind a proxy that terminates TLS
-- [x] Three more themes, in registers the board had none of — two more lights and its first
-      mid-tone — plus a Visual Novel genre and HowLongToBeat's estimates as chips that read the
-      same in the drawer as in the modal
+- [x] A polish pass — three themes in registers the board had none of (two more lights and its
+      first mid-tone), a Visual Novel genre, HowLongToBeat's estimates as chips that read the same
+      in the drawer as in the modal, a journal cut into three ruled bands, and the wheel stepping
+      the rating and the hours
 - [ ] A game detail page, and a year in review
 - [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration
 

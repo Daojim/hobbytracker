@@ -22,7 +22,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | | |
 |---|---|
 | **The board** | Four columns, drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board. See **The board and its API** |
-| **The journal** | A drawer over the board — rating, platform, dates, hours, dated notes, every earlier pass. See **The journal drawer** |
+| **The journal** | A drawer over the board in three ruled bands — the game, the pass, the notes. Rating, platform, dates, hours, dated notes, every earlier pass. See **The journal drawer** |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. See **IGDB and search** |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses. See **HowLongToBeat** |
 | **The design layer** | Semantic tokens, seven themes, two densities, and a board that works from 768px up. See **Design system** |
@@ -892,7 +892,12 @@ Settled:
 - **Under the title is the developer, and only the developer.** It carried the platforms too while
   it was the game's one byline, but those have a control three rows down — a list of them there was
   a spec sheet where a name belongs, and the developer is the only fact on that line that appears
-  nowhere else in the drawer.
+  nowhere else in the drawer. **It lives inside the title block rather than beside it**, which is
+  not tidying: the panel is a flex column with `gap-4`, and that gap is what holds the three bands
+  apart — left as a sibling, the spacing built to separate *the game* from *this pass* was also
+  separating a heading from the line belonging to it, 24px of nothing. Grouped, the 8px left is the
+  leading between an 18px heading and a 12px line rather than any spacing at all. The close button
+  stays outside the group, so it keeps its corner however far the title wraps.
 - **The current pass's heading is a band heading; an earlier pass's is not.** `PassSection` takes a
   `lead` flag and the only thing it changes is the type. The current pass opens a band between two
   rules, as the header above and the notes below do, so it wears the uppercase the app already uses
@@ -1909,10 +1914,15 @@ shuffled.
       targets, a compose file with the tunnel behind a profile, session keys that outlive the
       container, and migrations that run themselves in Production. See **Deploying it**. What is not
       code — nameservers, the tunnel, the provider redirect URIs, `.env` — is deliberately not here.
-- [x] **Three more themes and a chip** — a Visual Novel genre, HowLongToBeat's four estimates as a
-      grid of blue chips that reads in the drawer as well as the modal, and three themes in registers
-      the app had none of: two more lights and its first mid-tone. See **Design system**, which now
-      also records why a fixed chip and a mid-tone ground cannot both clear 3:1.
+- [x] **A polish pass** — three themes in registers the app had none of (two more lights and its
+      first mid-tone), a Visual Novel genre, HowLongToBeat's four estimates as a grid of blue chips
+      that reads in the drawer as well as the modal, the journal drawer cut into three ruled bands,
+      the wheel stepping the rating and the hours, and a column that says it will take a card
+      wherever over it you are. Three things it turned up are written down where they bite rather
+      than here: why a fixed chip and a mid-tone ground **cannot** both clear 3:1 (**Design
+      system**), that a new theme has two lists to join and only one fails loudly (same), and that
+      changing markup the drawer shares wants the whole e2e suite rather than the spec that looks
+      related (**Testing it**, under HowLongToBeat).
 - [ ] **Detail and review — next.** A game detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery**.
 - [ ] **Other hobbies.** Movies/TV/anime/books/music — each a sibling detail table deriving from
