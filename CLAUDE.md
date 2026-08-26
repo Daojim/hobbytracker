@@ -141,6 +141,7 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── lib/hours.ts  formatHours — display, so board/ need not reach into journal/
+│       ├── lib/useWheelStep.ts  a non-passive wheel listener; React's onWheel cannot cancel
 │       ├── board/        keys.ts owns every query key, columns.ts the four columns,
 │       │                 sensors.ts the drag's activation distance, useBoard the writes
 │       ├── journal/      the drawer over the board
@@ -748,6 +749,19 @@ than a few lines inside `useBoard`. A bare `DndContext` takes dnd-kit's defaults
 activation constraint — every press activates a drag from the first pixel and the click that follows
 is swallowed, which made the journal look unopenable in jsdom while working perfectly in a browser.
 
+**A column tints from dnd-kit's `over`, not from its own `useDroppable().isOver`, and the difference
+is the whole of why an occupied column used to feel closed.** `isOver` is true only when `over` *is*
+that droppable — but `over` is whatever the cursor is nearest, and inside a column that is almost
+always one of its cards, because a column with anything in it is mostly cards. So the tint appeared
+on the empty strip below the last card and nowhere else, and the empty strip is where people learned
+to aim. **The drop was never blocked**: `onDragEnd` has always read the target status off whatever is
+under the cursor, and a card carries `{ status }` in its sortable data exactly as the column does in
+its droppable data. One comparison against that answers "would a drag land here" without caring which
+kind of thing replied. It stays true while reordering inside one column, which is correct — that is
+where the card is going to land. Pinned by two e2e cases, one dropping onto the middle of a stack and
+one asserting the tint mid-gesture with the button still down; the second was red and the first was
+green before the change, which is what said the defect was the answer rather than the drop.
+
 ### The board is one year at a time
 
 One `Year` control above the board, **opening on the latest year there is** rather than on all of
@@ -890,6 +904,22 @@ Settled:
   slot rather than a `ConfirmDelete` prop, because the form has no business knowing that deleting a
   pass exists; what it owns is the row its own button is on. That row is `flex-wrap`, since a
   confirm replaces one word with a sentence naming what it would take.
+- **The wheel steps all three numbers, at the grain each control is for.** A notch on the rating bar
+  is a whole point, on the exact-rating box a tenth, and on hours played half an hour — the same
+  split the two rating controls already carry, where the bar is for finding roughly where a game
+  sits and the box is for saying exactly. **It cannot be React's `onWheel`**: React registers
+  `wheel` at the root as a *passive* listener, so `preventDefault()` there does nothing but warn and
+  the drawer scrolls out from under the control while the value changes. `useWheelStep` in
+  `src/lib/useWheelStep.ts` attaches a `{ passive: false }` listener to the node itself, which is
+  the only way to take the gesture. Three more things it has to get right: the step **calls `onEdit`
+  itself**, because a wheel changes state without the DOM raising an event and the form's one
+  `onChange` never hears it — "Saved" would go on claiming the server has what is on screen; the
+  rating **rounds to one decimal place**, since 8 + 0.1 is 8.100000000000001 and `parseRating`
+  counts places in the *text*; and hours **stops above zero rather than clamping into range**,
+  because clamping would make a scroll *down* from 0.25 raise it to 0.5. **The cost, stated:** a
+  wheel over one of these controls is taken from the drawer's own scrolling, so reading a long
+  journal with the pointer resting on the rating bar changes the rating. Gating on focus rather than
+  hover is the fix if that ever bites, and is one condition in the hook.
 - **The rating is a slider plus a number box**, `step="0.1"` over 1.0–10.0. Stars reach nineteen
   values, which would quietly retire the decimal place `numeric(3,1)` exists for. A range input has
   no empty state, so "not rated" is said out loud — blank box, dimmed track, `aria-valuetext`, and a

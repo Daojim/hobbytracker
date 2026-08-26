@@ -11,7 +11,13 @@ import {
   parseRating,
 } from './fields';
 import type { HltbEstimates } from './fields';
+import { useWheelStep } from '../lib/useWheelStep';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
+
+/** What one notch of the wheel is worth on each of the three numbers this form holds. */
+const RATING_BAR_GRAIN = 1;
+const RATING_BOX_GRAIN = 0.1;
+const HOURS_GRAIN = 0.5;
 
 export interface EntryFormProps {
   entry: LogEntry;
@@ -101,6 +107,53 @@ export function EntryForm({
     setRating('');
     setThumb(UNRATED_THUMB);
   }
+
+  /**
+   * The wheel over either rating control.
+   *
+   * One value, two grains, matching what the two controls are already for: the bar is where you
+   * find roughly where a game sits, so a notch there is a whole point; the box is where you say
+   * exactly, so a notch there is a tenth.
+   *
+   * It reads from `thumb` rather than from the text when the text will not parse, because the
+   * text passes through "8." on its way to 8.5 and the handle is the last thing that *was* a
+   * number. Rounding to one decimal place is not tidying: `parseRating` counts the places in the
+   * text and 8 + 0.1 is 8.100000000000001, which has fourteen of them and is refused by the rule
+   * this form exists to state.
+   */
+  function stepRating(grain: number, direction: 1 | -1) {
+    const from = parseRating(rating).value ?? thumb;
+    const next = Math.min(10, Math.max(1, Number((from + grain * direction).toFixed(1))));
+
+    setThumb(next);
+    setRating(String(next));
+    // A wheel changes the value without the DOM raising a change event, so the `onChange` on the
+    // form never hears it — and "Saved" would go on claiming the server has what is on screen.
+    onEdit();
+  }
+
+  /** The wheel over hours played. Half an hour, which is the grain anybody records a session in. */
+  function stepHours(direction: 1 | -1) {
+    const from = parseHours(hours).value ?? 0;
+    const next = Number((from + HOURS_GRAIN * direction).toFixed(2));
+
+    // The column is numeric(5,2) and greater than zero, so the wheel stops where the rule does.
+    // Clamping into range instead would mean scrolling *down* from 0.25 raising it to 0.5.
+    if (next <= 0 || next > 999.99) {
+      return;
+    }
+
+    setHours(String(next));
+    onEdit();
+  }
+
+  const sliderWheel = useWheelStep<HTMLInputElement>((direction) =>
+    stepRating(RATING_BAR_GRAIN, direction),
+  );
+  const ratingBoxWheel = useWheelStep<HTMLInputElement>((direction) =>
+    stepRating(RATING_BOX_GRAIN, direction),
+  );
+  const hoursWheel = useWheelStep<HTMLInputElement>(stepHours);
 
   const messageFor = (field: string) => errors[field] ?? serverErrors[field]?.join(' ');
 
@@ -194,6 +247,7 @@ export function EntryForm({
               first and the one arrow keys reach. aria-valuetext is what keeps an unrated pass
               from being announced as the 1.0 the handle happens to be parked on. */}
           <input
+            ref={sliderWheel}
             id={`${ids}-rating`}
             type="range"
             min="1"
@@ -208,6 +262,7 @@ export function EntryForm({
           />
 
           <input
+            ref={ratingBoxWheel}
             type="number"
             step="0.1"
             min="1"
@@ -239,6 +294,7 @@ export function EntryForm({
         <div className="flex flex-col gap-2">
           <div className="flex flex-wrap items-baseline gap-3">
             <input
+              ref={hoursWheel}
               id={`${ids}-hours`}
               type="number"
               step="0.1"

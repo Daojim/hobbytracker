@@ -834,6 +834,104 @@ describe('EntryDrawer', () => {
     expect(journal.genresSet[0]).toEqual({ mediaId: 3003, genre: 'Adventure' });
   });
 
+  describe('the wheel', () => {
+    // Up is more and down is less, which is the one thing a person will assume without being
+    // told. `deltaY` is negative for a wheel pushed away, so the sign is inverted on the way in.
+    const up = { deltaY: -100 };
+    const down = { deltaY: 100 };
+
+    async function openRated(value: number | null = 8) {
+      journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, rating: value })] }) });
+      open();
+      await screen.findByRole('slider', { name: 'Rating' });
+    }
+
+    it('steps the rating a whole point on the slider', async () => {
+      // A whole point on the bar and a tenth in the box, which is the split the two controls
+      // already carry: the slider is for finding roughly where a game sits and the box is for
+      // saying exactly. One notch of the wheel should mean what one control is for.
+      await openRated(8);
+
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(9);
+
+      fireEvent.wheel(slider(), down);
+      fireEvent.wheel(slider(), down);
+      expect(rating()).toHaveValue(7);
+    });
+
+    it('steps the rating a tenth on the box', async () => {
+      await openRated(8);
+
+      fireEvent.wheel(rating(), up);
+      expect(rating()).toHaveValue(8.1);
+
+      fireEvent.wheel(rating(), down);
+      fireEvent.wheel(rating(), down);
+      expect(rating()).toHaveValue(7.9);
+    });
+
+    it('cannot be scrolled past either end of the scale', async () => {
+      // The column is numeric(3,1) checked to 1.0-10.0, so a wheel that ran past the end would
+      // be building a 400 rather than a rating.
+      await openRated(9.5);
+
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(10);
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(10);
+    });
+
+    it('starts an unrated pass from the bottom of the scale rather than from nothing', async () => {
+      // The handle is parked at 1 while nothing is rated, so that is where a wheel picks up
+      // from — and either direction commits to a rating, because scrolling a slider is not
+      // something you do by accident. Clear is one button away.
+      await openRated(null);
+      expect(rating()).toHaveValue(null);
+
+      fireEvent.wheel(slider(), up);
+      expect(rating()).toHaveValue(2);
+    });
+
+    it('takes the confirmation back, as typing into a field does', async () => {
+      // The form hears every field through one `onChange` on the <form>, and React raises that
+      // from real DOM events. A wheel sets state directly, so nothing reaches it — which would
+      // leave "Saved" standing beside a rating that is no longer the one the server has. The
+      // step handlers call onEdit themselves for exactly this.
+      journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, rating: 8 })] }) });
+
+      open();
+      await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+      expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+
+      fireEvent.wheel(slider(), up);
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    });
+
+    it('steps hours played by half an hour, and never down to nothing', async () => {
+      // Half an hour, because that is the grain anybody records a session in. It stops above
+      // zero rather than at it: the column refuses 0, so a wheel that reached it would be
+      // producing a value the save is going to bounce.
+      journalServer({
+        detail: gameDetail({ logEntries: [logEntry({ id: 7, hoursPlayed: 1 })] }),
+      });
+      open();
+
+      const hours = await screen.findByRole('spinbutton', { name: 'Hours played' });
+
+      fireEvent.wheel(hours, up);
+      expect(hours).toHaveValue(1.5);
+
+      fireEvent.wheel(hours, down);
+      fireEvent.wheel(hours, down);
+      expect(hours).toHaveValue(0.5);
+
+      fireEvent.wheel(hours, down);
+      expect(hours).toHaveValue(0.5);
+    });
+  });
+
   it('names the developer under the title, and leaves the platforms to the field that sets one', async () => {
     // This line was the game's whole byline once, so it carried both. The platforms have a
     // control of their own three rows down, and a list of them under the title said nothing you

@@ -544,3 +544,38 @@ test('a replay starts empty and the finished pass keeps what you wrote', async (
   const started = page.getByRole('region', { name: 'Playing', exact: true });
   await expect(started.getByText('what a finish')).toHaveCount(0);
 });
+
+test('the wheel rates a game without scrolling the drawer out from under it', async ({ page }) => {
+  // The half of `useWheelStep` jsdom cannot show you. React registers `wheel` at the root as a
+  // *passive* listener, and a passive listener has promised not to cancel — so an `onWheel` prop
+  // would change the value and let the panel scroll past it in the same gesture. jsdom neither
+  // implements passive semantics nor scrolls anything, so the unit tests for this pass either
+  // way. Only a browser can say which listener is attached.
+  //
+  // The viewport is squeezed first so the panel genuinely overflows; at the suite's 1440×900 the
+  // drawer fits and "it did not scroll" would be true of any implementation.
+  await page.setViewportSize({ width: 1280, height: 400 });
+  await seed(page.request, 'Celeste', 'InProgress');
+  await page.reload();
+  await openJournal(page, 'Celeste');
+
+  const panel = page.getByRole('dialog');
+  const slider = page.getByRole('slider', { name: 'Rating' });
+  const box = page.getByRole('spinbutton', { name: 'Exact rating' });
+  const scrollTop = () => panel.evaluate((node) => node.scrollTop);
+
+  await slider.scrollIntoViewIfNeeded();
+  const before = await scrollTop();
+
+  // A whole point from the bar. Unrated, so the handle's own 1.0 is where it picks up.
+  await slider.hover();
+  await page.mouse.wheel(0, -100);
+  await expect(box).toHaveValue('2');
+
+  // And a tenth from the box.
+  await box.hover();
+  await page.mouse.wheel(0, -100);
+  await expect(box).toHaveValue('2.1');
+
+  expect(await scrollTop(), 'the panel scrolled while the wheel was being read').toBe(before);
+});
