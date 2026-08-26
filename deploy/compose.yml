@@ -1,0 +1,144 @@
+# HobbyTracker, deployed.
+#
+#   docker compose up -d --build                    the app, reachable only from the host
+#   docker compose --profile tunnel up -d           the same, plus the Cloudflare tunnel
+#
+# Every path, every secret and the public address itself come from a .env beside this file. That
+# file is gitignored and never committed; this one is deliberately generic, because the
+# repository it lives in is public. See .env.example for the keys it wants.
+#
+# The only way in from outside is cloudflared, and it is behind a profile so that it cannot be
+# started by accident -- `up -d` on its own brings up an app that answers on 127.0.0.1 and
+# nowhere else.
+
+name: hobbytracker
+
+# No container_name anywhere on purpose. The project name above already prefixes them --
+# hobbytracker-db-1 and so on -- and every administrative command here goes through
+# `docker compose` rather than naming a container, so a fixed name buys nothing and costs a
+# collision with the development compose file at the repository root, which claims
+# hobbytracker-db for its own.
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+
+    # Renders timestamptz columns in the journal's own zone, so psql shows what the app shows.
+    # Convenience only: every query that depends on a zone states it, so nothing is correct
+    # because of this line and nothing breaks if it goes.
+    command: postgres -c timezone=America/New_York
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-hobbytracker}
+      POSTGRES_USER: ${POSTGRES_USER:-hobbytracker}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+
+    volumes:
+      - ${DATA_ROOT:-.}/pgdata:/var/lib/postgresql/data
+
+    # No ports, not even on 127.0.0.1. Only the API needs this and it reaches it as `db`. The
+    # development compose file at the repository root maps 5432 to the host, which is right
+    # there and wrong here.
+    networks: [hobbytracker-net]
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hobbytracker} -d ${POSTGRES_DB:-hobbytracker}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ${APP_ROOT:-./app}
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+
+    # Overrides the image's own non-root user so it matches whoever owns the key ring directory
+    # on the host. Without write access there, Data Protection falls back to keys held only in
+    # memory -- which signs everybody out on every restart, and says so in a log line nobody is
+    # reading at the time.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+
+    environment:
+      # Named rather than left to default, because the startup migration is guarded on it.
+      ASPNETCORE_ENVIRONMENT: Production
+
+      # Assembled here rather than written out in .env, so it cannot disagree with the database
+      # service it is describing.
+      ConnectionStrings__HobbyTracker: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB:-hobbytracker};Username=${POSTGRES_USER:-hobbytracker};Password=${POSTGRES_PASSWORD}
+
+      # What the outside world reaches this at. The single most important value here: without it
+      # the app builds an http:// OAuth redirect URI that Google refuses outright, issues the
+      # session cookie without Secure, and redirects every request to a scheme it already
+      # arrived on. See PublicOriginMiddleware.
+      PublicOrigin__Url: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env}
+      AllowedHosts: ${ALLOWED_HOSTS:?set ALLOWED_HOSTS in .env}
+
+      # Somewhere durable for the keys that encrypt the session cookie. A container filesystem
+      # goes with the container, and there will be many redeploys.
+      DataProtection__KeyRingPath: /keys
+
+      # Double underscore is the configuration binder's section separator. Colons work in
+      # appsettings and in user-secrets; they do not survive an environment variable.
+      Igdb__ClientId: ${IGDB_CLIENT_ID:?set IGDB_CLIENT_ID in .env}
+      Igdb__ClientSecret: ${IGDB_CLIENT_SECRET:?set IGDB_CLIENT_SECRET in .env}
+      Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
+      Auth__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
+      Auth__Discord__ClientId: ${DISCORD_CLIENT_ID:?set DISCORD_CLIENT_ID in .env}
+      Auth__Discord__ClientSecret: ${DISCORD_CLIENT_SECRET:?set DISCORD_CLIENT_SECRET in .env}
+
+    volumes:
+      - ${DATA_ROOT:-.}/dpkeys:/keys
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks: [hobbytracker-net]
+
+  caddy:
+    build:
+      context: ${APP_ROOT:-./app}
+      dockerfile: Dockerfile
+      target: web
+    restart: unless-stopped
+
+    # Bound to loopback on purpose, and this is the whole of the local debugging handle:
+    #   ssh -L 8081:localhost:8081 <host>
+    # It is not exposure -- nothing outside the host can reach 127.0.0.1 -- and it is what lets
+    # the stack be verified before the tunnel is ever brought up.
+    ports:
+      - "127.0.0.1:${DEBUG_PORT:-8081}:80"
+
+    depends_on: [api]
+    networks: [hobbytracker-net]
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+
+    # Behind a profile, so that publishing this app is something somebody types rather than
+    # something that happens. `docker compose up -d` leaves it stopped.
+    profiles: [tunnel]
+
+    command: tunnel --no-autoupdate run
+    environment:
+      # Not marked required with :? the way the others are, and the reason is a real trap: compose
+      # interpolates the whole file before it works out which services a profile selects, so a
+      # required variable here would refuse to start the app at all until the tunnel existed.
+      # An empty one fails inside cloudflared instead, which is where it can be read.
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+
+    depends_on: [caddy]
+
+    # On this network and no other. It can reach Caddy and nothing else on the host -- which is
+    # a stronger guarantee than a careful ingress list, because it holds even if the ingress is
+    # wrong.
+    networks: [hobbytracker-net]
+
+networks:
+  hobbytracker-net:
+    name: hobbytracker-net

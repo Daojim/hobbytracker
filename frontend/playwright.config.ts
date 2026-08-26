@@ -71,7 +71,14 @@ export default defineConfig({
       // started rather than as a permission problem.
       url: `http://localhost:${API_PORT}/api/auth/me`,
       reuseExistingServer: true,
-      timeout: 240_000,
+
+      // Ten minutes, and it is headroom rather than generosity. This one entry runs two dotnet
+      // builds in sequence -- the chained `dotnet ef database update`, then `dotnet run` -- and an
+      // incremental no-op build here measures over a minute apiece on Windows with a live virus
+      // scanner in the way. At 240s that overran, and Playwright reports an unfinished build as
+      // "Process from config.webServer was not able to start", which reads as a server that never
+      // came up rather than one that had not been compiled yet.
+      timeout: 600_000,
       env: {
         // The one thing that lets this coexist with a `dotnet run` of your own, which the ports
         // being one apart does not. Windows will not let this build overwrite

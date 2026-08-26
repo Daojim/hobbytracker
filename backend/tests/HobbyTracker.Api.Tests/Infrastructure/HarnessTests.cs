@@ -105,4 +105,19 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
 
         error.Message.ShouldContain("Auth:Google:ClientId");
     }
+
+    [Fact]
+    public async Task A_public_origin_that_is_not_an_absolute_url_stops_the_host_booting()
+    {
+        // The pin decides the redirect URI every provider is handed, so a malformed one is not
+        // a cosmetic problem: it is a sign-in that fails at the provider, for everybody, with
+        // the error arriving from somebody else's server. Absent is fine and means "use the
+        // request"; present and unusable has to stop the boot naming itself.
+        await using var factory = new ApiFactory(
+            Postgres, Igdb, Hltb, HltbQueue, Clock, publicOrigin: "hobbytracker.example");
+
+        var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
+
+        error.Message.ShouldContain("PublicOrigin:Url");
+    }
 }

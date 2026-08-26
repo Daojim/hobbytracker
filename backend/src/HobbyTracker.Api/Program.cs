@@ -8,6 +8,7 @@ using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -111,6 +112,18 @@ builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
+
+// -------------------------------------------------- the app's public address
+// What the outside world reaches this app at, for when a proxy in front means that is not what
+// Kestrel sees. Absent in development and in both test harnesses, where the request already
+// carries the right answer -- see PublicOriginMiddleware for why this is pinned rather than read
+// off X-Forwarded-*. Validated at startup for the reason Journal:TimeZone is: a malformed one
+// surfaces as every sign-in being refused, by a provider, on somebody else's server.
+builder.Services.AddOptions<PublicOriginOptions>()
+    .Bind(builder.Configuration.GetSection(PublicOriginOptions.SectionName))
+    .ValidateOnStart();
+
+builder.Services.AddSingleton<IValidateOptions<PublicOriginOptions>, ValidatePublicOriginOptions>();
 
 // ------------------------------------------------------------------- sign-in
 builder.Services.AddOptions<AuthOptions>()
@@ -221,6 +234,30 @@ static void Credentials(OAuthOptions options, AuthProviderOptions provider)
 
 builder.Services.AddAuthorization();
 
+// ------------------------------------------- the keys that encrypt the session
+// The session cookie is self-contained and encrypted, so the key ring decides whether a session
+// survives a restart. Windows persists it under %LOCALAPPDATA% and Linux under $HOME, which is
+// why development never notices -- but a container filesystem goes with the container, so
+// without somewhere durable to put them every redeploy signs everybody out. There will be a lot
+// of redeploys.
+//
+// Read from builder.Configuration here rather than resolved from the container, unlike the
+// credentials below. The distinction is what sets it: those are varied by the test host, whose
+// configuration source is added after this line runs, and this is a hosting path no test ever
+// sets. Environment variables are already in builder.Configuration by now, which is how a
+// deployment supplies it.
+var keyRingPath = builder.Configuration["DataProtection:KeyRingPath"];
+
+if (!string.IsNullOrWhiteSpace(keyRingPath))
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath))
+        // Keys are found by application name, so a rename orphans the ring and signs everybody
+        // out exactly as losing the directory would. Said out loud rather than defaulted from
+        // the assembly name, which is a thing a refactor is allowed to change.
+        .SetApplicationName("HobbyTracker");
+}
+
 // ------------------------------------------------------------------------ web
 builder.Services.AddControllers()
     // LogStatus travels as "Completed", not 2. Readable on the wire, and immune to someone
@@ -243,10 +280,33 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// First, and the ordering is load-bearing rather than tidy. UseHttpsRedirection decides from
+// Request.IsHttps, so a pin after it redirects a request that already arrived over TLS -- and
+// UseAuthentication is where the OAuth handler answers the callback and exchanges the code,
+// which has to send the same redirect_uri the challenge did or the provider refuses the swap.
+// Being ahead of UseHttpsRedirection puts it ahead of both.
+app.UsePublicOrigin();
+
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+
+// Migrations run themselves in production, and only there.
+//
+// One instance, so there is no second writer to race for the lock. Guarded rather than
+// unconditional because both test harnesses already apply migrations their own way -- the
+// backend suite through PostgresFixture, Playwright through a `dotnet ef database update`
+// chained into the API's own command -- and a third caller would be racing them.
+if (app.Environment.IsProduction())
+{
+    await using var migrationScope = app.Services.CreateAsyncScope();
+
+    await migrationScope.ServiceProvider
+        .GetRequiredService<HobbyTrackerDbContext>()
+        .Database
+        .MigrateAsync();
+}
 
 app.Run();
 

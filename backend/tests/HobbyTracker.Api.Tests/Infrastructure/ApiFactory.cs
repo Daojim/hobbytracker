@@ -25,7 +25,8 @@ public sealed class ApiFactory(
     FakeHltbQueue hltbQueue,
     TimeProvider clock,
     string timeZone = "America/New_York",
-    string googleClientId = "test-google-client")
+    string googleClientId = "test-google-client",
+    string? publicOrigin = null)
     : WebApplicationFactory<Program>
 {
     /// <summary>
@@ -70,6 +71,12 @@ public sealed class ApiFactory(
                 // Pinned rather than inherited from appsettings.json, so the dates these tests
                 // assert on cannot be moved by an edit to a file they never mention.
                 ["Journal:TimeZone"] = timeZone,
+
+                // Absent unless a test names one, and that is the whole point of it being nullable:
+                // the pin is what a deployment behind a TLS-terminating proxy needs and what every
+                // other test must not have. Null reads as unconfigured, which is what lets one fact
+                // assert the pinned callback and its neighbour assert that without it nothing moved.
+                ["PublicOrigin:Url"] = publicOrigin,
             }));
 
         builder.ConfigureTestServices(services =>
