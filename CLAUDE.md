@@ -1456,6 +1456,16 @@ ways of refusing, because there are two ways of being wrong:
 - **The winner must beat the runner-up by `AmbiguityMargin`**, or the two "Resident Evil 4" entries —
   same title, 2005 and 2023, both scoring 1.0 — are settled by a coin flip that looks from outside
   exactly like a confident match.
+- **The year is a tie-breaker and only that — it can never refuse a lone candidate.** It used to,
+  and the failure was invisible from the outside: HowLongToBeat files a re-release under the entry
+  for the *original* and dates that entry from the original's release, so "Paper Mario: The
+  Thousand-Year Door" came back as a single candidate dated 2004 against IGDB's 2024, scored **1.0**
+  on the title, and was thrown away at **0.7**. The arithmetic is the whole story — the threshold
+  leaves 0.1 of headroom and the penalty starts at 0.2 for a two-year gap, so *any* gap past a
+  single year was a disqualification wearing a penalty's clothes, and every remake and re-release
+  was refused. `PenalisedForYear` is applied only where there is more than one candidate, which is
+  what the code's own comment always claimed it did. Resident Evil 4 is unaffected: two candidates
+  is exactly when the year is supposed to speak.
 
 **Calibrated against the real library, not guessed.** Every correct match scored **1.0**, the closest
 wrong one **0.64**, so `MatchThreshold` 0.9 and `AmbiguityMargin` 0.05 both have room. Seven of eight

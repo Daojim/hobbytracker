@@ -30,8 +30,10 @@ public static class HltbMatcher
     /// </summary>
     /// <param name="title">The title as IGDB has it.</param>
     /// <param name="releaseYear">
-    /// IGDB's release year, when known. It is what separates two identical titles; without it
-    /// they are refused rather than guessed between.
+    /// IGDB's release year, when known. It separates two identical titles and does nothing else:
+    /// a lone candidate is never refused over it, because HowLongToBeat files a re-release under
+    /// the original's entry and dates it from the original's release. Without a year, two identical
+    /// titles are refused rather than guessed between.
     /// </param>
     public static HltbGame? Match(
         string title,
@@ -47,21 +49,37 @@ public static class HltbMatcher
         var wanted = Normalise(title);
         var wantedNumerals = NumeralsIn(wanted);
 
+        // Scored on the title alone first, because whether the year is allowed a say depends on
+        // how many candidates survive this.
         var scored = candidates
-            .Select(candidate => (Candidate: candidate,
-                Score: ScoreOf(candidate, wanted, wantedNumerals, releaseYear)))
+            .Select(candidate => (Candidate: candidate, Score: ScoreOf(candidate, wanted, wantedNumerals)))
             .Where(entry => entry.Score is not null)
-            .OrderByDescending(entry => entry.Score!.Value)
+            .Select(entry => (entry.Candidate, Score: entry.Score!.Value))
             .ToList();
 
-        if (scored.Count == 0 || scored[0].Score!.Value < options.MatchThreshold)
+        // The year is a tie-breaker, so it only speaks when there is a tie to break.
+        //
+        // Letting it veto a lone candidate refuses the only answer either site has, and it did:
+        // HowLongToBeat files a re-release under the entry for the original and dates that entry
+        // from the original's release, so "Paper Mario: The Thousand-Year Door" came back as one
+        // candidate dated 2004 against IGDB's 2024, scored 1.0 on the title, and was thrown away
+        // at 0.7. The threshold leaves 0.1 of headroom and the penalty starts at 0.2, so any gap
+        // past a year was a disqualification wearing a penalty's clothes.
+        if (scored.Count > 1)
+        {
+            scored = [.. scored.Select(entry => (entry.Candidate,
+                Score: PenalisedForYear(entry.Score, releaseYear, entry.Candidate.ReleaseYear)))];
+        }
+
+        scored = [.. scored.OrderByDescending(entry => entry.Score)];
+
+        if (scored.Count == 0 || scored[0].Score < options.MatchThreshold)
         {
             return null;
         }
 
         // One candidate has nothing to be ambiguous against, so the margin has no opinion on it.
-        if (scored.Count > 1
-            && scored[0].Score!.Value - scored[1].Score!.Value < options.AmbiguityMargin)
+        if (scored.Count > 1 && scored[0].Score - scored[1].Score < options.AmbiguityMargin)
         {
             return null;
         }
@@ -77,7 +95,7 @@ public static class HltbMatcher
     /// whose numerals match, so an alias cannot smuggle a sequel past the rule.
     /// </summary>
     private static double? ScoreOf(
-        HltbGame candidate, string wanted, IReadOnlyList<int> wantedNumerals, int? releaseYear)
+        HltbGame candidate, string wanted, IReadOnlyList<int> wantedNumerals)
     {
         var comparable = new[] { candidate.Name }
             .Concat(candidate.Aliases)
@@ -90,22 +108,27 @@ public static class HltbMatcher
             return null;
         }
 
-        var best = comparable.Max(name => Similarity(wanted, name));
+        return comparable.Max(name => Similarity(wanted, name));
+    }
 
-        // A year apart is agreement, not evidence: IGDB and HowLongToBeat disagree about regional
-        // release dates constantly. Further apart is a different game, but a penalty rather than
-        // a disqualification — a remaster with no other candidate should still lose to nothing at
-        // all rather than be refused on a technicality neither site is careful about.
-        if (releaseYear is { } mine && candidate.ReleaseYear is { } theirs)
+    /// <summary>
+    /// The score, less whatever the two sites' release years disagree by.
+    ///
+    /// Applied only where there is more than one candidate to choose between — see Match. A year
+    /// apart is agreement rather than evidence, because IGDB and HowLongToBeat disagree about
+    /// regional release dates constantly; further apart is worth something when it can separate
+    /// two candidates, and worth nothing at all against a candidate standing on its own.
+    /// </summary>
+    private static double PenalisedForYear(double score, int? releaseYear, int? candidateYear)
+    {
+        if (releaseYear is not { } mine || candidateYear is not { } theirs)
         {
-            var gap = Math.Abs(mine - theirs);
-            if (gap > 1)
-            {
-                best -= Math.Min(0.3, 0.1 * gap);
-            }
+            return score;
         }
 
-        return Math.Max(0, best);
+        var gap = Math.Abs(mine - theirs);
+
+        return gap > 1 ? Math.Max(0, score - Math.Min(0.3, 0.1 * gap)) : score;
     }
 
     /// <summary>

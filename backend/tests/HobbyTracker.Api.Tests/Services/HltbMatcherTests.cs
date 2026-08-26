@@ -103,6 +103,23 @@ public sealed class HltbMatcherTests
     }
 
     [Fact]
+    public void Takes_a_lone_candidate_however_far_out_its_year_is()
+    {
+        // HowLongToBeat files a re-release under the entry for the original and dates that entry
+        // from the first release; IGDB dates the version you actually own. Two decades can sit
+        // between the two and it is still the only game either site has.
+        //
+        // Measured: "Paper Mario: The Thousand-Year Door" came back as a single candidate dated
+        // 2004 against IGDB's 2024, scored 1.0 on the title, and was refused at 0.7 -- because
+        // the threshold leaves 0.1 of headroom and the penalty starts at 0.2. The year is a
+        // tie-breaker, and there was no tie to break.
+        var match = Match("Paper Mario: The Thousand-Year Door", 2024,
+            Candidate(10141, "Paper Mario: The Thousand-Year Door", 2004));
+
+        match.ShouldNotBeNull().Id.ShouldBe(10141);
+    }
+
+    [Fact]
     public void Refuses_a_title_that_is_only_nearly_right()
     {
         // Measured: HowLongToBeat models the paired Pokemon release as one entry and IGDB does
