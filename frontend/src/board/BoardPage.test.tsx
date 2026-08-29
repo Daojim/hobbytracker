@@ -7,7 +7,10 @@ import { gameDetail, journalServer, logEntry } from '../test/games';
 import { renderWithProviders } from '../test/render';
 
 describe('BoardPage', () => {
-  it('lays the four columns out in the order a title moves through them', async () => {
+  it('opens with Dropped, then the three columns a title moves through', async () => {
+    // Dropped is not a stage of that progression — it is where the titles that left it go — so
+    // it sits ahead of the three rather than after them, off the path the eye takes across a
+    // board it reads left to right. Still collapsed, still muted; only the place has changed.
     boardServer();
 
     renderWithProviders(<BoardPage />);
@@ -15,7 +18,7 @@ describe('BoardPage', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Backlog 0', 'Playing 0', 'Completed 0', 'Dropped 0']);
+    ).toEqual(['Dropped 0', 'Backlog 0', 'Playing 0', 'Completed 0']);
   });
 
   it('puts one year control above the board rather than one in a column', async () => {
