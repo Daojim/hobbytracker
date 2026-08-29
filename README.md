@@ -12,10 +12,10 @@ detail page and a year in review — see [Roadmap](#roadmap).
 
 ## What it does
 
-The board is four columns — Backlog, Playing, Completed, and Dropped kept out of the way — and a
-title moves between them by drag or from the card's own options menu. Which entry a move touches
-and which timestamps it stamps are decided server-side, so no client has to know which pass is
-current.
+The board is four columns — Dropped kept out of the way on the left, then Backlog, Playing and
+Completed — and a title moves between them by drag or from the card's own options menu. Which
+entry a move touches and which timestamps it stamps are decided server-side, so no client has to
+know which pass is current.
 
 Cards carry the cover, the genre they are painted as, your rating, how long the game takes, and
 the last thing you wrote about it. Clicking the title opens the journal over the board: rating,

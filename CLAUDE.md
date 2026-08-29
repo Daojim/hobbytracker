@@ -263,8 +263,8 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
 | Scope | **`/board`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/search` redirects. No detail or year-review page yet |
-| Columns | Backlog · Playing · Completed, plus Dropped as a muted 4th, collapsed by default |
-| Dropped | *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
+| Columns | **Dropped first**, then Backlog · Playing · Completed. `board/columns.ts` is the one list, and the card's menu reads it too |
+| Dropped | A muted well **ahead of** the progression rather than after it, collapsed by default. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog is exempt; the other three filter on the date each is about |

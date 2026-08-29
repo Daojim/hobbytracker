@@ -199,17 +199,20 @@ describe('Card', () => {
   });
 
   it.each<[LogStatus, string[]]>([
-    ['Backlog', ['Move to Playing', 'Move to Completed', 'Move to Dropped']],
-    ['InProgress', ['Move to Backlog', 'Move to Completed', 'Move to Dropped']],
-    ['Completed', ['Move to Backlog', 'Move to Playing', 'Move to Dropped']],
+    ['Backlog', ['Move to Dropped', 'Move to Playing', 'Move to Completed']],
+    ['InProgress', ['Move to Dropped', 'Move to Backlog', 'Move to Completed']],
+    ['Completed', ['Move to Dropped', 'Move to Backlog', 'Move to Playing']],
     ['Dropped', ['Move to Backlog', 'Move to Playing', 'Move to Completed']],
-  ])('offers every column but its own, from %s', (currentStatus, expected) => {
+  ])('offers every column but its own, from %s, in board order', (currentStatus, expected) => {
     // The whole point of the menu: a move without a drag, from every column rather than the two
     // that used to have a corner control at all. Dragging a card from the bottom of a forty-title
     // Backlog up to Completed is a scroll and a hold; this is two clicks.
     //
     // Never its own column, because the API treats a move to the status a title already has as a
     // silent no-op — an item that costs a request and changes nothing is worse than none.
+    //
+    // In board order, so the menu and the columns behind it do not disagree about the order of
+    // the same four things. Dropped moving to the front of COLUMNS moves it to the top here.
     renderOpen(libraryItem({ title: 'Celeste', currentStatus }));
 
     const options = screen.getByRole('group', { name: 'Options for Celeste' });
