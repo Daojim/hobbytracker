@@ -25,7 +25,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The journal** | A drawer over the board in three ruled bands — the game, the pass, the notes. Rating, platform, dates, hours, dated notes, every earlier pass. See **The journal drawer** |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. See **IGDB and search** |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses. See **HowLongToBeat** |
-| **The design layer** | Semantic tokens, seven themes, two densities, and a board that works from 768px up. See **Design system** |
+| **The design layer** | Semantic tokens, eight themes, two densities, and a board that works from 768px up. See **Design system** |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it. See **Auth** |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess. See **Deploying it** |
 
@@ -147,7 +147,7 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── journal/      the drawer over the board
 │       ├── search/       the bar and result strip above the board
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
-│       ├── theme/        the seven themes, two densities, and the menu that picks them
+│       ├── theme/        the eight themes, two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── Directory.Packages.props   ALL package versions (central management)
@@ -1095,16 +1095,16 @@ count of what was queued.
 ## Design system
 
 The board wears a real design: **Shelf** — borderless cards lifting on a shadow, a warm ground,
-columns as tinted wells — in **Public Sans**, with seven themes and two densities behind one menu in
+columns as tinted wells — in **Public Sans**, with eight themes and two densities behind one menu in
 the header.
 
 | | |
 |---|---|
 | Look | **Shelf**, chosen from a rendered mockup rather than a description |
 | Type | **Public Sans**, self-hosted through `@fontsource-variable` |
-| Themes | **Seven + System**: Shelf Light, Frost, Almanac, Dusk, Shelf Dark, Console, Ember |
-| Registers | **Three lights, one mid-tone, three darks.** Dusk is the mid one, and the only theme that is neither paper nor near-black |
-| Red | **Ember's alone.** Not forced into the others |
+| Themes | **Eight + System**: Shelf Light, Frost, Almanac, Dusk, Blood Red, Shelf Dark, Console, Ember |
+| Registers | **Three lights, two mid-tones, three darks.** Dusk and Blood Red are the mid ones — neither paper nor near-black — and Blood Red is the warm one at 0.0414 against Dusk's 0.0580 |
+| Red | **Two themes, and they are opposite constructions.** Ember is neutral charcoal wearing red as its accent; Blood Red *is* the red, and puts gold on it. Neither is forced on the other six |
 | HLTB | **One blue on every theme** — the estimates are that site's numbers. See **A fixed chip and a mid-tone theme** |
 | Accent | **A per-theme token.** There is no brand colour |
 | Rating | **Coloured by what it says** — under 6 red, 6–8 orange, 8 and over yellow |
@@ -1178,8 +1178,9 @@ Each is invisible in development and each has a test that was checked by breakin
 - **`system` and Shelf Dark say the same thing twice**, because CSS cannot alias a media query to a
   selector. `index.css.test.ts` compares the two blocks declaration by declaration.
 - **Contrast.** `index.css.test.ts` checks `fg`, `muted`, `accent`, `rating` and `danger` against every
-  ground they sit on across all eight palette blocks, plus the chip's label against its own fill —
-  eighty assertions, and a theme adds ten of them by existing. It exists because the same mistake
+  ground they sit on across all nine palette blocks, plus the chip's label against its own fill —
+  ninety assertions, and a theme adds ten of them by existing — **automatically**, since `PALETTES`
+  is derived from `THEMES` rather than kept by hand. It was not always. It exists because the same mistake
   happened twice: `text-neutral-500` sat at
   **3.8:1** on the dark theme for the life of the board, and then `--danger-fg` was set near-white on
   every theme, which is right where the fill is a deep red and **2.07:1** where the fill is a light
@@ -1195,13 +1196,20 @@ Each is invisible in development and each has a test that was checked by breakin
   cards and the page ground switch instantly. A shot taken straight after the click catches every
   well one theme behind, which looks exactly like a token that failed to apply — and telling those
   two apart costs far more than the half-second the wait costs.
-- **A new theme has two lists to join, and only one of them fails loudly.** `THEMES` in
-  `src/theme/theme.ts` is what the menu reads; the pre-paint script in `index.html` carries its own
-  literal copy and stamps *nothing* for a name outside it — deliberately, since that is also how an
-  unknown stored value falls back to the system palette. So a theme missing from the second list is
-  offered, chosen, stored, and then repainted after the bundle mounts on every load: the flash the
-  script exists to prevent, on the one theme nobody would test for it. `theme.test.ts` reads
-  `index.html` and holds it now; it was written for this change and caught exactly that.
+- **A new theme has three lists to join, and there used to be a fourth that failed silently.**
+  `THEMES` in `src/theme/theme.ts` is what the menu reads; the pre-paint script in `index.html`
+  carries its own literal copy and stamps *nothing* for a name outside it — deliberately, since that
+  is also how an unknown stored value falls back to the system palette. So a theme missing from that
+  copy is offered, chosen, stored, and then repainted after the bundle mounts on every load: the
+  flash the script exists to prevent, on the one theme nobody would test for it. `theme.test.ts`
+  reads `index.html` and holds it, as `index.css.test.ts` holds the palette block.
+
+  **The fourth was `PALETTES` in `index.css.test.ts`, and nothing checked it against the menu.** A
+  theme left out of that hand-kept list arrived with *no contrast assertions at all* — on precisely
+  the measurements a brand-new palette is likeliest to get wrong — and the suite stayed green saying
+  so. It is derived from `THEMES` now, the way `BOARD_STATUSES` is derived from `COLUMNS`. Proved by
+  reintroducing the fault: with an unreadable `--muted`, the derived list gives three failures where
+  the hand-written one left eighty-five tests passing.
 
 ### A fixed chip and a mid-tone theme cannot both clear 3:1
 
@@ -1211,7 +1219,13 @@ and it will come back for any future theme in that register.
 The HowLongToBeat chip is one fill on every theme. Carrying white text caps its luminance at 0.177,
 and 3:1 from there needs a ground **above 0.630 or below 0.026**. Everything between is unreachable,
 for any blue, light or dark. Dusk's ground is **0.058** — squarely in the gap, because that is what a
-mid-tone theme *is*. So the chip reads 2.10:1 there against 3.6–4.6:1 everywhere else.
+mid-tone theme *is*. Blood Red's is **0.0414**, in the same gap, and reads 2.48:1. Every other
+theme manages 3.6–4.6:1, because every other theme is paper or near-black.
+
+**Two themes now pay this, which is the point of not asserting it per theme.** When it was Dusk
+alone it looked like one theme's misfortune; it is the register's price, and any future theme
+between 0.026 and 0.630 will pay it too. What a mid-tone buys in exchange is a ground that is
+neither a white page nor a black screen, which is the whole reason both of them exist.
 
 `index.css.test.ts` therefore asserts the chip against the **lightest and darkest** grounds in the app
 rather than against each theme in turn. Per-theme would have quietly encoded "this app may not have a

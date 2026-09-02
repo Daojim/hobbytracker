@@ -4,7 +4,7 @@ A personal hobby-tracking and journaling app — what you played, when, and what
 it. Games first, with movies, TV, anime, books and music sharing the same schema later.
 
 **Status: working end to end, front and back, behind a sign-in.** A kanban board with a drag, a
-journal drawer over it, IGDB search, HowLongToBeat estimates, seven themes, and Google/Discord
+journal drawer over it, IGDB search, HowLongToBeat estimates, eight themes, and Google/Discord
 OAuth with every pass and note scoped to whoever wrote it. The next things to build are a game
 detail page and a year in review — see [Roadmap](#roadmap).
 
@@ -272,9 +272,9 @@ separate "clear the rating" from "leave it alone" without an `Optional<T>` wrapp
 the operation the app hits most.
 
 **Every colour in the app has a semantic name, and `index.css` is the only file that names one.**
-Seven themes and two densities are blocks of custom properties there; no component knows a colour,
+Eight themes and two densities are blocks of custom properties there; no component knows a colour,
 so adding a theme is a table of values and one line of TypeScript. A test checks every foreground
-against every ground it sits on, across all eight palette blocks — it exists because the same
+against every ground it sits on, across all nine palette blocks — it exists because the same
 mistake happened twice, once leaving muted text at 3.8:1 for the life of the board.
 
 ## Tests

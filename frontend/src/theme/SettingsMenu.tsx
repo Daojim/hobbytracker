@@ -10,8 +10,10 @@ import { useTheme } from './useTheme';
  * same sitting, so choosing one leaves the panel open.
  *
  * Built as radio groups rather than a list of buttons because that is what they are — a closed
- * set where exactly one is current — and it is what lets a screen reader say "System, selected,
- * 1 of 5" instead of reading five unrelated buttons.
+ * set where exactly one is current — and it is what lets a screen reader say "System, selected"
+ * and place it within a group, instead of reading a row of unrelated buttons. Deliberately not
+ * quoting the count here: it said "1 of 5" for a long time while there were seven themes, and a
+ * number in a comment nothing checks is a number that goes quietly wrong.
  */
 export function SettingsMenu() {
   const { theme, density, journalView, setTheme, setDensity, setJournalView } = useTheme();
