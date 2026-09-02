@@ -255,6 +255,17 @@ for a test run to delete your backlog. Truncation leaves `hobby_lu` and `source_
 as Respawn does — but it does take `users` and `auth_identities`, so a run starts with nobody signed up
 and one spec cannot be satisfied by the sign-in of the one before it.
 
+**Do not pipe a suite through `tail` — the exit code you get back is `tail`'s.** A run that
+reports success while a spec failed is worse than no run at all, and this cost a merge: `npm run
+test:e2e | tail -40` came back green with one spec red. Redirect to a file and echo `$?`, or let
+the command exit on its own. Both suites are long enough that the temptation is real.
+
+**`journal.spec.ts`'s "a replay starts empty" can go red under full-suite load, and it is a flake.**
+It fails inside `writeNote` with *"element was detached from the DOM, retrying"* — a React
+re-render race between the locator resolving and the click, not a logic failure. It has passed
+alone and in a full re-run since. If it recurs, the fix is waiting for the drawer to settle in
+`e2e/support/board.ts`, not anything in `NoteList`.
+
 ## Settled — do not reopen
 
 Decided with the user. Each is a real decision with a cost that was accepted, not a default.
@@ -985,6 +996,12 @@ Settled:
   note" on one that is over; **a note's controls name it by its timestamp**, and notes carry the time
   of day, because "Beat it at 9:30 PM" is the entry worth reading back where the date alone is a
   filing label.
+- **Enter sends a note; Shift+Enter puts a line in it.** Both boxes — the compose box and the one
+  that rewrites a note — because they are one box doing one job, and a textarea answering Enter in
+  one place and not the other is the near-miss this codebase has paid for elsewhere. The edit box is
+  the arguable half and is one call site in `NoteList.tsx` to take back. Shift+Enter is not a
+  concession: a note's body is stored and rendered whitespace-preserved, so several lines is
+  something the feature already supported and only the keyboard was in the way of.
 - **`noValidate` on the form.** `step="0.1"` stays for the spinner and the mobile keypad, but native
   validation silently refuses to submit an 8.75 and shows a bubble that cannot be worded, styled or
   tested — and *why* two decimal places are refused is the part worth saying.
@@ -1011,6 +1028,16 @@ Settled:
   to fail a bare `getByRole('status')` as a strict-mode violation. The Vitest suite cannot show you
   that: it mounts the drawer without the board's `DndContext`, so the spec was green in jsdom and red
   in a browser.
+- **The Enter that accepts an IME candidate must not send the note.** An input method reports it as
+  an ordinary key press, so without `event.nativeEvent.isComposing` a note typed in Japanese or
+  Korean is sent halfway through its first word — and what was sent is a note rather than a draft,
+  so there is nothing to take back but a delete. Read off the *native* event, because React's
+  synthetic one does not carry the flag. `sendOnEnter` in `src/journal/NoteList.tsx` holds it, and
+  jsdom does implement `isComposing`, so the case is a Vitest one rather than a Playwright one.
+- **A key press consults no button, so a `disabled` is not a rule.** The edit box refused an empty
+  body only through its Save note button's `disabled` attribute — which Enter walks straight past
+  and into the 400 the API answers an empty body with. The guard lives in `rewrite()` now, and the
+  button calls the same function, so the two cannot come to different answers.
 - **The form submits every field, every time.** `PUT` means an absent field is *cleared*, so sending
   only what changed would wipe the rating whenever somebody corrected a date. `pick()` in
   `src/api/logEntries.ts` drops `undefined` but keeps `null`, which is what makes "cleared"
@@ -1210,6 +1237,26 @@ Each is invisible in development and each has a test that was checked by breakin
   so. It is derived from `THEMES` now, the way `BOARD_STATUSES` is derived from `COLUMNS`. Proved by
   reintroducing the fault: with an unreadable `--muted`, the derived list gives three failures where
   the hand-written one left eighty-five tests passing.
+
+### A theme's colour lives in its ground, not its ink
+
+Two attempts were spent learning this, so it is worth stating flat. **A light theme's ground cannot
+be deep by definition, so a colour on paper can only ever be an accent — which is a different thing
+from a themed app.** The first red theme built was blush paper with deep red ink; it passed every
+assertion and read as Shelf Light with a red accent, because that is all it could ever have been.
+
+The arithmetic underneath is worth keeping too, since it will hold for any hue. **The reds that
+clear 4.5:1 on paper and the reds that clear it on a near-black do not overlap at all** — the
+crossover is around `#d32f2f`, which manages 4.90:1 on Shelf Light and 3.48:1 on Ember. So "the
+same red, lighter" is not available; a light theme and a dark theme wearing one colour are wearing
+two different values of it.
+
+The corollary that decided Blood Red: **a dark or mid ground can be the colour, and it costs the
+genre stripes almost nothing.** Measured, against an oxblood `#2a1416`, all eleven land within 0.01
+of their Ember numbers. Deepening a *light* ground is what actually costs them — on rose paper
+Puzzle falls to 1.63 and Adventure to 1.74. The objection recorded against a red-tinted **Ember** was
+perceptual hue shift, which is a real thing and a different claim from legibility; keep the two
+apart. The values and the rest of the reasoning sit beside the palette in `index.css`.
 
 ### A fixed chip and a mid-tone theme cannot both clear 3:1
 
@@ -1943,9 +1990,18 @@ shuffled.
       the wheel stepping the rating and the hours, and a column that says it will take a card
       wherever over it you are. Three things it turned up are written down where they bite rather
       than here: why a fixed chip and a mid-tone ground **cannot** both clear 3:1 (**Design
-      system**), that a new theme has two lists to join and only one fails loudly (same), and that
+      system**), that a new theme has more lists to join than it looks (same — the count in that
+      entry was itself wrong, and is corrected there), and that
       changing markup the drawer shares wants the whole e2e suite rather than the spec that looks
       related (**Testing it**, under HowLongToBeat).
+- [x] **Blood Red, and a note box that answers Enter** — an eighth theme whose *ground* is the
+      colour rather than its accent, which is the register the app had nothing in and took two
+      attempts to arrive at; Enter sending a note with Shift+Enter for a line; and a repair to the
+      contrast suite, which kept its palette list by hand and so measured a new theme not at all.
+      Three things it turned up are written down where they bite: where a theme's colour has to live
+      (**Design system**), that a `disabled` attribute is not a rule a key press respects (**The
+      journal drawer**), and that piping a suite through `tail` hands you the pipe's exit code
+      (**Tests**).
 - [ ] **Detail and review — next.** A game detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery**.
 - [ ] **Other hobbies.** Movies/TV/anime/books/music — each a sibling detail table deriving from
