@@ -26,13 +26,17 @@ export const JOURNAL_KEY = 'hobbytracker.journal';
  */
 export const THEMES = [
   { value: 'system', label: 'System', hint: 'Follows your device' },
-  // Light, then the one mid-tone, then dark. The menu is this list in order, and grouping it by
+  // Light, then the two mid-tones, then dark. The menu is this list in order, and grouping it by
   // how bright the room is means the choice a reader is making — usually "something lighter" or
   // "something darker" — runs the same way down the panel.
   { value: 'shelf-light', label: 'Shelf Light', hint: 'Warm paper' },
   { value: 'frost', label: 'Frost', hint: 'Cool paper' },
   { value: 'almanac', label: 'Almanac', hint: 'Aged paper' },
   { value: 'dusk', label: 'Dusk', hint: 'Dim slate' },
+  // The second mid-tone, and the only warm one. It sits at 0.0414 against Dusk's 0.0580 — dimmer
+  // than Dusk but nowhere near the darks, which are all around 0.010. Named by the colour it is
+  // rather than by a mood, because that is what it was asked for by.
+  { value: 'blood-red', label: 'Blood Red', hint: 'Gold on blood' },
   { value: 'shelf-dark', label: 'Shelf Dark', hint: 'Warm dark' },
   { value: 'console', label: 'Console', hint: 'Cool and deep' },
   { value: 'ember', label: 'Ember', hint: 'Charcoal and red' },
