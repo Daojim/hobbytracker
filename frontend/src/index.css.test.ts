@@ -41,16 +41,26 @@ function contrast(a: string, b: string): number {
   return (hi! + 0.05) / (lo! + 0.05);
 }
 
-/** Every block that defines a full palette, by the name a person would call it. */
+/**
+ * Every block that defines a full palette, by the name a person would call it.
+ *
+ * Derived from THEMES rather than written out, and that is a repair rather than tidying.
+ *
+ * This was a hand-kept list of eight that nothing checked against the menu. A new theme has to
+ * join four lists — THEMES, the pre-paint script's literal copy in index.html, a palette block
+ * in index.css, and this — and the first three all fail loudly when it is missed. This one went
+ * quiet: the theme would simply arrive with **no contrast assertions at all**, on precisely the
+ * measurements a brand-new palette is likeliest to get wrong, and the suite would stay green
+ * saying so. `BOARD_STATUSES` is derived from `COLUMNS` to close the same kind of gap.
+ *
+ * `system` is not a palette — it is the absence of a choice — so it contributes the media-query
+ * block instead, which is the thing that actually answers for it.
+ */
 const PALETTES: readonly (readonly [string, string])[] = [
-  ['Shelf Light', "[data-theme='shelf-light'] {"],
-  ['Frost', "[data-theme='frost'] {"],
-  ['Almanac', "[data-theme='almanac'] {"],
-  ['Dusk', "[data-theme='dusk'] {"],
   ['a dark OS with no choice made', ':root:not([data-theme]) {'],
-  ['Shelf Dark', "[data-theme='shelf-dark'] {"],
-  ['Console', "[data-theme='console'] {"],
-  ['Ember', "[data-theme='ember'] {"],
+  ...THEMES.filter((theme) => theme.value !== 'system').map(
+    (theme) => [theme.label, `[data-theme='${theme.value}'] {`] as const,
+  ),
 ];
 
 describe('contrast', () => {
@@ -104,7 +114,7 @@ describe('contrast', () => {
  *
  * The four estimates are that site's numbers, and the chip says so whatever the app is wearing —
  * the genre stripes' reasoning exactly, which is why these live in the plain `@theme` block
- * beside them rather than in the eight palette blocks. So it is checked once here instead of once
+ * beside them rather than in the nine palette blocks. So it is checked once here instead of once
  * per theme above.
  *
  * Checked at all because a fill and its own label are the one pair in this stylesheet that move

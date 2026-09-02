@@ -181,6 +181,85 @@
 }
 
 /*
+ * ---- Blood Red: the ground is the red, and the red is #780606. ----
+ *
+ * **The redness of a theme lives in its ground, not its ink, and that is the whole shape of this
+ * one.** A light theme's ground cannot be deep by definition, so red on paper can only ever be an
+ * accent — which is a different thing from a red theme. Ember is the other half of that lesson:
+ * its charcoal is deliberately *neutral*, and it wears red only where the app speaks. Here the
+ * surface itself is red.
+ *
+ * It is a **mid-tone**, the second the app has and the first warm one. Relative luminance 0.0414,
+ * against Dusk's 0.0580 and the darks' 0.010 or so. Everything below follows from that number.
+ *
+ * **Two costs come with the register, both already paid once by Dusk.**
+ *
+ * The first is the HowLongToBeat chip, which reads **2.48:1** here against 3.74:1 on Ember. That
+ * fill is one fixed value for every theme — they are HowLongToBeat's numbers, so no theme is
+ * allowed to correct them — and carrying white text caps its luminance at 0.177. From there, 3:1
+ * needs a ground above 0.630 or below 0.026, so everything between is unreachable *for any blue,
+ * light or dark*. This ground is 0.0414. Dusk manages 2.10:1 for exactly the same reason, and
+ * `index.css.test.ts` deliberately asserts the chip against the lightest and darkest grounds
+ * rather than per theme — asserting per theme would encode "this app may not have a mid-tone
+ * theme", which is a rule nobody agreed to.
+ *
+ * The second is that the two text voices move together. `--muted` has to clear 4.5:1 against its
+ * own surface, and a bright ground forces it to at least 0.361 luminance — so the quiet voice
+ * ends up nearly as loud as the loud one. `--fg` to `--muted` is 1.55:1 here where Ember gets
+ * 2.28:1. That *is* what a mid-tone theme is; Dusk's own note says there is no room for more.
+ *
+ * **The genre stripes survive it, measured rather than assumed.** The lowest is Beat 'em up at
+ * 1.91:1 and Fighting at 1.92:1, below Ember's 2.87 — but Shelf Light already ships Puzzle at
+ * 2.07 and Adventure at 2.22, so this is inside territory the app has accepted. Nothing vanishes.
+ * Worth knowing that a *dark* red ground costs them nothing at all: against an oxblood #2a1416 all
+ * eleven land within 0.01 of their Ember numbers. What was rejected by eye for a red-tinted Ember
+ * was the perceptual hue shift, which is a different claim from legibility and should stay
+ * distinguishable from it in this file.
+ *
+ * **The accent is gold so that danger can be red.** On every other red theme the accent and the
+ * destructive colour are one hue apart — Ember's #f2545b against #ff8e7a — which is the whole
+ * reason nothing destructive in this app leans on colour alone. Taking the accent out of the red
+ * family is the one move that separates them, and gold is the hue a red theme has not already
+ * spent. The cost is at the other end: `--accent` #ffc861 sits 1.05:1 from `--rating-mid`
+ * #ffc078, which is the same colour. Accepted on precedent — Dusk ships #ffb454 against #ffb066,
+ * and the two appear in different places, a link or the nav underline against a star inside a
+ * card. #ff9f2e pulls it to 1.27:1 if it ever grates; the ramp is a scale and should not be the
+ * half that moves.
+ *
+ * The card keeps an outline, as Dusk's and Console's do and for their reason: a shadow needs a
+ * ground it can darken, and this one is already well up from black.
+ */
+[data-theme='blood-red'] {
+  color-scheme: dark;
+
+  --surface: #780606;
+  --sunken: #430404;
+  --hover: #8d0909;
+  --line: #a11616;
+  --line-soft: #6b0a0a;
+  --fg: #fff0ee;
+  --muted: #eeb9b4;
+  --accent: #ffc861;
+  --danger: #ffb3a8;
+  /* Dusk's green, unchanged. It is proven against a mid ground, which is the hard part, and a
+     second one picked by eye would only be another value to keep above 4.5:1. */
+  --ok: #7ad6a0;
+  /* 0.0153 from --well, against Dusk's 0.0136 and Ember's 0.0084. Warm rather than cool: on a
+     ground this saturated a cool lift reads as a different theme rather than as a column
+     lighting up. */
+  --drop: #6b1a16;
+  --dropped: #c69793;
+  --scrim: rgb(0 0 0 / 0.6);
+  --well: #5c0505;
+  --rating-low: #ff9d9d;
+  --rating-mid: #ffc078;
+  --rating-high: #ffdc7a;
+  --danger-fg: #4a0808;
+  --card-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 16px rgb(0 0 0 / 0.25);
+  --card-line: #8f1212;
+}
+
+/*
  * `system` stamps no attribute, so this is what answers for it. The values are Shelf Dark's,
  * repeated: a media query cannot be aliased to a selector in CSS, and there is no way to say
  * "these two conditions share a palette". `index.css.test.ts` compares the two blocks and fails
@@ -464,7 +543,7 @@
   /*
    * A provider's own colours, on the genre block's reasoning exactly: these are content rather
    * than chrome. Google's blue means Google whatever the app is wearing, so they are not
-   * per-theme and they sit outside the eight palette blocks. Here rather than as literals in the
+   * per-theme and they sit outside the nine palette blocks. Here rather than as literals in the
    * sign-in page's JSX so that this file stays the only place in the app that names a colour.
    *
    * Both marks sit on `--surface` behind a `--line` border, so they are graphics rather than
@@ -486,7 +565,7 @@
    *
    * Content, not chrome, on the genre stripes' argument exactly: the four figures in the drawer
    * come from somewhere else and say so, so they wear one colour whatever the app is wearing and
-   * they sit here rather than in the eight palette blocks. It is the same reason the two provider
+   * they sit here rather than in the nine palette blocks. It is the same reason the two provider
    * marks above are not per-theme.
    *
    * The blue is narrower than it looks, and was measured rather than picked. White on it has to

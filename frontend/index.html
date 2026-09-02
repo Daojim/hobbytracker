@@ -23,7 +23,11 @@
     <script>
       (function () {
         try {
-          var themes = ['shelf-light', 'frost', 'almanac', 'dusk', 'shelf-dark', 'console', 'ember'];
+          var themes = [
+            'shelf-light', 'frost', 'almanac',
+            'dusk', 'blood-red',
+            'shelf-dark', 'console', 'ember',
+          ];
           var theme = localStorage.getItem('hobbytracker.theme');
           // 'system' is stored as an absent attribute on purpose, so an unknown value and the
           // system default land in the same place: leave the root alone and let the

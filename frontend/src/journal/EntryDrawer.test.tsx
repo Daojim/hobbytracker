@@ -1032,6 +1032,110 @@ describe('EntryDrawer', () => {
     expect(screen.getByRole('textbox', { name: 'New note' })).toHaveValue('');
   });
 
+  it('sends a note on Enter, and makes a line on Shift+Enter', async () => {
+    // The convention every compose box carries, and worth having here for the reason it exists
+    // there: a journal entry is usually one line, so reaching for the button is a gesture per
+    // thought. Shift+Enter is what keeps the multi-line note writable — the body is stored
+    // whitespace-preserved and rendered that way, so the lines are a real thing to want.
+    const journal = journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    const box = await screen.findByRole('textbox', { name: 'New note' });
+
+    await userEvent.type(box, 'watcher knights{Shift>}{Enter}{/Shift}on the second try');
+    expect(journal.written).toEqual([]);
+    expect(box).toHaveValue('watcher knights\non the second try');
+
+    await userEvent.type(box, '{Enter}');
+
+    await waitFor(() =>
+      expect(journal.written).toEqual([
+        { entryId: 7, body: 'watcher knights\non the second try' },
+      ]),
+    );
+    // Cleared, exactly as the button leaves it. Two ways in, one ending.
+    expect(box).toHaveValue('');
+  });
+
+  it('sends a rewrite on Enter, and makes a line on Shift+Enter', async () => {
+    // The same box doing the same job, so it answers the same key. This is the arguable half —
+    // an edit box is where Enter is likeliest to be reached for out of habit mid-thought — and
+    // it is one line in `sendOnEnter`'s two call sites to take back.
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'wathcer knights' })] })],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Edit the note from Aug 20, 2026, 9:30 PM' }),
+    );
+
+    const box = screen.getByRole('textbox', { name: 'Note from Aug 20, 2026, 9:30 PM' });
+    await userEvent.clear(box);
+    await userEvent.type(box, 'watcher knights{Shift>}{Enter}{/Shift}on the second try');
+    expect(journal.rewritten).toEqual([]);
+
+    await userEvent.type(box, '{Enter}');
+
+    await waitFor(() =>
+      expect(journal.rewritten).toEqual([
+        { id: 9, body: 'watcher knights\non the second try' },
+      ]),
+    );
+  });
+
+  it('sends nothing on the Enter that accepts an IME candidate', async () => {
+    // An input method reports the Enter that chooses a candidate as an ordinary key press, so
+    // without the guard a note typed in Japanese or Korean is sent halfway through its first
+    // word — and the half that was sent is a note, not a draft. `isComposing` is the only thing
+    // that tells the two apart.
+    //
+    // fireEvent rather than userEvent, because nothing in the typing API raises a composing
+    // key. And the note is finished afterwards rather than asserted on the spot: if the guard
+    // were missing, the first Enter would send and clear, the second would find an empty box
+    // and correctly send nothing, and a test that only counted the writes at the end would see
+    // one either way. What separates them is *which* note arrived.
+    const journal = journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+
+    open();
+    const box = await screen.findByRole('textbox', { name: 'New note' });
+    await userEvent.type(box, 'radiance');
+
+    fireEvent.keyDown(box, { key: 'Enter', isComposing: true });
+
+    await userEvent.type(box, ' at last{Enter}');
+
+    await waitFor(() => expect(journal.written).toHaveLength(1));
+    expect(journal.written[0]?.body).toBe('radiance at last');
+  });
+
+  it('sends nothing on Enter from a box with only whitespace in it', async () => {
+    // Both boxes already refuse an empty body — the compose box in `write`, the edit box only
+    // through its button's `disabled`. A key press consults no button, so the edit box needed
+    // the guard moved somewhere the keyboard reaches it; without that, Enter is a way past a
+    // disabled control and into a 400 the API answers with "A note needs something in it".
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'wathcer knights' })] })],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Edit the note from Aug 20, 2026, 9:30 PM' }),
+    );
+
+    const box = screen.getByRole('textbox', { name: 'Note from Aug 20, 2026, 9:30 PM' });
+    await userEvent.clear(box);
+    await userEvent.type(box, '   {Enter}');
+
+    expect(journal.rewritten).toEqual([]);
+    // Still open. A rewrite closes the editor, so this is how "nothing was sent" is visible.
+    expect(box).toBeInTheDocument();
+  });
+
   it('rewrites a note', async () => {
     const journal = journalServer({
       detail: gameDetail({

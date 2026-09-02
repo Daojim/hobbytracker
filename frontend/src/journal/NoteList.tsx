@@ -3,6 +3,37 @@ import { formatJournalDateTime } from '../lib/time';
 import { ConfirmDelete } from './ConfirmDelete';
 import type { Note } from '../api/types';
 
+/**
+ * Enter sends what is in the box; Shift+Enter puts a line in it.
+ *
+ * The convention every compose box carries, and it belongs here for the reason it exists there:
+ * most journal entries are one line, so without it writing a thought down is a gesture per
+ * thought. Shift+Enter is the other half rather than a concession — a note's body is stored and
+ * rendered whitespace-preserved, so several lines is something the feature already supports and
+ * only the keyboard was in the way of.
+ *
+ * `preventDefault` is what stops the line being inserted *as well as* the note being sent. A
+ * textarea submits nothing on its own, so without it Enter would do both.
+ *
+ * **The composing check is the trap.** An input method reports the Enter that accepts a
+ * candidate as an ordinary key press, so a note typed in Japanese or Korean would be sent
+ * halfway through its first word — and what was sent is a note rather than a draft, so there is
+ * nothing to take back but a delete. `isComposing` is the only thing that tells the two Enters
+ * apart, and it is read off the native event because React's synthetic one does not carry it.
+ *
+ * A plain handler rather than a hook, and local to this file rather than `lib/`: both call sites
+ * are the two textareas below, and a helper moves up only when two *areas* need it — which is
+ * what happened to `formatHours` when the board started printing a duration too.
+ */
+function sendOnEnter(event: React.KeyboardEvent, send: () => void) {
+  if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) {
+    return;
+  }
+
+  event.preventDefault();
+  send();
+}
+
 export interface NoteListProps {
   notes: Note[];
   /** Open on the pass you are on; a click away on one that is over. */
@@ -38,8 +69,12 @@ export function NoteList({
   const [editing, setEditing] = useState<number | null>(null);
   const [confirming, setConfirming] = useState<number | null>(null);
 
+  // Guarded here rather than left to the button, because Enter reaches this and a button's
+  // `disabled` is not a rule — it is a rendering of one. Both conditions are the two the Add
+  // note button is drawn from, so the keyboard and the pointer cannot come to different answers
+  // about whether there is anything to send.
   function write() {
-    if (draft.trim() === '') {
+    if (busy || draft.trim() === '') {
       return;
     }
 
@@ -60,6 +95,7 @@ export function NoteList({
             value={draft}
             placeholder="write a note…"
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => sendOnEnter(event, write)}
             className="w-full rounded border border-line bg-surface px-2 py-1 text-sm"
           />
           <button
@@ -148,6 +184,23 @@ function NoteRow({
   // who cannot see which row they sit on would hear the same word over and over.
   const when = formatJournalDateTime(note.writtenAt) ?? '';
 
+  // The same shape as `write` above and for its reason: the Save note button is drawn from these
+  // two conditions, and Enter has to be held to them too, or it is a way past a disabled control
+  // and into the 400 the API answers an empty body with.
+  //
+  // This is the arguable half of the change. Enter-to-send is unarguable in a compose box and
+  // genuinely split in an edit box, which is where it is likeliest to be reached for out of habit
+  // partway through a thought. It is here because these are one box doing one job, and a textarea
+  // that answers Enter in one place and not the other is the near-miss this codebase has paid for
+  // before. One call site below to take back if it reads wrong.
+  function rewrite() {
+    if (busy || draft.trim() === '') {
+      return;
+    }
+
+    onRewrite(draft.trim());
+  }
+
   if (editing) {
     return (
       <>
@@ -159,12 +212,13 @@ function NoteRow({
           rows={3}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => sendOnEnter(event, rewrite)}
           className="w-full rounded border border-line bg-surface px-2 py-1 text-sm"
         />
         <span className="flex gap-2 text-xs">
           <button
             type="button"
-            onClick={() => onRewrite(draft.trim())}
+            onClick={rewrite}
             disabled={busy || draft.trim() === ''}
             className="rounded font-medium hover:underline disabled:opacity-50"
           >
