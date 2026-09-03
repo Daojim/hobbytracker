@@ -142,6 +142,7 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
 │       ├── lib/hours.ts  formatHours — display, so board/ need not reach into journal/
 │       ├── lib/useWheelStep.ts  a non-passive wheel listener; React's onWheel cannot cancel
+│       ├── lib/useOverlayHistory.ts  the drawer's openness as a history entry, so Back closes it
 │       ├── board/        keys.ts owns every query key, columns.ts the four columns,
 │       │                 sensors.ts the drag's activation distance, useBoard the writes
 │       ├── journal/      the drawer over the board
@@ -689,7 +690,7 @@ column; which entry gets touched and which dates get set is decided server-side.
 | not Completed | `Backlog` | edit in place; **clear both timestamps** |
 | not Completed | `InProgress` | edit in place; set `started_at` = now *only if null*; clear `completed_at` |
 | not Completed | `Completed` | edit in place; set `completed_at` = now |
-| not Completed | `Dropped` | edit in place; **leave timestamps alone** |
+| not Completed | `Dropped` | edit in place; set `started_at` = now *only if null*; leave `completed_at` alone |
 | **Completed** | anything else | **insert a new entry** at the top of the target column |
 | same as target | — | no-op |
 
@@ -700,6 +701,18 @@ title, and editing in place would destroy the record silently, on a gesture as c
 `InProgress` sets `started_at` only when null, so picking a dropped game back up keeps the moment you
 actually started it, and a pass inserted by a drag out of Completed gets a null platform and null
 hours rather than inheriting the last one's.
+
+**Dropping stamps a start when the pass has none**, which is the one rule in that table that adds a
+fact rather than preserving one. A Backlog entry has both timestamps cleared by rule and the Dropped
+column is narrowed by *either* of them, so a card dragged straight out of the queue used to leave the
+board altogether — findable only under *All years*, which reads as a drag that lost the game rather
+than as a filter being strict. It also agrees with what the column is for: Dropped is a game you
+picked up and gave up on, and the day you gave up is the day it was on your hands. The value falls
+back to the pass's own completion when there is an earlier one, because a pass can carry a finish and
+no start — the drawer's form writes every field, so a game being played can be given a completion
+date and left without a beginning — and `now` over that would put the start after the finish, which
+`ck_log_entries_timestamp_order` answers with a 500 on a request that had nothing wrong with it. The
+`Completed` arm carries the same guard facing the other way.
 
 **A card's corner is an `⋯` menu, same items from every column** — *Open journal*, the three columns
 this card is not in, then *Remove from board*. `board/columns.ts` is the one list of the four;
@@ -792,7 +805,7 @@ filter rather than a strict one.
 | Backlog | **Nothing — it is exempt.** Both timestamps are cleared by the rule that puts a title there, so it belongs to no year; and it is what you drag out of while reading a past one |
 | Playing | `started_at`. The transition into this column clears `completed_at` |
 | Completed | `completed_at`, pointedly **not** `started_at`. A game begun in 2019 and finished in 2021 is a 2021 completion |
-| Dropped | **Either.** Dropping leaves the timestamps alone, so an abandoned title carries a start, an earlier completion, or neither |
+| Dropped | **Either.** A drop stamps a start when the pass has none and leaves a completion alone, so an abandoned title carries a start, an earlier completion, or both. Only a pass written straight through `POST /api/log-entries` carries neither |
 | *no column named* | Either, for Dropped's reason: with no column named there is no one date to prefer |
 
 `LibraryService.InYear` holds the server's half and `yearFor` in `frontend/src/board/keys.ts` the
@@ -988,6 +1001,20 @@ Settled:
   or Escape, focus moved in on open. Tab is contained on purpose: `aria-modal` already tells a screen
   reader the board behind is inert, and letting the keyboard walk out onto it would make that promise
   false for anyone who reads by tabbing.
+- **The phone's Back closes it, which is why the drawer's openness is a history entry.** Android has
+  one Back button and it means *out of this*; over an open drawer it took the board, which on a phone
+  is the whole app. Opening pushes an entry so the press has something of its own to pop, and closing
+  — the ×, Escape, the backdrop — *is* that press, so nothing is left behind for the next one to
+  find. `useOverlayHistory` in `src/lib/` holds it and **derives the open journal from the entry
+  rather than keeping a copy beside it**: two copies have to be told about every pop, and the first
+  time they disagree the drawer is either shut over an entry nobody can see — one more press between
+  the reader and the way out, per journal they ever opened — or open with nothing behind it.
+- **A reload comes back to the open drawer**, which is that entry being a real one rather than a
+  trick: the browser hands history state back after a refresh. On a phone that is the
+  pull-to-refresh a thumb finds at the top of a long journal, and being thrown out of what you were
+  reading is the worse of the two answers. Back still closes it, because the board is still the
+  entry underneath. `journal.spec.ts` names it — the two note specs that reload mid-drawer would
+  otherwise be depending on it silently.
 - **The platform select offers the game's own list** from `GameDetail.platforms` — already loaded, no
   second request — plus a blank "Not recorded". A stored value that list no longer mentions stays in
   it and stays selected.
@@ -1008,6 +1035,17 @@ Settled:
 
 ### The things that fail quietly here
 
+- **The push takes a path, never the location object.** react-router reads any value carrying
+  `pathname`/`search`/`hash`/`state`/`key` as a whole location and uses *its* state, so
+  `navigate(location, { state })` quietly pushes the previous entry's state and key again and the
+  drawer never opens. A `Partial<Path>` is what makes the options argument count. What comes back
+  *out* of an entry is checked rather than trusted, for the reason a stored theme is: the browser
+  hands the state back after a reload, from whichever build wrote it.
+- **That entry carries the same path on purpose**, so the router matches the same route and React
+  reconciles rather than rebuilding. A remount would take the board's per-column sorts, its chosen
+  year and its open Dropped well with it — a reload nobody asked for, on the way out of a drawer.
+  `App.test.tsx` pins it, checked by keying that route's element on the location, which fails that
+  one test and nothing else.
 - **Focus goes back to the card's title button by id, not by a stored element.** Refetches remount the
   card while the drawer is open, so the node captured at open time is usually detached (`cardTitleId`
   in `src/board/Card.tsx`).
@@ -2002,6 +2040,14 @@ shuffled.
       (**Design system**), that a `disabled` attribute is not a rule a key press respects (**The
       journal drawer**), and that piping a suite through `tail` hands you the pipe's exit code
       (**Tests**).
+- [x] **Back closes the drawer, and a drop says when** — two things a phone and a year-narrowed
+      board turned up. The journal's openness moved out of component state and into a history
+      entry, so Android's Back closes the drawer rather than leaving the board; and moving a title
+      to Dropped stamps a start when the pass has none, without which a card dragged straight out
+      of the backlog vanished off a board that reads one year at a time. Both are written where
+      they bite: how an overlay owns a history entry, and the ways that goes quietly wrong
+      (**The journal drawer**), and why a pass carrying no dates at all is a card on nobody's
+      board (**Board semantics**).
 - [ ] **Detail and review — next.** A game detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery**.
 - [ ] **Other hobbies.** Movies/TV/anime/books/music — each a sibling detail table deriving from
