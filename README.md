@@ -231,6 +231,14 @@ must not overwrite that completion — several entries per title is the entire r
 shaped this way, and editing in place would destroy the record silently, on a gesture as casual
 as a drag.
 
+**The journal drawer's openness is a history entry, not component state.** Android has one Back
+button and it means "out of this" — over an open drawer it left the board, which on a phone is the
+whole app. So opening the drawer pushes an entry and closing it goes back, and a refresh comes back
+to the open drawer, because that is what a history entry is. What is open is read out of the entry
+rather than kept beside it: two copies have to be told about every pop, and the first time they
+disagree the drawer is either shut over an entry nobody can see — one more press between the reader
+and the way out, per journal they ever opened — or open with nothing behind it.
+
 **Sessions are an httpOnly cookie, and scoping is an injected `ICurrentUser`.** Not a JWT, and
 not an EF global query filter. A query filter would scope every read automatically and
 invisibly — which means nobody can review it at the call site, the background HowLongToBeat

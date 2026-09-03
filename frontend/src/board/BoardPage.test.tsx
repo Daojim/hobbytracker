@@ -4,7 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { BoardPage } from './BoardPage';
 import { boardServer, libraryItem } from '../test/library';
 import { gameDetail, journalServer, logEntry } from '../test/games';
-import { renderWithProviders } from '../test/render';
+import { BackButton, renderWithProviders } from '../test/render';
+
+/** The board, with something on it to press Back with. */
+function boardWithBack() {
+  return renderWithProviders(
+    <>
+      <BoardPage />
+      <BackButton />
+    </>,
+  );
+}
 
 describe('BoardPage', () => {
   it('opens with Dropped, then the three columns a title moves through', async () => {
@@ -138,6 +148,24 @@ describe('BoardPage', () => {
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Celeste' })).toHaveFocus(),
     );
+  });
+
+  it('closes the journal when the browser goes back, rather than leaving the board', async () => {
+    // On a phone, Back is the gesture for "out of this", and an open drawer is the innermost
+    // this. Its openness is a history entry precisely so that press has something of its own to
+    // pop — without one it pops the board, which on Android is the whole app going away.
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] } });
+    journalServer({ detail: gameDetail({ title: 'Celeste' }) });
+
+    boardWithBack();
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'go back' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    // And what is behind it is the board that was there, still showing its one card.
+    expect(screen.getByRole('heading', { name: 'Backlog 1' })).toBeInTheDocument();
   });
 
   it('keeps one card asking at a time, however many are on the board', async () => {

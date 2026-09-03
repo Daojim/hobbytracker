@@ -520,7 +520,27 @@ public sealed class LibraryService(
                 break;
 
             case LogStatus.Dropped:
-                // You did start it; abandoning it does not undo that.
+                // You did start it, and abandoning it does not undo that, so a start already
+                // here is kept exactly as InProgress keeps one.
+                //
+                // A pass carrying none is given one, which is the half that is not obvious. The
+                // alternative is not "no date": it is an entry belonging to no year at all, and
+                // the board reads one year at a time — Dropped is narrowed by either timestamp,
+                // so a title dragged straight out of the queue would leave the board entirely
+                // and be findable only under All years. That reads as a drag that lost the game
+                // rather than as a filter being strict. See InYear, and it agrees with what this
+                // column is for: a game you picked up and gave up on.
+                //
+                // The completion is left alone either way, and is what a start falls back to
+                // when one is there. A pass can carry a finish and no start — the drawer's form
+                // writes every field, so a game being played can be given a completion date and
+                // left without a beginning — and stamping "now" over that would put the start
+                // after the finish, which ck_log_entries_timestamp_order refuses. That is a 500
+                // on a request with nothing wrong with it, which is the same trap the Completed
+                // arm above guards, facing the other way.
+                entry.StartedAt ??= entry.CompletedAt is { } finished && finished < now
+                    ? finished
+                    : now;
                 break;
         }
     }

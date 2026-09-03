@@ -7,6 +7,7 @@ import { BoardSearch } from '../search/BoardSearch';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column } from './Column';
 import { EntryDrawer } from '../journal/EntryDrawer';
+import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { useBoard } from './useBoard';
 import { YearPicker } from './YearPicker';
 import { yearFor, yearsKey } from './keys';
@@ -42,7 +43,16 @@ export function BoardPage() {
   // Dropped is a record, not a queue. It starts out of the way and opens when asked for.
   const [droppedOpen, setDroppedOpen] = useState(false);
   // Which title's journal is open, if any. One at a time: the drawer covers the board.
-  const [journalFor, setJournalFor] = useState<number | null>(null);
+  //
+  // It lives in a history entry rather than in state, which is what makes a phone's Back
+  // close the drawer instead of leaving the board — the press it used to get was the board's.
+  // Closing is that same press, so nothing is left behind for the next one to find. See
+  // useOverlayHistory, which holds the three ways that goes quietly wrong.
+  const {
+    openFor: journalFor,
+    open: openJournal,
+    close: closeJournal,
+  } = useOverlayHistory('journal');
   // Which card is asking to be removed, if any. Held here rather than in the card because a
   // refetch remounts cards — the same fact that makes focus go back to the drawer's opener by
   // id rather than by a stored element — and a confirm that closes itself when a background
@@ -143,7 +153,7 @@ export function BoardPage() {
                     }}
                     onOpen={(mediaId) => {
                       openedFrom.current = mediaId;
-                      setJournalFor(mediaId);
+                      openJournal(mediaId);
                     }}
                   />
                 ))}
@@ -169,7 +179,7 @@ export function BoardPage() {
       </div>
 
       {journalFor !== null && (
-        <EntryDrawer mediaId={journalFor} onClose={() => setJournalFor(null)} />
+        <EntryDrawer mediaId={journalFor} onClose={closeJournal} />
       )}
     </main>
   );

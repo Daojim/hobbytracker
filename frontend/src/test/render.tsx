@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useNavigate } from 'react-router';
 import { DndContext } from '@dnd-kit/core';
 import { useBoardSensors } from '../board/sensors';
 
@@ -46,4 +46,23 @@ export function renderWithProviders(
   }
 
   return { queryClient, ...render(ui, { wrapper: Wrapper }) };
+}
+
+/**
+ * The phone's Back button, in the only form jsdom can offer one: the same POP, through the same
+ * router. There is no `window.history` behind a MemoryRouter, so a test that wants a back press
+ * has to ask the router for it — which is all the browser's own press amounts to.
+ *
+ * Here rather than in one spec because two of them need it, at two levels: whether the drawer
+ * closes is the board's business, and whether the page it goes back to is the same page is the
+ * router's.
+ */
+export function BackButton() {
+  const navigate = useNavigate();
+
+  return (
+    <button type="button" onClick={() => void navigate(-1)}>
+      go back
+    </button>
+  );
 }
