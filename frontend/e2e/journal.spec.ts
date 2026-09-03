@@ -343,6 +343,72 @@ test('clicking away from the drawer closes it, and so does Escape', async ({ pag
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test('the back button closes the drawer instead of leaving the board', async ({ page }) => {
+  // The gesture this is really about is a phone's: on Android, Back over an open drawer used to
+  // take the whole app away, because the drawer had no entry of its own for the press to pop.
+  // It has one now, so the press means "out of this" — which is what it means everywhere else.
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  await page.goBack();
+
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  // Still the board, which is the half a closed drawer alone would not prove: leaving it would
+  // have taken the dialog with it too.
+  await expect(card(page, 'Celeste')).toBeVisible();
+});
+
+test('closing the drawer takes its history entry with it', async ({ page }) => {
+  // Closing *is* the back press rather than a hide with the entry left behind, and that is what
+  // stops journals piling up in front of the way out: every one you opened and shut would
+  // otherwise be one more press between you and the page you came from.
+  await seed(page.request, 'Celeste', 'Backlog');
+
+  // Somewhere unmistakable to land. The board is this session's first entry, so without a page
+  // in front of it a Back that overshot would look exactly like one that did not.
+  await page.goto('/signin');
+  await page.goto('/board');
+
+  for (const round of [1, 2]) {
+    await openJournal(page, 'Celeste');
+    await expect(page.getByRole('dialog'), `drawer open, round ${round}`).toBeVisible();
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  }
+
+  await page.goBack();
+
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
+});
+
+test('the drawer comes back with the page, because its openness is a history entry', async ({
+  page,
+}) => {
+  // The consequence of that entry being a real one rather than a trick: the browser hands
+  // history state back after a refresh, so a reload returns to what was being read instead of
+  // to the board behind it. On a phone that is the pull-to-refresh a thumb finds by accident at
+  // the top of a long journal, which would otherwise throw the reader out of it.
+  //
+  // Named here rather than left for the two note specs that reload with the drawer open to
+  // depend on quietly — this is the test to argue with if it should ever be the other way.
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  // And it is not a dead end: the entry underneath is still the board.
+  await page.goBack();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(card(page, 'Celeste')).toBeVisible();
+});
+
 test('a pass added by a mistaken drag can be taken back', async ({ page }) => {
   // The gap this closes: drag to Completed and back and the card says ×2 forever, because
   // leaving Completed inserts an entry rather than editing one. Nothing could remove it.
@@ -441,9 +507,10 @@ test('notes stack up on a pass instead of overwriting each other', async ({ page
   await writeNote(page, 'stuck on watcher knights');
   await writeNote(page, 'finally beat radiance');
 
-  // Reloaded, because "both are on screen" and "both are stored" are different claims.
+  // Reloaded, because "both are on screen" and "both are stored" are different claims. The
+  // drawer comes back with the page rather than wanting opening again — its openness is a
+  // history entry, and the browser hands those back after a refresh.
   await page.reload();
-  await openJournal(page, 'Hollow Knight');
 
   // Scoped to the drawer throughout. The card behind it carries the last thing you wrote, so
   // both of these are on screen twice — which is the board working, and still two matches.
@@ -508,8 +575,8 @@ test('a note can be fixed and another taken back', async ({ page }) => {
   // Gone from the screen before reloading, or the navigation cancels the request that removes it.
   await expect(drawer.getByText('a typo I will regret')).toHaveCount(0);
 
+  // Still open on the other side of the reload, as above.
   await page.reload();
-  await openJournal(page, 'Celeste');
 
   await expect(page.getByRole('dialog').getByText('watcher knights')).toBeVisible();
   await expect(page.getByText('a typo I will regret')).toHaveCount(0);
