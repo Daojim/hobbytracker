@@ -225,6 +225,20 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
+    public async Task A_title_dropped_out_of_the_backlog_is_on_this_years_board()
+    {
+        // The symptom the stamping rule exists for. A Backlog entry carries no dates by rule,
+        // and Dropped is narrowed by either of them — so a card dragged straight from the queue
+        // into Dropped used to leave the board entirely, findable only under All years, which
+        // reads as a drag that lost the game rather than as a filter being strict.
+        var waiting = await GivenBacklogAsync("Gave up before starting", "1");
+        await MoveAsync(waiting, LogStatus.Dropped);
+
+        (await GetColumnAsync(LogStatus.Dropped, year: 2026)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Gave up before starting");
+    }
+
+    [Fact]
     public async Task The_years_endpoint_offers_a_year_something_was_only_started_in()
     {
         // The picker's options and the columns' filter have to describe the same set of years.

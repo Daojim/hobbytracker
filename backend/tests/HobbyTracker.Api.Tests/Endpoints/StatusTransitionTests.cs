@@ -93,7 +93,7 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
     }
 
     [Fact]
-    public async Task Dropping_a_game_leaves_its_dates_alone()
+    public async Task Dropping_a_game_you_started_keeps_the_day_you_started_it()
     {
         var mediaId = await GivenGameAsync();
         var started = Eastern(2026, 5, 5);
@@ -101,10 +101,50 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
 
         await MoveAsync(mediaId, LogStatus.Dropped);
 
-        // You did start it. Abandoning it does not undo that.
+        // You did start it, and on that day. Abandoning it undoes neither.
         var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
         entry.Status.ShouldBe(LogStatus.Dropped);
         entry.StartedAt.ShouldBe(started);
+    }
+
+    [Fact]
+    public async Task Dropping_something_you_never_started_stamps_today()
+    {
+        // Dropped is where a game you picked up and gave up on goes, so a title arriving from
+        // the queue is stamped with the day it arrived. The alternative is not "no date": it is
+        // an entry carrying neither timestamp, which belongs to no year — and the board reads
+        // one year at a time, so the card would leave the board altogether. See
+        // LibraryOrderingTests.A_title_dropped_out_of_the_backlog_is_on_this_years_board.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        await MoveAsync(mediaId, LogStatus.Dropped);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.Dropped);
+        entry.StartedAt.ShouldBe(Now);
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Dropping_a_pass_carrying_only_a_completion_keeps_the_two_in_order()
+    {
+        // Reachable through the drawer rather than exotic: the form sends every field, so a
+        // pass being played can be given a completion date and left without a start. Stamping
+        // "now" on that would put the start after the finish, which
+        // ck_log_entries_timestamp_order refuses — and a constraint refusing is a 500 on a
+        // request with nothing wrong with it. The same guard the Completed arm carries, facing
+        // the other way.
+        var mediaId = await GivenGameAsync();
+        var finished = Eastern(2020, 4, 1);
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, completedAt: finished);
+
+        var response = await MoveAsync(mediaId, LogStatus.Dropped);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.StartedAt.ShouldBe(finished);
+        entry.CompletedAt.ShouldBe(finished);
     }
 
     [Fact]
@@ -309,6 +349,31 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         replay.Platform.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task Dropping_a_finished_game_starts_the_new_pass_today()
+    {
+        // Leaving Completed inserts rather than edits, so what takes the date here is a pass
+        // that did not exist a moment ago — and it needs one for the backlog case's reason: an
+        // entry carrying neither timestamp is on no year's board.
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
+
+        await MoveAsync(mediaId, LogStatus.Dropped);
+
+        var entries = await EntriesAsync(mediaId);
+        entries.Count.ShouldBe(2);
+
+        // The 2024 playthrough is untouched, as it is however you leave that column.
+        entries[0].StartedAt.ShouldBe(Eastern(2024, 1, 10));
+        entries[0].CompletedAt.ShouldBe(Eastern(2024, 3, 2));
+
+        entries[1].Status.ShouldBe(LogStatus.Dropped);
+        entries[1].StartedAt.ShouldBe(Now);
+        entries[1].CompletedAt.ShouldBeNull();
+    }
+
     // ------------------------------------------------------------------ errors
 
     [Fact]
@@ -350,8 +415,10 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
     [Fact]
     public async Task A_finished_game_that_is_dropped_stays_dropped()
     {
-        // Dropped leaves timestamps alone, so the new entry has none at all -- the same shape
-        // as the Backlog case above, and broken the same way.
+        // Dropping a finished game inserts a pass too, and the ordering has to pick it for
+        // the same reason: it was logged most recently. Its start is stamped where the Backlog
+        // entry above carries no dates at all, which makes that one the sharper half of the
+        // pair — this says the other ending behaves no differently.
         var mediaId = await GivenGameAsync("Celeste");
         await GivenLogEntryAsync(
             mediaId, LogStatus.Completed,
