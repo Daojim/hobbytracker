@@ -82,7 +82,8 @@ that rule: it is the last thing you wrote about the title whichever pass it was 
 replay you have not written on yet still carries last year's thought forward.
 
 Timestamps are instants, and the app records days in `America/New_York` — see **Time** in
-`CLAUDE.md`. A value sent without an offset is read as that wall-clock moment there, not as UTC.
+`docs/data-model.md`. A value sent without an offset is read as that wall-clock moment there, not
+as UTC.
 
 ### Endpoints
 
@@ -143,7 +144,7 @@ cd frontend && npm install && npm run dev            # http://localhost:5173
 
 Then open **http://localhost:5173**, not the API's port. Startup fails deliberately, naming the
 missing setting, if any of those six secrets is absent. No provider app to hand? The end-to-end
-Google stub doubles as a local one — see **Running it** in `CLAUDE.md`.
+Google stub doubles as a local one — see **Start here** in `CLAUDE.md`.
 
 To drive the API from a shell, spend a cookie:
 
@@ -337,4 +338,4 @@ to prevent something, the test for it is checked by reintroducing the thing.
 - [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration
 
 Architecture and schema notes for anyone (or anything) working in the repo live in
-[CLAUDE.md](CLAUDE.md).
+[CLAUDE.md](CLAUDE.md), which routes to one file per area under [docs/](docs).
