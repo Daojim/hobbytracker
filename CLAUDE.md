@@ -335,7 +335,7 @@ it**; what is here is the tripwire, and a tripwire only has to fire *before* the
 explain it.
 
 A trap earns a line here if hitting it does **not** require already working in its own area. The rest
-— some seventy of them — stay in their own file, and **The map** is what reaches them. Four more are
+— some seventy of them — stay in their own file, and **The map** is what reaches them. Three more are
 stated in full further down rather than indexed, because their sections are in this file: the build
 lock and the `tail` exit code under **Tests**, and restarting the API after a pull under **Start
 here**.
@@ -360,6 +360,10 @@ here**.
 
 ## Schema
 
+The tables and their columns. **Why they are shaped this way** — Table-Per-Type and the one line
+that makes EF choose it, the decisions that will look arbitrary later, and the Eastern journal clock
+— is `docs/data-model.md`.
+
 | Table | Columns |
 |---|---|
 | `hobby_lu` | `id`, `name` — games, movies, tv, anime, books, music |
@@ -380,51 +384,23 @@ shuffled.
 
 - [x] **Schema and search** — schema + migration, IGDB integration, `GET /api/games`.
 - [x] **The journal** — log-entry CRUD, library and game-detail reads, the test suite.
-- [x] **The board** — transitions, manual ordering, year filtering and the Eastern timezone work on
-      the backend; components, the drag, search and the journal drawer on the front.
-- [x] **HowLongToBeat** — all four figures, the matcher, the queue, `sort=hours`, the pin, and a stub
-      that serves every leg of the site's access shape.
-- [x] **The redesign** — semantic tokens, four themes, a density setting, the Shelf re-skin, a board
-      that works at every width, search moved onto it, and a hobby nav.
-- [x] **Auth** — Google and Discord, an httpOnly cookie, sixteen query sites scoped, `user_id NOT
-      NULL`.
-- [x] **Living with it** — the things daily use turned up: the last note on the card, an options menu
-      so a move is not a drag, removing that removes, two HowLongToBeat repairs, a year control over
-      the whole board, and a card that fills in its own estimate.
-- [x] **Deployment** — an origin the app is told rather than left to guess, one Dockerfile with two
-      targets, a compose file with the tunnel behind a profile, session keys that outlive the
-      container, and migrations that run themselves in Production. See `docs/deploy.md`. What is not
-      code — nameservers, the tunnel, the provider redirect URIs, `.env` — is deliberately not here.
-- [x] **A polish pass** — three themes in registers the app had none of (two more lights and its
-      first mid-tone), a Visual Novel genre, HowLongToBeat's four estimates as a grid of blue chips
-      that reads in the drawer as well as the modal, the journal drawer cut into three ruled bands,
-      the wheel stepping the rating and the hours, and a column that says it will take a card
-      wherever over it you are. Three things it turned up are written down where they bite rather
-      than here: why a fixed chip and a mid-tone ground **cannot** both clear 3:1
-      (`docs/design.md`), that a new theme has more lists to join than it looks (same — the count
-      in that entry was itself wrong, and is corrected there), and that changing markup the drawer
-      shares wants the whole e2e suite rather than the spec that looks related (**Testing it** in
-      `docs/games-hltb.md`).
-- [x] **Blood Red, and a note box that answers Enter** — an eighth theme whose *ground* is the
-      colour rather than its accent, which is the register the app had nothing in and took two
-      attempts to arrive at; Enter sending a note with Shift+Enter for a line; and a repair to the
-      contrast suite, which kept its palette list by hand and so measured a new theme not at all.
-      Three things it turned up are written down where they bite: where a theme's colour has to live
-      (`docs/design.md`), that a `disabled` attribute is not a rule a key press respects
-      (`docs/journal.md`), and that piping a suite through `tail` hands you the pipe's exit code
-      (**Tests**, in this file).
-- [x] **Back closes the drawer, and a drop says when** — two things a phone and a year-narrowed
-      board turned up. The journal's openness moved out of component state and into a history
-      entry, so Android's Back closes the drawer rather than leaving the board; and moving a title
-      to Dropped stamps a start when the pass has none, without which a card dragged straight out
-      of the backlog vanished off a board that reads one year at a time. Both are written where
-      they bite: how an overlay owns a history entry, and the ways that goes quietly wrong
-      (`docs/journal.md`), and why a pass carrying no dates at all is a card on nobody's
-      board (**Board semantics** in `docs/board.md`).
+- [x] **The board** — transitions, manual ordering, the year filter, the Eastern clock, the drag, the drawer.
+- [x] **HowLongToBeat** — four figures, a matcher that refuses, the queue, `sort=hours`, the pin, a stub of the whole site.
+- [x] **The redesign** — semantic tokens, themes, two densities, the Shelf re-skin, every width, the hobby nav.
+- [x] **Auth** — Google and Discord, an httpOnly cookie, sixteen query sites scoped, `user_id NOT NULL`.
+- [x] **Living with it** — the last note on a card, the `⋯` menu, removing that removes, a year over the whole board.
+- [x] **Deployment** — the origin pin, one Dockerfile, the tunnel behind a profile, keys that outlive the container.
+- [x] **A polish pass** — three more themes, a Visual Novel genre, the estimates as a grid, the drawer's three bands.
+- [x] **Blood Red, and a note box that answers Enter** — an eighth theme whose *ground* is the colour, and Enter sends.
+- [x] **Back closes the drawer, and a drop says when** — the journal's openness as a history entry; Dropped stamps a start.
 - [ ] **Detail and review — next.** A game detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery** in `docs/games-igdb.md`.
 - [ ] **Other hobbies.** Movies/TV/anime/books/music — each a sibling detail table deriving from
       `Media`, plus its source integration (TMDB, MAL). Add the `source_lu` row with the client.
+
+**A completed phase gets one line, because what it *learned* is in the `docs/` file for the area
+it touched** — that is the growth rule at work, applied to this list. `README.md`'s roadmap is the
+same history written for a reader rather than for a session.
 
 **Auth was deferred three times on purpose, and that is now history rather than guidance.** The
 original brief had it second, but `log_entries.user_id` was nullable, so sequencing auth first would
