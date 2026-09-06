@@ -23,29 +23,42 @@ public sealed record LibraryItemDto(
     DateTimeOffset? LastActivity,
 
     /// <summary>
-    /// The game's genres, and which of them was chosen to stand for it — the card's colour.
+    /// The title's genres, and which of them was chosen to stand for it — the card's colour.
     ///
-    /// Null rather than empty for a row that is not a game: genres live on the games table, so
-    /// this is reached through a TPT downcast, and the LEFT JOIN behind it answers null for a
-    /// media row with no detail table. Which genre wins when none was chosen is settled on the
-    /// client, where the ordering and the palette are the same list.
+    /// Not a games concept, despite living in a detail table: films have genres and books will.
+    /// The vocabulary differs per hobby and so does the palette, but both are the client's to
+    /// know — which genre wins when none was chosen is settled there, where the ordering and the
+    /// colours are the same list.
+    ///
+    /// Null rather than empty for a row whose hobby has no detail table yet: this is reached
+    /// through a TPT downcast, and the LEFT JOIN behind it answers null for a media row with
+    /// nothing on the other side.
     /// </summary>
     IReadOnlyList<string>? Genres,
     string? PrimaryGenre,
 
     /// <summary>
-    /// The headline number HowLongToBeat prints at the top of a game page — 42 hours for Hollow
-    /// Knight — and the only one that reaches a card, which has room for a number rather than a
-    /// table. The four tiers behind it are a drawer reading, where they can be named.
+    /// How long this title takes, in hours — the one number a card has room for.
     ///
-    /// This is what <c>sort=hours</c> orders on too, and the two have to stay the same field: a
-    /// column ordered by a figure nobody can see reads as broken.
+    /// What that means is the hobby's business, not this row's. For a game it is the headline
+    /// figure HowLongToBeat prints at the top of a game page — 41.82 for Hollow Knight — with
+    /// its three tiers left to the drawer, where they can be named. For a film it is the runtime.
     ///
-    /// Null for a row that is not a game, for the same reason as <see cref="Genres"/>, null for
-    /// a game nothing has matched to HowLongToBeat, and null for one matched before this number
-    /// was fetched at all — POST /api/games/hltb/refresh fills those in.
+    /// <b>This is also what <c>sort=length</c> orders on, and the two have to stay one field.</b>
+    /// A column ordered by a figure none of its cards show reads as broken, and the surest way to
+    /// keep them together is to give them nothing to drift apart over.
+    ///
+    /// Hours rather than minutes because a game's estimate is stored in hours to two decimal
+    /// places and this carries it through untouched; a film's runtime divides down exactly, and
+    /// the client recovers the whole minute with <c>Math.round(hours * 60)</c> — two decimal
+    /// places is at most 0.3 of a minute out, so that is lossless in both directions.
+    ///
+    /// Null for a row whose detail table has nothing to say, for the same reason as
+    /// <see cref="Genres"/>; null for a game nothing has matched to HowLongToBeat; and null for
+    /// one matched before the number was fetched at all — POST /api/games/hltb/refresh fills
+    /// those in.
     /// </summary>
-    decimal? HltbAllStylesHours,
+    decimal? LengthHours,
 
     /// <summary>
     /// Whether HowLongToBeat has yet to be asked about this title at all.

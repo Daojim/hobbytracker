@@ -21,11 +21,14 @@ public enum LibrarySort
     Rating,
 
     /// <summary>
-    /// HowLongToBeat's main-story estimate, shortest first; titles with no estimate last.
+    /// How long the title takes, shortest first; titles with no figure last.
     ///
-    /// Main story alone, so the sort has exactly one meaning — "what can I finish this weekend".
+    /// Whichever number the card prints, so the column and its cards agree — HowLongToBeat's
+    /// headline figure for a game, the runtime for a film. See <c>LibraryItemDto.LengthHours</c>,
+    /// which is the single field both of them read.
+    ///
     /// Deliberately not log_entries.hours_played, which is how long *you* took on one pass: that
     /// is a fact about a playthrough, where this is a property of the title.
     /// </summary>
-    Hours,
+    Length,
 }

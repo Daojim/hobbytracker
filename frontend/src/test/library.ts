@@ -27,7 +27,7 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     lastActivity: null,
     genres: [],
     primaryGenre: null,
-    hltbAllStylesHours: null,
+    lengthHours: null,
     hltbPending: false,
     latestNotePreview: null,
     ...overrides,

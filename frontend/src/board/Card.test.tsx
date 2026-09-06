@@ -96,7 +96,7 @@ describe('Card', () => {
     // unmarked number on a card would read as the same claim about a game you have not started.
     // The headline figure rather than main story, which is what this used to show. Hollow
     // Knight's main story is 27 and the number the site leads with is 42.
-    renderCard(libraryItem({ title: 'Hollow Knight', hltbAllStylesHours: 42 }));
+    renderCard(libraryItem({ title: 'Hollow Knight', lengthHours: 42 }));
 
     expect(screen.getByText('~42 h')).toBeInTheDocument();
     expect(
@@ -105,7 +105,7 @@ describe('Card', () => {
   });
 
   it('says nothing about length for a title HowLongToBeat has not been matched to', () => {
-    renderCard(libraryItem({ hltbAllStylesHours: null }));
+    renderCard(libraryItem({ lengthHours: null }));
 
     expect(screen.queryByText(/h$/)).not.toBeInTheDocument();
   });

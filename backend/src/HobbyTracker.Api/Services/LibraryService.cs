@@ -475,16 +475,17 @@ public sealed class LibraryService(
         // Shortest first, on the same number the card prints, and that is the whole rule: a
         // column ordered by a figure nobody can see reads as broken. This used to order on main
         // story, which is what the card showed then; both moved to the headline All Styles
-        // number together, and they have to keep moving together.
+        // number together, and they have to keep moving together. LibraryItemDto.LengthHours is
+        // what makes that cheap to keep true — the card and this arm read one field.
         //
-        // A title nothing has matched to HowLongToBeat sorts last, rather than as though nobody
-        // having timed it meant it took no time.
+        // A title with no figure sorts last, rather than as though nobody having timed it meant
+        // it took no time.
         //
         // The downcast is confined to this one arm on purpose. BoardQuery is what every Where
         // and OrderBy is pushed through, so a downcast that failed to translate *there* would
         // empty the whole board; here the worst case is that this one mode breaks. See the
         // comment on BoardQuery, and the test that asserts this column comes back non-empty.
-        LibrarySort.Hours => query
+        LibrarySort.Length => query
             .OrderBy(row => (row.Media as Game)!.HltbAllStylesHours == null)
             .ThenBy(row => (row.Media as Game)!.HltbAllStylesHours),
 

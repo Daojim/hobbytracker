@@ -272,7 +272,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
-    public async Task Time_to_beat_puts_the_shortest_first_and_the_unknown_last()
+    public async Task Length_puts_the_shortest_first_and_the_unknown_last()
     {
         // That the column comes back non-empty is half of what this asserts. The estimate lives
         // on `games`, so ordering by it needs a TPT downcast — and when one of those fails to
@@ -282,7 +282,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         await GivenBacklogWithEstimateAsync("Unmatched", "3", estimate: null);
         await GivenBacklogWithEstimateAsync("Middling", "4", 27m);
 
-        var column = await GetColumnAsync(LogStatus.Backlog, LibrarySort.Hours);
+        var column = await GetColumnAsync(LogStatus.Backlog, LibrarySort.Length);
 
         // Shortest first: the question the sort answers is "what can I finish this weekend".
         // Unknown last in the same spirit as an unrated title, rather than sorting as though
@@ -292,7 +292,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
-    public async Task Sorting_by_time_to_beat_leaves_the_stored_ranking_alone()
+    public async Task Sorting_by_length_leaves_the_stored_ranking_alone()
     {
         // Every mode but manual is a read-only view. This is the promise that lets the board
         // offer dragging in one mode only and still guarantee the ranking survives a look.
@@ -300,7 +300,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         var second = await GivenBacklogWithEstimateAsync("Short", "2", 8.32m);
         await ReorderAsync(LogStatus.Backlog, [first, second]);
 
-        await GetColumnAsync(LogStatus.Backlog, LibrarySort.Hours);
+        await GetColumnAsync(LogStatus.Backlog, LibrarySort.Length);
 
         (await GetColumnAsync(LogStatus.Backlog)).Items.Select(item => item.Title)
             .ShouldBe(["Long", "Short"]);
