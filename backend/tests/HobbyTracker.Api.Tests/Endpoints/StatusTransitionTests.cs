@@ -450,6 +450,57 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         (await EntriesAsync(mediaId)).Count.ShouldBe(2);
     }
 
+    // --------------------------------------------------------- a second hobby
+
+    [Fact]
+    public async Task A_film_moves_through_the_columns_by_exactly_the_same_rules()
+    {
+        // The cheapest proof that none of the transition rules carries a game concept. Every
+        // other case in this file seeds a game, so a rule that had quietly grown one — a
+        // downcast, a hobby check, a join through `games` — would pass all of them and fail
+        // here, which is the whole reason this one exists.
+        var mediaId = await GivenMovieAsync("Arrival", runtimeMinutes: 116);
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        await MoveAsync(mediaId, LogStatus.InProgress);
+
+        var started = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        started.Status.ShouldBe(LogStatus.InProgress);
+        started.StartedAt.ShouldBe(Now);
+        started.CompletedAt.ShouldBeNull();
+
+        await MoveAsync(mediaId, LogStatus.Completed);
+
+        // Still one entry: a move edits the current pass rather than adding one, and the start
+        // it was given on the way in survives.
+        var watched = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        watched.Status.ShouldBe(LogStatus.Completed);
+        watched.StartedAt.ShouldBe(Now);
+        watched.CompletedAt.ShouldBe(Now);
+
+        // And leaving Completed opens a new pass rather than rewriting the finished one, which
+        // is the rule this file exists to protect.
+        await MoveAsync(mediaId, LogStatus.InProgress);
+        (await EntriesAsync(mediaId)).Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_film_lands_in_the_films_board_and_not_the_games_one()
+    {
+        // `?hobby=` has been a real filter since before there was anything to filter out. This
+        // is the first time there is.
+        var film = await GivenMovieAsync("Parasite", externalId: "496243");
+        var game = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(film, LogStatus.Completed, completedAt: Eastern(2026, 8, 1));
+        await GivenLogEntryAsync(game, LogStatus.Completed, completedAt: Eastern(2026, 8, 1));
+
+        var films = await ColumnAsync("movies", LogStatus.Completed);
+        var games = await ColumnAsync("games", LogStatus.Completed);
+
+        films.Items.Select(item => item.Title).ShouldBe(["Parasite"]);
+        games.Items.Select(item => item.Title).ShouldBe(["Celeste"]);
+    }
+
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync(
             $"/api/library/{mediaId}/status", new StatusTransitionRequest(status), Json, Ct);
@@ -460,6 +511,9 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         .ToListAsync(Ct));
 
     private async Task<PagedResult<LibraryItemDto>> GetColumnAsync(LogStatus status) =>
+        await ColumnAsync("games", status);
+
+    private async Task<PagedResult<LibraryItemDto>> ColumnAsync(string hobby, LogStatus status) =>
         await ReadAsync<PagedResult<LibraryItemDto>>(
-            await Client.GetAsync($"/api/library?hobby=games&status={status}", Ct));
+            await Client.GetAsync($"/api/library?hobby={hobby}&status={status}", Ct));
 }

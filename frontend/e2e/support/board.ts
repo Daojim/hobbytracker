@@ -8,11 +8,35 @@ import type { LogEntry, LogStatus } from '../../src/api/types';
  * does in the app — the search just happens to reach a stub rather than IGDB.
  */
 
-export const COLUMN_LABEL: Record<LogStatus, string> = {
-  Backlog: 'Backlog',
-  InProgress: 'Playing',
-  Completed: 'Completed',
-  Dropped: 'Dropped',
+/**
+ * Which board a helper is talking about. Games unless a spec says otherwise, because every
+ * spec written before there was a second hobby means games and should not have to say so.
+ */
+export type Hobby = 'games' | 'movies';
+
+const DEFAULT_HOBBY: Hobby = 'games';
+
+/**
+ * What each column is called, per hobby — and **deliberately a second copy** of what
+ * `src/hobbies/` holds.
+ *
+ * Importing the app's own map would make every assertion below a tautology: the spec would
+ * agree with the app because it is the app. Written out here, a column silently renamed shows
+ * up as a locator that finds nothing.
+ */
+export const COLUMN_LABEL: Record<Hobby, Record<LogStatus, string>> = {
+  games: {
+    Backlog: 'Backlog',
+    InProgress: 'Playing',
+    Completed: 'Completed',
+    Dropped: 'Dropped',
+  },
+  movies: {
+    Backlog: 'Backlog',
+    InProgress: 'Watching',
+    Completed: 'Watched',
+    Dropped: 'Dropped',
+  },
 };
 
 interface SeedOptions {
@@ -20,6 +44,8 @@ interface SeedOptions {
   completedAt?: string;
   rating?: number;
   hoursPlayed?: number;
+  /** Which catalogue to search, and therefore which board the title lands on. */
+  hobby?: Hobby;
 }
 
 /** Puts a title on the board and answers with its media id. */
@@ -29,19 +55,23 @@ export async function seed(
   status: LogStatus,
   options: SeedOptions = {},
 ): Promise<number> {
-  const found = await request.get('/api/games', { params: { search: title, limit: 5 } });
+  const { hobby = DEFAULT_HOBBY, ...entry } = options;
+
+  // The catalogue route is the hobby's, and it is the only part of seeding that is: a log entry
+  // points at a media id and does not care what kind of thing it is.
+  const found = await request.get(`/api/${hobby}`, { params: { search: title, limit: 5 } });
   expect(found.ok(), `search for ${title}`).toBeTruthy();
 
-  const games = (await found.json()) as { id: number; title: string }[];
-  const game = games.find((candidate) => candidate.title === title);
-  expect(game, `${title} is in the stub catalogue`).toBeDefined();
+  const results = (await found.json()) as { id: number; title: string }[];
+  const media = results.find((candidate) => candidate.title === title);
+  expect(media, `${title} is in the stub catalogue`).toBeDefined();
 
   const created = await request.post('/api/log-entries', {
-    data: { mediaId: game!.id, status, ...options },
+    data: { mediaId: media!.id, status, ...entry },
   });
   expect(created.ok(), `log ${title} as ${status}`).toBeTruthy();
 
-  return game!.id;
+  return media!.id;
 }
 
 export async function entriesFor(
@@ -54,12 +84,16 @@ export async function entriesFor(
 }
 
 /** The titles in one column, top first, as the board is currently showing them. */
-export async function titlesIn(page: Page, status: LogStatus): Promise<string[]> {
-  return column(page, status).getByRole('heading', { level: 3 }).allTextContents();
+export async function titlesIn(
+  page: Page,
+  status: LogStatus,
+  hobby: Hobby = DEFAULT_HOBBY,
+): Promise<string[]> {
+  return column(page, status, hobby).getByRole('heading', { level: 3 }).allTextContents();
 }
 
-export function column(page: Page, status: LogStatus): Locator {
-  return page.getByRole('region', { name: new RegExp(`^${COLUMN_LABEL[status]} `) });
+export function column(page: Page, status: LogStatus, hobby: Hobby = DEFAULT_HOBBY): Locator {
+  return page.getByRole('region', { name: new RegExp(`^${COLUMN_LABEL[hobby][status]} `) });
 }
 
 /**
@@ -135,9 +169,14 @@ export function todayOnCard(): string {
 }
 
 /** Changes one column's ordering. The control names the column it orders. */
-export async function setSort(page: Page, status: LogStatus, mode: string): Promise<void> {
+export async function setSort(
+  page: Page,
+  status: LogStatus,
+  mode: string,
+  hobby: Hobby = DEFAULT_HOBBY,
+): Promise<void> {
   await page
-    .getByRole('combobox', { name: `${COLUMN_LABEL[status]} order` })
+    .getByRole('combobox', { name: `${COLUMN_LABEL[hobby][status]} order` })
     .selectOption({ label: mode });
 }
 
