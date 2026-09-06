@@ -130,6 +130,7 @@ docker compose up -d db
 
 dotnet user-secrets set "Igdb:ClientId"     "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Tmdb:AccessToken"  "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Google:ClientId"      "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Google:ClientSecret"  "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Discord:ClientId"     "..." --project backend/src/HobbyTracker.Api

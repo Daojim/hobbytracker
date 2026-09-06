@@ -36,7 +36,7 @@ public sealed class PublicOriginTests(PostgresFixture postgres) : DatabaseTestBa
     public async Task Hands_the_provider_the_public_callback_even_though_the_request_arrived_as_http()
     {
         await using var factory = new ApiFactory(
-            Postgres, Igdb, Hltb, HltbQueue, Clock, publicOrigin: PinnedOrigin);
+            Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, publicOrigin: PinnedOrigin);
 
         var query = await ChallengeQueryAsync(factory);
 
@@ -54,7 +54,7 @@ public sealed class PublicOriginTests(PostgresFixture postgres) : DatabaseTestBa
         // thing — one value covering every scheme, rather than a per-provider address that could
         // be right for Google and quietly stale for Discord.
         await using var factory = new ApiFactory(
-            Postgres, Igdb, Hltb, HltbQueue, Clock, publicOrigin: PinnedOrigin);
+            Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, publicOrigin: PinnedOrigin);
 
         var query = await ChallengeQueryAsync(factory, provider: "discord");
 
@@ -89,7 +89,7 @@ public sealed class PublicOriginTests(PostgresFixture postgres) : DatabaseTestBa
         // where the callback's token exchange has to send the same redirect_uri the challenge
         // sent. One inequality holds both.
         await using var factory = new ApiFactory(
-            Postgres, Igdb, Hltb, HltbQueue, Clock, publicOrigin: PinnedOrigin);
+            Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, publicOrigin: PinnedOrigin);
 
         var response = await KnowsAboutHttps(factory).GetAsync("/api/auth/me", Ct);
 

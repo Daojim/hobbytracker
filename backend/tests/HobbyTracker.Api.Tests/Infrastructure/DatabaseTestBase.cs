@@ -24,6 +24,9 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     protected PostgresFixture Postgres { get; } = postgres;
     protected FakeIgdbClient Igdb { get; } = new();
 
+    /// <summary>TMDB, for the films half of the catalogue. See FakeTmdbClient.</summary>
+    protected FakeTmdbClient Tmdb { get; } = new();
+
     /// <summary>HowLongToBeat, and the queue that would have asked it. See FakeHltbQueue.</summary>
     protected FakeHltbClient Hltb { get; } = new();
 
@@ -67,7 +70,7 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     private HttpClient? _anonymousClient;
     private readonly List<HttpClient> _extraClients = [];
 
-    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Hltb, HltbQueue, Clock);
+    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock);
     /// <summary>
     /// Whose journal this is. Created fresh per test, because Respawn truncates users between
     /// them; every fixture below and every request through <see cref="Client"/> belongs to it.
@@ -168,12 +171,42 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
             return game.Id;
         });
 
+    /// <summary>Inserts a film straight into the catalog, bypassing TMDB.</summary>
+    protected Task<int> GivenMovieAsync(
+        string title = "Test Film",
+        string externalId = "1",
+        string? coverUrl = null,
+        int? runtimeMinutes = null,
+        string[]? genres = null,
+        string[]? directors = null) => WithDbAsync(async db =>
+        {
+            var movie = new Movie
+            {
+                HobbyId = SeedData.Hobbies.Movies,
+                SourceId = SeedData.Sources.Tmdb,
+                ExternalId = externalId,
+                Title = title,
+                CoverUrl = coverUrl,
+                RuntimeMinutes = runtimeMinutes,
+                Genres = [.. genres ?? []],
+                Directors = [.. directors ?? []],
+            };
+
+            db.Movies.Add(movie);
+            await db.SaveChangesAsync(Ct);
+            return movie.Id;
+        });
+
     /// <summary>
-    /// Inserts a media row with no detail table behind it — what a movie looks like before
-    /// movies get their sibling table. Only expressible because the mapping is TPT.
+    /// Inserts a media row with no detail table behind it. Only expressible because the mapping
+    /// is TPT.
+    ///
+    /// It used to say "what a movie looks like before movies get their sibling table", and
+    /// movies have one now — so this means books, or tv, or anything else whose phase has not
+    /// come. Still worth keeping: a board has to survive a hobby that has nothing behind it.
     /// </summary>
     protected Task<int> GivenNonGameMediaAsync(
-        int hobbyId, string title = "Some Film") => WithDbAsync(async db =>
+        int hobbyId, string title = "Some Book") => WithDbAsync(async db =>
         {
             var media = new Media
             {

@@ -190,7 +190,7 @@ public sealed class GamesEndpointTests(PostgresFixture postgres) : DatabaseTestB
     [Fact]
     public async Task Detail_404s_for_media_that_is_not_a_game()
     {
-        var filmId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Arrival");
+        var filmId = await GivenMovieAsync("Arrival", externalId: "329865");
 
         var response = await Client.GetAsync($"/api/games/{filmId}", Ct);
 

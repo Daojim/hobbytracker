@@ -69,8 +69,9 @@ next**, which also lists the smaller things named but not built.
 
 Five things that will otherwise cost a first run an hour.
 
-- **Sign-in credentials are required to boot.** Google *and* Discord. The host fails deliberately and
-  names the missing key; that is `ValidateOnStart`, not a bug to work around.
+- **Sign-in and metadata credentials are all required to boot.** Google *and* Discord, IGDB *and*
+  TMDB. The host fails deliberately and names the missing key; that is `ValidateOnStart`, not a bug
+  to work around.
 - **Use http://localhost:5173, not the API's port.** The whole sign-in has to stay on one origin, and
   the Vite proxy is what makes that true. See **The five traps** in `docs/auth.md`.
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon itself if
@@ -91,6 +92,11 @@ docker compose up -d db                      # Postgres on localhost:5432
 # https://dev.twitch.tv/console/apps. Never put them in appsettings.json.
 dotnet user-secrets set "Igdb:ClientId" "..."     --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTracker.Api
+
+# One-time: TMDB credentials. One token, not a pair — TMDB's v4 read access token, from
+# https://www.themoviedb.org/settings/api. No handshake and no expiry, which is why there is
+# no auth handler behind it where IGDB has one.
+dotnet user-secrets set "Tmdb:AccessToken" "..." --project backend/src/HobbyTracker.Api
 
 # One-time: sign-in credentials, one pair per provider. Both are required. Register the apps at
 # https://console.cloud.google.com/apis/credentials and

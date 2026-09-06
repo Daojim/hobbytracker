@@ -100,7 +100,7 @@ public sealed class HltbEndpointTests(PostgresFixture postgres) : DatabaseTestBa
         // Enqueue in the middle of the generic layer, harmless only because HltbService queries
         // db.Games and a film finds no row — after spending a queue slot and a worker scope
         // discovering it. HltbOnMediaAdded declines by hobby before any of that.
-        var filmId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Arrival");
+        var filmId = await GivenMovieAsync("Arrival", externalId: "329865");
 
         var response = await Client.PostAsJsonAsync(
             "/api/log-entries",

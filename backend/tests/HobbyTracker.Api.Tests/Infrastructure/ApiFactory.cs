@@ -1,6 +1,7 @@
 using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
+using HobbyTracker.Api.Integrations.Tmdb;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -21,6 +22,7 @@ namespace HobbyTracker.Api.Tests.Infrastructure;
 public sealed class ApiFactory(
     PostgresFixture postgres,
     FakeIgdbClient igdb,
+    FakeTmdbClient tmdb,
     FakeHltbClient hltb,
     FakeHltbQueue hltbQueue,
     TimeProvider clock,
@@ -54,6 +56,11 @@ public sealed class ApiFactory(
                 ["Igdb:ClientId"] = "test-client-id",
                 ["Igdb:ClientSecret"] = "test-client-secret",
 
+                // TmdbOptions is validated at startup for the same reason, so the host will not
+                // boot without this. It is never used for anything: FakeTmdbClient replaces the
+                // only component that would read it.
+                ["Tmdb:AccessToken"] = "test-tmdb-token",
+
                 // AuthOptions is validated at startup too, so the host will not boot without these.
                 // The endpoints are never reached: nothing in the backend suite signs in through
                 // OAuth, which is what the Google stub and the end-to-end specs are for.
@@ -83,6 +90,9 @@ public sealed class ApiFactory(
         {
             services.RemoveAll<IIgdbClient>();
             services.AddSingleton<IIgdbClient>(igdb);
+
+            services.RemoveAll<ITmdbClient>();
+            services.AddSingleton<ITmdbClient>(tmdb);
 
             services.RemoveAll<IHltbClient>();
             services.AddSingleton<IHltbClient>(hltb);

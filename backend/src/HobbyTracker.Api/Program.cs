@@ -5,6 +5,7 @@ using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
+using HobbyTracker.Api.Integrations.Tmdb;
 using HobbyTracker.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
@@ -69,6 +70,30 @@ builder.Services.AddHttpClient<IIgdbClient, IgdbClient>((serviceProvider, client
     // Auth is a pipeline concern, so the client itself never mentions tokens.
     .AddHttpMessageHandler<IgdbAuthHandler>();
 
+// ----------------------------------------------------------- TMDB integration
+builder.Services.AddOptions<TmdbOptions>()
+    .Bind(builder.Configuration.GetSection(TmdbOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// No auth handler, and that is the whole difference from IGDB above. IgdbAuthHandler exists
+// because a Twitch token expires and a 401 has to be replayed once; TMDB's read token does not
+// expire, so a handler would have nothing to do. It goes on the client and stays there.
+//
+// IOptions is resolved inside the lambda rather than read off builder.Configuration, for the
+// reason the IGDB client already is: the configuration is still being assembled while this file
+// runs, so a value captured here misses any source added afterwards.
+builder.Services.AddHttpClient<ITmdbClient, TmdbClient>((serviceProvider, client) =>
+{
+    var tmdb = serviceProvider.GetRequiredService<IOptions<TmdbOptions>>().Value;
+
+    client.BaseAddress = new Uri(tmdb.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(tmdb.RequestTimeoutSeconds);
+    client.DefaultRequestHeaders.Authorization =
+        new AuthenticationHeaderValue("Bearer", tmdb.AccessToken);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
 // -------------------------------------------------- HowLongToBeat integration
 // No credentials to validate: HowLongToBeat has no account to hold one, so every setting has a
 // working default and nothing here can fail the boot the way a missing IGDB secret does.
@@ -112,8 +137,10 @@ builder.Services.AddScoped<IHltbService, HltbService>();
 // What happens when a title first reaches a board. One per hobby, and the order they are
 // registered in is not meaningful: LogEntryService calls every one of them. See IMediaAdded.
 builder.Services.AddScoped<IMediaAdded, HltbOnMediaAdded>();
+builder.Services.AddScoped<IMediaAdded, TmdbOnMediaAdded>();
 
 builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
+builder.Services.AddScoped<IMovieCatalogService, MovieCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
@@ -274,6 +301,7 @@ builder.Services.AddProblemDetails();
 // its own exception type, so appending is safe.
 builder.Services.AddExceptionHandler<IgdbExceptionHandler>();
 builder.Services.AddExceptionHandler<HltbExceptionHandler>();
+builder.Services.AddExceptionHandler<TmdbExceptionHandler>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

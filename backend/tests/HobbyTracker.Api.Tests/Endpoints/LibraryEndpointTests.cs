@@ -156,7 +156,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         var game = await GivenGameAsync("A Game");
         await GivenLogEntryAsync(game, LogStatus.Completed);
 
-        var film = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "A Film");
+        var film = await GivenMovieAsync("A Film", externalId: "1");
         await GivenLogEntryAsync(film, LogStatus.Completed);
 
         (await GetPageAsync("/api/library")).Total.ShouldBe(2);
@@ -286,15 +286,15 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
-    public async Task A_board_row_for_something_that_is_not_a_game_is_never_waiting()
+    public async Task A_board_row_for_a_hobby_with_no_detail_table_is_never_waiting()
     {
-        // The TPT downcast's null answer means "no games row", which is not the same claim as
-        // "a game nobody has looked up yet" — and conflating them would have the movies board
-        // asking again for ever about titles HowLongToBeat was never going to be asked about.
-        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Some Film");
+        // The TPT downcast's null answer means "no detail row", which is not the same claim as
+        // "a game nobody has looked up yet" — and conflating them would have every board of a
+        // hobby HowLongToBeat knows nothing about asking again for ever.
+        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Books, "Some Book");
         await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
 
-        var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
+        var item = (await GetPageAsync("/api/library?hobby=books")).Items.ShouldHaveSingleItem();
 
         item.HltbPending.ShouldBeFalse();
     }
@@ -316,29 +316,29 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
-    public async Task A_board_row_for_something_that_is_not_a_game_has_no_estimate()
+    public async Task A_board_row_for_a_hobby_with_no_detail_table_has_no_estimate()
     {
         // Same TPT downcast as the genres, and the same reason to pin it: the LEFT JOIN behind
-        // it answers null for a media row with no detail table, and the board is games-only
-        // only until it is not.
-        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Some Film");
+        // it answers null for a media row with no detail table, which is the ordinary case for
+        // the four hobbies whose phases have not come.
+        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Books, "Some Book");
         await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
 
-        var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
+        var item = (await GetPageAsync("/api/library?hobby=books")).Items.ShouldHaveSingleItem();
 
         item.LengthHours.ShouldBeNull();
     }
 
     [Fact]
-    public async Task A_board_row_for_something_that_is_not_a_game_has_no_genres()
+    public async Task A_board_row_for_a_hobby_with_no_detail_table_has_no_genres()
     {
-        // Genres live on the games table, so the projection reaches them through a TPT downcast
-        // — a LEFT JOIN that answers null for a media row with no detail table behind it. The
-        // board is games-only today; this is what stops it breaking on the day it is not.
-        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Some Film");
+        // Genres live in a detail table, so the projection reaches them through a TPT downcast
+        // — a LEFT JOIN that answers null for a media row with nothing on the other side. Games
+        // and films both have one now; books do not, and the board still has to answer.
+        var mediaId = await GivenNonGameMediaAsync(SeedData.Hobbies.Books, "Some Book");
         await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
 
-        var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
+        var item = (await GetPageAsync("/api/library?hobby=books")).Items.ShouldHaveSingleItem();
 
         item.Genres.ShouldBeNull();
         item.PrimaryGenre.ShouldBeNull();
