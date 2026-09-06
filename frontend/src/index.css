@@ -491,7 +491,7 @@
 /*
  * Genre colours are content, not chrome: they say which genre a game is, so they mean the same
  * thing whatever the app is wearing and are deliberately *not* per-theme. A plain `@theme`, so
- * they resolve at build time like any other static token. See src/board/genres.ts, which holds
+ * they resolve at build time like any other static token. See src/hobbies/games.ts, which holds
  * the same ten in the order that decides which one a game is painted as.
  *
  * Every lightness sits in [0.48, 0.75] — the band that stays visible against every theme's

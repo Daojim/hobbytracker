@@ -7,15 +7,32 @@
 ## The journal drawer
 
 The board moves a title between columns; the drawer is where you say anything *about* it. Click a
-card's title and it slides in over the board — rating, platform and the two dates, a list of dated
-notes, and every earlier pass with its own notes below it. **Loaded with `getGame`**, which answers
-with the game and every entry in one request; `logEntries[0]` *is* the pass the board is showing,
-because the endpoint shares the board's ordering.
+card's title and it slides in over the board — a rating, the two dates, a list of dated notes, and
+every earlier pass with its own notes below it, plus whatever else a pass of *that kind* records.
+**Loaded through `hobbyDefinition(hobby).journal.load`**, which hits the hobby's own detail route
+and maps what comes back into one `TitleDetail`; `logEntries[0]` *is* the pass the board is showing,
+because every detail endpoint shares the board's ordering.
+
+**One drawer for every hobby, and the differences between them are of two kinds.** The words are
+data and come from the registry: what a column is called, what the finished date is called. The
+regions are not — a film's pass is *missing* two of a game's six fields rather than holding them
+blank — so those are read off the loaded title, which says what it has rather than what it is.
+Neither kind is a branch on the slug, and that is the point: `if (hobby === 'movies')` would be six
+branches by the time books land. See **The journal drawer, for a film** in `docs/movies-tmdb.md`
+for what a second hobby actually changed.
 
 Settled:
 
 - **No status control.** Dragging is the gesture that changes a column, and the rules about which
   entry that touches live on the server; a second way in would need its own copy of all of it.
+- **A field a hobby does not have is *absent*, not relabelled and not disabled.** A film's pass has
+  no Hours played and no Platform: "your time" on a film is the runtime, which is a fact about the
+  film rather than about the evening. `EntryForm` takes an explicit field set for this, stated
+  rather than inferred from the values — "no platforms listed" and "a hobby with no such idea"
+  would otherwise look identical, and an unenriched game has no platforms either.
+- **A field this hobby does not have submits `null`.** PUT clears an absent field, and a film's
+  pass never holds hours or a platform, so a row that somehow has one is corrected by the next save
+  rather than carrying a value with no control to see it by.
 - **An earlier pass's *fields* are read-only; its *notes* are not, and the pass itself can be
   deleted.** A finished playthrough is a record of something that happened, and an editable date here
   would undo that with a keystroke. The two exceptions are deliberate: a note is yours to fix, and a
@@ -25,31 +42,42 @@ Settled:
   phrasing, cannot be styled, and has to be stubbed in every test that walks past it. Each button in
   the history names the pass it would take, because they all otherwise say the same word.
 - **Deleting the last pass takes the title off the board**, and says so first.
-- **Three bands, separated by a rule each**: what the game *is*, the pass you are on, and what you
+- **Three bands, separated by a rule each**: what the title *is*, the pass you are on, and what you
   wrote during it. The same `border-line-soft` the settings menu puts between its three groups, and
   the same job — the drawer was one column of controls at one weight, where the first two are about
   entirely different things and the third writes to a different endpoint again. The lower two open
-  with a heading in **one shared class, `BAND_HEADING`** — the pass says what it is (*Completed*,
-  *Backlog*), the notes say *Journal*, which is the word the card's menu already opens them by and
-  the one every other hobby gets unmodified. Shared rather than written twice because matching is
+  with a heading in **one shared class, `BAND_HEADING`** — the pass says what its column calls it
+  (*Completed* on a game, *Watched* on a film), the notes say *Journal*, which is the word the
+  card's menu already opens them by and every hobby gets unmodified. Shared because matching is
   the entire point of them.
 - **The second rule carries `my-1` and the first carries nothing**, which is what makes them the
   same. They sit in containers with different gaps — the header's rule is a child of the panel at
   `gap-4`, the notes' rule a child of the pass at `gap-3` — so left alone the second sits 12px
   clear of its neighbours where the first sits 16px. Two rules doing one job at two weights reads
   as a mistake rather than as a rhythm.
-- **The genre select and the HowLongToBeat pin sit in the header, not the form.** Both belong to the
-  title, and `EntryForm` submits one `PUT` to the log-entry endpoint, so putting them there would
-  mean writing to two. The genre select saves on change; the pin does not — see **The pin**. They
-  share a **two-track grid** so their controls line up, `max-content` on the first track so the
-  wider label sets the column without either naming a width — which would have been one magic
-  number in two files agreeing by luck. **`HltbPin` therefore renders a label and a control as
-  siblings rather than a row of its own**, and says so at its own top: a component that has to sit
-  inside a particular grid is not a thing to find out from the outside.
-- **Under the title is the developer, and only the developer.** It carried the platforms too while
-  it was the game's one byline, but those have a control three rows down — a list of them there was
-  a spec sheet where a name belongs, and the developer is the only fact on that line that appears
-  nowhere else in the drawer. **It lives inside the title block rather than beside it**, which is
+- **Everything belonging to the title sits in the header band, not the form.** The genre select, a
+  film's Runtime, and the HowLongToBeat pin all describe the *title*, and `EntryForm` submits one
+  `PUT` to the log-entry endpoint — putting any of them there would mean one form writing to two
+  places. The genre select saves on change; the pin does not — see **The pin**. They share a
+  **two-track grid** so their controls line up, `max-content` on the first track so the wider label
+  sets the column without either naming a width — which would have been one magic number in two
+  files agreeing by luck. **`HltbPin` therefore renders a label and a control as siblings rather
+  than a row of its own**, and says so at its own top: a component that has to sit inside a
+  particular grid is not a thing to find out from the outside.
+- **The pin and the four estimate tiers are gone together, off one null.** `TitleDetail.hltb` is
+  one nullable block carrying the four figures and the stored id, because they arrive together or
+  not at all. A film sets it to null and sets `journal.setHltbId` to null in the same file, so a
+  hobby that wires one half of the pair fails loudly at the mutation rather than posting a film to
+  `/api/games`.
+- **A film's Runtime is a *fact* and lives in that band; the HowLongToBeat figures are not and do
+  not.** The four chips sit beside *Hours played* because comparing them is the entire point. A
+  film has nothing to compare against, so its runtime is a fact about the film like the director —
+  `TitleDetail.facts` is what carries it, and it is deliberately not a control.
+- **Under the title is one byline: the developer of a game, the director of a film.** It carried a
+  game's platforms too while it was the one byline, but those have a control three rows down — a
+  list of them there was a spec sheet where a name belongs, and the maker is the only fact on that
+  line that appears nowhere else in the drawer. Which name it is, is the hobby's to say; that it is
+  a name is not. **It lives inside the title block rather than beside it**, which is
   not tidying: the panel is a flex column with `gap-4`, and that gap is what holds the three bands
   apart — left as a sibling, the spacing built to separate *the game* from *this pass* was also
   separating a heading from the line belonging to it, 24px of nothing. Grouped, the 8px left is the
