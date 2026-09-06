@@ -307,22 +307,33 @@ as Respawn does — but it does take `users` and `auth_identities`, so a run sta
 and one spec cannot be satisfied by the sign-in of the one before it.
 
 **The e2e API's `webServer` can exceed its ten-minute timeout, and it is the machine rather than
-the change.** That one entry runs two dotnet builds in sequence — the chained `dotnet ef database
-update`, whose design-time build has been measured at ~14 minutes and 4 GB resident here, then
-`dotnet run`. Playwright reports it as the same unhelpful *"Process from config.webServer was not
-able to start"* a build lock does. **It has now cost two sessions.** The workaround is reliable and
-takes about three minutes:
+the change.** That one entry runs **two dotnet builds in sequence** — the chained `dotnet ef
+database update`, whose design-time build has to load the assembly to find the DbContext, and then
+`dotnet run`, which builds again. Measured here: a bare `dotnet build` of the API into `bin/e2e/`
+takes **2m25s**, the `dotnet ef` step has been seen at **4 GB resident**, and an earlier session
+timed that step alone at roughly **fourteen minutes**. The four stubs and Vite come up in
+seconds; it is only ever this entry.
+
+**Read the message, because the two failures here are not the same failure.**
+
+| what you see | what it is |
+|---|---|
+| `Timed out waiting 600000ms from config.webServer` | this — the builds did not finish in the window |
+| `Process from config.webServer was not able to start` | the **build lock**: a `dotnet run` of yours is holding `bin/`, or Docker is not up |
+
+The workaround is reliable and takes about three minutes:
 
 ```bash
 BaseOutputPath='bin/e2e/' dotnet build backend/src/HobbyTracker.Api/HobbyTracker.Api.csproj
 # then run the built dll with the env from playwright.config.ts's API entry, and let
-# `reuseExistingServer: true` adopt it. It boots in under ten seconds.
+# `reuseExistingServer: true` adopt it. Observed: it answers within ten seconds.
 ```
 
-**The migration usually succeeded before the timeout** — check `hobbytracker_e2e` for the table
-the newest migration adds before concluding otherwise. **`prepare-database.mjs` could take
-`--no-build`**, which would take one of the two full builds off the critical path; named twice
-now, still not done.
+**The migration can complete even though the deploy of it timed out** — the `dotnet ef` half is
+first in the chain, so it is `dotnet run` that overruns. Observed once on 6 September:
+`hobbytracker_e2e` had the new `movies` table after the timeout. **Check the table before
+concluding the migration is what failed.** **`prepare-database.mjs` could take `--no-build`**,
+which would take one of the two builds off the critical path; named twice now, still not done.
 
 **Do not pipe a suite through `tail` — the exit code you get back is `tail`'s.** A run that
 reports success while a spec failed is worse than no run at all, and this cost a merge: `npm run
