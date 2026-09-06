@@ -27,15 +27,23 @@ public static class SeedData
     {
         public const int Igdb = 1;
         public const int Manual = 2;
+        public const int Tmdb = 3;
 
         public const string IgdbName = "igdb";
         public const string ManualName = "manual";
+        public const string TmdbName = "tmdb";
 
-        /// <summary>Slug for a seeded source id, for shaping API responses without a join.</summary>
+        /// <summary>
+        /// Slug for a seeded source id, for shaping API responses without a join.
+        ///
+        /// A source added below and not here answers "unknown" on every DTO that names it, and
+        /// nothing errors — which is why the arm and the row belong in the same commit.
+        /// </summary>
         public static string NameFor(int sourceId) => sourceId switch
         {
             Igdb => IgdbName,
             Manual => ManualName,
+            Tmdb => TmdbName,
             _ => "unknown",
         };
     }
@@ -53,10 +61,11 @@ public static class SeedData
             new Hobby { Id = Hobbies.Music, Name = "music" });
 
         // Only sources that have an integration behind them, plus "manual", which by
-        // definition needs none. tmdb and mal get seeded when their phases ship — a source
-        // row with no client behind it is dead data that reads like a working feature.
+        // definition needs none. `mal` gets seeded when its phase ships — a source row with no
+        // client behind it is dead data that reads like a working feature.
         modelBuilder.Entity<Source>().HasData(
             new Source { Id = Sources.Igdb, Name = Sources.IgdbName, BaseUrl = "https://api.igdb.com/v4/" },
-            new Source { Id = Sources.Manual, Name = Sources.ManualName, BaseUrl = null });
+            new Source { Id = Sources.Manual, Name = Sources.ManualName, BaseUrl = null },
+            new Source { Id = Sources.Tmdb, Name = Sources.TmdbName, BaseUrl = "https://api.themoviedb.org/3/" });
     }
 }

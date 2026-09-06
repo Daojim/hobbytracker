@@ -9,11 +9,19 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     public DbSet<Hobby> Hobbies => Set<Hobby>();
     public DbSet<Source> Sources => Set<Source>();
 
-    /// <summary>Every title, of every hobby. Querying this under TPT does not touch `games`.</summary>
+    /// <summary>
+    /// Every title, of every hobby. Querying this under TPT touches neither detail table.
+    /// </summary>
     public DbSet<Media> Media => Set<Media>();
 
     /// <summary>Games only. Querying this emits an INNER JOIN of `media` and `games`.</summary>
     public DbSet<Game> Games => Set<Game>();
+
+    /// <summary>
+    /// Films only, and an INNER JOIN of `media` and `movies` for the same reason. Querying the
+    /// derived set is what makes "a game is not found here" true without a hobby predicate.
+    /// </summary>
+    public DbSet<Movie> Movies => Set<Movie>();
 
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
 
