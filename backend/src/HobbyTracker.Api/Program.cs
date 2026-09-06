@@ -108,6 +108,11 @@ builder.Services.AddSingleton<IHltbQueue, HltbQueue>();
 builder.Services.AddHostedService<HltbWorker>();
 
 builder.Services.AddScoped<IHltbService, HltbService>();
+
+// What happens when a title first reaches a board. One per hobby, and the order they are
+// registered in is not meaningful: LogEntryService calls every one of them. See IMediaAdded.
+builder.Services.AddScoped<IMediaAdded, HltbOnMediaAdded>();
+
 builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();

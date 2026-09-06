@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using HobbyTracker.Api.Contracts;
+using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Tests.Infrastructure;
@@ -90,6 +91,27 @@ public sealed class HltbEndpointTests(PostgresFixture postgres) : DatabaseTestBa
 
         HltbQueue.Enqueued.ShouldHaveSingleItem().ShouldBe(mediaId);
         Hltb.Searches.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Says_nothing_to_HowLongToBeat_about_a_title_that_is_not_a_game()
+    {
+        // The queue is a game's, and it used to be told about every hobby: adding was a bare
+        // Enqueue in the middle of the generic layer, harmless only because HltbService queries
+        // db.Games and a film finds no row — after spending a queue slot and a worker scope
+        // discovering it. HltbOnMediaAdded declines by hobby before any of that.
+        var filmId = await GivenNonGameMediaAsync(SeedData.Hobbies.Movies, "Arrival");
+
+        var response = await Client.PostAsJsonAsync(
+            "/api/log-entries",
+            new CreateLogEntryRequest(filmId, LogStatus.Backlog, null, null, null, null, null),
+            Json,
+            Ct);
+
+        // The pass is written all the same. Nothing about journalling a film depends on a site
+        // that has never heard of one.
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        HltbQueue.Enqueued.ShouldBeEmpty();
     }
 
     // --------------------------------------------------------------------- pin
