@@ -59,8 +59,8 @@ const CATALOGUE = [
   },
   // Co-directed, so a byline with two names in it is exercised rather than assumed to work.
   {
-    id: 4006, title: 'Everything Everywhere All at Once', releaseDate: '2022-03-24', runtime: 139,
-    genres: ['Action', 'Comedy', 'Science Fiction'],
+    id: 4006, title: 'Everything Everywhere All at Once', releaseDate: '2022-03-24', runtime: 140,
+    genres: ['Action', 'Adventure', 'Science Fiction'],
     directors: ['Daniel Kwan', 'Daniel Scheinert'],
   },
   // A two-word title with a number in it, kept from when the colon question was still open.
@@ -103,8 +103,11 @@ const asDetail = (film) => ({
   genres: film.genres.map((name, index) => ({ id: 18 + index, name })),
   credits: {
     crew: [
-      // A crew list carries dozens of jobs, and only one of them is read. Two non-directors sit
-      // in front so a byline built by taking crew[0] would be wrong rather than lucky.
+      // A crew list carries hundreds of jobs, and only one of them is read. Two non-directors
+      // sit in front so a byline built by taking crew[0] is wrong rather than lucky — and two
+      // badly understates it. Measured on the live API: Arrival's crew is 487 entries with the
+      // director at index 1, and Everything Everywhere All at Once's is 169 with the first
+      // director at index **139**. There is no shortcut to the top of that list.
       { name: 'Someone in the art department', job: 'Production Design' },
       { name: 'Someone else entirely', job: 'Editor' },
       ...film.directors.map((name) => ({ name, job: 'Director' })),

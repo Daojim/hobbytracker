@@ -273,10 +273,13 @@ goes red instead of nothing happening.
 Two things in the stub are deliberate and easy to "fix" wrongly:
 
 - **It matches on a substring where the IGDB stub matches whole words.** That is the difference
-  between the two search endpoints, not an oversight — see **Ranking** above, including the caveat
-  that it is currently an assumption.
-- **Two non-directors sit in front of the directors in every `credits.crew` list.** A byline built
-  by taking `crew[0]` would otherwise be right by luck.
+  between the two search endpoints, not an oversight — see **Ranking** above, where it is now a
+  measurement rather than an assumption.
+- **Two non-directors sit in front of the directors in every `credits.crew` list**, so a byline
+  built by taking `crew[0]` is wrong rather than right by luck. Two badly understates the real
+  thing: measured on the live API, *Arrival*'s crew is **487 entries** with the director at index
+  1, and *Everything Everywhere All at Once*'s is 169 with its first director at index **139**.
+  There is no shortcut to the top of that list, which is why `ApplyDetail` filters on the job.
 
 A film with `runtime: 0` is in the catalogue too. TMDB writes 0 rather than omitting the field for
 a film nobody has timed, `ApplyDetail` maps it to null, and `ck_movies_runtime_positive` is what

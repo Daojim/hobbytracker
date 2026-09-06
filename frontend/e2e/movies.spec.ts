@@ -114,6 +114,23 @@ test("a film's journal is a film's: a director, a runtime, and no hours box", as
   await expect(drawer.getByLabel('Watched')).toBeVisible();
 });
 
+test('a co-directed film names both of them', async ({ page }) => {
+  // The stub keeps this film for exactly this, so something had better read it. `directors` is a
+  // list on the column and in the DTO because films are co-directed often enough that a single
+  // name would be wrong rather than merely incomplete.
+  await seed(page.request, 'Everything Everywhere All at Once', 'Completed', {
+    hobby: 'movies',
+    completedAt: '2026-08-10',
+  });
+  await page.reload();
+
+  await openJournal(page, 'Everything Everywhere All at Once');
+
+  await expect(
+    page.getByRole('dialog').getByText('Daniel Kwan, Daniel Scheinert'),
+  ).toBeVisible();
+});
+
 test('a rating and a note on a film reach the card behind the drawer', async ({ page }) => {
   await seed(page.request, 'Hereditary', 'Completed', {
     hobby: 'movies',
