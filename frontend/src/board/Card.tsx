@@ -232,15 +232,20 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
                 leads with — 42 hours for Hollow Knight, where main story is 27 and
                 completionist 65.6. All four are a drawer reading, where each can be named.
 
-                It is also what `sort=hours` orders on, and the two have to stay the same field:
-                a column sorted shortest-first on a number the cards do not show reads as
-                broken. */}
-            {item.hltbAllStylesHours !== null && (
+                It is also what `sort=length` orders on, and they cannot drift apart: both read
+                `LibraryItem.lengthHours`, so there is nothing for them to disagree over. A
+                column sorted shortest-first on a number the cards do not show reads as
+                broken.
+
+                Formatted in hours here because a game is what this board holds. That is the
+                games-shaped half of this component, along with the word "playthroughs" above —
+                a film would want `1 h 52 m` and "viewings". */}
+            {item.lengthHours !== null && (
               <span
                 role="img"
-                aria-label={`About ${item.hltbAllStylesHours} hours to finish`}
+                aria-label={`About ${item.lengthHours} hours to finish`}
               >
-                ~{formatHours(item.hltbAllStylesHours)}
+                ~{formatHours(item.lengthHours)}
               </span>
             )}
             {genre !== null && <span>{genre}</span>}

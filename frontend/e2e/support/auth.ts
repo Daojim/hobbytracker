@@ -27,7 +27,11 @@ export async function signIn(
   await page.request.post(`${GOOGLE_STUB}/__identity`, { data: who });
 
   await page.goto(`/api/auth/${provider}/start?returnUrl=/board`);
-  await expect(page).toHaveURL(/\/board$/);
+
+  // /board, not /board/games: the address a returnUrl names is the one the app has always
+  // handed out, and it redirects. Waiting for where it lands is what keeps that redirect from
+  // quietly disappearing — a sign-in that stopped on /board would leave a blank page.
+  await expect(page).toHaveURL(/\/board\/games$/);
 }
 
 /** Ends the session, as the sign-out control will. */

@@ -6,6 +6,15 @@ import { boardServer, libraryItem } from '../test/library';
 import { gameDetail, journalServer, logEntry } from '../test/games';
 import { BackButton, renderWithProviders } from '../test/render';
 
+/**
+ * Where the board lives, so `useParams` has a hobby to hand it.
+ *
+ * BoardPage reads its hobby out of the address; a MemoryRouter with no matching route hands it
+ * an empty params object, and it redirects rather than rendering. Which route the app puts it on
+ * is App.test.tsx's business, not this file's — here it just has to be *somewhere*.
+ */
+const BOARD_ROUTE = { route: '/board/games', path: '/board/:hobby' };
+
 /** The board, with something on it to press Back with. */
 function boardWithBack() {
   return renderWithProviders(
@@ -13,6 +22,7 @@ function boardWithBack() {
       <BoardPage />
       <BackButton />
     </>,
+    BOARD_ROUTE,
   );
 }
 
@@ -23,7 +33,7 @@ describe('BoardPage', () => {
     // board it reads left to right. Still collapsed, still muted; only the place has changed.
     boardServer();
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await screen.findByRole('heading', { name: 'Backlog 0' });
 
     expect(
@@ -37,7 +47,7 @@ describe('BoardPage', () => {
     // one of them would be claiming to be about that column alone.
     boardServer({ years: [2026] });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
 
     const picker = await screen.findByRole('combobox', { name: 'Year' });
     expect(screen.getAllByRole('combobox', { name: 'Year' })).toHaveLength(1);
@@ -54,7 +64,7 @@ describe('BoardPage', () => {
     // "All years" is still there and is one choice away; it is just not where you start.
     const board = boardServer({ years: [2026, 2024, 2019] });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await screen.findByRole('combobox', { name: 'Year' });
 
     await waitFor(() => expect(board.queriesFor('Completed')[0]?.get('year')).toBe('2026'));
@@ -66,7 +76,7 @@ describe('BoardPage', () => {
     // rather than the queue you drag out of while reading a past one.
     const board = boardServer({ years: [2026] });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await screen.findByRole('combobox', { name: 'Year' });
 
     await waitFor(() => expect(board.queriesFor('Completed')[0]?.get('year')).toBe('2026'));
@@ -78,7 +88,7 @@ describe('BoardPage', () => {
   it('takes the year off every request when All years is chosen', async () => {
     const board = boardServer({ years: [2026, 2024] });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await userEvent.selectOptions(
       await screen.findByRole('combobox', { name: 'Year' }),
       'All years',
@@ -90,7 +100,7 @@ describe('BoardPage', () => {
   it('collapses Dropped until asked, and still says how much is in it', async () => {
     boardServer({ columns: { Dropped: [libraryItem({ title: 'Anthem' })] } });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
 
     expect(await screen.findByRole('heading', { name: 'Dropped 1' })).toBeInTheDocument();
     expect(screen.queryByText('Anthem')).not.toBeInTheDocument();
@@ -106,7 +116,7 @@ describe('BoardPage', () => {
       detail: gameDetail({ title: 'Celeste', logEntries: [logEntry({ id: 7, rating: 8.5 })] }),
     });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
 
     // The drawer sits over the board rather than replacing it — the columns are still there.
@@ -120,7 +130,7 @@ describe('BoardPage', () => {
     // costs nothing on the other three.
     const board = boardServer({ columns: { Backlog: [libraryItem({ title: 'Celeste' })] } });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await screen.findByText('Celeste');
     const playingBefore = board.queriesFor('InProgress').length;
 
@@ -141,7 +151,7 @@ describe('BoardPage', () => {
     boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] } });
     journalServer({ detail: gameDetail({ title: 'Celeste' }) });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
 
@@ -181,7 +191,7 @@ describe('BoardPage', () => {
       },
     });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
     expect(screen.getByRole('group', { name: 'Options for Celeste' })).toBeInTheDocument();
 
@@ -198,7 +208,7 @@ describe('BoardPage', () => {
       columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] },
     });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
     await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
 
@@ -212,7 +222,7 @@ describe('BoardPage', () => {
     // a refetch remounts the card, and the node the menu was opened from is then detached.
     boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     const corner = await screen.findByRole('button', { name: 'Options for Celeste' });
     await userEvent.click(corner);
 
@@ -225,7 +235,7 @@ describe('BoardPage', () => {
   it('closes the options when the press lands somewhere else', async () => {
     boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
 
-    renderWithProviders(<BoardPage />);
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
 
     await userEvent.click(screen.getByRole('heading', { name: 'Playing 0' }));

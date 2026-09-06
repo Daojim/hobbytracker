@@ -245,7 +245,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
 
-        item.HltbAllStylesHours.ShouldBe(41.82m);
+        item.LengthHours.ShouldBe(41.82m);
     }
 
     [Fact]
@@ -282,7 +282,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
 
         item.HltbPending.ShouldBeFalse();
-        item.HltbAllStylesHours.ShouldBeNull();
+        item.LengthHours.ShouldBeNull();
     }
 
     [Fact]
@@ -326,7 +326,7 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var item = (await GetPageAsync("/api/library?hobby=movies")).Items.ShouldHaveSingleItem();
 
-        item.HltbAllStylesHours.ShouldBeNull();
+        item.LengthHours.ShouldBeNull();
     }
 
     [Fact]

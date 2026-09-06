@@ -161,7 +161,8 @@ hundred-and-first title twice.
   card's title are both an `<h3>`. For the same reason `e2e/support/board.ts`'s `card()` is scoped to
   `[data-board]` — it was a bare `getByRole('listitem')`, which a search result tile answers to.
 
-`/search` redirects to `/board` rather than being dropped — the address outlived the page.
+`/search` redirects to the games board rather than being dropped — the address outlived the page, and
+so did the bare `/board` it used to redirect to, which now redirects in turn.
 
 ## Genres and colour
 

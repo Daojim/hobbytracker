@@ -268,7 +268,7 @@ the numbers belong to the game you meant — which is why no column stores the m
 leaving a stamp behind would stop the backfill ever looking again.
 
 `HltbPin` sits in the drawer header beside the genre select; `setHltbId` in `useJournalEntry.ts`
-invalidates `['library']` as well as `gameKey(mediaId)`, because the card carries the headline figure
+invalidates `['library', hobby]` as well as `mediaKey(hobby, mediaId)`, because the card carries that figure
 and *Time to beat* orders on it. Three things about it are deliberate:
 
 - **It is a text box, not a number input.** An id is an identifier rather than a quantity, so a

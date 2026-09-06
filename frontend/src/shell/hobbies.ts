@@ -26,10 +26,19 @@ export const HOBBIES = [
 export type Hobby = (typeof HOBBIES)[number]['slug'];
 
 /**
- * Where a hobby's board lives.
+ * Where a hobby's board lives, and the one place that knows the shape of the address.
  *
- * Games is the board, full stop, because it is the only one — so it keeps the bare `/board` that
- * every bookmark and every spec already points at. The second live hobby is what makes this a
- * `/board/:hobby` parameter, and this function is the one place that has to learn it.
+ * The slug is in the path rather than in the page, so a board is a thing you can link to, come
+ * back to and see in the address bar. `/board` on its own redirects here rather than being
+ * retired — every bookmark, every Playwright `goto` and `signInUrl`'s default point at it, and
+ * an address that outlived its page should land somewhere, which is the same courtesy `/search`
+ * already gets.
  */
-export const boardPath = (slug: Hobby): string => (slug === 'games' ? '/board' : `/board/${slug}`);
+export const boardPath = (slug: Hobby): string => `/board/${slug}`;
+
+/** Where an unknown or unbuilt slug is sent. Games is the board that exists. */
+export const DEFAULT_HOBBY: Hobby = 'games';
+
+/** Whether a slug from the address bar names a board somebody can actually use. */
+export const isReadyHobby = (slug: string | undefined): slug is Hobby =>
+  HOBBIES.some((hobby) => hobby.slug === slug && hobby.ready);

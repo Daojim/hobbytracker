@@ -27,7 +27,7 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     lastActivity: null,
     genres: [],
     primaryGenre: null,
-    hltbAllStylesHours: null,
+    lengthHours: null,
     hltbPending: false,
     latestNotePreview: null,
     ...overrides,
@@ -37,9 +37,15 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
 export interface BoardFixture {
   columns?: Partial<Record<LogStatus, LibraryItem[]>>;
   years?: number[];
+  /**
+   * Whose board this is. The handler answers with nothing for any other hobby, rather than
+   * serving these rows to whoever asks: a movies board handed the games fixtures would pass a
+   * test that proves nothing, and it would pass it silently.
+   */
+  hobby?: string;
 }
 
-export function boardServer({ columns = {}, years = [] }: BoardFixture = {}) {
+export function boardServer({ columns = {}, years = [], hobby = 'games' }: BoardFixture = {}) {
   // The shell asks who is signed in the moment it mounts, and MSW refuses a request no test
   // stated. Answered here so every board test does not have to say so; call authServer(...)
   // afterwards to override it, since a later server.use wins.
@@ -57,7 +63,15 @@ export function boardServer({ columns = {}, years = [] }: BoardFixture = {}) {
       listed.push(url);
 
       const status = url.searchParams.get('status') as LogStatus | null;
-      const items = (status === null ? undefined : columns[status]) ?? [];
+      const asked = url.searchParams.get('hobby');
+
+      // A board other than this fixture's is empty, not unhandled. The API really would answer
+      // an empty page for a hobby you have logged nothing in, and answering these rows instead
+      // would let a movies test assert its way to green on games fixtures.
+      const items =
+        asked !== null && asked !== hobby
+          ? []
+          : ((status === null ? undefined : columns[status]) ?? []);
 
       return HttpResponse.json({
         items,

@@ -212,10 +212,11 @@ Settled:
   `87.5` in binary floating point, so counting decimal places arithmetically is a way to accept the
   one value the rule exists to reject. `parseRating` mirrors `RatingAttribute` word for word, and
   `parseHours` mirrors `PlaytimeHoursAttribute` one decimal place further out.
-- **Writing a note invalidates the library as well as `gameKey(mediaId)`**, and it did not used to:
-  the old rule was that nothing a note does shows on a card, true right up until a card started
-  carrying the last thing you wrote. All three of `useNotes`' mutations move something on the board
-  now. The bare `['library']` prefix rather than one hobby's, because that hook has no hobby.
+- **Writing a note invalidates the library as well as `mediaKey(hobby, mediaId)`**, and it did not
+  used to: the old rule was that nothing a note does shows on a card, true right up until a card
+  started carrying the last thing you wrote. All three of `useNotes`' mutations move something on
+  the board now. Both halves are scoped to the hobby, which they were not while the drawer knew
+  only a media id — the board hands it down now.
 - **The genre select is labelled through `htmlFor`/`id` like every other field.** A wrapping `<label>`
   makes the select's accessible name absorb its own option text, which made `getByLabel('Platform')`
   match two controls.

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { addNote, deleteNote, updateNote } from '../api/notes';
-import { gameKey } from '../board/keys';
+import { mediaKey } from '../board/keys';
 
 /**
  * Writing, rewriting and taking back notes on one title's passes.
@@ -13,16 +13,15 @@ import { gameKey } from '../board/keys';
  * rewriting or taking back a note all move something on the board — which was not true when
  * this was written, and the comment here went on saying so for a while after it stopped being.
  *
- * The bare `['library']` prefix rather than one hobby's, because this hook has no hobby: it is
- * opened from a card and knows only a media id. One extra prefix level costs a refetch of
- * columns that cannot have changed, on an action nobody performs in a loop.
+ * Both are scoped to the hobby, which they were not while a drawer knew only a media id — the
+ * board hands it down now, because the journal has to know whose fields to render anyway.
  */
-export function useNotes(mediaId: number) {
+export function useNotes(hobby: string, mediaId: number) {
   const queryClient = useQueryClient();
   const refresh = () =>
     Promise.all([
-      queryClient.invalidateQueries({ queryKey: gameKey(mediaId) }),
-      queryClient.invalidateQueries({ queryKey: ['library'] }),
+      queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) }),
+      queryClient.invalidateQueries({ queryKey: ['library', hobby] }),
     ]);
 
   const write = useMutation({

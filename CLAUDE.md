@@ -302,6 +302,15 @@ re-render race between the locator resolving and the click, not a logic failure.
 alone and in a full re-run since. If it recurs, the fix is waiting for the drawer to settle in
 `e2e/support/board.ts`, not anything in `NoteList`.
 
+**`journal.spec.ts`'s "clicking away from the drawer closes it" is a second one, and it is worse.**
+The backdrop click does not close the drawer, and the assertion sits there watching it for ten
+seconds. **Measured rather than assumed**, on a machine busy with something else: 6 passes to 7
+failures over thirteen runs of that spec alone; **1 failure in 3 with the `/board/:hobby` work
+reverted**, so it is not that change's doing; and **0 failures in 8** when the same test body is
+copied verbatim into a file of its own. That last number is the useful one — it says the cause is
+not the click, the timing or the history entry, all of which a probe showed behaving correctly.
+Do not "fix" it by adding a wait before the click: a copy with no wait passed 4 of 4.
+
 ## Settled — do not reopen
 
 Decided with the user. Each is a real decision with a cost that was accepted, not a default.
@@ -309,7 +318,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | | |
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
-| Scope | **`/board`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/search` redirects. No detail or year-review page yet |
+| Scope | **`/board/:hobby`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
 | Columns | **Dropped first**, then Backlog · Playing · Completed. `board/columns.ts` is the one list, and the card's menu reads it too |
 | Dropped | A muted well **ahead of** the progression rather than after it, collapsed by default. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
@@ -421,19 +430,29 @@ whole auth stack, `JournalClock`, every file in `frontend/src/lib/` and `fronten
 hobby rows — only a TMDB **source** row is missing. `DatabaseTestBase.GivenNonGameMediaAsync` already
 rehearses "a hobby with no detail table", and `LibraryEndpointTests` uses it.
 
-**Where the generic layer names games**, which is the whole of it:
+**Where the generic layer still names games.** The list below is what is left after *the platform
+stops naming games*, which closed the five that were pure parameterisation — the route, the query
+keys, the search key, the shared board row, and the enrich hook. **What remains needs a second
+hobby to exist before it can be written**, which is why it was left:
 
 | | |
 |---|---|
-| `LibraryService` | five `(row.Media as Game)` downcasts across the two terminal projections, plus the `LibrarySort.Hours` arm |
-| `Contracts/LibraryItemDto` | four game-only fields — `Genres`, `PrimaryGenre`, `HltbAllStylesHours`, `HltbPending` |
-| `LogEntryService.CreateAsync` | enqueues a HowLongToBeat lookup for **every** media id, unguarded. Harmless only because `HltbService` queries `db.Games`, so a non-game finds no row and returns false |
-| `BoardPage.tsx` | `const HOBBY: Hobby = 'games'` is a literal, and `App.tsx` has no `/board/:hobby` route for `boardPath()` to land on |
-| `BoardSearch.tsx` | imports `searchGames` and keys on `['games', 'search']` while already taking a `hobby` prop; `SearchResult` is typed to `Game` |
-| `board/keys.ts` | `gameKey` is not hobby-parameterised, and the whole journal reads through it |
-| `EntryDrawer.tsx` | renders the genre select and `HltbPin` gated on the detail having loaded, not on hobby |
-| `Column.tsx` | polls on `hltbPending` unconditionally, through `board/estimates.ts` |
+| `LibraryService` | five `(row.Media as Game)` downcasts across the two terminal projections, plus the `LibrarySort.Length` arm. Each wants a `?? (row.Media as Movie)!` beside it, in those three places and **nowhere near `BoardQuery`** |
+| `Contracts/LibraryItemDto` | `HltbPending` is the last game-only field, and it is meant to be — it is read off `hltb_checked_at` and is already `false` for anything that is not a game |
+| `BoardSearch.tsx` | imports `searchGames` directly; `SearchResult` is typed to `Game`. The key is hobby-scoped already, so what is left is the dispatch |
+| `EntryDrawer.tsx` / `EntryForm.tsx` | the genre select and `HltbPin` are gated on the detail having loaded rather than on hobby, and the form always renders Hours played and Platform — which a film's pass is not supposed to have at all |
+| `board/genres.ts` | one IGDB list, and its field is literally named `igdb` |
+| `board/columns.ts` + `EntryDrawer`'s `STATUS_LABEL` | two copies of `InProgress → "Playing"` |
+| `board/SortSelect.tsx` | *Time to beat* is the games label for `sort=length` |
+| `Card.tsx` | says *playthroughs*, and formats a length in hours |
+| `Column.tsx` | polls on `hltbPending` unconditionally, through `board/estimates.ts`. Harmless — the flag is false for a film — but the code path is games-shaped |
 | `index.css` | the eleven `--color-genre-*` tokens and `--color-hltb*` are games-only values in the one shared stylesheet |
+
+**Closed by *the platform stops naming games*, so do not go looking for them:** `/board/:hobby` with
+`/board` redirecting (`App.tsx`, `boardPath`, `isReadyHobby`); `mediaKey(hobby, id)` replacing
+`gameKey`, with the drawer handed its hobby; `['search', hobby, term]`; `LibraryItemDto.LengthHours`
+replacing `HltbAllStylesHours` and `sort=hours` becoming `sort=length`; and `IMediaAdded` replacing
+the unguarded `hltbQueue.Enqueue` in `LogEntryService.CreateAsync`.
 
 **One thing that is not a seam but will look like one:** the rule that a title's entries order
 `logged_at DESC, id DESC` is written out at four call sites that must agree, with no shared helper —

@@ -15,7 +15,7 @@
 export type LogStatus = 'Backlog' | 'InProgress' | 'Completed' | 'Dropped';
 
 /** `manual` is the default, and the only mode in which dragging to reorder means anything. */
-export type LibrarySort = 'manual' | 'added' | 'title' | 'rating' | 'hours';
+export type LibrarySort = 'manual' | 'added' | 'title' | 'rating' | 'length';
 
 /** Every list endpoint returns this envelope. Search does not — see `searchGames`. */
 export interface PagedResult<T> {
@@ -42,19 +42,22 @@ export interface LibraryItem {
   latestRating: number | null;
   /** An instant, or null. Render it through `lib/time`, never `new Date(...).getFullYear()`. */
   lastActivity: string | null;
-  /** The game's IGDB genres. Null for a row that is not a game. */
+  /** The title's genres, from whichever source its hobby uses. Null when the hobby has none. */
   genres: string[] | null;
   /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
   primaryGenre: string | null;
   /**
-   * The headline number HowLongToBeat prints, and the only one that reaches a card — which has
-   * room for a number rather than a table. Not main story: it is HLTB own figure across every
-   * play style, and is what `sort=hours` orders on too, so the column agrees with itself.
+   * How long this title takes, in hours — the one number a card has room for.
    *
-   * Null for a row that is not a game, for a game nothing has matched, and for one matched
-   * before this number was fetched at all.
+   * What that means is the hobby's: HowLongToBeat's headline figure for a game, the runtime for
+   * a film. `sort=length` orders on this same field, so a column always agrees with its cards.
+   * Formatting is per hobby — `~41.82 h` for a game, `1 h 52 m` for a film, recovered with
+   * `Math.round(hours * 60)`.
+   *
+   * Null for a row whose hobby has nothing to say, for a game nothing has matched, and for one
+   * matched before the number was fetched at all.
    */
-  hltbAllStylesHours: number | null;
+  lengthHours: number | null;
   /**
    * Whether HowLongToBeat has yet to be asked about this title at all.
    *

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Navigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { activityYears } from '../api/library';
@@ -12,17 +13,9 @@ import { useBoard } from './useBoard';
 import { YearPicker } from './YearPicker';
 import { yearFor, yearsKey } from './keys';
 import { COLUMNS } from './columns';
+import { DEFAULT_HOBBY, boardPath, isReadyHobby } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
 import type { LibrarySort, LogStatus } from '../api/types';
-
-/**
- * The games board.
- *
- * Hobby-parameterised even though games are the only hobby there is, so movies and books are a
- * routing change rather than a rewrite. Each column fetches itself, which is what makes a sort
- * or a year on one of them cost nothing on the other three.
- */
-const HOBBY: Hobby = 'games';
 
 const ALL_MANUAL: Record<LogStatus, LibrarySort> = {
   Backlog: 'manual',
@@ -32,6 +25,29 @@ const ALL_MANUAL: Record<LogStatus, LibrarySort> = {
 };
 
 export function BoardPage() {
+  const { hobby } = useParams();
+
+  // A slug that names no hobby, or one whose board is not built yet. `movies` is in hobby_lu and
+  // the API answers it, so what this prevents is not a 404 — it is four empty columns, which
+  // reads as broken rather than as unbuilt. The same reasoning leaves the nav's five unready
+  // hobbies as plain text rather than as links to somewhere disappointing.
+  //
+  // A component of its own so the redirect can come before any hook rather than after all of
+  // them: returning early from Board would make every hook below it conditional.
+  if (!isReadyHobby(hobby)) {
+    return <Navigate to={boardPath(DEFAULT_HOBBY)} replace />;
+  }
+
+  return <Board hobby={hobby} />;
+}
+
+/**
+ * A hobby's board.
+ *
+ * Each column fetches itself, which is what makes a sort or a year on one of them cost nothing
+ * on the other three.
+ */
+function Board({ hobby }: { hobby: Hobby }) {
   // Per column, not board-wide: Completed is worth reading by rating while Backlog stays in the
   // order you put it in.
   const [sorts, setSorts] = useState<Record<LogStatus, LibrarySort>>(ALL_MANUAL);
@@ -67,13 +83,13 @@ export function BoardPage() {
   const openedFrom = useRef<number | null>(null);
 
   const { data: years } = useQuery({
-    queryKey: yearsKey(HOBBY),
-    queryFn: () => activityYears(HOBBY),
+    queryKey: yearsKey(hobby),
+    queryFn: () => activityYears(hobby),
   });
 
   const year = chosen !== null ? chosen.year : years?.[0];
 
-  const board = useBoard({ hobby: HOBBY, sorts, year });
+  const board = useBoard({ hobby, sorts, year });
 
   // Focus goes back to the card the drawer was opened from — by id, not by a stored element.
   // Refetches remount the card while the drawer is open, so a reference kept from then would
@@ -94,7 +110,7 @@ export function BoardPage() {
 
         {/* Above the board rather than on a screen of its own, so the column a title is
             about to land in is visible while you decide. */}
-        <BoardSearch hobby={HOBBY} />
+        <BoardSearch hobby={hobby} />
 
         {/* Nothing until the years arrive, and that is deliberate rather than a missing
             loading state. The board opens on the latest year there is, so rendering before they
@@ -126,7 +142,7 @@ export function BoardPage() {
                 {COLUMNS.map(({ status, label }) => (
                   <Column
                     key={status}
-                    hobby={HOBBY}
+                    hobby={hobby}
                     status={status}
                     label={label}
                     sort={sorts[status]}
@@ -179,7 +195,7 @@ export function BoardPage() {
       </div>
 
       {journalFor !== null && (
-        <EntryDrawer mediaId={journalFor} onClose={closeJournal} />
+        <EntryDrawer hobby={hobby} mediaId={journalFor} onClose={closeJournal} />
       )}
     </main>
   );

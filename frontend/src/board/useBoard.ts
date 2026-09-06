@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
-import { columnKey, gameKey, yearFor, yearsKey } from './keys';
+import { columnKey, mediaKey, yearFor, yearsKey } from './keys';
 import { BOARD_STATUSES } from './columns';
 import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
@@ -124,7 +124,7 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     onSettled: (_data, _error, { mediaId, from, to }) => {
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, from] });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, to] });
-      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+      void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
 
       // A move stamps a timestamp, and the years are derived from those — so a drag is one of
       // the two things that can bring a new year into existence. Without this the first title
@@ -180,7 +180,7 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // four, so the columns that change are only knowable from what was there.
     onSettled: (_data, _error, mediaId) => {
       void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
-      void queryClient.invalidateQueries({ queryKey: gameKey(mediaId) });
+      void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
     },
   });
 
