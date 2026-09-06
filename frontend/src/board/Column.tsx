@@ -5,6 +5,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { listColumn } from '../api/library';
 import { Card } from './Card';
 import { SortSelect } from './SortSelect';
+import { hobbyDefinition } from '../hobbies';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import type { LibrarySort, LogStatus } from '../api/types';
@@ -153,7 +154,12 @@ export function Column({
         )}
 
         <div className="ml-auto flex items-center gap-1">
-          <SortSelect label={label} value={sort} onChange={onSortChange} />
+          <SortSelect
+            label={label}
+            lengthLabel={hobbyDefinition(hobby).lengthLabel}
+            value={sort}
+            onChange={onSortChange}
+          />
         </div>
       </div>
 

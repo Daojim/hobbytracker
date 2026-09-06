@@ -504,6 +504,12 @@ obvious ones have been considered and rejected for stated reasons, and re-propos
 work. It stays machine-local deliberately, because it describes a private machine: **do not copy it
 into this repo, and do not publish it anywhere.**
 
+**A second one is not history either, while the movies branch is open:
+`movies-from-tmdb-handoff.md`.** It says where PR 2 got to, what is uncommitted, what breaks right
+now, and the order the rest should be done in — the drawer, the genre palette workshop, the e2e
+stub, the docs. Read it beside `read-claude-md-and-whatever-cuddly-papert.md`, which is the plan it
+is executing. **Delete both when movies merge**; a stale handoff is worse than none.
+
 One is worth a warning if you open it: `for-the-next-part-delightful-alpaca.md`, the HowLongToBeat
 plan. Three of its assumptions did not survive contact with the site — it has an `HltbSessionHandler`
 mirroring `IgdbAuthHandler`, which is impossible given the body-borne credential; it assumes fetching

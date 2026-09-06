@@ -4,7 +4,7 @@ import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit
 import { arrayMove } from '@dnd-kit/sortable';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
 import { columnKey, mediaKey, yearFor, yearsKey } from './keys';
-import { BOARD_STATUSES } from './columns';
+import { BOARD_STATUSES } from '../hobbies';
 import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
 

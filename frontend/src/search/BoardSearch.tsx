@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { searchGames } from '../api/games';
+import { hobbyDefinition } from '../hobbies';
 import { libraryMediaIds } from '../api/library';
 import { addToBacklog } from '../api/logEntries';
 import { useDebounced } from '../lib/useDebounced';
@@ -30,18 +30,19 @@ export interface BoardSearchProps {
 const SEARCH_DEBOUNCE_MS = 300;
 
 export function BoardSearch({ hobby }: BoardSearchProps) {
+  const definition = hobbyDefinition(hobby);
   const [term, setTerm] = useState('');
   const boxRef = useRef<HTMLInputElement>(null);
   const settled = useDebounced(term.trim(), SEARCH_DEBOUNCE_MS);
   const queryClient = useQueryClient();
 
   const results = useQuery({
-    // Keyed on the hobby, not on the word "games". Which endpoint a term is sent to is still
-    // decided here — there is only one to choose between — but two hobbies sharing a search
-    // cache would serve one board the other's results, and typing the same word on both is
-    // exactly how you would find out.
+    // Keyed on the hobby, and dispatched by it too: `hobbies/` decides which endpoint a term
+    // is sent to and what the box calls itself. Two hobbies sharing a search cache would serve
+    // one board the other's results, and typing the same word on both boards is exactly how
+    // you would find out.
     queryKey: ['search', hobby, settled],
-    queryFn: () => searchGames(settled),
+    queryFn: () => definition.search.run(settled),
     // An empty box is not a search for nothing; it is not a search.
     enabled: settled !== '',
   });
@@ -101,13 +102,13 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
           name would stop finding it. */}
       <div className="relative max-w-xl">
         <label className="block">
-          <span className="sr-only">Search games</span>
+          <span className="sr-only">{definition.search.label}</span>
           <input
             ref={boxRef}
             type="search"
             value={term}
             onChange={(event) => setTerm(event.target.value)}
-            placeholder="Search to add a game — Hollow Knight, Celeste, Outer Wilds…"
+            placeholder={definition.search.placeholder}
             // pr-9 leaves the button its corner. The arbitrary variant hides WebKit's own
             // cancel button, which Chrome draws inside a type="search" box as soon as it has
             // content — without it there are two × to choose from, one of them unstyled and
@@ -166,12 +167,12 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
             // Rendered in the order IGDB ranked them: the database has no idea that ordering
             // exists, so re-sorting here would be discarding the only relevance there is.
             <ul className="flex gap-3 overflow-x-auto pb-1">
-              {results.data.map((game) => (
+              {results.data.map((hit) => (
                 <SearchResult
-                  key={game.id}
-                  game={game}
-                  onBoard={onBoard.has(game.id)}
-                  adding={add.isPending && add.variables === game.id}
+                  key={hit.id}
+                  hit={hit}
+                  onBoard={onBoard.has(hit.id)}
+                  adding={add.isPending && add.variables === hit.id}
                   onAdd={(mediaId) => add.mutate(mediaId)}
                 />
               ))}

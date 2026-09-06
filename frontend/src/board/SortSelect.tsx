@@ -7,35 +7,48 @@ import type { LibrarySort } from '../api/types';
  * That is what lets the board hand dragging out in one mode only and still promise that a look
  * at the alphabetical order cannot disturb the ranking underneath it.
  */
-const MODES: readonly { value: LibrarySort; label: string }[] = [
+const SHARED_MODES: readonly { value: LibrarySort; label: string }[] = [
   { value: 'manual', label: 'My order' },
   { value: 'added', label: 'Recently added' },
   { value: 'title', label: 'Title' },
   { value: 'rating', label: 'Rating' },
-  // How long the title takes, shortest first. The label is the hobby's word for it — a game's is
-  // HowLongToBeat's estimate, and "Hours" alone would read as the hours you have put in.
-  { value: 'length', label: 'Time to beat' },
+];
+
+/**
+ * Every mode, with the length one wearing this hobby's word for it.
+ *
+ * Only the label moves: `sort=length` is the same request from either board, ordering on the
+ * same field. A game's is HowLongToBeat's estimate and is called *Time to beat*, because "Hours"
+ * alone would read as the hours you have put in; a film's is its *Runtime*.
+ */
+const modesFor = (lengthLabel: string): readonly { value: LibrarySort; label: string }[] => [
+  ...SHARED_MODES,
+  { value: 'length', label: lengthLabel },
 ];
 
 export interface SortSelectProps {
   /** The column's name, so the control says which column it orders. */
   label: string;
+  /** This hobby's word for `sort=length`. See `hobbies/`. */
+  lengthLabel: string;
   value: LibrarySort;
   onChange: (sort: LibrarySort) => void;
 }
 
-export function SortSelect({ label, value, onChange }: SortSelectProps) {
+export function SortSelect({ label, lengthLabel, value, onChange }: SortSelectProps) {
+  const modes = modesFor(lengthLabel);
+
   return (
     <label>
       <span className="sr-only">{label} order</span>
       <select
         value={value}
-        // MODES is the closed set of what this control can emit, so the cast cannot widen past
-        // LibrarySort however the DOM types the value.
+        // The modes are the closed set of what this control can emit, so the cast cannot widen
+        // past LibrarySort however the DOM types the value.
         onChange={(event) => onChange(event.target.value as LibrarySort)}
         className="rounded border border-line bg-surface px-1 py-0.5 text-xs text-fg"
       >
-        {MODES.map((mode) => (
+        {modes.map((mode) => (
           <option key={mode.value} value={mode.value}>
             {mode.label}
           </option>
