@@ -44,7 +44,7 @@ export interface LibraryItem {
   lastActivity: string | null;
   /** The title's genres, from whichever source its hobby uses. Null when the hobby has none. */
   genres: string[] | null;
-  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  /** The chosen genre, or null to use the automatic pick. See src/hobbies/. */
   primaryGenre: string | null;
   /**
    * How long this title takes, in hours — the one number a card has room for.
@@ -88,7 +88,7 @@ export interface Game {
   platforms: string[];
   developers: string[];
   genres: string[];
-  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  /** The chosen genre, or null to use the automatic pick. See src/hobbies/. */
   primaryGenre: string | null;
   externalId: string | null;
   source: string;
@@ -127,7 +127,7 @@ export interface Movie {
    */
   runtimeMinutes: number | null;
   genres: string[];
-  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  /** The chosen genre, or null to use the automatic pick. See src/hobbies/. */
   primaryGenre: string | null;
   /** The byline under the drawer's title. Plural because films are co-directed. */
   directors: string[];

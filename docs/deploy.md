@@ -75,6 +75,16 @@ else in the suite is quietly running against an origin it never mentioned.
 
 ### The things that fail quietly here
 
+- **A new *required* variable does not reach an existing deployment, and compose refuses the whole
+  file rather than the one service.** Adding `TMDB_ACCESS_TOKEN` to `.env.example` updates the
+  template; the `.env` that a running deployment actually reads is on the server and gitignored, so
+  it stays as it was. `${TMDB_ACCESS_TOKEN:?…}` then fails at **interpolation**, which happens
+  before compose selects a profile or looks at a single service — so the error names one variable
+  and nothing starts, including the containers that had nothing to do with it. **This is the good
+  failure**: it happens before anything is torn down, so the running site stays up. The bad version
+  is the same variable without `:?`, which starts the API with an empty token and turns every search
+  into a 401 nobody sees until they try one. **Check the server's `.env` before deploying a change
+  that adds one**, and prove the value works from the server rather than assuming the paste landed.
 - **Data Protection keys have to outlive the container.** The session cookie is self-contained and
   encrypted with them, and a container filesystem goes with the container — so without somewhere
   durable, every redeploy signs **everybody** out, and there are a lot of redeploys.
