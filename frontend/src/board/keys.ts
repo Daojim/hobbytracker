@@ -42,11 +42,18 @@ export const yearFor = (status: LogStatus, year: number | undefined) =>
 export const yearsKey = (hobby: string) => ['library', hobby, 'years'] as const;
 
 /**
- * One title's journal: the game and every pass logged against it, as `getGame` answers it.
+ * One title's journal: the title and every pass logged against it, as its hobby's detail
+ * endpoint answers it.
  *
  * Here rather than in `journal/` because the board writes to it as well as reads it — a drag
  * stamps `started_at` and can insert a whole new entry, so the drawer's copy has to be dropped
  * when one lands. Spelled in one place for the same reason `columnKey` is: two hooks holding
  * the same key by hand is how one of them quietly stops matching.
+ *
+ * Keyed on the hobby as well as the id, because the id alone is not unique across them: media
+ * ids are handed out by one sequence, so `media` 14 is a game or a film but never both — yet
+ * the *responses* differ in shape, and two hobbies' detail endpoints sharing a cache entry is
+ * the kind of thing that goes wrong once and is then very hard to see. It also lets a hobby's
+ * whole journal cache be dropped with the `['media', hobby]` prefix.
  */
-export const gameKey = (mediaId: number) => ['games', mediaId] as const;
+export const mediaKey = (hobby: string, mediaId: number) => ['media', hobby, mediaId] as const;

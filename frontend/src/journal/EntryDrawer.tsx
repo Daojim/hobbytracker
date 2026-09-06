@@ -35,6 +35,12 @@ const FOCUSABLE =
   'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export interface EntryDrawerProps {
+  /**
+   * Whose journal this is. Handed down from the board rather than worked out here: the drawer
+   * needs it to key its own cache apart from another hobby's, and it will need it again to know
+   * which fields a pass of this kind even has.
+   */
+  hobby: string;
   mediaId: number;
   onClose: () => void;
 }
@@ -45,8 +51,8 @@ export interface EntryDrawerProps {
  * Rating, notes and dates were reachable by the API and by nothing else — the card has always
  * rendered a rating that could never be set. This is where they become real.
  */
-export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
-  const { game, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(mediaId);
+export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
+  const { game, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(hobby, mediaId);
   const titleId = useId();
   const genreId = useId();
   const panel = useRef<HTMLElement>(null);
@@ -145,7 +151,7 @@ export function EntryDrawer({ mediaId, onClose }: EntryDrawerProps) {
     onConfirm: () => deletePass(entryId),
   });
 
-  const notes = useNotes(mediaId);
+  const notes = useNotes(hobby, mediaId);
   const noteError = [notes.write.error, notes.rewrite.error, notes.remove.error].find(
     (failure) => failure !== null,
   );

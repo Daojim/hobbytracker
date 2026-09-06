@@ -6,6 +6,7 @@ import { EntryDrawer } from './EntryDrawer';
 import { gameDetail, journalServer, logEntry, note } from '../test/games';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
+import { mediaKey } from '../board/keys';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Exact rating' });
 const slider = () => screen.getByRole('slider', { name: 'Rating' });
@@ -13,7 +14,7 @@ const started = () => screen.getByLabelText('Started');
 const save = () => screen.getByRole('button', { name: 'Save' });
 
 function open(mediaId = 3003, onClose = vi.fn()) {
-  return { onClose, ...renderWithProviders(<EntryDrawer mediaId={mediaId} onClose={onClose} />) };
+  return { onClose, ...renderWithProviders(<EntryDrawer hobby="games" mediaId={mediaId} onClose={onClose} />) };
 }
 
 describe('EntryDrawer', () => {
@@ -325,7 +326,7 @@ describe('EntryDrawer', () => {
     expect(await screen.findByLabelText('Started')).toHaveValue('');
 
     await act(async () => {
-      await queryClient.invalidateQueries({ queryKey: ['games', 3003] });
+      await queryClient.invalidateQueries({ queryKey: mediaKey('games', 3003) });
     });
 
     await waitFor(() => expect(started()).toHaveValue('2026-08-21'));

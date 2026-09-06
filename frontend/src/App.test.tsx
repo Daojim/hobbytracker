@@ -78,6 +78,43 @@ describe('App', () => {
     expect(screen.getByRole('combobox', { name: 'Backlog order' })).toHaveValue('title');
   });
 
+  it('takes a hobby in the address, and gives the games board its own', async () => {
+    // The board was a bare /board while games were the only hobby. A second one makes the slug
+    // part of the address rather than something the page decides for itself, and the redirect
+    // that keeps /board working is what leaves every bookmark, every spec and signInUrl's
+    // default landing somewhere.
+    boardServer({ years: [2026] });
+    authServer();
+
+    renderWithProviders(<App />, { route: '/board/games' });
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
+  });
+
+  it('sends a hobby nobody has built yet to the one that exists', async () => {
+    // `movies` is a real slug — it is in hobby_lu and the API answers it — so what this prevents
+    // is not a 404. It is an empty four-column board that reads as broken rather than as
+    // unbuilt, which is the reasoning that already leaves the nav's five unready hobbies as
+    // plain text rather than as links to somewhere disappointing.
+    boardServer({ years: [2026] });
+    authServer();
+
+    renderWithProviders(<App />, { route: '/board/movies' });
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('sends a slug that is not a hobby at all to the games board', async () => {
+    boardServer({ years: [2026] });
+    authServer();
+
+    renderWithProviders(<App />, { route: '/board/underwater-basket-weaving' });
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('aria-current', 'page');
+  });
+
   it('still lands the old search address on the board', async () => {
     boardServer();
     authServer();

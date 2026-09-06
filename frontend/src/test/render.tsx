@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MemoryRouter, useNavigate } from 'react-router';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router';
 import { DndContext } from '@dnd-kit/core';
 import { useBoardSensors } from '../board/sensors';
 
@@ -22,10 +22,19 @@ import { useBoardSensors } from '../board/sensors';
  * on a card activates a drag from the first pixel and dnd-kit swallows the click that follows.
  * A card whose title correctly lets the press through then looks unopenable here and works fine
  * in a browser, which is the least useful way for a test to disagree with the app.
+ *
+ * `path` mounts the tree at a parameterised route, for a component that reads `useParams` —
+ * BoardPage takes its hobby out of the address now. A MemoryRouter alone matches nothing, so
+ * without it the params are empty and the page redirects instead of rendering, which reads as
+ * the board being broken rather than as the harness not having said where it is.
  */
 export function renderWithProviders(
   ui: ReactElement,
-  { dnd = false, route = '/board' }: { dnd?: boolean; route?: string } = {},
+  {
+    dnd = false,
+    route = '/board/games',
+    path,
+  }: { dnd?: boolean; route?: string; path?: string } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -36,7 +45,17 @@ export function renderWithProviders(
 
   function Wrapper({ children }: { children: ReactNode }) {
     const sensors = useBoardSensors();
-    const routed = <MemoryRouter initialEntries={[route]}>{children}</MemoryRouter>;
+    const routed = (
+      <MemoryRouter initialEntries={[route]}>
+        {path === undefined ? (
+          children
+        ) : (
+          <Routes>
+            <Route path={path} element={children} />
+          </Routes>
+        )}
+      </MemoryRouter>
+    );
 
     return (
       <QueryClientProvider client={queryClient}>

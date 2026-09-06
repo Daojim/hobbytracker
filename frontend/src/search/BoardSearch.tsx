@@ -36,7 +36,11 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
   const queryClient = useQueryClient();
 
   const results = useQuery({
-    queryKey: ['games', 'search', settled],
+    // Keyed on the hobby, not on the word "games". Which endpoint a term is sent to is still
+    // decided here — there is only one to choose between — but two hobbies sharing a search
+    // cache would serve one board the other's results, and typing the same word on both is
+    // exactly how you would find out.
+    queryKey: ['search', hobby, settled],
     queryFn: () => searchGames(settled),
     // An empty box is not a search for nothing; it is not a search.
     enabled: settled !== '',
@@ -56,7 +60,8 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
     mutationFn: (mediaId: number) => addToBacklog(mediaId),
     onSuccess: (_entry, mediaId) => {
       setJustAdded((ids) => [...ids, mediaId]);
-      void queryClient.invalidateQueries({ queryKey: ['library'] });
+      // This hobby's, not every hobby's: adding a film cannot move a card on the games board.
+      void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
     },
   });
 

@@ -36,11 +36,13 @@ describe('AppHeader', () => {
   });
 
   it('offers the one hobby that exists as a link, and says you are on it', () => {
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" />, { route: '/board/games' });
 
     const games = within(nav()).getByRole('link', { name: 'Games' });
 
-    expect(games).toHaveAttribute('href', '/board');
+    // The slug is in the address, so the link names it. aria-current comes free from NavLink and
+    // stays right once there is more than one hobby to be current.
+    expect(games).toHaveAttribute('href', '/board/games');
     expect(games).toHaveAttribute('aria-current', 'page');
   });
 
