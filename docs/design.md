@@ -200,8 +200,8 @@ so its cards start lower than its neighbours'. Pre-existing, clears by 1440.
 
 ### The hobby nav
 
-`<nav aria-label="Hobbies">` under the header, built from `src/shell/hobbies.ts`. Adding movies is a
-`ready` flag there plus a route — the header itself does not change.
+`<nav aria-label="Hobbies">` under the header, built from `src/shell/hobbies.ts`. Adding movies is now the
+`ready` flag there and nothing else — `/board/:hobby` already exists, and the header does not change.
 
 - **The six slugs are copies of `SeedData.Apply`'s and must stay copies.** They are what `?hobby=` is
   filtered on, and `LibraryController` answers **400** for anything not in `hobby_lu`. There is no
@@ -214,11 +214,18 @@ so its cards start lower than its neighbours'. Pre-existing, clears by 1440.
   under, silently, because `index.css.test.ts` checks the tokens rather than what a component does to
   them afterwards.
 - **Games is a `NavLink`**, so `aria-current="page"` comes free and stays right once there is more than
-  one of them to be current. `boardPath()` is the one place that has to learn `/board/:hobby`.
+  one of them to be current. **`boardPath()` has learnt `/board/:hobby`** — every hobby's board is at
+  its own address now, and the bare `/board` redirects rather than being retired, because bookmarks,
+  every Playwright `goto` and `signInUrl`'s `returnUrl` all name it. `isReadyHobby` beside it is what
+  `BoardPage` turns a slug nobody has built into the one that exists with.
 - **Exactly one `SettingsMenu`, and it has to stay that way.** `useTheme` holds its state locally —
   themes are CSS, so there is no provider — so a second menu would read storage once on mount and then
   keep drawing the old choice. `AppHeader.test.tsx` pins it.
 
-`renderWithProviders` takes a **`route` option**, defaulting to `/board`. Its `MemoryRouter` had no
-`initialEntries`, so the location was always `/` and `aria-current` could not be asserted at all.
+`renderWithProviders` takes a **`route` option**, defaulting to `/board/games`. Its `MemoryRouter`
+had no `initialEntries`, so the location was always `/` and `aria-current` could not be asserted at
+all. It takes a **`path`** beside it now, for a component that reads `useParams` — a MemoryRouter
+alone matches no route, so `BoardPage` mounted without one is handed empty params and redirects
+rather than rendering, which reads as the board being broken rather than as the harness not having
+said where it is.
 

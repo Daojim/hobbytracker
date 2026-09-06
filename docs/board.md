@@ -255,8 +255,13 @@ What a caller has to know:
   key**, because a column has one cache entry per sort and year and the exact key only reaches
   whichever one is on screen. **A reorder keeps the exact key on purpose**: it writes `position`, and
   `manual` is the only ordering that reads it.
-- `gameKey(mediaId)` is `['games', mediaId]`. The drawer reads it; **the board writes to it**, because
-  a transition stamps `started_at` and can insert a whole new entry.
+- `mediaKey(hobby, mediaId)` is `['media', hobby, mediaId]` — one title's journal. The drawer reads
+  it; **the board writes to it**, because a transition stamps `started_at` and can insert a whole new
+  entry. It was `gameKey(mediaId)`, keyed on the id alone: media ids are unique across hobbies, so
+  that was not wrong, but two hobbies' detail endpoints answer different shapes and sharing a cache
+  entry between them is a thing that goes wrong once and is very hard to see afterwards. **The
+  drawer is handed its hobby by the board** rather than working it out, which it needs anyway to
+  know which fields a pass of that kind has.
 
 **Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries take
 `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just added appears
@@ -264,16 +269,21 @@ on top and nothing gets renumbered. `PUT /api/library/order` takes the whole col
 than a move-and-index: idempotent, no off-by-one arithmetic, and ids that have since left the column
 are ignored rather than rejected, because a loaded board can legitimately be one drag out of date.
 
-**Sorting never writes.** `sort` ∈ `manual` (default) · `added` · `title` · `rating` · `hours` are
+**Sorting never writes.** `sort` ∈ `manual` (default) · `added` · `title` · `rating` · `length` are
 read-only views that leave `position` untouched, which is what lets the UI enable dragging only in
 manual mode and still guarantee the ranking survives a look at the alphabetical order.
 
-`sort=hours` is HowLongToBeat's **headline figure**, shortest first, with titles that have no estimate
-last — the same treatment an unrated title gets under `sort=rating`, rather than sorting as though
-nobody having timed a game meant it took no time. **It is the same field the card prints, and the two
-have to keep moving together**: a column ordered shortest-first on a number none of its cards show
-reads as broken. It is **not** `log_entries.hours_played`, which is how long you took on one pass. The
-UI calls it **Time to beat**, because "Hours" alone reads as the hours you have put in.
+`sort=length` is **how long the title takes**, shortest first, with titles that have no figure last —
+the same treatment an unrated title gets under `sort=rating`, rather than sorting as though nobody
+having timed a game meant it took no time. **It is the same field the card prints, and that is not a
+convention either of them has to remember**: both read `LibraryItemDto.LengthHours`, so there is
+nothing for them to drift apart over. A column ordered shortest-first on a number none of its cards
+show reads as broken.
+
+**What that field means is the hobby's, and the name stopped saying "games" deliberately.** For a
+game it is HowLongToBeat's headline figure; for a film it is the runtime. It is **not**
+`log_entries.hours_played`, which is how long you took on one pass. The label is the hobby's too —
+games call it **Time to beat**, because "Hours" alone reads as the hours you have put in.
 
 Traps, all of which have bitten already:
 
@@ -284,7 +294,7 @@ Traps, all of which have bitten already:
 - **TPT downcasts live in the two terminal DTO projections only, never in `BoardQuery`.** `BoardQuery`
   is what every `Where` and `OrderBy` is pushed through, so a downcast that stops translating there
   empties the whole board with no error; confined to one place the worst case is that one thing
-  breaks. `sort=hours` keeps its downcast **inside that one switch arm** in `LibraryService.Sorted`,
+  breaks. `sort=length` keeps its downcast **inside that one switch arm** in `LibraryService.Sorted`,
   and `LibraryOrderingTests` asserts the column comes back **non-empty**, because emptiness is the
   symptom.
 - **Validation attributes go on record primary-constructor parameters**, not `[property:]` targets.

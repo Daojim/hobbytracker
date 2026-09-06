@@ -68,7 +68,7 @@ $ curl -b jar "localhost:5173/api/library?hobby=games"
     "lastActivity": "2026-08-15T23:47:00+00:00",
     "genres": ["Platform"],
     "primaryGenre": null,
-    "hltbAllStylesHours": 9.5,
+    "lengthHours": 9.5,
     "latestNotePreview": "that B-side nearly broke me"
   }],
   "total": 1, "page": 1, "pageSize": 25
