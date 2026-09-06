@@ -64,8 +64,9 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
-**Detail and review is the next phase** — a game detail page and a year in review. See **What is
-next**, which also lists the smaller things named but not built.
+**Two hobbies are live in production**, films included. **Detail and review is the next phase** —
+a title detail page and a year in review. See **What is next**, which also lists the smaller things
+named but not built.
 
 ## Start here
 
@@ -305,6 +306,24 @@ for a test run to delete your backlog. Truncation leaves `hobby_lu` and `source_
 as Respawn does — but it does take `users` and `auth_identities`, so a run starts with nobody signed up
 and one spec cannot be satisfied by the sign-in of the one before it.
 
+**The e2e API's `webServer` can exceed its ten-minute timeout, and it is the machine rather than
+the change.** That one entry runs two dotnet builds in sequence — the chained `dotnet ef database
+update`, whose design-time build has been measured at ~14 minutes and 4 GB resident here, then
+`dotnet run`. Playwright reports it as the same unhelpful *"Process from config.webServer was not
+able to start"* a build lock does. **It has now cost two sessions.** The workaround is reliable and
+takes about three minutes:
+
+```bash
+BaseOutputPath='bin/e2e/' dotnet build backend/src/HobbyTracker.Api/HobbyTracker.Api.csproj
+# then run the built dll with the env from playwright.config.ts's API entry, and let
+# `reuseExistingServer: true` adopt it. It boots in under ten seconds.
+```
+
+**The migration usually succeeded before the timeout** — check `hobbytracker_e2e` for the table
+the newest migration adds before concluding otherwise. **`prepare-database.mjs` could take
+`--no-build`**, which would take one of the two full builds off the critical path; named twice
+now, still not done.
+
 **Do not pipe a suite through `tail` — the exit code you get back is `tail`'s.** A run that
 reports success while a spec failed is worse than no run at all, and this cost a merge: `npm run
 test:e2e | tail -40` came back green with one spec red. Redirect to a file and echo `$?`, or let
@@ -323,7 +342,10 @@ failures over thirteen runs of that spec alone; **1 failure in 3 with the `/boar
 reverted**, so it is not that change's doing; and **0 failures in 8** when the same test body is
 copied verbatim into a file of its own. That last number is the useful one — it says the cause is
 not the click, the timing or the history entry, all of which a probe showed behaving correctly.
-Do not "fix" it by adding a wait before the click: a copy with no wait passed 4 of 4.
+Do not "fix" it by adding a wait before the click: a copy with no wait passed 4 of 4. **It did not
+recur across four full-suite runs on 6 September**, including two while a build was running, so it
+is genuinely intermittent rather than steadily worsening — but the measurements above stand and
+this note stays until something explains them.
 
 ## Settled — do not reopen
 
@@ -379,6 +401,7 @@ here**.
 | **`log_entries` and `notes` are yours; `media`, `games` and the lookup tables are shared and must stay shared.** Scoping is an injected `ICurrentUser` at sixteen call sites rather than a query filter, and a missed one shows as a stranger's data on your board, never as an error | `docs/auth.md` |
 | **Options captured from `builder.Configuration` while `Program.cs` runs miss any source added afterwards** — which is exactly what `ApiFactory` does. It surfaced once as all 153 endpoint tests 500ing on an empty ClientId | `docs/auth.md` |
 | **Data Protection falls back to keys held only in memory when its directory is not writable**, and says so in a log line nobody is reading at the time — so every redeploy signs everybody out | `docs/deploy.md` |
+| **A new *required* variable in `deploy/compose.yml` does not reach a deployment that already exists.** `.env` lives on the server and is gitignored, so `${NEW_THING:?…}` fails at interpolation — before compose picks a profile or looks at a service — and nothing starts. Loud, and it leaves the running site up; the quiet version is the same variable without `:?` | `docs/deploy.md` |
 | **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice** | `docs/games-hltb.md` |
 | **A `TitleDetail` field a hobby leaves empty and one it has no idea of look identical**, which is why `journal.fields` is stated rather than inferred: an unenriched game has no platforms either, and it still wants the select. Inferring it hides the control on a title that was merely not fetched yet | `docs/movies-tmdb.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
@@ -480,13 +503,13 @@ detail table, an integration, and one file in `frontend/src/hobbies/`.
   localhost; on a public hostname it means anybody who finds the address gets an account. The
   *scoping* is sound — nineteen tests, each checked red — so nobody reads anybody else's journal.
   The exposure is resources: unbounded rows into `media`, the IGDB quota against a 4 req/s limit,
-  and unbounded HowLongToBeat lookups **from whatever address the app is deployed on**, at a site
-  with a documented history of blocking unofficial clients. That last one is the real risk. Until
-  the setting exists the gate belongs *in front of* the app rather than in it. Design when it is
-  wanted: a bool on `AuthOptions`, checked in `AuthService.SignInAsync` **before creating a user**
-  so existing accounts keep working while it is off, and flippable by environment variable without
-  a rebuild. One wrinkle — throwing inside `OnCreatingTicket` surfaces as a 500, and a refusal
-  wants a real error path.
+  TMDB's against roughly 40 req/s, and unbounded HowLongToBeat lookups **from whatever address the
+  app is deployed on**, at a site with a documented history of blocking unofficial clients. That
+  last one is the real risk. Until the setting exists the gate belongs *in front of* the app rather
+  than in it. Design when it is wanted: a bool on `AuthOptions`, checked in
+  `AuthService.SignInAsync` **before creating a user** so existing accounts keep working while it
+  is off, and flippable by environment variable without a rebuild. One wrinkle — throwing inside
+  `OnCreatingTicket` surfaces as a 500, and a refusal wants a real error path.
 - **`Season` is not in the game-type filter**, so "Mario Kart" returns ten *Mario Kart Tour: … Tour*
   seasons and none of the actual games. One id in one clause. Nobody has asked for it.
 - **`users.role` is read by nothing.** It defaults to `"user"` and exists for a day that has not come.
@@ -503,12 +526,6 @@ approaches were already ruled out and why. **Read it before proposing any deploy
 obvious ones have been considered and rejected for stated reasons, and re-proposing them is repeated
 work. It stays machine-local deliberately, because it describes a private machine: **do not copy it
 into this repo, and do not publish it anywhere.**
-
-**A second one is not history either, while the movies branch is open:
-`movies-from-tmdb-handoff.md`.** It says where PR 2 got to, what is uncommitted, what breaks right
-now, and the order the rest should be done in — the drawer, the genre palette workshop, the e2e
-stub, the docs. Read it beside `read-claude-md-and-whatever-cuddly-papert.md`, which is the plan it
-is executing. **Delete both when movies merge**; a stale handoff is worse than none.
 
 One is worth a warning if you open it: `for-the-next-part-delightful-alpaca.md`, the HowLongToBeat
 plan. Three of its assumptions did not survive contact with the site — it has an `HltbSessionHandler`

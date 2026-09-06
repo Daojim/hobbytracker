@@ -3,10 +3,11 @@
 A personal hobby-tracking and journaling app — what you played or watched, when, and what you
 thought of it. Games and films, with TV, anime, books and music sharing the same schema later.
 
-**Status: working end to end, front and back, behind a sign-in.** A kanban board with a drag, a
-journal drawer over it, IGDB and TMDB search, HowLongToBeat estimates, eight themes, and
-Google/Discord OAuth with every pass and note scoped to whoever wrote it. The next things to build
-are a title detail page and a year in review — see [Roadmap](#roadmap).
+**Status: deployed and in use, behind a sign-in.** Two hobbies — games and films — sharing one
+board, one journal and one schema. A kanban board with a drag, a journal drawer over it, IGDB and
+TMDB search, HowLongToBeat estimates, eight themes, and Google/Discord OAuth with every pass and
+note scoped to whoever wrote it. The next things to build are a title detail page and a year in
+review — see [Roadmap](#roadmap).
 
 ---
 
