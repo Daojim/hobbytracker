@@ -62,6 +62,13 @@ wrapper.
   same block** on the same argument, Google's blue meaning Google in every theme. **Note the
   constraint on the names**: `index.css.test.ts` reads tokens with `/^\s*(--[a-z-]+):/`, so a token
   containing a **digit** is silently skipped rather than reported.
+- **There are two genre lists now, and they may reuse each other's hues.** A board is one hobby, so
+  a film's stripe is only ever read against the other films'. **`src/hobbies/palette.test.ts` is
+  what holds all of it**: that every genre a built hobby names is painted, that the class names a
+  token `index.css` actually defines — Tailwind generates nothing for one that does not, and the
+  stripe renders transparent with no error — that every lightness is in `[0.48, 0.75]`, and that no
+  two hues *within one list* are closer than the 0.087 the games palette already accepts. The
+  measurement `index.css` asks for is now arithmetic the suite does.
 - **Whether a card has a border is a token too** — shadow does almost nothing against Console's deep
   ground, so Console keeps an outline and the others do not, which would otherwise have needed a
   component to know which theme it was in.

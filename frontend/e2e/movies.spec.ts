@@ -40,6 +40,16 @@ test('finding a film puts it on the board, complete, without leaving it', async 
   await expect(arrival.getByText('Science Fiction')).toBeVisible();
 });
 
+test('half a title is enough to find a film, without a second query', async ({ page }) => {
+  // Games need two queries merged and re-ranked because IGDB's search does no prefix matching at
+  // all — `hollow k` answers with nothing. TMDB prefix-matches mid-word, measured against the
+  // live API: `arriv` finds Arrival, `blade runn` finds Blade Runner. So `MovieCatalogService`
+  // sends one query and keeps TMDB's order, and this is what says that is still enough.
+  await page.getByRole('searchbox', { name: 'Search movies' }).fill('blade runn');
+
+  await expect(page.getByRole('button', { name: 'Add Blade Runner 2049 to backlog' })).toBeVisible();
+});
+
 test('the hobby nav goes to the films board, and the films board is a films board', async ({
   page,
 }) => {

@@ -48,23 +48,24 @@ export const MOVIES: HobbyDefinition = {
    * Fiction, and it was held back only because eleven hues is already past what colour alone
    * can carry, which is why the card prints the name too.
    *
-   * **Every stripe is null until the palette is workshopped.** The names resolve, the automatic
-   * pick works and the drawer's genre select is populated; the stripe renders the transparent
-   * placeholder an ungenred title already gets. `docs/design.md` asks that a hue be measured in
-   * OKLab against its neighbours before it is added, and ten of them at once is not a thing to
-   * do by eye in a code editor.
+   * **The hues were workshopped, not chosen here.** Three whole palettes were rendered as real
+   * 4px stripes on a real board in all eight themes, with every pair's OKLab separation printed,
+   * and the user picked *Meaning first*: each hue is what the genre feels like, and the two most
+   * generic words are the quiet, near-neutral ones. The values and the floor are in `index.css`;
+   * `palette.test.ts` re-measures every pair, so a hue added by eye later fails rather than
+   * merely looking wrong.
    */
   genres: [
-    { name: 'Documentary', stripe: null },
-    { name: 'Animation', stripe: null },
-    { name: 'Horror', stripe: null },
-    { name: 'Science Fiction', stripe: null },
-    { name: 'Thriller', stripe: null },
-    { name: 'Crime', stripe: null },
-    { name: 'Romance', stripe: null },
-    { name: 'Comedy', stripe: null },
-    { name: 'Action', stripe: null },
-    { name: 'Drama', stripe: null },
+    { name: 'Documentary', stripe: 'bg-genre-documentary' },
+    { name: 'Animation', stripe: 'bg-genre-animation' },
+    { name: 'Horror', stripe: 'bg-genre-horror' },
+    { name: 'Science Fiction', stripe: 'bg-genre-science-fiction' },
+    { name: 'Thriller', stripe: 'bg-genre-thriller' },
+    { name: 'Crime', stripe: 'bg-genre-crime' },
+    { name: 'Romance', stripe: 'bg-genre-romance' },
+    { name: 'Comedy', stripe: 'bg-genre-comedy' },
+    { name: 'Action', stripe: 'bg-genre-action' },
+    { name: 'Drama', stripe: 'bg-genre-drama' },
   ],
 
   search: {

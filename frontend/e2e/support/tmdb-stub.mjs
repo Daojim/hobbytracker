@@ -63,8 +63,9 @@ const CATALOGUE = [
     genres: ['Action', 'Comedy', 'Science Fiction'],
     directors: ['Daniel Kwan', 'Daniel Scheinert'],
   },
-  // A colon in the title, which is the shape that forced IGDB's second query. Kept here so the
-  // question "does TMDB search need the same thing" has something to be asked against.
+  // A two-word title with a number in it, kept from when the colon question was still open.
+  // It is answered now — dropping a colon changes nothing on the live API — so this is here as
+  // an ordinary long film rather than as evidence. See **Ranking** in docs/movies-tmdb.md.
   {
     id: 4007, title: 'Blade Runner 2049', releaseDate: '2017-10-04', runtime: 164,
     genres: ['Science Fiction', 'Drama'], directors: ['Denis Villeneuve'],
@@ -114,10 +115,15 @@ const asDetail = (film) => ({
 /**
  * TMDB's search is fuzzy, and matching whole words here would be stricter than the real thing.
  *
- * The deliberate difference from the IGDB stub, and the reason is measured rather than assumed:
- * IGDB's search does no prefix matching at all, which is the entire reason `IgdbRelevance` and
- * its second slug query exist. TMDB's does — "portrait of a lady" finds the film — so a prefix
- * match is what mirrors it, and a spec that half-types a title is testing the real behaviour.
+ * The deliberate difference from the IGDB stub, and it is measured rather than assumed — against
+ * the live API on 6 September 2026, with the table in `docs/movies-tmdb.md`. IGDB's search does
+ * no prefix matching at all, which is the entire reason `IgdbRelevance` and its second slug query
+ * exist; TMDB's prefix-matches mid-word, so `arriv` finds Arrival and `blade runn` finds Blade
+ * Runner. A spec that half-types a title here is testing the real behaviour.
+ *
+ * **One thing this does not mirror: TMDB ranks by popularity and this returns catalogue order.**
+ * Nothing depends on it today — no spec asserts the order of more than one result — but a spec
+ * that started to would be testing the stub rather than the app.
  */
 const flatten = (value) =>
   value

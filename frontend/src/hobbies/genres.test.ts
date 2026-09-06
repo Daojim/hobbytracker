@@ -77,12 +77,12 @@ describe('genreStripe', () => {
     expect(genreStripe(GAMES, null)).toBeNull();
   });
 
-  it('names a film genre without painting it yet', () => {
-    // The interim state while the palette is workshopped: the name resolves, so the card prints
-    // it and the drawer offers it, and the stripe stays the transparent placeholder an ungenred
-    // title already gets. docs/design.md asks that a hue be measured before it is added.
-    expect(automaticGenre(MOVIES, ['Horror'])).toBe('Horror');
-    expect(genreStripe(MOVIES, 'Horror')).toBeNull();
+  it('paints a film out of its own list, not games', () => {
+    // Each list is looked up on its own, which is what lets the two palettes reuse the hue
+    // circle: a board is one hobby, so a film's stripe is never read against a game's.
+    expect(genreStripe(MOVIES, 'Horror')).toBe('bg-genre-horror');
+    expect(genreStripe(GAMES, 'Horror')).toBeNull();
+    expect(genreStripe(MOVIES, 'Shooter')).toBeNull();
   });
 });
 

@@ -86,25 +86,42 @@ finds it.
 `TmdbOnMediaAdded` declines by hobby id before it queries anything. `EnrichAsync` would decline a
 game anyway by finding no `movies` row, but it would spend a database round trip learning it.
 
-### Ranking: not ported, and that was a decision
+### Ranking: not ported, and it was measured before that was decided
 
 `IgdbRelevance` exists because IGDB's `search` does no prefix matching at all and cannot tell a
-game from a fan game named after it. **Neither problem has been shown to exist here**, so
+game from a fan game named after it. **Neither problem exists here**, so
 `MovieCatalogService.SearchAsync` keeps TMDB's own order and says so in a comment.
 
-**Two things were meant to be measured against the live API and have not been.** They need a
-`Tmdb:AccessToken`, and there was none in user-secrets when this file was written:
+Measured against the live API on 6 September 2026, the same way `docs/games-igdb.md`'s table was:
 
-- Does TMDB search find a film from **half its title**? (The question that forced IGDB's second
-  slug query.) The e2e stub currently assumes **yes** and matches on a substring — which mirrors
-  what TMDB is documented to do, and is the deliberate difference from the IGDB stub's
-  whole-word matching. **If the live API turns out to behave otherwise, the stub is what is
-  wrong**, and it is lying in the more dangerous direction: a spec that half-types a title would
-  pass here and fail in production.
-- What does `search/movie` return for a title with **a colon in it**? `Blade Runner 2049` is in
-  the stub catalogue for exactly this reason, so there is something to ask it against.
+| typed | first four, in TMDB's own order | total |
+|---|---|---|
+| `arriv` | **Arrival** (2016) · The Arrival of a Train at La Ciotat · Go Away! Trinity Has Arrived in Eldorado · The Arrival of Wang | 633 |
+| `blade runn` | **Blade Runner** (1982) · **Blade Runner 2049** · The Blade Runner Phenomenon · Blade Runner: Mundos Replicantes | 15 |
+| `everything everywhere` | **Everything Everywhere All at Once** · Everything, Everywhere · Everything, Everywhere, All the Time · Everything Everywhere Again Alive | 6 |
+| `portrait of a lady` | **Portrait of a Lady on Fire** · The Portrait of a Lady · Fascination: Portrait of a Lady · Portrait of a Lady | 11 |
+| `star wars the last jedi` | **Star Wars: The Last Jedi** | 1 |
+| `star wars: the last jedi` | **Star Wars: The Last Jedi** | 1 |
 
-Write the answers here when they are known, and drop this section's hedge.
+Three answers, and each one closes a question the games integration had to answer the hard way:
+
+- **TMDB prefix-matches, mid-word.** `arriv` finds *Arrival* and `blade runn` finds *Blade Runner*.
+  IGDB's `search` answers nothing at all to `hollow k`, which is the entire reason it sends a
+  second slug query. **There is nothing here for a second query to add.**
+- **A colon is not a problem.** Dropping it changes nothing: `star wars the last jedi` and
+  `star wars: the last jedi` both return that film and only that film. IGDB puts a one-person Game
+  Boy Color game above Team Cherry's *Hollow Knight: Silksong* precisely because the fan game's
+  title is the exact string and the real one has a colon in it.
+- **The ordering is already the useful one.** *Arrival* is first out of **633** results, and its
+  19,808 votes against the runner-up's 552 is why. Re-ranking would be replacing a good order with
+  a guess.
+
+**So the e2e stub's substring matching mirrors the real thing**, and its deliberate difference
+from the IGDB stub's whole-word matching is now a measurement rather than an assumption.
+
+One difference the stub does *not* mirror, stated so nobody trusts it: **TMDB ranks by
+popularity and the stub returns catalogue order.** Nothing depends on it — no spec asserts the
+order of more than one result — but a spec that started to would be testing the stub.
 
 ### Search on the board
 
@@ -137,16 +154,31 @@ few — it is a genuinely different evening from Science Fiction, and it was hel
 eleven hues is already past what colour alone can carry, which is why a card prints the genre's
 name as well as painting it.
 
-**The palette is a workshop step, not a code step.** `docs/design.md` asks that a hue be
-*measured* in OKLab against its neighbours before it is added, and the ten were rendered as real
-4px stripes on a real board in all eight themes, with every pair's separation printed, before any
-value was written down. See **Genre colour** in `docs/design.md` for the bands and the games
-palette's accepted 0.087 floor.
+**The palette was a workshop step, not a code step.** `docs/design.md` asks that a hue be
+*measured* in OKLab against its neighbours before it is added, so three whole candidate palettes
+were rendered as real 4px stripes on a real board in all eight themes, with every pair's
+separation printed, and the user picked before any value was written down.
 
-`Genre.stripe` is `string | null`, and null is a real state rather than a stub: the name resolves,
-the automatic pick works, the drawer's select is populated, and the stripe renders the transparent
-placeholder an ungenred title already gets. That is what made the palette a separate step rather
-than a blocker.
+The choice was **Meaning first**: each hue is what the genre feels like — blood for Horror, cyan
+for Science Fiction, violet for Thriller — and the two most generic words are the quiet,
+near-neutral ones, because Documentary names a form rather than a mood and Drama is on about half
+of TMDB's catalogue. Its floor is **Horror against Drama at 0.120**, and nothing in it is under
+0.10, which the games palette cannot say. That is not this palette being better designed; it is
+ten hues being easier to separate than eleven.
+
+**Films reuse the hue circle rather than working around the eleven games colours**, and that is
+sound for one stated reason: a board is one hobby, so a film's stripe is only ever read against
+the other nine films'. If a year-in-review page ever puts both hobbies on one screen, that page is
+where the collision would appear, and it does not exist yet.
+
+`src/hobbies/palette.test.ts` re-measures every pair in every list, so the rule `index.css` states
+is now arithmetic the suite does rather than an instruction the next person has to remember.
+
+`Genre.stripe` is `string | null`, and null was a real state rather than a stub while this was
+being chosen: the name resolves, the automatic pick works, the drawer's select is populated, and
+the stripe renders the transparent placeholder an ungenred title already gets. That is what made
+the palette a separate step rather than a blocker — though a built hobby may not ship in it, which
+is the first thing `palette.test.ts` checks.
 
 **Which genre stands for a film is the user's, and TMDB never overwrites it.** `ApplyDetail` does
 not touch `primary_genre` — the one field on a film that is a decision rather than a fact, exactly
