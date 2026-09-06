@@ -166,7 +166,7 @@ so did the bare `/board` it used to redirect to, which now redirects in turn.
 
 ## Genres and colour
 
-Cards carry a colour bar down their left edge, from IGDB's genres. `frontend/src/board/genres.ts` is
+Cards carry a colour bar down their left edge, from IGDB's genres. `frontend/src/hobbies/games.ts` is
 **one ordered list doing both jobs**: the order decides which genre a game is painted as — the first
 entry it has wins — and each entry carries its own colour, so adding a genre is one line there and one
 token in `index.css`. **The ordering lives on the client on purpose**: a priority list on the server

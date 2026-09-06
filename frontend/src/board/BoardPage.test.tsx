@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { BoardPage } from './BoardPage';
 import { boardServer, libraryItem } from '../test/library';
 import { gameDetail, journalServer, logEntry } from '../test/games';
+import { movieDetail, movieJournalServer } from '../test/movies';
 import { BackButton, renderWithProviders } from '../test/render';
 
 /**
@@ -241,5 +242,80 @@ describe('BoardPage', () => {
     await userEvent.click(screen.getByRole('heading', { name: 'Playing 0' }));
 
     expect(screen.queryByRole('group', { name: 'Options for Celeste' })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The same page, at `/board/movies`.
+ *
+ * A handful of cases rather than the whole file over again: what is worth pinning is that the
+ * slug in the address reaches every word on the board, and that the board asks the API for the
+ * hobby it is showing. Everything else here is the platform, and the platform is already held
+ * by the games cases above.
+ */
+describe('BoardPage, on films', () => {
+  const FILMS = { route: '/board/movies', path: '/board/:hobby' };
+
+  it('calls the columns what a film in them is called', async () => {
+    // The wire is unchanged — InProgress is still InProgress — and only the label moves. Three
+    // of the four columns keep their word, which is what makes the fourth easy to miss.
+    boardServer({ hobby: 'movies' });
+
+    renderWithProviders(<BoardPage />, FILMS);
+    await screen.findByRole('heading', { name: 'Backlog 0' });
+
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(['Dropped 0', 'Backlog 0', 'Watching 0', 'Watched 0']);
+  });
+
+  it('asks the API for the hobby in the address', async () => {
+    // `boardServer` answers with nothing for any other hobby, deliberately: a films board handed
+    // the games fixtures would pass a test that proves nothing, and it would pass it silently.
+    const board = boardServer({
+      hobby: 'movies',
+      columns: { Backlog: [libraryItem({ hobby: 'movies', title: 'Arrival' })] },
+    });
+
+    renderWithProviders(<BoardPage />, FILMS);
+
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
+    expect(board.queriesFor('Backlog')[0]?.get('hobby')).toBe('movies');
+  });
+
+  it('orders a column by runtime, under that name', async () => {
+    // One field and one sort value serve both hobbies — `sort=length` — so a column always
+    // agrees with the cards in it. Only the word changes: Time to beat, or Runtime.
+    const board = boardServer({ hobby: 'movies' });
+
+    renderWithProviders(<BoardPage />, FILMS);
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Watched order' }),
+      'length',
+    );
+
+    await waitFor(() =>
+      expect(board.queriesFor('Completed').at(-1)?.get('sort')).toBe('length'),
+    );
+    expect(
+      within(screen.getByRole('combobox', { name: 'Watched order' })).getByRole('option', {
+        name: 'Runtime',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens a film’s journal, with a film’s fields', async () => {
+    boardServer({
+      hobby: 'movies',
+      columns: { Backlog: [libraryItem({ mediaId: 4004, hobby: 'movies', title: 'Arrival' })] },
+    });
+    movieJournalServer({ detail: movieDetail({ title: 'Arrival' }) });
+
+    renderWithProviders(<BoardPage />, FILMS);
+    await userEvent.click(await screen.findByRole('button', { name: 'Arrival' }));
+
+    expect(await screen.findByRole('button', { name: 'Close' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Watched')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
   });
 });

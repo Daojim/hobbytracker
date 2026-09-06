@@ -53,9 +53,10 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         var hobbies = await WithDbAsync(db => db.Hobbies.OrderBy(h => h.Id).ToListAsync(Ct));
 
         hobbies.Count.ShouldBe(6);
-        sources.Count.ShouldBe(2);
+        sources.Count.ShouldBe(3);
         sources.Single(s => s.Name == "igdb").BaseUrl.ShouldBe("https://api.igdb.com/v4/");
         sources.Single(s => s.Name == "manual").BaseUrl.ShouldBeNull();
+        sources.Single(s => s.Name == "tmdb").BaseUrl.ShouldBe("https://api.themoviedb.org/3/");
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         // The mirror of the test above. ValidateOnStart is only worth having if it actually
         // fails the boot: a zone id that quietly fell back to UTC would put every evening's
         // dates a day out with nothing anywhere looking broken.
-        await using var factory = new ApiFactory(Postgres, Igdb, Hltb, HltbQueue, Clock, timeZone: "Mars/Olympus_Mons");
+        await using var factory = new ApiFactory(Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, timeZone: "Mars/Olympus_Mons");
 
         var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
 
@@ -99,7 +100,7 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         // should fail at boot naming the setting, not surface later as an opaque error from
         // the provider on the first person's first sign-in.
         await using var factory = new ApiFactory(
-            Postgres, Igdb, Hltb, HltbQueue, Clock, googleClientId: "");
+            Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, googleClientId: "");
 
         var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
 
@@ -114,7 +115,7 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         // the error arriving from somebody else's server. Absent is fine and means "use the
         // request"; present and unusable has to stop the boot naming itself.
         await using var factory = new ApiFactory(
-            Postgres, Igdb, Hltb, HltbQueue, Clock, publicOrigin: "hobbytracker.example");
+            Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, publicOrigin: "hobbytracker.example");
 
         var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
 

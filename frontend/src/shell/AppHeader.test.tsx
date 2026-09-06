@@ -27,7 +27,7 @@ describe('AppHeader', () => {
 
     expect(within(nav()).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       'Games',
-      'Movies Soon',
+      'Movies',
       'TV Soon',
       'Anime Soon',
       'Books Soon',
@@ -35,7 +35,7 @@ describe('AppHeader', () => {
     ]);
   });
 
-  it('offers the one hobby that exists as a link, and says you are on it', () => {
+  it('offers a hobby that exists as a link, and says you are on it', () => {
     renderWithProviders(<AppHeader title="HobbyTracker" />, { route: '/board/games' });
 
     const games = within(nav()).getByRole('link', { name: 'Games' });
@@ -51,7 +51,11 @@ describe('AppHeader', () => {
     // so the honest markup is text. A disabled control implies it works under some condition.
     renderWithProviders(<AppHeader title="HobbyTracker" />);
 
-    expect(within(nav()).getAllByRole('link')).toHaveLength(1);
+    // Counted from the list rather than pinned at a number, so building a hobby is one flag in
+    // hobbies.ts rather than that flag and an arithmetic edit here.
+    expect(within(nav()).getAllByRole('link')).toHaveLength(
+      HOBBIES.filter((hobby) => hobby.ready).length,
+    );
     expect(within(nav()).queryAllByRole('button')).toHaveLength(0);
   });
 

@@ -4,8 +4,12 @@ import { CONNECTION_STRING } from './e2e/support/database';
 const STUB_PORT = 5399;
 const HLTB_STUB_PORT = 5398;
 const GOOGLE_STUB_PORT = 5397;
+const TMDB_STUB_PORT = 5396;
 const API_PORT = 5202;
 const WEB_PORT = 5174;
+
+/** Enforced by the stub, so removing the bearer from the typed client fails a spec. */
+const TMDB_STUB_TOKEN = 'e2e-tmdb-token';
 
 /**
  * The drag gets a real browser.
@@ -55,6 +59,11 @@ export default defineConfig({
     {
       command: 'node e2e/support/google-stub.mjs',
       url: `http://localhost:${GOOGLE_STUB_PORT}/health`,
+      reuseExistingServer: true,
+    },
+    {
+      command: 'node e2e/support/tmdb-stub.mjs',
+      url: `http://localhost:${TMDB_STUB_PORT}/health`,
       reuseExistingServer: true,
     },
     {
@@ -114,6 +123,13 @@ export default defineConfig({
         // requests before the first title is even looked up. Nothing here needs protecting from
         // us, and a spec that waited it out would spend its whole budget being polite to a stub.
         Hltb__MinSecondsBetweenRequests: '0',
+
+        // TMDB takes a base URL and a token and nothing else — there is no handshake to point
+        // anywhere, which is the whole reason it has no auth handler where IGDB has one. The
+        // token is not decoration: the stub refuses a request that arrives without it, so this
+        // is the one place the bearer wiring is exercised end to end.
+        Tmdb__BaseUrl: `http://localhost:${TMDB_STUB_PORT}/3/`,
+        Tmdb__AccessToken: TMDB_STUB_TOKEN,
 
         // The provider, pointed at the stub the same way IGDB and HowLongToBeat are. Every
         // endpoint is a plain option precisely so this is possible: the framework's real OAuth

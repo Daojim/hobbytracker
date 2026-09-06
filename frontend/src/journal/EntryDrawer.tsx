@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { formatJournalDate } from '../lib/time';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm } from './EntryForm';
 import { HltbPin } from './HltbPin';
 import { NoteList } from './NoteList';
-import { automaticGenre } from '../board/genres';
+import { automaticGenre, hobbyDefinition } from '../hobbies';
 import { entrySeed } from './fields';
 import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
@@ -12,13 +12,13 @@ import { useJournalEntry } from './useJournalEntry';
 import { useNotes } from './useNotes';
 import type { LogEntry, LogStatus } from '../api/types';
 
-/** "Playing" is what a person calls it; `InProgress` is what the protocol calls it. */
-const STATUS_LABEL: Record<LogStatus, string> = {
-  Backlog: 'Backlog',
-  InProgress: 'Playing',
-  Completed: 'Completed',
-  Dropped: 'Dropped',
-};
+/**
+ * What a person calls each column, which is not what the protocol calls it: `InProgress` is
+ * Playing on a games board and Watching on a films one. This file kept its own copy of that map
+ * for as long as there was one hobby to disagree with it — the board's copy and this one now
+ * come from the same place.
+ */
+type ColumnLabel = Record<LogStatus, string>;
 
 /**
  * What a band of the drawer is titled in.
@@ -36,9 +36,9 @@ const FOCUSABLE =
 
 export interface EntryDrawerProps {
   /**
-   * Whose journal this is. Handed down from the board rather than worked out here: the drawer
-   * needs it to key its own cache apart from another hobby's, and it will need it again to know
-   * which fields a pass of this kind even has.
+   * Whose journal this is. Handed down from the board rather than worked out here: it keys the
+   * drawer's cache apart from another hobby's, chooses which route the detail comes from, and
+   * decides which fields a pass of this kind even has.
    */
   hobby: string;
   mediaId: number;
@@ -50,9 +50,17 @@ export interface EntryDrawerProps {
  *
  * Rating, notes and dates were reachable by the API and by nothing else — the card has always
  * rendered a rating that could never be set. This is where they become real.
+ *
+ * One drawer for every hobby, and the differences between them are of two kinds. The words are
+ * data and come from the registry: what a column is called, what the finished date is called.
+ * The regions are not — a film's pass is missing two of a game's six fields rather than holding
+ * them blank — so those are read off the loaded title, which says what it has rather than what
+ * it is. Neither kind is a branch on the slug, and that is the point: `if (hobby === 'movies')`
+ * would be six branches by the time books land.
  */
 export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
-  const { game, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(hobby, mediaId);
+  const { columnLabel, genres, journal } = hobbyDefinition(hobby);
+  const { title, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(hobby, mediaId);
   const titleId = useId();
   const genreId = useId();
   const panel = useRef<HTMLElement>(null);
@@ -110,7 +118,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [onClose]);
 
-  const detail = game.data;
+  const detail = title.data;
   // The API orders entries logged_at DESC, id DESC — the same rule the board decides "current"
   // by — so the first one is the pass the card is showing. Re-deriving that here would be a
   // fourth copy of an ordering that has already drifted once.
@@ -118,8 +126,8 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
   const earlier = detail?.logEntries.slice(1) ?? [];
   const onlyPass = detail !== undefined && detail.logEntries.length === 1;
 
-  // The game's own genres, plus whatever is already chosen when that list has stopped mentioning
-  // it. Exactly the platform select's rule, for exactly its reason.
+  // The title's own genres, plus whatever is already chosen when that list has stopped
+  // mentioning it. Exactly the platform select's rule, for exactly its reason.
   const genreOptions =
     detail === undefined || detail.primaryGenre === null
       ? (detail?.genres ?? [])
@@ -194,12 +202,12 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               {detail?.title ?? 'Loading…'}
             </h2>
 
-            {/* Who made it, and nothing else. This carried the platforms too while it was the
-                game's only byline, but they have a control of their own further down — a list of
-                them here was a spec sheet where a name belongs, and the one fact it stated that
-                nothing else in the drawer does is the developer. */}
-            {detail !== undefined && detail.developers.length > 0 && (
-              <p className="text-xs text-muted">{detail.developers.join(', ')}</p>
+            {/* Who made it, and nothing else — the developer of a game, the director of a film.
+                This carried the platforms too while it was the game's only byline, but they have
+                a control of their own further down: a list of them here was a spec sheet where a
+                name belongs. Which name it is, is the hobby's to say; that it is a name is not. */}
+            {detail !== undefined && detail.byline.length > 0 && (
+              <p className="text-xs text-muted">{detail.byline.join(', ')}</p>
             )}
           </div>
 
@@ -213,17 +221,17 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
           </button>
         </div>
 
-        {game.error !== null && (
+        {title.error !== null && (
           <p role="alert" className="text-sm text-danger">
-            {game.error.message}
+            {title.error.message}
           </p>
         )}
 
-        {/* The two things that belong to the title rather than to a pass, in one band.
+        {/* What belongs to the title rather than to a pass, in one band.
 
-            Both sit in the header for the same reason: they describe the game, where EntryForm
-            below submits one PUT about a pass to a different endpoint — putting either there
-            would mean one form writing to two places.
+            All of it sits in the header for the same reason: it describes the title, where
+            EntryForm below submits one PUT about a pass to a different endpoint — putting any
+            of it there would mean one form writing to two places.
 
             A grid rather than two independent rows, so the two controls share a left edge.
             `max-content` on the first track is what lets the wider label set the column for both
@@ -247,8 +255,9 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               className="justify-self-start rounded border border-line bg-surface px-1 py-0.5 text-xs"
             >
               {/* Not "Not recorded": null here means "use the automatic pick", so the option
-                  says which one that is. */}
-              <option value="">{`Automatic — ${automaticGenre(detail.genres) ?? 'none'}`}</option>
+                  says which one that is. Read against this hobby's list — TMDB's vocabulary and
+                  IGDB's overlap barely at all, so the wrong list would name nothing. */}
+              <option value="">{`Automatic — ${automaticGenre(genres, detail.genres) ?? 'none'}`}</option>
               {genreOptions.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -256,17 +265,33 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               ))}
             </select>
 
-            <HltbPin
-              // Re-seeds when the stored id changes — after a pin of your own, or after the
-              // queue matches the title while the drawer is open. EntryForm is keyed for the
-              // same reason: useState reads its initial value once. A refused pin leaves the id
-              // alone, so what was typed stays in the box to be corrected.
-              key={detail.hltbId}
-              hltbId={detail.hltbId}
-              saving={setHltbId.isPending}
-              error={setHltbId.error === null ? null : setHltbId.error.message}
-              onPin={(hltbId) => setHltbId.mutate(hltbId)}
-            />
+            {/* Facts about the title, in the tracks the two controls above them share: a film's
+                runtime, and nothing at all for a game. Rendered as text rather than as anything
+                you can operate, because that is exactly what separates them from the genre — one
+                is a choice of yours and the other is what TMDB says. */}
+            {detail.facts.map((fact) => (
+              <Fragment key={fact.label}>
+                <span className="font-medium">{fact.label}</span>
+                <span>{fact.value}</span>
+              </Fragment>
+            ))}
+
+            {/* Only where there is something to correct. A film's length is a fact TMDB knows
+                exactly, so there is no matcher to have got it wrong and no id to pin — and the
+                same null that takes the pin away takes the four estimate tiers off the pass. */}
+            {detail.hltb !== null && (
+              <HltbPin
+                // Re-seeds when the stored id changes — after a pin of your own, or after the
+                // queue matches the title while the drawer is open. EntryForm is keyed for the
+                // same reason: useState reads its initial value once. A refused pin leaves the
+                // id alone, so what was typed stays in the box to be corrected.
+                key={detail.hltb.id}
+                hltbId={detail.hltb.id}
+                saving={setHltbId.isPending}
+                error={setHltbId.error === null ? null : setHltbId.error.message}
+                onPin={(hltbId) => setHltbId.mutate(hltbId)}
+              />
+            )}
           </div>
         )}
 
@@ -276,15 +301,17 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
         {detail !== undefined && <hr className="border-line-soft" />}
 
         {current !== undefined && detail !== undefined && (
-          <PassSection entry={current} heading={STATUS_LABEL[current.status]} lead>
+          <PassSection entry={current} heading={columnLabel[current.status]} lead>
             <EntryForm
               // Remounts when a different card is opened, so the inputs reload rather than
               // keeping the last title's half-typed rating — and when this pass changes
               // underneath the drawer, which a drag does without changing its id. See entrySeed.
               key={entrySeed(current)}
               entry={current}
+              fields={journal.fields}
               platforms={detail.platforms}
-              estimates={detail}
+              estimates={detail.hltb}
+              completedLabel={columnLabel.Completed}
               saving={save.isPending}
               saved={saved}
               serverErrors={fieldErrors}
@@ -347,7 +374,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
 
             <div className="flex flex-col gap-4">
               {earlier.map((entry) => (
-                <PassSection key={entry.id} entry={entry} heading={headingFor(entry)}>
+                <PassSection key={entry.id} entry={entry} heading={headingFor(entry, columnLabel)}>
                   <div className="flex flex-wrap items-baseline gap-2 text-sm">
                     {entry.rating !== null && (
                       <span
@@ -370,7 +397,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
                       // Named rather than a bare "Delete", because every pass carries one and a
                       // reader who cannot see which one it sits on would hear the same word over
                       // and over.
-                      label={labelFor(entry)}
+                      label={labelFor(entry, columnLabel)}
                       warning={null}
                       {...deleteProps(entry.id)}
                     />
@@ -432,13 +459,16 @@ function whenOf(entry: LogEntry): string | null {
   return formatJournalDate(entry.completedAt ?? entry.startedAt);
 }
 
-/** What names an earlier pass's region: "Completed Nov 2, 2024", or just its status. */
-function headingFor(entry: LogEntry): string {
+/**
+ * What names an earlier pass's region: "Completed Nov 2, 2024" on a game, "Watched Nov 2, 2024"
+ * on a film, or just the column's name where there is no date to give.
+ */
+function headingFor(entry: LogEntry, label: ColumnLabel): string {
   const when = whenOf(entry);
-  return when === null ? STATUS_LABEL[entry.status] : `${STATUS_LABEL[entry.status]} ${when}`;
+  return when === null ? label[entry.status] : `${label[entry.status]} ${when}`;
 }
 /** Which pass a delete button in the history would take, for a reader who cannot see the row. */
-function labelFor(entry: LogEntry): string {
+function labelFor(entry: LogEntry, label: ColumnLabel): string {
   const when = whenOf(entry);
-  return `Delete the ${STATUS_LABEL[entry.status]} pass${when === null ? '' : ` from ${when}`}`;
+  return `Delete the ${label[entry.status]} pass${when === null ? '' : ` from ${when}`}`;
 }

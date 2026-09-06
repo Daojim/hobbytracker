@@ -1,12 +1,12 @@
 # HobbyTracker
 
-A personal hobby-tracking and journaling app — what you played, when, and what you thought of
-it. Games first, with movies, TV, anime, books and music sharing the same schema later.
+A personal hobby-tracking and journaling app — what you played or watched, when, and what you
+thought of it. Games and films, with TV, anime, books and music sharing the same schema later.
 
 **Status: working end to end, front and back, behind a sign-in.** A kanban board with a drag, a
-journal drawer over it, IGDB search, HowLongToBeat estimates, eight themes, and Google/Discord
-OAuth with every pass and note scoped to whoever wrote it. The next things to build are a game
-detail page and a year in review — see [Roadmap](#roadmap).
+journal drawer over it, IGDB and TMDB search, HowLongToBeat estimates, eight themes, and
+Google/Discord OAuth with every pass and note scoped to whoever wrote it. The next things to build
+are a title detail page and a year in review — see [Roadmap](#roadmap).
 
 ---
 
@@ -25,8 +25,9 @@ earlier pass with its own notes below it.
 Search sits above the board rather than on a screen of its own, so the column a title will land
 in is visible while you decide.
 
-Metadata comes from [IGDB](https://api-docs.igdb.com/) and is cached locally, so a journal entry
-always has something stable to point at even if IGDB later moves or deletes a record.
+Metadata comes from [IGDB](https://api-docs.igdb.com/) for games and
+[TMDB](https://developer.themoviedb.org/) for films, and is cached locally, so a journal entry
+always has something stable to point at even if the provider later moves or deletes a record.
 
 ```console
 $ curl -b jar "localhost:5173/api/games?search=hollow%20knight&limit=1"
@@ -99,7 +100,12 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `GET /api/games/{id}` | one game plus everything you logged against it |
 | `PUT /api/games/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `PUT /api/games/{mediaId}/hltb` | pin a HowLongToBeat entry by hand when the matcher would not guess |
+| `POST /api/games/refresh` | re-fetch every IGDB title on the board, batched at 500 |
 | `POST /api/games/hltb/refresh` | queue the board for HowLongToBeat. Answers 202 straight away |
+| `GET /api/movies?search=&limit=` | search TMDB, cache the results, return them in TMDB's order |
+| `GET /api/movies/{id}` | one film plus everything you logged against it |
+| `PUT /api/movies/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
+| `POST /api/movies/refresh` | re-fetch every TMDB title on the board. One request per film |
 | `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
 | `GET PUT DELETE /api/log-entries/{id}` | |
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
@@ -120,16 +126,19 @@ front, and Playwright against a real browser for anything needing layout or a po
 ## Running it locally
 
 Needs the .NET 10 SDK, Node, and Docker. IGDB credentials come from a
-[Twitch application](https://dev.twitch.tv/console/apps) — IGDB has no separate signup. Sign-in
-needs one app per provider, each with `http://localhost:5173/api/auth/{provider}/callback` as an
-authorised redirect URI: the **frontend's** port, not the API's, because the whole flow has to
-stay on one origin.
+[Twitch application](https://dev.twitch.tv/console/apps) — IGDB has no separate signup. TMDB is
+one token rather than a pair: the v4 read access token from
+[your TMDB settings](https://www.themoviedb.org/settings/api), with no handshake and no expiry.
+Sign-in needs one app per provider, each with
+`http://localhost:5173/api/auth/{provider}/callback` as an authorised redirect URI: the
+**frontend's** port, not the API's, because the whole flow has to stay on one origin.
 
 ```bash
 docker compose up -d db
 
 dotnet user-secrets set "Igdb:ClientId"     "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Tmdb:AccessToken"  "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Google:ClientId"      "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Google:ClientSecret"  "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Discord:ClientId"     "..." --project backend/src/HobbyTracker.Api
@@ -296,8 +305,8 @@ cd frontend && npm run test:e2e                     # in a real browser
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
 neither needs nor touches the development database. The end-to-end specs drive a real browser
-against the real API on a separate `hobbytracker_e2e` database, with IGDB, HowLongToBeat and the
-OAuth provider stubbed — the drag needs layout and pointer events, which jsdom has neither of.
+against the real API on a separate `hobbytracker_e2e` database, with IGDB, TMDB, HowLongToBeat and
+the OAuth provider stubbed — the drag needs layout and pointer events, which jsdom has neither of.
 
 Those three stubs are servers rather than mocks, deliberately. The OAuth one is a whole
 provider — authorize, token and user-info — so the framework's real handler runs against it
@@ -334,8 +343,19 @@ to prevent something, the test for it is checked by reintroducing the thing.
       first mid-tone), a Visual Novel genre, HowLongToBeat's estimates as chips that read the same
       in the drawer as in the modal, a journal cut into three ruled bands, and the wheel stepping
       the rating and the hours
-- [ ] A game detail page, and a year in review
-- [ ] Movies, TV, anime, books, music — each a sibling detail table plus its source integration
+- [x] A second hobby, and the refactor that made room for it. Films from TMDB — their own board at
+      `/board/:hobby`, a `movies` table beside `games`, and metadata fetched when a title is added
+      rather than queued, because TMDB is a documented API where HowLongToBeat is a scrape. Every
+      word a hobby owns — its column names, its genres, what a pass of that kind even records —
+      moved into one file per hobby, so a film's journal has a director and a runtime where a
+      game's has a developer and four completion estimates
+- [ ] A title detail page, and a year in review
+- [ ] TV, anime, books, music — each a sibling detail table plus its source integration
 
 Architecture and schema notes for anyone (or anything) working in the repo live in
 [CLAUDE.md](CLAUDE.md), which routes to one file per area under [docs/](docs).
+
+## Credits
+
+Game data from [IGDB](https://www.igdb.com/). This product uses the TMDB API but is not endorsed
+or certified by TMDB.

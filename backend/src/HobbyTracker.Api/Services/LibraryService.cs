@@ -117,14 +117,27 @@ public sealed class LibraryService(
                 row.EntryCount,
                 row.Latest.Rating,
                 row.Latest.CompletedAt ?? row.Latest.StartedAt,
-
-                // A TPT downcast, added here rather than in BoardQuery on purpose: that
+                // TPT downcasts, added here rather than in BoardQuery on purpose: that
                 // projection is what every Where and OrderBy on Latest is pushed through, and
-                // when it stops translating the symptom is an empty library rather than an
+                // when one stops translating the symptom is an empty library rather than an
                 // error. This is terminal, so nothing filters on it afterwards.
-                (row.Media as Game)!.Genres,
-                (row.Media as Game)!.PrimaryGenre,
-                (row.Media as Game)!.HltbAllStylesHours,
+                //
+                // One coalesce per hobby that has something to say. The LEFT JOIN behind each
+                // downcast answers null for a row of the other kind, which is what makes ??
+                // the whole of the dispatch — there is no hobby predicate here and there should
+                // not be one.
+                (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres,
+                (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre,
+
+                // How long the title takes, whichever hobby is answering: HowLongToBeat's
+                // headline figure for a game, the runtime for a film. Rounded to the two places
+                // a game's estimate is stored at, so both hobbies put the same shape on the
+                // wire — and the client recovers the exact minute from it, because two decimal
+                // places is at most 0.3 of a minute out.
+                (row.Media as Game)!.HltbAllStylesHours
+                    ?? ((row.Media as Movie)!.RuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2)),
 
                 // Still to be asked about, which is what tells the card whether looking
                 // again is worth anything. The type test is not decoration and it is not
@@ -485,9 +498,14 @@ public sealed class LibraryService(
         // and OrderBy is pushed through, so a downcast that failed to translate *there* would
         // empty the whole board; here the worst case is that this one mode breaks. See the
         // comment on BoardQuery, and the test that asserts this column comes back non-empty.
+        // Ordered on the same coalesce the two projections build LengthHours from, so a column
+        // cannot be sorted by a number its cards do not show. Not rounded here: rounding cannot
+        // change an ordering, and leaving it out keeps the expression readable.
         LibrarySort.Length => query
-            .OrderBy(row => (row.Media as Game)!.HltbAllStylesHours == null)
-            .ThenBy(row => (row.Media as Game)!.HltbAllStylesHours),
+            .OrderBy(row => (row.Media as Game)!.HltbAllStylesHours == null
+                            && (row.Media as Movie)!.RuntimeMinutes == null)
+            .ThenBy(row => (row.Media as Game)!.HltbAllStylesHours
+                           ?? (row.Media as Movie)!.RuntimeMinutes / 60m),
 
         // Manual: the user's own ranking. Every other mode is a read-only view that leaves
         // Position untouched, which is why dragging is only offered in this one.
@@ -562,9 +580,15 @@ public sealed class LibraryService(
                 row.EntryCount,
                 row.Latest.Rating,
                 row.Latest.CompletedAt ?? row.Latest.StartedAt,
-                (row.Media as Game)!.Genres,
-                (row.Media as Game)!.PrimaryGenre,
-                (row.Media as Game)!.HltbAllStylesHours,
+                // As in ListAsync, coalesce and all. This copy has to exist and has to match:
+                // a transition answers with the row it just wrote and the board caches that, so
+                // a field populated in one projection and null in the other flickers on a drag.
+                (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres,
+                (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre,
+                (row.Media as Game)!.HltbAllStylesHours
+                    ?? ((row.Media as Movie)!.RuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2)),
 
                 // Still to be asked about, which is what tells the card whether looking
                 // again is worth anything. The type test is not decoration and it is not

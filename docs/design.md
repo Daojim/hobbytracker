@@ -62,6 +62,13 @@ wrapper.
   same block** on the same argument, Google's blue meaning Google in every theme. **Note the
   constraint on the names**: `index.css.test.ts` reads tokens with `/^\s*(--[a-z-]+):/`, so a token
   containing a **digit** is silently skipped rather than reported.
+- **There are two genre lists now, and they may reuse each other's hues.** A board is one hobby, so
+  a film's stripe is only ever read against the other films'. **`src/hobbies/palette.test.ts` is
+  what holds all of it**: that every genre a built hobby names is painted, that the class names a
+  token `index.css` actually defines — Tailwind generates nothing for one that does not, and the
+  stripe renders transparent with no error — that every lightness is in `[0.48, 0.75]`, and that no
+  two hues *within one list* are closer than the 0.087 the games palette already accepts. The
+  measurement `index.css` asks for is now arithmetic the suite does.
 - **Whether a card has a border is a token too** — shadow does almost nothing against Console's deep
   ground, so Console keeps an outline and the others do not, which would otherwise have needed a
   component to know which theme it was in.
@@ -200,24 +207,28 @@ so its cards start lower than its neighbours'. Pre-existing, clears by 1440.
 
 ### The hobby nav
 
-`<nav aria-label="Hobbies">` under the header, built from `src/shell/hobbies.ts`. Adding movies is now the
-`ready` flag there and nothing else — `/board/:hobby` already exists, and the header does not change.
+`<nav aria-label="Hobbies">` under the header, built from `src/shell/hobbies.ts`. Adding a hobby is
+the `ready` flag there and nothing else — `/board/:hobby` already exists, and the header does not
+change. Films proved it: that flag, plus a file in `src/hobbies/`, was the whole of the nav change.
 
 - **The six slugs are copies of `SeedData.Apply`'s and must stay copies.** They are what `?hobby=` is
   filtered on, and `LibraryController` answers **400** for anything not in `hobby_lu`. There is no
   `/api/hobbies` to read them from, which is why `THEMES` is a literal list too.
-- **The five unbuilt ones are plain text**, not disabled links and not disabled buttons: there is
+- **The unbuilt ones are plain text**, not disabled links and not disabled buttons: there is
   nothing behind them to operate, and a disabled control claims it would work under some other
-  condition. Each also says *Soon* in words.
+  condition. Each also says *Soon* in words. **`AppHeader.test.tsx` counts the links off `HOBBIES`
+  rather than pinning a number**, so building the next hobby is one flag rather than that flag and
+  an arithmetic edit in a spec.
 - **Dim is `text-muted` and nothing further.** `opacity-60` was the first attempt and was wrong — every
   theme's `--muted` is picked to clear 4.5:1 against its own surface, and fading it takes it back
   under, silently, because `index.css.test.ts` checks the tokens rather than what a component does to
   them afterwards.
-- **Games is a `NavLink`**, so `aria-current="page"` comes free and stays right once there is more than
-  one of them to be current. **`boardPath()` has learnt `/board/:hobby`** — every hobby's board is at
-  its own address now, and the bare `/board` redirects rather than being retired, because bookmarks,
-  every Playwright `goto` and `signInUrl`'s `returnUrl` all name it. `isReadyHobby` beside it is what
-  `BoardPage` turns a slug nobody has built into the one that exists with.
+- **A built hobby is a `NavLink`**, so `aria-current="page"` comes free and stays right now that
+  there is more than one of them to be current. **`boardPath()` has learnt `/board/:hobby`** — every
+  hobby's board is at its own address now, and the bare `/board` redirects rather than being
+  retired, because bookmarks, every Playwright `goto` and `signInUrl`'s `returnUrl` all name it.
+  `isReadyHobby` beside it is what `BoardPage` turns a slug nobody has built into the one that
+  exists with.
 - **Exactly one `SettingsMenu`, and it has to stay that way.** `useTheme` holds its state locally —
   themes are CSS, so there is no provider — so a second menu would read storage once on mount and then
   keep drawing the old choice. `AppHeader.test.tsx` pins it.

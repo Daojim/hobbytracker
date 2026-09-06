@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
 import { gameDetail, journalServer, logEntry, note } from '../test/games';
+import { movieDetail, movieJournalServer } from '../test/movies';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { mediaKey } from '../board/keys';
@@ -1204,5 +1205,164 @@ describe('EntryDrawer', () => {
     await waitFor(() =>
       expect(journal.written).toEqual([{ entryId: 7, body: 'remembered later' }]),
     );
+  });
+});
+
+/**
+ * The same drawer, opened on a film.
+ *
+ * Its own describe rather than cases threaded through the one above, because almost nothing
+ * here is a variation on a games assertion — three of the pass's six fields are *absent*, which
+ * is not something the games cases have an opinion about.
+ *
+ * `movieJournalServer` deliberately does not answer `/api/games/:id`, so a drawer that still
+ * fetched a game whatever it was opened on fails these as unhandled requests rather than
+ * quietly serving Hollow Knight under a film's title.
+ */
+describe('EntryDrawer, on a film', () => {
+  function openFilm(mediaId = 4004, onClose = vi.fn()) {
+    return {
+      onClose,
+      ...renderWithProviders(<EntryDrawer hobby="movies" mediaId={mediaId} onClose={onClose} />),
+    };
+  }
+
+  it('bylines the director, where a game bylines the developer', async () => {
+    movieJournalServer({
+      detail: movieDetail({ title: 'Arrival', directors: ['Denis Villeneuve'] }),
+    });
+
+    openFilm();
+
+    expect(await screen.findByRole('heading', { name: 'Arrival' })).toBeInTheDocument();
+    expect(screen.getByText('Denis Villeneuve')).toBeInTheDocument();
+  });
+
+  it('calls the pass what a film in that column is called', async () => {
+    // InProgress is the protocol and Watching is the label. A film in a band headed Playing is
+    // the first thing anybody would notice, and the drawer kept its own copy of those labels
+    // until there was a second hobby to disagree with it.
+    movieJournalServer({
+      detail: movieDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    openFilm();
+
+    expect(await screen.findByRole('region', { name: 'Watching' })).toBeInTheDocument();
+  });
+
+  it('names an earlier pass by the column it ended in', async () => {
+    movieJournalServer({
+      detail: movieDetail({
+        logEntries: [
+          logEntry({ id: 9, status: 'InProgress' }),
+          logEntry({ id: 7, status: 'Completed', completedAt: '2024-11-02T18:00:00+00:00' }),
+        ],
+      }),
+    });
+
+    openFilm();
+
+    expect(await screen.findByRole('region', { name: 'Watched Nov 2, 2024' })).toBeInTheDocument();
+  });
+
+  it('has no hours box and no platform select, because a film has neither', async () => {
+    // Absent rather than relabelled, which was a decision and not an omission: "your time" on a
+    // film is the runtime, and what it was watched on is not worth a control.
+    movieJournalServer();
+
+    openFilm();
+
+    await screen.findByRole('heading', { name: 'Arrival' });
+    expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Platform')).not.toBeInTheDocument();
+    expect(screen.queryByText('No HowLongToBeat estimate yet')).not.toBeInTheDocument();
+  });
+
+  it('names the finished date what the column is named', async () => {
+    // The date is stamped by the move into that column, so it takes the column's word for it —
+    // Completed for a game, Watched for a film. Rating and the two dates are all that is left.
+    movieJournalServer();
+
+    openFilm();
+
+    expect(await screen.findByLabelText('Watched')).toBeInTheDocument();
+    expect(screen.getByLabelText('Started')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Completed')).not.toBeInTheDocument();
+  });
+
+  it('offers no HowLongToBeat pin', async () => {
+    movieJournalServer();
+
+    openFilm();
+
+    await screen.findByRole('heading', { name: 'Arrival' });
+    expect(screen.queryByLabelText('HowLongToBeat ID')).not.toBeInTheDocument();
+  });
+
+  it('states the runtime with the film rather than with the pass', async () => {
+    // The four HowLongToBeat figures sit beside your own hours because comparing them is the
+    // entire point. A film has nothing to compare against, so its runtime is a fact about the
+    // film like the director is — and it belongs in the band that holds those.
+    movieJournalServer({ detail: movieDetail({ runtimeMinutes: 116 }) });
+
+    openFilm();
+
+    expect(await screen.findByText('Runtime')).toBeInTheDocument();
+    expect(screen.getByText('1 h 56 m')).toBeInTheDocument();
+
+    const pass = within(screen.getByRole('region', { name: 'Watching' }));
+    expect(pass.queryByText('1 h 56 m')).not.toBeInTheDocument();
+  });
+
+  it('says nothing about a runtime TMDB does not have', async () => {
+    movieJournalServer({ detail: movieDetail({ runtimeMinutes: null }) });
+
+    openFilm();
+
+    await screen.findByRole('heading', { name: 'Arrival' });
+    expect(screen.queryByText('Runtime')).not.toBeInTheDocument();
+  });
+
+  it('sends a pass with no hours and no platform, which is what clears them', async () => {
+    // PUT, so an absent field is a cleared one — and a film's pass is never meant to hold
+    // either. The form has no control for them, so this is the only place it could go wrong.
+    const journal = movieJournalServer({
+      detail: movieDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    openFilm();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body).toEqual({
+      status: 'InProgress',
+      rating: 9,
+      platform: null,
+      hoursPlayed: null,
+      startedAt: null,
+      completedAt: null,
+    });
+  });
+
+  it('picks the genre off the film list, and writes it to the films route', async () => {
+    // TMDB's vocabulary and IGDB's overlap barely at all, so a select populated from the games
+    // list would offer a film nothing it has. The automatic option names the pick the board is
+    // already painting with, which is Science Fiction here and not Drama — specific first.
+    const journal = movieJournalServer({
+      detail: movieDetail({ genres: ['Drama', 'Science Fiction'] }),
+    });
+
+    openFilm();
+
+    const genre = await screen.findByRole('combobox', { name: 'Genre' });
+    expect(within(genre).getByRole('option', { name: /Automatic/ })).toHaveTextContent(
+      'Automatic — Science Fiction',
+    );
+
+    await userEvent.selectOptions(genre, 'Drama');
+
+    await waitFor(() => expect(journal.genresSet).toEqual([{ mediaId: 4004, genre: 'Drama' }]));
   });
 });

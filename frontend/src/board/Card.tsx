@@ -2,10 +2,9 @@ import { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
-import { formatHours } from '../lib/hours';
+
 import { ratingTone } from '../lib/rating';
-import { genreStripe, resolveGenre } from './genres';
-import { otherColumns } from './columns';
+import { genreStripe, hobbyDefinition, otherColumns, resolveGenre } from '../hobbies';
 import type { LibraryItem, LogStatus } from '../api/types';
 
 /**
@@ -72,10 +71,16 @@ export interface CardFaceProps {
 export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps) {
   const lastActivity = formatJournalDate(item.lastActivity);
 
-  // The chosen genre, or the one the game would be painted as. The stripe is decoration and the
-  // name beside the rating is the information — eleven hues is past what colour alone can carry.
-  const genre = resolveGenre(item.genres, item.primaryGenre);
-  const stripe = genreStripe(genre);
+  // What this hobby calls things, and what it paints its cards from. Taken off the row rather
+  // than passed in: `hobby` is already on every board row, so a card can never be handed one
+  // hobby's words about another hobby's title.
+  const hobby = hobbyDefinition(item.hobby);
+
+  // The chosen genre, or the one this title would be painted as. The stripe is decoration and
+  // the name beside the rating is the information — eleven hues is past what colour alone can
+  // carry, and a hobby whose palette has not been chosen yet paints nothing at all.
+  const genre = resolveGenre(hobby.genres, item.genres, item.primaryGenre);
+  const stripe = genreStripe(hobby.genres, genre);
 
   // The corner offers the same thing from every column now, which is the change. It used to be
   // a single × meaning *drop* on Playing and *remove* on Backlog, absent on the other two — so
@@ -116,10 +121,7 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   // during them, so a title carrying a completion and two replays is losing three records — and
   // "off your board" on its own reads like it is only losing a card. Deleting a single pass is
   // still possible; it is in the drawer, where the pass is named and dated.
-  const warning =
-    item.entryCount > 1
-      ? `Takes ${item.title} off your board — all ${item.entryCount} playthroughs, and their notes.`
-      : `Takes ${item.title} off your board.`;
+  const warning = hobby.describeRemoval(item.title, item.entryCount);
 
   return (
     <>
@@ -219,33 +221,27 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
               </span>
             )}
             {item.entryCount > 1 && (
-              <span role="img" aria-label={`${item.entryCount} playthroughs`}>
+              <span role="img" aria-label={hobby.countPasses(item.entryCount)}>
                 ×{item.entryCount}
               </span>
             )}
-            {/* Marked with a tilde and named in full to a screen reader, because the number
+            {/* How long the title takes, named in full to a screen reader because the number
                 alone is ambiguous: the drawer prints "31.5 h" for what a pass took *you*, and
-                this is how long the game takes anyone.
+                this is how long the thing takes anyone.
 
-                The headline figure HowLongToBeat prints, not main story, which is what this
-                showed first. A card has room for one number and it should be the one the site
-                leads with — 42 hours for Hollow Knight, where main story is 27 and
-                completionist 65.6. All four are a drawer reading, where each can be named.
+                One field, two readings. A game's is HowLongToBeat's headline figure — the one
+                the site leads with, 42 hours for Hollow Knight where main story is 27 — written
+                `~42 h`, with the tilde marking it as an estimate. A film's is an exact runtime,
+                written `1 h 52 m` and unmarked, because marking it approximate would claim less
+                than is known.
 
                 It is also what `sort=length` orders on, and they cannot drift apart: both read
                 `LibraryItem.lengthHours`, so there is nothing for them to disagree over. A
                 column sorted shortest-first on a number the cards do not show reads as
-                broken.
-
-                Formatted in hours here because a game is what this board holds. That is the
-                games-shaped half of this component, along with the word "playthroughs" above —
-                a film would want `1 h 52 m` and "viewings". */}
+                broken. */}
             {item.lengthHours !== null && (
-              <span
-                role="img"
-                aria-label={`About ${item.lengthHours} hours to finish`}
-              >
-                ~{formatHours(item.lengthHours)}
+              <span role="img" aria-label={hobby.describeLength(item.lengthHours)}>
+                {hobby.formatLength(item.lengthHours)}
               </span>
             )}
             {genre !== null && <span>{genre}</span>}
@@ -341,7 +337,7 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
                 </>
               )}
 
-              {otherColumns(item.currentStatus).map((column) => (
+              {otherColumns(item.hobby, item.currentStatus).map((column) => (
                 <button
                   key={column.status}
                   type="button"

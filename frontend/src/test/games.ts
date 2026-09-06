@@ -1,7 +1,12 @@
 import { http, HttpResponse } from 'msw';
 import { server } from './server';
 import { libraryItem } from './library';
-import type { Game, GameDetail, LogEntry, Note, PagedResult } from '../api/types';
+import { logEntry, passServer, type PassCalls, type PassFixture } from './passes';
+import type { Game, GameDetail, LogEntry, PagedResult } from '../api/types';
+
+// Re-exported because a pass is a pass whichever hobby it is through, and the specs that were
+// written when games were the only hobby import them from here. See `passes.ts`.
+export { logEntry, note } from './passes';
 
 /** A game as search returns it — the catalogue's shape, not the board's. */
 export function game(overrides: Partial<Game> = {}): Game {
@@ -81,34 +86,6 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
   return { searches, added };
 }
 
-/** One thing written during a pass. Dated in the evening here, which is the next day in UTC. */
-export function note(overrides: Partial<Note> = {}): Note {
-  return {
-    id: 5,
-    logEntryId: 1,
-    body: 'finally beat radiance',
-    writtenAt: '2026-08-21T01:30:00+00:00',
-    ...overrides,
-  };
-}
-
-export function logEntry(overrides: Partial<LogEntry> = {}): LogEntry {
-  return {
-    id: 1,
-    mediaId: 3003,
-    mediaTitle: 'Hollow Knight',
-    status: 'InProgress',
-    rating: null,
-    notes: [],
-    platform: null,
-    hoursPlayed: null,
-    startedAt: null,
-    completedAt: null,
-    loggedAt: '2026-08-21T15:00:00+00:00',
-    ...overrides,
-  };
-}
-
 export function gameDetail(overrides: Partial<GameDetail> = {}): GameDetail {
   return {
     ...game(),
@@ -120,12 +97,8 @@ export function gameDetail(overrides: Partial<GameDetail> = {}): GameDetail {
   };
 }
 
-export interface JournalFixture {
+export interface JournalFixture extends PassFixture {
   detail?: GameDetail;
-  /** Answers the save with a field error instead, for the unhappy path. */
-  saveErrors?: Record<string, string[]>;
-  /** Answers the delete with this status instead, for the unhappy path. */
-  deleteStatus?: number;
   /**
    * Answers the pin with a field error instead — an id HowLongToBeat does not know.
    *
@@ -136,19 +109,14 @@ export interface JournalFixture {
   pinErrors?: Record<string, string[]>;
 }
 
-export function journalServer({
-  detail,
-  saveErrors,
-  deleteStatus,
-  pinErrors,
-}: JournalFixture = {}) {
-  const saved: { id: number; body: Record<string, unknown> }[] = [];
-  const deleted: number[] = [];
-  const written: { entryId: number; body: string }[] = [];
-  const rewritten: { id: number; body: string }[] = [];
-  const dropped: number[] = [];
+export function journalServer({ detail, pinErrors, ...passes }: JournalFixture = {}): PassCalls & {
+  genresSet: { mediaId: number; genre: string | null }[];
+  pinned: { mediaId: number; hltbId: number | null }[];
+} {
   const genresSet: { mediaId: number; genre: string | null }[] = [];
   const pinned: { mediaId: number; hltbId: number | null }[] = [];
+
+  const calls = passServer(passes);
 
   server.use(
     http.get('/api/games/:id', () => HttpResponse.json(detail ?? gameDetail())),
@@ -176,52 +144,7 @@ export function journalServer({
       // what comes back is the numbers that id actually carries.
       return HttpResponse.json({ ...(detail ?? gameDetail()), hltbId });
     }),
-
-    http.put('/api/log-entries/:id', async ({ params, request }) => {
-      const body = (await request.json()) as Record<string, unknown>;
-
-      if (saveErrors !== undefined) {
-        return HttpResponse.json(
-          { title: 'One or more validation errors occurred.', status: 400, errors: saveErrors },
-          { status: 400 },
-        );
-      }
-
-      saved.push({ id: Number(params['id']), body });
-      return HttpResponse.json(logEntry({ id: Number(params['id']) }));
-    }),
-
-    http.delete('/api/log-entries/:id', ({ params }) => {
-      if (deleteStatus !== undefined) {
-        return HttpResponse.json(
-          { title: 'Not Found', detail: 'That pass is already gone.', status: deleteStatus },
-          { status: deleteStatus },
-        );
-      }
-
-      deleted.push(Number(params['id']));
-      return new HttpResponse(null, { status: 204 });
-    }),
-
-    http.post('/api/log-entries/:entryId/notes', async ({ params, request }) => {
-      const { body } = (await request.json()) as { body: string };
-      written.push({ entryId: Number(params['entryId']), body });
-
-      return HttpResponse.json(note({ body }), { status: 201 });
-    }),
-
-    http.put('/api/notes/:id', async ({ params, request }) => {
-      const { body } = (await request.json()) as { body: string };
-      rewritten.push({ id: Number(params['id']), body });
-
-      return HttpResponse.json(note({ id: Number(params['id']), body }));
-    }),
-
-    http.delete('/api/notes/:id', ({ params }) => {
-      dropped.push(Number(params['id']));
-      return new HttpResponse(null, { status: 204 });
-    }),
   );
 
-  return { saved, deleted, written, rewritten, dropped, genresSet, pinned };
+  return { ...calls, genresSet, pinned };
 }

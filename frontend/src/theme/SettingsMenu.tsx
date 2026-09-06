@@ -157,6 +157,24 @@ export function SettingsMenu() {
               </button>
             ))}
           </div>
+
+          <hr className="my-2 border-line-soft" />
+
+          {/* Credits, and the one part of this panel that is a requirement rather than a
+              preference. TMDB's API terms ask for this sentence near-verbatim in an About or
+              Credits area; the app has no About section, so this panel is it.
+
+              Text rather than their logo, deliberately. The mark has its own rules about size,
+              placement and alteration, and a wordmark set as text keeps none of them by accident
+              — a sentence cannot breach them at all. IGDB is named beside it because crediting
+              one provider and not the other would read as an oversight, though only TMDB asks.
+
+              Not a `<p>` in the same class as the group headings above: those name controls, and
+              this names nobody's setting. */}
+          <p className="px-2 pt-1 pb-0.5 text-[11px] leading-snug text-muted">
+            Game data from IGDB. This product uses the TMDB API but is not endorsed or certified
+            by TMDB.
+          </p>
         </div>
       )}
     </div>

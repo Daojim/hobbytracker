@@ -11,6 +11,7 @@ import {
   parseRating,
 } from './fields';
 import type { HltbEstimates } from './fields';
+import type { PassFields } from '../hobbies';
 import { useWheelStep } from '../lib/useWheelStep';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
 
@@ -21,14 +22,32 @@ const HOURS_GRAIN = 0.5;
 
 export interface EntryFormProps {
   entry: LogEntry;
-  /** What the game came out on. Already loaded by getGame, so this costs no extra request. */
-  platforms: string[];
   /**
-   * HowLongToBeat's three estimates, for reading your own hours against. Passed as one object
-   * rather than three numbers because three nullable numbers in a row is the argument list
-   * where two get swapped silently.
+   * Which of the six fields this hobby's pass has at all.
+   *
+   * Stated rather than inferred from the values, because "no platforms listed" and "a hobby
+   * with no such idea" are different things that would otherwise look identical: an unenriched
+   * game has no platforms either, and it still wants the select.
    */
-  estimates: HltbEstimates;
+  fields: PassFields;
+  /** What the title came out on. Already loaded with the detail, so it costs no extra request. */
+  platforms: readonly string[];
+  /**
+   * HowLongToBeat's figures, for reading your own hours against. Passed as one object rather
+   * than three numbers because three nullable numbers in a row is the argument list where two
+   * get swapped silently.
+   *
+   * Null for a hobby it says nothing about — which is not the four-nulls-inside of a game
+   * nothing has matched, and does not render the "no estimate yet" line that one does.
+   */
+  estimates: HltbEstimates | null;
+  /**
+   * What the finished date is called: Completed for a game, Watched for a film.
+   *
+   * The column's own word, because the column is what stamps it. Started needs no such thing —
+   * a film you have started watching is one you started.
+   */
+  completedLabel: string;
   saving: boolean;
   /**
    * Whether what is on screen is what the server has.
@@ -62,8 +81,10 @@ export interface EntryFormProps {
  */
 export function EntryForm({
   entry,
+  fields,
   platforms,
   estimates,
+  completedLabel,
   saving,
   saved,
   serverErrors,
@@ -164,7 +185,7 @@ export function EntryForm({
    * tiers nobody has submitted a time for, so a game with a main-story time and no
    * completionist time shows one estimate rather than one number and two dashes.
    */
-  const tiers = hltbTiers(estimates);
+  const tiers = estimates === null ? [] : hltbTiers(estimates);
   const mine = parseHours(hours).value ?? null;
 
   /**
@@ -180,7 +201,7 @@ export function EntryForm({
    * when it is only over for a tier it was never doing.
    */
   const delta =
-    mine === null || estimates.hltbAllStylesHours === null
+    mine === null || estimates === null || estimates.hltbAllStylesHours === null
       ? null
       : Number((mine - estimates.hltbAllStylesHours).toFixed(2));
 
@@ -202,7 +223,7 @@ export function EntryForm({
     }
 
     const playtime = parseHours(hours);
-    if (playtime.error !== undefined) {
+    if (fields.hoursPlayed && playtime.error !== undefined) {
       found['hoursPlayed'] = HOURS_RULE;
     }
 
@@ -222,11 +243,16 @@ export function EntryForm({
     // field means "cleared" — sending only what changed would wipe the rating whenever somebody
     // corrected a date. Notes are not among them any more: each one is its own row and its own
     // write, so this form cannot clear them and does not try.
+    //
+    // A field this hobby does not have goes as null rather than as whatever it was seeded with.
+    // That is the point of it being absent rather than hidden: a film's pass does not hold hours
+    // or a platform, so a row that somehow has one is corrected by the next save rather than
+    // carrying a value with no control to see it by.
     onSave({
       status: entry.status,
       rating: parsed.value ?? null,
-      platform: platform === '' ? null : platform,
-      hoursPlayed: playtime.value ?? null,
+      platform: !fields.platform || platform === '' ? null : platform,
+      hoursPlayed: fields.hoursPlayed ? (playtime.value ?? null) : null,
       startedAt: dateFieldValue(started, entry.startedAt),
       completedAt: dateFieldValue(completed, entry.completedAt),
     });
@@ -290,97 +316,101 @@ export function EntryForm({
       </Field>
 
 
-      <Field id={`${ids}-hours`} label="Hours played" message={messageFor('hoursPlayed')}>
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <input
-              ref={hoursWheel}
-              id={`${ids}-hours`}
-              type="number"
-              step="0.1"
-              min="0"
-              placeholder="—"
-              value={hours}
-              onChange={(event) => setHours(event.target.value)}
-              className="w-24 rounded border border-line bg-surface px-2 py-1 text-sm"
-            />
+      {fields.hoursPlayed && (
+        <Field id={`${ids}-hours`} label="Hours played" message={messageFor('hoursPlayed')}>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <input
+                ref={hoursWheel}
+                id={`${ids}-hours`}
+                type="number"
+                step="0.1"
+                min="0"
+                placeholder="—"
+                value={hours}
+                onChange={(event) => setHours(event.target.value)}
+                className="w-24 rounded border border-line bg-surface px-2 py-1 text-sm"
+              />
 
-            {/* Beside your own box rather than in among the four estimates, which is where it
-                used to sit. It is a fact about you and they are facts about the game, and once
-                the four became a block of their own a fifth item in it was the odd one out. */}
-            {delta !== null && (
-              <span className="text-xs text-muted">
-                you: {formatHours(mine)} ({delta > 0 ? '+' : ''}
-                {delta})
-              </span>
+              {/* Beside your own box rather than in among the four estimates, which is where it
+                  used to sit. It is a fact about you and they are facts about the game, and once
+                  the four became a block of their own a fifth item in it was the odd one out. */}
+              {delta !== null && (
+                <span className="text-xs text-muted">
+                  you: {formatHours(mine)} ({delta > 0 ? '+' : ''}
+                  {delta})
+                </span>
+              )}
+            </div>
+
+            {estimates === null ? null : tiers.length === 0 ? (
+              <p className="text-xs text-muted">No HowLongToBeat estimate yet</p>
+            ) : (
+              /*
+               * A grid off the dialog's own width, not the window's.
+               *
+               * These were four spans in a wrapping flex row, which is a layout with exactly one
+               * good width. The modal has it — all four sat on one line — and the drawer never
+               * did: three fitted and Completionist dropped to a second line, under nothing, with
+               * its name no longer above the number it belonged to. Wrapping cannot be tuned out
+               * of that, because the two boxes differ by 200-odd pixels by design.
+               *
+               * So the column count is chosen rather than fallen into: two in the drawer, four in
+               * the modal, switching at 32rem of *container*. A viewport breakpoint would be the
+               * wrong question — the drawer is `max-w-md` on a 4K monitor exactly as it is on a
+               * laptop — which is the same reason a card sizes its cover from its column.
+               *
+               * `@container` is on the wrapper and never on the grid itself. A container query
+               * unit resolves against the nearest *ancestor* container, so an element cannot
+               * query itself: `@container @lg:grid-cols-4` on one node silently measures the
+               * viewport instead. index.css records the same trap costing `--card-pad` its cqi.
+               *
+               * A <dl> because that is what these are — four names and their values. It also
+               * gives each pair a wrapper to share, which is the whole fix: a reflow now moves a
+               * label and its number together or moves neither.
+               */
+              <div className="@container">
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 @lg:grid-cols-4">
+                  {tiers.map((tier) => (
+                    // data-hltb-tier because there is no role that says "one name and its number":
+                    // a <dt>/<dd> pair maps to nothing a locator can ask for. The same reason
+                    // data-cover and data-genre-stripe exist, and e2e/layout.spec.ts is what reads
+                    // it — the column count is a box-model claim and jsdom has no box model.
+                    <div key={tier.label} data-hltb-tier="" className="flex flex-col items-start gap-1">
+                      <dt className="text-xs text-muted">{tier.label}</dt>
+                      {/* HowLongToBeat's own colour, not the theme's — see index.css. Filled
+                          rather than tinted text because these are the numbers the drawer is
+                          actually for, and a row of muted spans was the one thing here nobody
+                          could find at a glance. */}
+                      <dd className="rounded bg-hltb px-2 py-0.5 text-xs font-semibold text-hltb-fg">
+                        {formatHours(tier.hours)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
             )}
           </div>
+        </Field>
+      )}
 
-          {tiers.length === 0 ? (
-            <p className="text-xs text-muted">No HowLongToBeat estimate yet</p>
-          ) : (
-            /*
-             * A grid off the dialog's own width, not the window's.
-             *
-             * These were four spans in a wrapping flex row, which is a layout with exactly one
-             * good width. The modal has it — all four sat on one line — and the drawer never
-             * did: three fitted and Completionist dropped to a second line, under nothing, with
-             * its name no longer above the number it belonged to. Wrapping cannot be tuned out
-             * of that, because the two boxes differ by 200-odd pixels by design.
-             *
-             * So the column count is chosen rather than fallen into: two in the drawer, four in
-             * the modal, switching at 32rem of *container*. A viewport breakpoint would be the
-             * wrong question — the drawer is `max-w-md` on a 4K monitor exactly as it is on a
-             * laptop — which is the same reason a card sizes its cover from its column.
-             *
-             * `@container` is on the wrapper and never on the grid itself. A container query
-             * unit resolves against the nearest *ancestor* container, so an element cannot
-             * query itself: `@container @lg:grid-cols-4` on one node silently measures the
-             * viewport instead. index.css records the same trap costing `--card-pad` its cqi.
-             *
-             * A <dl> because that is what these are — four names and their values. It also
-             * gives each pair a wrapper to share, which is the whole fix: a reflow now moves a
-             * label and its number together or moves neither.
-             */
-            <div className="@container">
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 @lg:grid-cols-4">
-                {tiers.map((tier) => (
-                  // data-hltb-tier because there is no role that says "one name and its number":
-                  // a <dt>/<dd> pair maps to nothing a locator can ask for. The same reason
-                  // data-cover and data-genre-stripe exist, and e2e/layout.spec.ts is what reads
-                  // it — the column count is a box-model claim and jsdom has no box model.
-                  <div key={tier.label} data-hltb-tier="" className="flex flex-col items-start gap-1">
-                    <dt className="text-xs text-muted">{tier.label}</dt>
-                    {/* HowLongToBeat's own colour, not the theme's — see index.css. Filled
-                        rather than tinted text because these are the numbers the drawer is
-                        actually for, and a row of muted spans was the one thing here nobody
-                        could find at a glance. */}
-                    <dd className="rounded bg-hltb px-2 py-0.5 text-xs font-semibold text-hltb-fg">
-                      {formatHours(tier.hours)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          )}
-        </div>
-      </Field>
-
-      <Field id={`${ids}-platform`} label="Platform" message={messageFor('platform')}>
-        <select
-          id={`${ids}-platform`}
-          value={platform}
-          onChange={(event) => setPlatform(event.target.value)}
-          className="rounded border border-line bg-surface px-2 py-1 text-sm"
-        >
-          <option value="">Not recorded</option>
-          {options.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {fields.platform && (
+        <Field id={`${ids}-platform`} label="Platform" message={messageFor('platform')}>
+          <select
+            id={`${ids}-platform`}
+            value={platform}
+            onChange={(event) => setPlatform(event.target.value)}
+            className="rounded border border-line bg-surface px-2 py-1 text-sm"
+          >
+            <option value="">Not recorded</option>
+            {options.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
 
       <div className="flex gap-3">
         <Field id={`${ids}-started`} label="Started" message={messageFor('startedAt')}>
@@ -393,7 +423,7 @@ export function EntryForm({
           />
         </Field>
 
-        <Field id={`${ids}-completed`} label="Completed" message={messageFor('completedAt')}>
+        <Field id={`${ids}-completed`} label={completedLabel} message={messageFor('completedAt')}>
           <input
             id={`${ids}-completed`}
             type="date"

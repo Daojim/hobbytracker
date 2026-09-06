@@ -128,11 +128,12 @@ date and left without a beginning — and `now` over that would put the start af
 `Completed` arm carries the same guard facing the other way.
 
 **A card's corner is an `⋯` menu, same items from every column** — *Open journal*, the three columns
-this card is not in, then *Remove from board*. `board/columns.ts` is the one list of the four;
-`otherColumns` gives a card its three, never its own, because `TransitionAsync` treats a move to the
-status a title already has as a silent no-op. It is called *Open journal* rather than a noun for the
-thing so every other hobby gets this menu unmodified, and **it is offered in every sort mode**,
-unlike the drag: a menu move writes no ranking, so there is none for it to promise.
+this card is not in, then *Remove from board*. `columnsFor` in `frontend/src/hobbies/` is the one
+list of the four, per hobby; `otherColumns` gives a card its three, never its own, because
+`TransitionAsync` treats a move to the status a title already has as a silent no-op. It is called
+*Open journal* rather than a noun for the thing, so every hobby gets this menu unmodified, and
+**it is offered in every sort mode**, unlike the drag: a menu move writes no ranking, so there is
+none for it to promise.
 
 **It replaced a `×` that meant *drop* on Playing and *remove* on Backlog and was absent on the other
 two.** What was wrong was letting the column choose which ending you got, and leaving half the board

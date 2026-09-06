@@ -314,6 +314,12 @@ namespace HobbyTracker.Api.Data.Migrations
                         {
                             Id = 2,
                             Name = "manual"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            BaseUrl = "https://api.themoviedb.org/3/",
+                            Name = "tmdb"
                         });
                 });
 
@@ -417,6 +423,42 @@ namespace HobbyTracker.Api.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HobbyTracker.Api.Domain.Movie", b =>
+                {
+                    b.HasBaseType("HobbyTracker.Api.Domain.Media");
+
+                    b.PrimitiveCollection<List<string>>("Directors")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("directors");
+
+                    b.PrimitiveCollection<List<string>>("Genres")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("genres");
+
+                    b.Property<string>("PrimaryGenre")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("primary_genre");
+
+                    b.Property<int?>("ReleaseYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("release_year");
+
+                    b.Property<int?>("RuntimeMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("runtime_minutes");
+
+                    b.ToTable("movies", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_movies_runtime_positive", "runtime_minutes IS NULL OR runtime_minutes > 0");
+
+                            t.Property("Id")
+                                .HasColumnName("media_id");
+                        });
+                });
+
             modelBuilder.Entity("HobbyTracker.Api.Domain.AuthIdentity", b =>
                 {
                     b.HasOne("HobbyTracker.Api.Domain.User", "User")
@@ -491,6 +533,16 @@ namespace HobbyTracker.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_games_media_id");
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.Movie", b =>
+                {
+                    b.HasOne("HobbyTracker.Api.Domain.Media", null)
+                        .WithOne()
+                        .HasForeignKey("HobbyTracker.Api.Domain.Movie", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_movies_media_id");
                 });
 
             modelBuilder.Entity("HobbyTracker.Api.Domain.Hobby", b =>

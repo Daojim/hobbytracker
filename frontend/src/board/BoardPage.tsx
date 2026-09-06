@@ -12,7 +12,7 @@ import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { useBoard } from './useBoard';
 import { YearPicker } from './YearPicker';
 import { yearFor, yearsKey } from './keys';
-import { COLUMNS } from './columns';
+import { columnsFor } from '../hobbies';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
 import type { LibrarySort, LogStatus } from '../api/types';
@@ -139,7 +139,7 @@ function Board({ hobby }: { hobby: Hobby }) {
                 data-board=""
                 className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:gap-5 3xl:gap-6"
               >
-                {COLUMNS.map(({ status, label }) => (
+                {columnsFor(hobby).map(({ status, label }) => (
                   <Column
                     key={status}
                     hobby={hobby}

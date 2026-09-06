@@ -112,6 +112,34 @@ export interface GameDetail extends Game {
 }
 
 /**
+ * A film, as `/api/movies` answers one. `Game`'s sibling rather than its generalisation: what a
+ * film is and what a game is genuinely differ, and one shape carrying both would be the
+ * mostly-null swamp the schema refused when it chose Table-Per-Type.
+ */
+export interface Movie {
+  id: number;
+  title: string;
+  coverUrl: string | null;
+  releaseYear: number | null;
+  /**
+   * Minutes. Null for a film TMDB has no runtime for — and null on a title only ever searched
+   * for, because TMDB's search endpoint does not carry it. It arrives when the film is added.
+   */
+  runtimeMinutes: number | null;
+  genres: string[];
+  /** The chosen genre, or null to use the automatic pick. See board/genres.ts. */
+  primaryGenre: string | null;
+  /** The byline under the drawer's title. Plural because films are co-directed. */
+  directors: string[];
+  externalId: string | null;
+  source: string;
+}
+
+export interface MovieDetail extends Movie {
+  logEntries: LogEntry[];
+}
+
+/**
  * One thing written down during a pass. Several per pass is the point: this replaced a single
  * text field, where writing a second thought destroyed the first.
  */

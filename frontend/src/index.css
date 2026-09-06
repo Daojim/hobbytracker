@@ -489,26 +489,25 @@
 }
 
 /*
- * Genre colours are content, not chrome: they say which genre a game is, so they mean the same
+ * Genre colours are content, not chrome: they say which genre a title is, so they mean the same
  * thing whatever the app is wearing and are deliberately *not* per-theme. A plain `@theme`, so
- * they resolve at build time like any other static token. See src/board/genres.ts, which holds
- * the same ten in the order that decides which one a game is painted as.
+ * they resolve at build time like any other static token. One list per hobby holds the same
+ * names in the order that decides which genre a title is painted as — see `src/hobbies/`.
+ *
+ * **A board is one hobby, so a hue is only ever read against the others in its own list.** That
+ * is why the films below reuse the hue circle rather than working around eleven colours already
+ * spent, and it is the one claim to revisit if a year-in-review page ever puts both on a screen.
  *
  * Every lightness sits in [0.48, 0.75] — the band that stays visible against every theme's
  * surface, light or dark, which is why none of them needs a variant. Lightness varies as well as
  * hue because eleven hues is past what anyone with common colour-vision deficiency can separate;
  * the card prints the genre's name for the same reason.
  *
- * These ten were picked by the user against a live board rather than derived, and they are the
- * second set: the first had Platform/Puzzle, Fighting/Racing and Simulator/Puzzle all under 0.10
- * apart in OKLab, which at a 4px stripe is the same colour. Measure before changing one — the
- * pair a person notices is rarely the closest pair. Convert each to OKLab (L, C·cos H, C·sin H)
- * and take the Euclidean distance: under 0.10 is indistinguishable at stripe width, 0.10 to 0.15
- * is tellable side by side, and above 0.15 is comfortable.
- *
- * The floor here is Strategy against Adventure at 0.087, which is known and was accepted: both
- * are warm and light and sit 20° apart. Dropping Adventure's chroma to 0.06 opens it to 0.119
- * and makes the most generic genre the quiet one, if it ever becomes annoying in practice.
+ * **Measure before changing one — the pair a person notices is rarely the closest pair.** Convert
+ * each to OKLab (L, C·cos H, C·sin H) and take the Euclidean distance: under 0.10 is
+ * indistinguishable at stripe width, 0.10 to 0.15 is tellable side by side, and above 0.15 is
+ * comfortable. `src/hobbies/palette.test.ts` does that arithmetic on every pair in every list now,
+ * so a hue added by eye fails rather than merely looking wrong.
  */
 @theme {
   --breakpoint-3xl: 1920px;
@@ -522,6 +521,15 @@
      personal journal, and the board renders the same offline as on. */
   --font-sans: 'Public Sans Variable', ui-sans-serif, system-ui, sans-serif;
 
+  /*
+   * The games list. These ten were picked by the user against a live board rather than derived,
+   * and they are the second set: the first had Platform/Puzzle, Fighting/Racing and
+   * Simulator/Puzzle all under 0.10 apart, which at a 4px stripe is the same colour.
+   *
+   * The floor here is Strategy against Adventure at 0.087, which is known and was accepted: both
+   * are warm and light and sit 20° apart. Dropping Adventure's chroma to 0.06 opens it to 0.119
+   * and makes the most generic genre the quiet one, if it ever becomes annoying in practice.
+   */
   --color-genre-rpg: oklch(0.6 0.17 140);
   --color-genre-shooter: oklch(0.68 0.15 240);
   --color-genre-platform: oklch(0.52 0.17 260);
@@ -539,6 +547,28 @@
      was the only room left: a cyan around hue 200 lands 0.091 from Shooter, which is the same
      colour twice at stripe width. */
   --color-genre-visual-novel: oklch(0.64 0.19 328);
+
+  /*
+   * The films list, and the same exercise: three whole palettes were rendered as real 4px
+   * stripes on a real board in all eight themes, with every pair's separation printed, and the
+   * user picked. This one is *Meaning first* — each hue is what the genre feels like, and the two
+   * most generic words are the quiet, near-neutral ones. Documentary names a form rather than a
+   * mood, and Drama is on about half of TMDB's catalogue.
+   *
+   * Its floor is Horror against Drama at 0.120, and **nothing here is under 0.10** — which the
+   * games list above cannot say. That is not this palette being better designed; it is ten hues
+   * being easier to separate than eleven.
+   */
+  --color-genre-documentary: oklch(0.66 0.04 120);
+  --color-genre-animation: oklch(0.68 0.16 150);
+  --color-genre-horror: oklch(0.5 0.17 25);
+  --color-genre-science-fiction: oklch(0.72 0.13 200);
+  --color-genre-thriller: oklch(0.52 0.16 295);
+  --color-genre-crime: oklch(0.62 0.14 258);
+  --color-genre-romance: oklch(0.73 0.14 350);
+  --color-genre-comedy: oklch(0.75 0.15 78);
+  --color-genre-action: oklch(0.61 0.18 42);
+  --color-genre-drama: oklch(0.5 0.05 30);
 
   /*
    * A provider's own colours, on the genre block's reasoning exactly: these are content rather

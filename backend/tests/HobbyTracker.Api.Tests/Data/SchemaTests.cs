@@ -184,24 +184,27 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
             await db.SaveChangesAsync(Ct);
         }));
     }
+
     [Fact]
-    public async Task Media_can_exist_without_game_detail()
+    public async Task Media_can_exist_without_a_detail_table()
     {
-        // TPT means a media row is free to have no games row -- which is what a movie will be.
-        // Under TPH this would be impossible to express.
+        // TPT means a media row is free to have no detail row at all. It used to say "which is
+        // what a movie will be", and movies have their own table now — so this is books, or tv,
+        // or anything else whose phase has not come. Under TPH it could not be expressed.
         await WithDbAsync(async db =>
         {
             db.Media.Add(new Media
             {
-                HobbyId = SeedData.Hobbies.Movies,
+                HobbyId = SeedData.Hobbies.Books,
                 SourceId = SeedData.Sources.Manual,
-                Title = "Some Film",
+                Title = "Some Book",
             });
             await db.SaveChangesAsync(Ct);
         });
 
         (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(1);
         (await WithDbAsync(db => db.Games.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.Movies.CountAsync(Ct))).ShouldBe(0);
     }
 
     [Fact]
@@ -277,6 +280,86 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         }));
 
         ShouldBeCheckViolation(exception, "ck_games_hltb_hours_positive");
+    }
+
+    [Fact]
+    public async Task A_movie_is_a_table_of_its_own_beside_games()
+    {
+        // The whole of what Table-Per-Type buys, finally spent: one media row, one movies row,
+        // and nothing at all in games. Under TPH both hobbies' columns would sit on `media` with
+        // most of them null on every row, and this test could not be written.
+        await WithDbAsync(async db =>
+        {
+            db.Movies.Add(new Movie
+            {
+                HobbyId = SeedData.Hobbies.Movies,
+                SourceId = SeedData.Sources.Tmdb,
+                ExternalId = "329865",
+                Title = "Arrival",
+                ReleaseYear = 2016,
+                RuntimeMinutes = 116,
+                Genres = ["Drama", "Science Fiction"],
+                Directors = ["Denis Villeneuve"],
+            });
+
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(1);
+        (await WithDbAsync(db => db.Movies.CountAsync(Ct))).ShouldBe(1);
+        (await WithDbAsync(db => db.Games.CountAsync(Ct))).ShouldBe(0);
+
+        var movie = await WithDbAsync(db => db.Movies.SingleAsync(Ct));
+        movie.Genres.ShouldBe(["Drama", "Science Fiction"]);
+        movie.Directors.ShouldBe(["Denis Villeneuve"]);
+    }
+
+    [Fact]
+    public async Task Rejects_a_runtime_of_nought()
+    {
+        // TMDB answers 0 for a film whose runtime nobody has filled in, which is a different
+        // claim from "takes no time" — the same distinction the HowLongToBeat hours draw, and
+        // the same reason to make forgetting to map it fail loudly rather than store a lie.
+        var mediaId = await GivenAMovieAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var movie = await db.Movies.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            movie.RuntimeMinutes = 0;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_movies_runtime_positive");
+    }
+
+    [Fact]
+    public async Task The_same_external_id_under_two_sources_is_two_titles()
+    {
+        // The unique index is on (source_id, external_id), not on external_id alone, and this is
+        // the day that starts to matter: IGDB's game 550 and TMDB's film 550 are both real and
+        // have nothing to do with each other.
+        await GivenAGameAsync(externalId: "550");
+        await GivenAMovieAsync(externalId: "550");
+
+        (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(2);
+    }
+
+    private async Task<int> GivenAMovieAsync(string externalId = "1")
+    {
+        return await WithDbAsync(async db =>
+        {
+            var movie = new Movie
+            {
+                HobbyId = SeedData.Hobbies.Movies,
+                SourceId = SeedData.Sources.Tmdb,
+                ExternalId = externalId,
+                Title = $"Film {externalId}",
+            };
+
+            db.Movies.Add(movie);
+            await db.SaveChangesAsync(Ct);
+            return movie.Id;
+        });
     }
 
     private async Task<int> GivenAGameAsync(string externalId = "1")
