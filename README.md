@@ -354,3 +354,8 @@ to prevent something, the test for it is checked by reintroducing the thing.
 
 Architecture and schema notes for anyone (or anything) working in the repo live in
 [CLAUDE.md](CLAUDE.md), which routes to one file per area under [docs/](docs).
+
+## Credits
+
+Game data from [IGDB](https://www.igdb.com/). This product uses the TMDB API but is not endorsed
+or certified by TMDB.

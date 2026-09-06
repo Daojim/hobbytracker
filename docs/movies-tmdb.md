@@ -204,15 +204,23 @@ all; `hobbies/movies.ts` sets it to null and `journal.setHltbId` to null in the 
 that wired one half of that pair fails loudly at the mutation rather than posting a film to
 `/api/games`.
 
-## Attribution — required, and not yet done
+## Attribution — a requirement, not a courtesy
 
 TMDB's API terms require the line
 
 > This product uses the TMDB API but is not endorsed or certified by TMDB.
 
-in an About or Credits area, and constrain use of their logo. The app has no About section. **The
-line belongs in the `SettingsMenu` footer and in `README.md`**, and it is one line either way.
-This is flagged rather than decided, and it is a requirement rather than a courtesy.
+in an About or Credits area, and constrain use of their logo. The app has no About section, so
+**the `SettingsMenu` panel is the credits area**, under a rule below the Journal group, and the
+same sentence is in `README.md`.
+
+**Text rather than their mark, deliberately.** The logo has its own rules about size, placement
+and alteration, and a wordmark set as text keeps none of them by accident — a sentence cannot
+breach them at all. `SettingsMenu.test.tsx` pins both halves: that the sentence is there, and that
+no image is named for TMDB.
+
+**IGDB is credited beside it, though only TMDB asks.** Crediting one provider and not the other
+would read as an oversight rather than as compliance.
 
 ## Testing it
 

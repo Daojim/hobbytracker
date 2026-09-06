@@ -103,4 +103,27 @@ describe('SettingsMenu', () => {
 
     expect(screen.getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
   });
+
+  it('credits the two providers the app takes its metadata from', async () => {
+    // TMDB's API terms require this sentence, near-verbatim, in an About or Credits area, and
+    // the app has no About section — so the settings panel is the credits area. IGDB is beside
+    // it because crediting one provider and not the other would be odd rather than compliant.
+    renderWithProviders(<SettingsMenu />);
+    await open();
+
+    expect(
+      screen.getByText(/uses the TMDB API but is not endorsed or certified by TMDB/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/IGDB/)).toBeInTheDocument();
+  });
+
+  it('does not use TMDB’s logo or wordmark as a graphic', async () => {
+    // The other half of the terms: the attribution is a sentence, and their logo has its own
+    // rules about size, placement and alteration that a bare <img> would not be keeping. Text
+    // costs nothing and cannot breach them.
+    renderWithProviders(<SettingsMenu />);
+    await open();
+
+    expect(screen.queryByRole('img', { name: /tmdb/i })).not.toBeInTheDocument();
+  });
 });
