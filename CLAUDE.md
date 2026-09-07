@@ -43,10 +43,13 @@ thing always known before an edit:
 | `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `hobbies/games.ts` | `docs/games-igdb.md` |
 | `Integrations/Hltb/`, `Services/Hltb*`, `Infrastructure/Hltb*`, `board/estimates.ts`, `journal/HltbPin.tsx` | `docs/games-hltb.md` |
 | `Integrations/Tmdb/`, `MovieCatalogService`, `TmdbOnMediaAdded`, `MoviesController`, `hobbies/movies.ts` | `docs/movies-tmdb.md` |
+| `TvCatalogService`, `TvOnMediaAdded`, `TvController`, `Domain/TvShow.cs`, `hobbies/tv.ts` | `docs/tv-tmdb.md` |
 
-**The last three are the hobbies; everything above them is the platform.** That is the axis the
+**The last four are the hobbies; everything above them is the platform.** That is the axis the
 split was made on, because the phase after it was a second hobby — and `docs/movies-tmdb.md` was
 written as `docs/games-igdb.md`'s sibling, with no new section needed in any platform file.
+`docs/tv-tmdb.md` is the films file's sibling in turn and assumes it: the provider, the client
+and the attribution are shared, so it says only where television differs.
 
 ## What exists
 
@@ -59,14 +62,15 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
+| **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **The design layer** | Semantic tokens, eight themes, two densities, and a board that works from 768px up | `docs/design.md` |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it | `docs/auth.md` |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
-**Two hobbies are live in production**, films included. **Detail and review is the next phase** —
-a title detail page and a year in review. See **What is next**, which also lists the smaller things
-named but not built.
+**Three hobbies are live**, television included. **Detail and review is the next phase** — a title
+detail page and a year in review. See **What is next**, which also lists the smaller things named
+but not built.
 
 ## Start here
 
@@ -145,10 +149,11 @@ dotnet ef migrations add <Name> \
 
 **After a migration that adds a column a provider owns, run that provider's refresh** — `media`
 rows are only ever written by a search, so a new column stays empty on the library you already have
-until something goes and asks. `POST /api/games/refresh` for IGDB's columns and
-`POST /api/movies/refresh` for TMDB's. HowLongToBeat has its own, which answers immediately rather
-than when the work is done: `POST /api/games/hltb/refresh`. See **The backfill is a thing you run**
-in `docs/games-hltb.md`.
+until something goes and asks. `POST /api/games/refresh` for IGDB's columns, and
+`POST /api/movies/refresh` and `POST /api/tv/refresh` for TMDB's — **two routes, because films and
+shows are separate source rows**. HowLongToBeat has its own, which answers immediately rather than
+when the work is done: `POST /api/games/hltb/refresh`. See **The backfill is a thing you run** in
+`docs/games-hltb.md`.
 
 ## Stack
 
@@ -157,7 +162,7 @@ in `docs/games-hltb.md`.
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
 | Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit |
-| External data | IGDB v4 (games) through Twitch; HowLongToBeat by scrape; TMDB v3 (films) on a static bearer |
+| External data | IGDB v4 (games) through Twitch; HowLongToBeat by scrape; TMDB v3 (**films and shows**, two source rows) on a static bearer |
 
 Pinned: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
 10.0.11, `EFCore.NamingConventions` 10.0.1. The `dotnet-ef` CLI must match EF Core (10.0.11).
@@ -207,9 +212,9 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
     │   ├── Data/             DbContext, SeedData, Configurations/, Migrations/
     │   ├── Integrations/Igdb/   client, auth handler, wire DTOs
     │   ├── Integrations/Hltb/   session, client, throttle, wire DTOs
-    │   ├── Integrations/Tmdb/   client, image helper, wire models — no auth handler, because a
-    │   │                        v4 read token never expires. (And no Integrations/Auth: the
-    │   │                        OAuth handler is the framework's)
+    │   ├── Integrations/Tmdb/   client, image helper, wire models for films AND shows — no auth
+    │   │                        handler, because a v4 read token never expires. (And no
+    │   │                        Integrations/Auth: the OAuth handler is the framework's)
     │   ├── Services/         orchestration (provider → database → DTO), and AuthService
     │   ├── Contracts/        what the API accepts and returns
     │   ├── Controllers/
@@ -389,8 +394,8 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
 | Scope | **`/board/:hobby`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
-| Columns | **Dropped first**, then Backlog · Playing · Completed — **and the labels are the hobby's**: a film is Watching and Watched. `columnsFor` in `hobbies/` is the one list, and the card's menu and the drawer both read it |
-| A hobby's words | **`frontend/src/hobbies/`, one file per hobby.** Column labels, the length label and its format, the pass noun, the genre list, search dispatch, and which fields a pass has. Never a branch on the slug |
+| Columns | **Dropped first**, then Backlog · Playing · Completed — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list, and the card's menu and the drawer both read it |
+| A hobby's words | **`frontend/src/hobbies/`, one file per hobby.** Column labels, the length label and its format, the pass noun, the genre list, search dispatch, which fields a pass has, and how it says where you are in one. Never a branch on the slug |
 | Dropped | A muted well **ahead of** the progression rather than after it, collapsed by default. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
@@ -439,6 +444,7 @@ here**.
 | **Overriding `BaseOutputPath` un-excludes every *other* output directory from the source globs**, so the build copies its siblings into itself and compounds every run. It reached 289,490 files and 1.68 GB, nesting twenty-five deep, and presented only as a build that got slower — `git status` stays clean, because `bin/` is ignored. `backend/Directory.Build.props` holds it; delete those two lines and one build reproduces it | **Tests**, above |
 | **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice** | `docs/games-hltb.md` |
 | **A `TitleDetail` field a hobby leaves empty and one it has no idea of look identical**, which is why `journal.fields` is stated rather than inferred: an unenriched game has no platforms either, and it still wants the select. Inferring it hides the control on a title that was merely not fetched yet | `docs/movies-tmdb.md` |
+| **TMDB numbers films and shows separately, so one shared `tmdb` source row makes film 1396 and show 1396 the same row.** In production that would not even error: `UpsertAsync`'s `23505` recovery re-reads and hands back the film, and a show is silently a film. `tmdb-tv` is a **fourth source row**, and a second provider for an existing hobby needs one too | `docs/tv-tmdb.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
 
 ## Schema
@@ -454,7 +460,9 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
 | `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_all_styles_hours`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at` |
 | `movies` | `media_id` (PK **and** FK to media), `release_year`, `runtime_minutes`, `genres`, `primary_genre`, `directors` |
-| `log_entries` | `id`, `user_id` (**NOT NULL**), `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `started_at`, `completed_at`, `logged_at` |
+| `tv_shows` | `media_id` (PK **and** FK to media), `first_air_year`, `last_air_year`, `air_status`, `number_of_seasons`, `number_of_episodes`, `episode_runtime_minutes`, `total_runtime_minutes` (**generated**), `genres`, `primary_genre`, `creators` |
+| `tv_seasons` | `media_id` + `season_number` (composite PK), `name`, `episode_count`, `air_date` |
+| `log_entries` | `id`, `user_id` (**NOT NULL**), `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `season_number`, `episode_number`, `started_at`, `completed_at`, `logged_at` |
 | `notes` | `id`, `log_entry_id`, `body`, `written_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
@@ -483,11 +491,16 @@ shuffled.
 - [x] **Films, from TMDB** — a `movies` table, a TMDB integration with no auth handler, enrichment
       on add rather than in a queue, `frontend/src/hobbies/` holding every word a hobby owns, and a
       drawer whose fields are the hobby's.
+- [x] **Television, from TMDB** — a third hobby on the same client and a **second source row**;
+      `tv_seasons` as a table because EF refuses JSON on a TPT entity; a pass that says which
+      episode you are on, on the card as well as in the drawer.
 - [ ] **Detail and review — next.** A title detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery** in `docs/games-igdb.md`.
-- [ ] **The remaining hobbies.** TV/anime/books/music — each a sibling detail table deriving from
-      `Media`, plus its source integration (TMDB again for TV, MAL for anime). Add the `source_lu`
-      row with the client, and a file in `frontend/src/hobbies/`.
+- [ ] **The remaining hobbies.** Anime/books/music — each a sibling detail table deriving from
+      `Media`, plus its source integration (MAL for anime). Add the `source_lu` row with the
+      client, and a file in `frontend/src/hobbies/`. **Anime is the one to think about before
+      starting**: TMDB carries most of it under `tv`, so the question is whether it is a fourth
+      hobby or a filter on the third, and that is a product decision rather than a schema one.
 
 **A completed phase gets one line, because what it *learned* is in the `docs/` file for the area
 it touched** — that is the growth rule at work, applied to this list. `README.md`'s roadmap is the
@@ -498,18 +511,20 @@ original brief had it second, but `log_entries.user_id` was nullable, so sequenc
 have left the app unable to do its job while it was built. The column is `NOT NULL` now, and the
 deferral is spent.
 
-### What a third hobby has to do
+### What a fourth hobby has to do
 
-**The seam audit of 5 September 2026 is spent — films went through every one of them.** What
-replaces it is shorter, because the answer is now demonstrated rather than predicted: a hobby is a
-detail table, an integration, and one file in `frontend/src/hobbies/`.
+**Television went through this list on 7 September 2026 and it held.** Nothing in `board/`,
+`search/` or the platform needed touching; the two things that *did* change — `PassFields` and
+`TitleDetail` — changed because a show has an idea no other hobby has, which is the list working
+rather than the list being wrong. Both rows are marked below.
 
 | | |
 |---|---|
 | Schema | A `Domain/<Thing>.cs` deriving from `Media`, and a configuration copying `MovieConfiguration` — **including `ToTable(...)`, which is the entire mechanism that makes EF choose TPT.** A `SeedData.Sources` id, its `NameFor` arm and its `HasData` row; `hobby_lu` already carries all six hobbies |
 | Backend | An `Integrations/<Provider>/` client and exception handler, a catalog service on `MovieCatalogService`'s shape (the `23505` catch included), a controller, and the `Program.cs` block — **resolving `IOptions` inside the configuring lambda**, never from `builder.Configuration` |
-| `LibraryService` | One more `?? (row.Media as <Thing>)!` beside the existing pair, in **both terminal projections and the `LibrarySort.Length` arm — and nowhere near `BoardQuery`** |
-| Frontend | `api/<thing>.ts`, its two types, one file in `hobbies/`, and `ready: true` in `shell/hobbies.ts`. **Nothing else in `board/`, `journal/` or `search/` should need touching** — if it does, that is the finding |
+| `LibraryService` | One more `?? (row.Media as <Thing>)!` beside the existing pair, in **both terminal projections and the `LibrarySort.Length` arm — and nowhere near `BoardQuery`**. Nulling only `ItemAsync` fails the move-and-list-agree test and nothing else, which reads as drag flicker |
+| Frontend | `api/<thing>.ts`, its two types, one file in `hobbies/`, and `ready: true` in `shell/hobbies.ts`. **Nothing else in `board/`, `journal/` or `search/` should need touching** — if it does, that is the finding, and it is a finding worth having rather than a failure. TV's was `PassFields.progress`: a real new idea, added to the contract for every hobby rather than branched on the slug |
+| The flip | **`index.css`'s tokens and `ready: true` are one atomic commit.** `palette.test.ts` fails in both directions — hues with the hobby unbuilt fail *are all spoken for*, and the hobby built with unpainted genres fails *paints every genre it names*. `App.test.tsx`'s "a hobby nobody has built" example has to move to a still-unbuilt slug, and it does **not** fail when it should: it passes for the wrong reason |
 | Enrichment | An `IMediaAdded` implementation if the provider needs a second call. Decline by hobby id first, and never let a failure take the log entry with it |
 | Tests | A fake client, an `ApiFactory` entry (**a missing required option refuses to boot the whole suite**), a `Given<Thing>Async`, an e2e stub serving *every* endpoint the client calls, and one case in `StatusTransitionTests` |
 
