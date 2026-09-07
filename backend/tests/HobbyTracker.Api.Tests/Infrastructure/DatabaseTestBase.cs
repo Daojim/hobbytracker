@@ -198,6 +198,63 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
         });
 
     /// <summary>
+    /// Inserts a show straight into the catalog, bypassing TMDB.
+    ///
+    /// <paramref name="seasons"/> is what the journal's two dropdowns are built from, so a test
+    /// about the episode list wants uneven ones — equal seasons would let a control that ignored
+    /// the chosen season pass.
+    /// </summary>
+    protected Task<int> GivenShowAsync(
+        string title = "Test Show",
+        string externalId = "1",
+        string? coverUrl = null,
+        int? numberOfSeasons = null,
+        int? numberOfEpisodes = null,
+        int? episodeRuntimeMinutes = null,
+        string? airStatus = null,
+        int? firstAirYear = null,
+        int? lastAirYear = null,
+        string[]? genres = null,
+        string[]? creators = null,
+        (int Number, int Episodes, string? Name)[]? seasons = null) => WithDbAsync(async db =>
+        {
+            var show = new TvShow
+            {
+                HobbyId = SeedData.Hobbies.Tv,
+
+                // The source that keeps TMDB's film 1396 and its show 1396 apart. A test seeding
+                // Sources.Tmdb here would collide with a film of the same id, which is the whole
+                // thing the fourth row exists to prevent.
+                SourceId = SeedData.Sources.TmdbTv,
+
+                ExternalId = externalId,
+                Title = title,
+                CoverUrl = coverUrl,
+                NumberOfSeasons = numberOfSeasons,
+                NumberOfEpisodes = numberOfEpisodes,
+                EpisodeRuntimeMinutes = episodeRuntimeMinutes,
+                AirStatus = airStatus,
+                FirstAirYear = firstAirYear,
+                LastAirYear = lastAirYear,
+                Genres = [.. genres ?? []],
+                Creators = [.. creators ?? []],
+                Seasons =
+                [
+                    .. (seasons ?? []).Select(season => new TvSeason
+                    {
+                        SeasonNumber = season.Number,
+                        EpisodeCount = season.Episodes,
+                        Name = season.Name,
+                    }),
+                ],
+            };
+
+            db.TvShows.Add(show);
+            await db.SaveChangesAsync(Ct);
+            return show.Id;
+        });
+
+    /// <summary>
     /// Inserts a media row with no detail table behind it. Only expressible because the mapping
     /// is TPT.
     ///
