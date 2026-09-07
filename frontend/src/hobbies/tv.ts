@@ -89,7 +89,7 @@ export const TV: HobbyDefinition = {
 
   search: {
     label: 'Search TV shows',
-    placeholder: 'Search to add a show — Severance, The Bear, Frieren…',
+    placeholder: 'Search to add a show — Severance, The Bear, Breaking Bad…',
     run: async (term) =>
       (await searchShows(term)).map((show) => ({
         id: show.id,

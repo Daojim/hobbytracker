@@ -70,7 +70,7 @@ export const MOVIES: HobbyDefinition = {
 
   search: {
     label: 'Search movies',
-    placeholder: 'Search to add a film — Arrival, Parasite, Portrait of a Lady on Fire…',
+    placeholder: 'Search to add a film — The Odyssey, Fight Club, Guardians of the Galaxy…',
     run: async (term) =>
       (await searchMovies(term)).map((movie) => ({
         id: movie.id,
