@@ -496,11 +496,20 @@ shuffled.
       episode you are on, on the card as well as in the drawer.
 - [ ] **Detail and review — next.** A title detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery** in `docs/games-igdb.md`.
-- [ ] **The remaining hobbies.** Anime/books/music — each a sibling detail table deriving from
-      `Media`, plus its source integration (MAL for anime). Add the `source_lu` row with the
-      client, and a file in `frontend/src/hobbies/`. **Anime is the one to think about before
-      starting**: TMDB carries most of it under `tv`, so the question is whether it is a fourth
-      hobby or a filter on the third, and that is a product decision rather than a schema one.
+- [ ] **Anime — decided and planned, not built.** The open product question is closed: it is its
+      own hobby rather than a filter on television, from **MAL**, and **one card per cour** —
+      Frieren and Frieren 2nd Season are two cards because they are two MAL ids. Anime does not
+      appear in a TV search; the Movies board is deliberately left alone, and that asymmetry is
+      intended. Decided with the user on 7 September 2026, and **MAL was measured against a live
+      client ID rather than assumed** — a client ID alone answers, so the integration has no auth
+      handler, and its search prefix-matches, so it needs one query where IGDB needs two. The plan
+      is `~/.claude/plans/anime-as-its-own-hobby.md`. **The platform stretches twice**:
+      `ck_log_entries_episode_needs_season` forbids exactly what an anime pass is, because a cour
+      *is* the entry and "episode 7" says everything; and the card carries a second title, which
+      the board row has no field for.
+- [ ] **The hobbies after it.** Books and music — each a sibling detail table deriving from
+      `Media`, plus its source integration. Add the `source_lu` row with the client, and a file
+      in `frontend/src/hobbies/`.
 
 **A completed phase gets one line, because what it *learned* is in the `docs/` file for the area
 it touched** — that is the growth rule at work, applied to this list. `README.md`'s roadmap is the
@@ -584,6 +593,12 @@ approaches were already ruled out and why. **Read it before proposing any deploy
 obvious ones have been considered and rejected for stated reasons, and re-proposing them is repeated
 work. It stays machine-local deliberately, because it describes a private machine: **do not copy it
 into this repo, and do not publish it anywhere.**
+
+**A second is not history either: `anime-as-its-own-hobby.md`.** Written on 7 September 2026 as a
+handoff for the phase after this one — the decisions taken with the user, and the provider
+measurements behind them: MAL's undocumented client-ID access, the two anime databases that were
+down that day, and the fallback if it ever withdraws. Unlike the deployment file it describes
+nothing private, so it can move into `docs/` on the day that phase starts.
 
 One is worth a warning if you open it: `for-the-next-part-delightful-alpaca.md`, the HowLongToBeat
 plan. Three of its assumptions did not survive contact with the site — it has an `HltbSessionHandler`
