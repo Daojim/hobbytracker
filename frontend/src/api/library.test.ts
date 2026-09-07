@@ -7,6 +7,7 @@ import type { LibraryItem, PagedResult } from './types';
 const item: LibraryItem = {
   mediaId: 14,
   title: 'Celeste',
+  subtitle: null,
   coverUrl: null,
   hobby: 'games',
   currentStatus: 'InProgress',

@@ -311,6 +311,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               fields={journal.fields}
               platforms={detail.platforms}
               seasons={detail.seasons}
+              episodeCount={detail.episodeCount}
               estimates={detail.hltb}
               completedLabel={columnLabel.Completed}
               saving={save.isPending}

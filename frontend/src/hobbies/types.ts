@@ -126,13 +126,26 @@ export interface PassFields {
   platform: boolean;
 
   /**
-   * The season and episode pair, which only a show has.
+   * Where you are inside a title, and **which halves of it this hobby has**.
    *
    * Not hours by another name: nobody records how long an evening of television took, and the
    * show already says how long one episode runs. It is where you are, and it is the reason a
    * TV board is worth having at all.
+   *
+   * Three-valued rather than a boolean, because anime needs the episode half alone. A cour is
+   * its own MAL entry — `Sousou no Frieren` and `Sousou no Frieren 2nd Season` are two ids and
+   * two cards — so the cour *is* the title and "episode 7" says everything there is to say.
+   * `ck_log_entries_episode_needs_season` forbade exactly that and was dropped for it; the rule
+   * it held now lives here, in the shape of the form each hobby gets.
+   *
+   * - `false` — no such idea. A game, a film.
+   * - `'season-episode'` — both dropdowns, the episode list sized from the chosen season.
+   * - `'episode'` — the episode alone, sized from {@link TitleDetail.episodeCount}.
+   *
+   * Paired with {@link HobbyDefinition.progress}, which is non-null if and only if this is not
+   * `false`; `journal.test.ts` pins the pairing.
    */
-  progress: boolean;
+  progress: false | 'episode' | 'season-episode';
 }
 
 /**
@@ -169,6 +182,23 @@ export interface TitleDetail {
    * list is however many episodes the chosen one has.
    */
   seasons: readonly TitleSeason[];
+
+  /**
+   * How many episodes the title has, for a hobby that counts them without seasons.
+   *
+   * What {@link PassFields.progress} `'episode'` sizes its one dropdown from, where
+   * `'season-episode'` sizes its second from whichever {@link seasons} entry was chosen. Null
+   * where the hobby has no such idea *and* where it has one nobody has counted — MAL answers
+   * nought for a cour that has not aired, and nought there means unknown.
+   *
+   * **Deliberately not solved with a synthetic one-season list.** That would look tidier and
+   * would be the same mistake as writing `season_number = 1` on every anime pass: it puts a
+   * fact in the column that nobody claimed, and every later reader — the card, the drawer, a
+   * year in review — then has to know to ignore it.
+   *
+   * Stated per hobby rather than inferred from whatever came back, on {@link platforms}' rule.
+   */
+  episodeCount: number | null;
 
   /**
    * Facts about the title itself, for the header band beside the genre — a film's runtime.

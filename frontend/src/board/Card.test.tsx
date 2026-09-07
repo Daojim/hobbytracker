@@ -145,6 +145,54 @@ describe('Card', () => {
     expect(screen.queryByText(/^S\d/)).not.toBeInTheDocument();
   });
 
+  it('says which episode of an anime, with no season half to be missing', () => {
+    // Television refuses to print an episode with no season, on the argument that it would be
+    // inventing the half that is missing. That is right *for television* — and wrong here,
+    // which is why the two hobbies format their own. A cour is its own MAL entry, so the cour
+    // is the title and episode 12 says everything there is to say.
+    renderCard(
+      libraryItem({
+        hobby: 'anime',
+        title: 'Sousou no Frieren',
+        seasonNumber: null,
+        episodeNumber: 12,
+      }),
+    );
+
+    expect(screen.getByText('E12')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Episode 12' })).toBeInTheDocument();
+  });
+
+  it("prints the English title under the romaji one, and nothing when there is none", () => {
+    // The second stretch this hobby asked of the platform. Both names are worth finding by eye,
+    // and `title` holds the romaji so that everything else — search, the drawer's heading, the
+    // remove confirmation — needs no special case.
+    const named = renderCard(
+      libraryItem({
+        hobby: 'anime',
+        title: 'Sousou no Frieren',
+        subtitle: "Frieren: Beyond Journey's End",
+      }),
+    );
+
+    expect(named.getByText("Frieren: Beyond Journey's End")).toBeInTheDocument();
+
+    // Outside the heading, so a screen reader reads the title as the title. An accessible name
+    // carrying both would be the one string nobody could search for.
+    expect(
+      named.getByRole('heading', { name: 'Sousou no Frieren' }),
+    ).toBeInTheDocument();
+
+    // Absent rather than blank, which is the ordinary case: MAL leaves the English title off a
+    // great many entries, and every other hobby sends null always. A blank line would push the
+    // metadata row down on some cards and not others.
+    const bare = renderCard(
+      libraryItem({ hobby: 'anime', title: 'Ping Pong the Animation', subtitle: null }),
+    );
+
+    expect(bare.container.querySelector('[data-subtitle]')).toBeNull();
+  });
+
   it('shows a rating to one decimal, and nothing at all when unrated', () => {
     // 8.5 and 9.6 are the point of storing numeric(3,1) rather than an integer, so a card that
     // rounded to "9" would be throwing away the only reason the column has a decimal place.

@@ -128,6 +128,10 @@ export const TV: HobbyDefinition = {
           label: season.name ?? seasonName(season.seasonNumber),
           episodeCount: season.episodeCount,
         })),
+        // Null, and not `numberOfEpisodes`. This is what a hobby with no seasons sizes its one
+        // episode dropdown from; a show sizes its second from whichever season was chosen, and
+        // putting the whole run's total here would offer episode 19 of a season with nine in it.
+        episodeCount: null,
         facts: showFacts(show),
         // TMDB answers by id and the id came from TMDB's own search, so there is no matcher to
         // have got it wrong — the film's argument, and what takes the pin off this drawer.
@@ -140,7 +144,7 @@ export const TV: HobbyDefinition = {
 
     // The pair is the whole of what a show adds. Still no hours: nobody records how long an
     // evening of television took, and the facts band already says how long one episode runs.
-    fields: { hoursPlayed: false, platform: false, progress: true },
+    fields: { hoursPlayed: false, platform: false, progress: 'season-episode' },
   },
 
   progress: {

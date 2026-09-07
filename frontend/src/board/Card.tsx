@@ -186,6 +186,24 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
           )}
         </h3>
 
+        {/* The title's other name, under it and quieter, for the one hobby whose titles have
+            two. MAL states romaji as its own `title` — `Sousou no Frieren` — with the English
+            one beside it, and both are worth finding by eye.
+
+            Outside the <h3> rather than inside it, so a screen reader announces the heading as
+            the title and this as a line of its own: an accessible name of "Sousou no Frieren
+            Frieren: Beyond Journey's End" would be the one string nobody could search for.
+
+            Absent rather than blank when there is nothing, which is the ordinary case — MAL
+            leaves the English title off a great many entries, and every other hobby sends null
+            always. A blank line would push the metadata row down on some cards and not
+            others. */}
+        {item.subtitle !== null && (
+          <p data-subtitle="" className="text-xs break-words text-muted">
+            {item.subtitle}
+          </p>
+        )}
+
         {/* The confirm takes the metadata row's place rather than sitting under it, so a card
             asking a question does not also resize the column it is in. */}
         {confirming ? (

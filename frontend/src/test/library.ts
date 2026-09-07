@@ -19,6 +19,7 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
   return {
     mediaId: nextMediaId++,
     title: 'Celeste',
+    subtitle: null,
     coverUrl: null,
     hobby: 'games',
     currentStatus: 'Backlog',

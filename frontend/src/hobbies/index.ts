@@ -1,5 +1,6 @@
 import type { LogStatus } from '../api/types';
 import type { Hobby } from '../shell/hobbies';
+import { ANIME } from './anime';
 import { GAMES } from './games';
 import { MOVIES } from './movies';
 import { TV } from './tv';
@@ -29,6 +30,7 @@ const DEFINITIONS: Partial<Record<Hobby, HobbyDefinition>> = {
   games: GAMES,
   movies: MOVIES,
   tv: TV,
+  anime: ANIME,
 };
 
 /**
