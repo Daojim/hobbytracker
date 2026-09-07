@@ -674,6 +674,169 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         entry.EpisodeNumber.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task An_anime_is_a_table_of_its_own_beside_the_other_three()
+    {
+        // The fourth detail table, and the one with the fewest columns in common with the one
+        // it most resembles: an anime and a show are both episodic, and `anime` carries a second
+        // title, a source material, a studio and a mean score that `tv_shows` has no idea of —
+        // while having no seasons table at all, because MAL numbers each cour as its own entry.
+        await WithDbAsync(async db =>
+        {
+            db.Anime.Add(new Anime
+            {
+                HobbyId = SeedData.Hobbies.Anime,
+                SourceId = SeedData.Sources.Mal,
+                ExternalId = "52991",
+                Title = "Sousou no Frieren",
+                EnglishTitle = "Frieren: Beyond Journey's End",
+                MediaType = "tv",
+                EpisodeCount = 28,
+                EpisodeRuntimeSeconds = 1470,
+                StartSeason = "fall",
+                StartYear = 2023,
+                AirStatus = "finished_airing",
+                SourceMaterial = "manga",
+                Genres = ["Adventure", "Drama", "Fantasy"],
+                Studios = ["Madhouse"],
+                MeanScore = 9.25m,
+            });
+
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(1);
+        (await WithDbAsync(db => db.Anime.CountAsync(Ct))).ShouldBe(1);
+        (await WithDbAsync(db => db.TvShows.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.Movies.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.Games.CountAsync(Ct))).ShouldBe(0);
+
+        var anime = await WithDbAsync(db => db.Anime.SingleAsync(Ct));
+        anime.EnglishTitle.ShouldBe("Frieren: Beyond Journey's End");
+        anime.Genres.ShouldBe(["Adventure", "Drama", "Fantasy"]);
+        anime.Studios.ShouldBe(["Madhouse"]);
+        anime.SourceMaterial.ShouldBe("manga");
+        anime.MeanScore.ShouldBe(9.25m);
+    }
+
+    [Fact]
+    public async Task An_animes_total_runtime_is_multiplied_and_converted_by_the_database()
+    {
+        // MAL states one episode in *seconds*, and the column it becomes is minutes — so this
+        // sum has a unit conversion in it that `tv_shows`'s does not. Doing it in Postgres is
+        // what keeps the factor of sixty in exactly one place: three readers in LibraryService
+        // would otherwise each need it, and getting one of them wrong is a runtime sixty times
+        // out on a card nobody would think to check.
+        //
+        // Frieren: 28 episodes of 1470 seconds is 41160 seconds, which is 686 minutes.
+        var mediaId = await GivenAnAnimeAsync(episodes: 28, episodeRuntimeSeconds: 1470);
+
+        var anime = await WithDbAsync(db => db.Anime.SingleAsync(one => one.Id == mediaId, Ct));
+
+        anime.TotalRuntimeMinutes.ShouldBe(686);
+    }
+
+    [Fact]
+    public async Task An_anime_nobody_timed_has_no_total_runtime_rather_than_nought()
+    {
+        // Null propagates through the product for free, exactly as it does for a show, and the
+        // untimed then sort last under sort=length rather than as though they took no time.
+        var mediaId = await GivenAnAnimeAsync(episodes: 12, episodeRuntimeSeconds: null);
+
+        var anime = await WithDbAsync(db => db.Anime.SingleAsync(one => one.Id == mediaId, Ct));
+
+        anime.TotalRuntimeMinutes.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Rejects_an_episode_count_of_nought()
+    {
+        // **MAL answers 0 for an unaired entry**, and it means unknown rather than none — a cour
+        // airing next year is the ordinary case for it. Nought stored here would make a card
+        // claim a season with no episodes in it, so the mapping to null is a rule the database
+        // holds rather than a habit the catalog service is trusted to keep.
+        var mediaId = await GivenAnAnimeAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var anime = await db.Anime.SingleAsync(one => one.Id == mediaId, Ct);
+            anime.EpisodeCount = 0;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_anime_counts_positive");
+    }
+
+    [Fact]
+    public async Task Rejects_an_episode_runtime_of_nought_seconds()
+    {
+        var mediaId = await GivenAnAnimeAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var anime = await db.Anime.SingleAsync(one => one.Id == mediaId, Ct);
+            anime.EpisodeRuntimeSeconds = 0;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_anime_counts_positive");
+    }
+
+    [Fact]
+    public async Task Rejects_a_mean_score_outside_the_scale_it_is_read_on()
+    {
+        // MAL scores out of ten, as this app's own ratings do — so a figure outside that range
+        // is a mapping fault rather than a strong opinion, and the drawer would print it beside
+        // a rating on the same scale.
+        var mediaId = await GivenAnAnimeAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var anime = await db.Anime.SingleAsync(one => one.Id == mediaId, Ct);
+            anime.MeanScore = 12.5m;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_anime_mean_score_range");
+    }
+
+    [Fact]
+    public async Task The_same_id_at_mal_and_at_tmdb_is_two_titles()
+    {
+        // The reason `mal` is a source row of its own rather than a reuse of one. MAL numbers
+        // its catalogue independently of TMDB's two sequences, so anime 1 and film 1 both exist
+        // — and under one shared source they would collide on ix_media_source_id_external_id,
+        // where UpsertAsync's 23505 recovery re-reads and hands back whichever got there first.
+        // An anime silently being a film, with nothing erroring.
+        await GivenMovieAsync(title: "Cowboy Bebop: The Movie", externalId: "1");
+        await GivenAnAnimeAsync(externalId: "1");
+
+        (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(2);
+    }
+
+    private async Task<int> GivenAnAnimeAsync(
+        string externalId = "1",
+        int? episodes = null,
+        int? episodeRuntimeSeconds = null)
+    {
+        return await WithDbAsync(async db =>
+        {
+            var anime = new Anime
+            {
+                HobbyId = SeedData.Hobbies.Anime,
+                SourceId = SeedData.Sources.Mal,
+                ExternalId = externalId,
+                Title = $"Anime {externalId}",
+                EpisodeCount = episodes,
+                EpisodeRuntimeSeconds = episodeRuntimeSeconds,
+            };
+
+            db.Anime.Add(anime);
+            await db.SaveChangesAsync(Ct);
+            return anime.Id;
+        });
+    }
+
     private async Task<int> GivenAShowAsync(
         string externalId = "1",
         int? episodes = null,

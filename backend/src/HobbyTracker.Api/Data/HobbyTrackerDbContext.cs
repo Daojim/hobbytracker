@@ -29,6 +29,12 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     /// </summary>
     public DbSet<TvShow> TvShows => Set<TvShow>();
 
+    /// <summary>
+    /// Anime only, and an INNER JOIN of `media` and `anime` for the same reason. Singular
+    /// because the word is: one anime, many anime, and `Animes` is not English.
+    /// </summary>
+    public DbSet<Anime> Anime => Set<Anime>();
+
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
 
     /// <summary>What was written during a pass. Child of log_entries, cascade deleted.</summary>

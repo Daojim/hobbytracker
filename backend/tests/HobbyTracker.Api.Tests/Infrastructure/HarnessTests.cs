@@ -53,11 +53,12 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         var hobbies = await WithDbAsync(db => db.Hobbies.OrderBy(h => h.Id).ToListAsync(Ct));
 
         hobbies.Count.ShouldBe(6);
-        sources.Count.ShouldBe(4);
+        sources.Count.ShouldBe(5);
         sources.Single(s => s.Name == "igdb").BaseUrl.ShouldBe("https://api.igdb.com/v4/");
         sources.Single(s => s.Name == "manual").BaseUrl.ShouldBeNull();
         sources.Single(s => s.Name == "tmdb").BaseUrl.ShouldBe("https://api.themoviedb.org/3/");
         sources.Single(s => s.Name == "tmdb-tv").BaseUrl.ShouldBe("https://api.themoviedb.org/3/tv/");
+        sources.Single(s => s.Name == "mal").BaseUrl.ShouldBe("https://api.myanimelist.net/v2/");
     }
 
     [Fact]
