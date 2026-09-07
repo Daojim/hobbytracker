@@ -117,6 +117,8 @@ public sealed class LogEntryService(
             StartedAt = request.StartedAt,
             CompletedAt = request.CompletedAt,
             HoursPlayed = request.HoursPlayed,
+            SeasonNumber = request.SeasonNumber,
+            EpisodeNumber = request.EpisodeNumber,
 
             // Server-stamped, never taken from the request: this records that the entry was
             // written, which is not something a caller is in a position to assert.
@@ -166,6 +168,8 @@ public sealed class LogEntryService(
         entry.StartedAt = request.StartedAt;
         entry.CompletedAt = request.CompletedAt;
         entry.HoursPlayed = request.HoursPlayed;
+        entry.SeasonNumber = request.SeasonNumber;
+        entry.EpisodeNumber = request.EpisodeNumber;
 
         await db.SaveChangesAsync(cancellationToken);
 

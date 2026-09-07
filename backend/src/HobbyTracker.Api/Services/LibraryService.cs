@@ -126,8 +126,10 @@ public sealed class LibraryService(
                 // downcast answers null for a row of the other kind, which is what makes ??
                 // the whole of the dispatch — there is no hobby predicate here and there should
                 // not be one.
-                (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres,
-                (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre,
+                (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres
+                    ?? (row.Media as TvShow)!.Genres,
+                (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre
+                    ?? (row.Media as TvShow)!.PrimaryGenre,
 
                 // How long the title takes, whichever hobby is answering: HowLongToBeat's
                 // headline figure for a game, the runtime for a film. Rounded to the two places
@@ -137,7 +139,10 @@ public sealed class LibraryService(
                 (row.Media as Game)!.HltbAllStylesHours
                     ?? ((row.Media as Movie)!.RuntimeMinutes == null
                         ? (decimal?)null
-                        : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2)),
+                        : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2))
+                    ?? ((row.Media as TvShow)!.TotalRuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as TvShow)!.TotalRuntimeMinutes ?? 0) / 60m, 2)),
 
                 // Still to be asked about, which is what tells the card whether looking
                 // again is worth anything. The type test is not decoration and it is not
@@ -147,6 +152,14 @@ public sealed class LibraryService(
                 // "checked_at is null" calls every film pending for ever, and the movies board
                 // would poll for an answer nobody is coming with.
                 row.Media is Game && (row.Media as Game)!.HltbCheckedAt == null,
+
+
+                // Where you are in a show, off the current pass like everything else on this
+                // row except the preview below. Safe anywhere, unlike the coalesces above: these
+                // come off Latest rather than through a TPT downcast, so nothing here can stop
+                // translating and empty a board.
+                row.Latest.SeasonNumber,
+                row.Latest.EpisodeNumber,
 
                 // The last thing you wrote about this title, from *any* pass of yours —
                 // deliberately unlike every other field on this row, all of which come from
@@ -503,9 +516,11 @@ public sealed class LibraryService(
         // change an ordering, and leaving it out keeps the expression readable.
         LibrarySort.Length => query
             .OrderBy(row => (row.Media as Game)!.HltbAllStylesHours == null
-                            && (row.Media as Movie)!.RuntimeMinutes == null)
+                            && (row.Media as Movie)!.RuntimeMinutes == null
+                            && (row.Media as TvShow)!.TotalRuntimeMinutes == null)
             .ThenBy(row => (row.Media as Game)!.HltbAllStylesHours
-                           ?? (row.Media as Movie)!.RuntimeMinutes / 60m),
+                           ?? (row.Media as Movie)!.RuntimeMinutes / 60m
+                           ?? (row.Media as TvShow)!.TotalRuntimeMinutes / 60m),
 
         // Manual: the user's own ranking. Every other mode is a read-only view that leaves
         // Position untouched, which is why dragging is only offered in this one.
@@ -521,6 +536,13 @@ public sealed class LibraryService(
                 // year view claim the game was played.
                 entry.StartedAt = null;
                 entry.CompletedAt = null;
+
+                // And where you were, for the same reason: a card back in the queue
+                // still reading S3 E7 is the same lie a leftover start date is. The
+                // other three arms leave it alone - dropping a show halfway is exactly
+                // when where you got to is worth keeping.
+                entry.SeasonNumber = null;
+                entry.EpisodeNumber = null;
                 break;
 
             case LogStatus.InProgress:
@@ -583,12 +605,17 @@ public sealed class LibraryService(
                 // As in ListAsync, coalesce and all. This copy has to exist and has to match:
                 // a transition answers with the row it just wrote and the board caches that, so
                 // a field populated in one projection and null in the other flickers on a drag.
-                (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres,
-                (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre,
+                (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres
+                    ?? (row.Media as TvShow)!.Genres,
+                (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre
+                    ?? (row.Media as TvShow)!.PrimaryGenre,
                 (row.Media as Game)!.HltbAllStylesHours
                     ?? ((row.Media as Movie)!.RuntimeMinutes == null
                         ? (decimal?)null
-                        : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2)),
+                        : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2))
+                    ?? ((row.Media as TvShow)!.TotalRuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as TvShow)!.TotalRuntimeMinutes ?? 0) / 60m, 2)),
 
                 // Still to be asked about, which is what tells the card whether looking
                 // again is worth anything. The type test is not decoration and it is not
@@ -598,6 +625,9 @@ public sealed class LibraryService(
                 // "checked_at is null" calls every film pending for ever, and the movies board
                 // would poll for an answer nobody is coming with.
                 row.Media is Game && (row.Media as Game)!.HltbCheckedAt == null,
+
+                row.Latest.SeasonNumber,
+                row.Latest.EpisodeNumber,
 
                 // As in ListAsync, predicate and all. This copy has to exist: it is what a drag
                 // or a menu move answers with, and a field arriving null here and populated on
