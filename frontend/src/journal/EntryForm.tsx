@@ -11,7 +11,7 @@ import {
   parseRating,
 } from './fields';
 import type { HltbEstimates } from './fields';
-import type { PassFields } from '../hobbies';
+import type { PassFields, TitleSeason } from '../hobbies';
 import { useWheelStep } from '../lib/useWheelStep';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
 
@@ -32,6 +32,14 @@ export interface EntryFormProps {
   fields: PassFields;
   /** What the title came out on. Already loaded with the detail, so it costs no extra request. */
   platforms: readonly string[];
+  /**
+   * Every season of the title, which is what the two dropdowns are sized from.
+   *
+   * Empty for a hobby with no such idea, and — like {@link platforms} — that emptiness is not
+   * what takes the control away: {@link fields} is. A show whose seasons have not been fetched
+   * has none either, and it still wants the pair.
+   */
+  seasons: readonly TitleSeason[];
   /**
    * HowLongToBeat's figures, for reading your own hours against. Passed as one object rather
    * than three numbers because three nullable numbers in a row is the argument list where two
@@ -83,6 +91,7 @@ export function EntryForm({
   entry,
   fields,
   platforms,
+  seasons,
   estimates,
   completedLabel,
   saving,
@@ -103,6 +112,13 @@ export function EntryForm({
   const [thumb, setThumb] = useState(entry.rating ?? UNRATED_THUMB);
   const [platform, setPlatform] = useState(entry.platform ?? '');
   const [hours, setHours] = useState(entry.hoursPlayed === null ? '' : String(entry.hoursPlayed));
+  // Held as text, because that is what a <select> reads and writes. The empty string is "not
+  // recorded", which is a value somebody can choose rather than a gap — the platform select's
+  // rule, on a control that has a stored value to lose in exactly the same way.
+  const [season, setSeason] = useState(entry.seasonNumber === null ? '' : String(entry.seasonNumber));
+  const [episode, setEpisode] = useState(
+    entry.episodeNumber === null ? '' : String(entry.episodeNumber),
+  );
   const [started, setStarted] = useState(journalDateInput(entry.startedAt));
   const [completed, setCompleted] = useState(journalDateInput(entry.completedAt));
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -212,6 +228,55 @@ export function EntryForm({
       ? platforms
       : [...platforms, entry.platform];
 
+  /**
+   * The show's seasons, plus a stored one it has stopped listing.
+   *
+   * The platform select's rule again, on a list that moves for a different reason: TMDB
+   * restructures a show's seasons, and a pass that named one is still a true thing somebody
+   * wrote down. It is labelled from the number, since the list is where the name would come
+   * from and the list no longer has it.
+   */
+  const seasonOptions =
+    entry.seasonNumber === null || seasons.some((one) => one.number === entry.seasonNumber)
+      ? seasons
+      : [
+          ...seasons,
+          {
+            number: entry.seasonNumber,
+            label: entry.seasonNumber === 0 ? 'Specials' : `Season ${entry.seasonNumber}`,
+            episodeCount: 0,
+          },
+        ];
+
+  /**
+   * One through however many episodes the chosen season has, plus a stored episode past its end.
+   *
+   * The whole reason the drawer loads seasons rather than reading the board row. A list built
+   * from the show's *total* would offer episode 19 of a season with nine in it, and a fixed
+   * length would be right only by coincidence — the seasons here are 3, 9 and 10.
+   *
+   * Empty while no season is chosen, which is not a gap: it is the pair the API refuses —
+   * an episode with no season — kept out of reach without a second rule to state it.
+   */
+  const chosen = seasonOptions.find((one) => String(one.number) === season);
+  const numbered = Array.from({ length: chosen?.episodeCount ?? 0 }, (_, index) => index + 1);
+  const episodeOptions =
+    episode === '' || numbered.includes(Number(episode))
+      ? numbered
+      : [...numbered, Number(episode)];
+
+  /**
+   * Choosing a season, which clears whatever episode was under it.
+   *
+   * S1 E9 and then a switch to a season with three episodes leaves a value the dropdown cannot
+   * show. Clamping to the last episode of the new season would invent a claim nobody made;
+   * clearing says the honest thing, which is that where you are is no longer known.
+   */
+  function chooseSeason(value: string) {
+    setSeason(value);
+    setEpisode('');
+  }
+
   function submit(event: React.FormEvent) {
     event.preventDefault();
 
@@ -232,6 +297,14 @@ export function EntryForm({
     // now — though it is checked there too, before the check constraint can turn it into a 500.
     if (started !== '' && completed !== '' && completed < started) {
       found['completedAt'] = 'Completed cannot be earlier than started.';
+    }
+
+    // Unreachable through the dropdowns — the episode list is empty until a season is chosen —
+    // and stated anyway, beside the rule above and for its reason: the API states it too, before
+    // a check constraint can turn it into a 500. A pass that somehow arrived in this shape is
+    // then something you can save your way out of rather than something that silently 400s.
+    if (fields.progress && season === '' && episode !== '') {
+      found['episodeNumber'] = 'An episode needs a season.';
     }
 
     setErrors(found);
@@ -255,6 +328,8 @@ export function EntryForm({
       hoursPlayed: fields.hoursPlayed ? (playtime.value ?? null) : null,
       startedAt: dateFieldValue(started, entry.startedAt),
       completedAt: dateFieldValue(completed, entry.completedAt),
+      seasonNumber: !fields.progress || season === '' ? null : Number(season),
+      episodeNumber: !fields.progress || episode === '' ? null : Number(episode),
     });
   }
 
@@ -410,6 +485,46 @@ export function EntryForm({
             ))}
           </select>
         </Field>
+      )}
+
+      {/* Two selects on one row, as the two dates are, because they are one answer to one
+          question: where are you. Sized from the show rather than typed, so an episode that
+          does not exist is not a thing anybody can record — the reason the drawer loads a
+          show's seasons at all. */}
+      {fields.progress && (
+        <div className="flex gap-3">
+          <Field id={`${ids}-season`} label="Season" message={messageFor('seasonNumber')}>
+            <select
+              id={`${ids}-season`}
+              value={season}
+              onChange={(event) => chooseSeason(event.target.value)}
+              className="rounded border border-line bg-surface px-2 py-1 text-sm"
+            >
+              <option value="">Not recorded</option>
+              {seasonOptions.map((one) => (
+                <option key={one.number} value={one.number}>
+                  {one.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field id={`${ids}-episode`} label="Episode" message={messageFor('episodeNumber')}>
+            <select
+              id={`${ids}-episode`}
+              value={episode}
+              onChange={(event) => setEpisode(event.target.value)}
+              className="rounded border border-line bg-surface px-2 py-1 text-sm"
+            >
+              <option value="">Not recorded</option>
+              {episodeOptions.map((number) => (
+                <option key={number} value={number}>
+                  {number}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
       )}
 
       <div className="flex gap-3">

@@ -58,7 +58,15 @@ function pick(entry: UpdateLogEntry, mediaId?: number): Record<string, unknown> 
   const body: Record<string, unknown> = mediaId === undefined ? {} : { mediaId };
 
   body['status'] = entry.status;
-  for (const field of ['rating', 'platform', 'hoursPlayed', 'startedAt', 'completedAt'] as const) {
+  for (const field of [
+    'rating',
+    'platform',
+    'hoursPlayed',
+    'startedAt',
+    'completedAt',
+    'seasonNumber',
+    'episodeNumber',
+  ] as const) {
     if (entry[field] !== undefined) {
       body[field] = entry[field];
     }

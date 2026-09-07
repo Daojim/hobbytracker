@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
 import { gameDetail, journalServer, logEntry, note } from '../test/games';
 import { movieDetail, movieJournalServer } from '../test/movies';
+import { tvShowDetail, tvJournalServer } from '../test/tv';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { mediaKey } from '../board/keys';
@@ -63,6 +64,8 @@ describe('EntryDrawer', () => {
       hoursPlayed: null,
       startedAt: null,
       completedAt: null,
+      seasonNumber: null,
+      episodeNumber: null,
     });
   });
 
@@ -1343,6 +1346,8 @@ describe('EntryDrawer, on a film', () => {
       hoursPlayed: null,
       startedAt: null,
       completedAt: null,
+      seasonNumber: null,
+      episodeNumber: null,
     });
   });
 
@@ -1364,5 +1369,210 @@ describe('EntryDrawer, on a film', () => {
     await userEvent.selectOptions(genre, 'Drama');
 
     await waitFor(() => expect(journal.genresSet).toEqual([{ mediaId: 4004, genre: 'Drama' }]));
+  });
+});
+
+/**
+ * The same drawer again, opened on a show.
+ *
+ * Its own describe for the films block's reason, and one thing more: a show is the only hobby
+ * whose pass says where you are *inside* the title, so the two dropdowns here have no
+ * counterpart above. `tvJournalServer` answers `/api/tv/:id` and nothing else, so a drawer that
+ * dispatched to films would fail as an unhandled request rather than showing Arrival.
+ */
+describe('EntryDrawer, on a show', () => {
+  function openShow(mediaId = 5005, onClose = vi.fn()) {
+    return {
+      onClose,
+      ...renderWithProviders(<EntryDrawer hobby="tv" mediaId={mediaId} onClose={onClose} />),
+    };
+  }
+
+  const season = () => screen.getByLabelText('Season');
+  const episode = () => screen.getByLabelText('Episode');
+
+  it('bylines the creator, and states the run, the airing and one episode', async () => {
+    tvJournalServer({ detail: tvShowDetail({ title: 'Severance' }) });
+
+    openShow();
+
+    expect(await screen.findByRole('heading', { name: 'Severance' })).toBeInTheDocument();
+    expect(screen.getByText('Dan Erickson')).toBeInTheDocument();
+    expect(screen.getByText('2 seasons \u00b7 19 episodes')).toBeInTheDocument();
+    expect(screen.getByText('Returning Series \u00b7 2022\u2013')).toBeInTheDocument();
+    expect(screen.getByText('47 m')).toBeInTheDocument();
+  });
+
+  it('offers every season TMDB knows, Specials included', async () => {
+    // Season 0 is a real season with a `>= 0` constraint behind it, and the list is what makes
+    // that honest — it says Specials rather than 0, which is what anybody watching calls it.
+    tvJournalServer();
+
+    openShow();
+
+    await screen.findByRole('heading', { name: 'Severance' });
+    expect(within(season()).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Not recorded',
+      'Specials',
+      'Season 1',
+      'Season 2',
+    ]);
+  });
+
+  it('re-sizes the episode list to the season that was chosen', async () => {
+    // The reason the drawer loads seasons at all. Nine against ten against three: a dropdown
+    // built from the show's total would offer episode 19 of a season that has nine.
+    tvJournalServer();
+
+    openShow();
+    await screen.findByRole('heading', { name: 'Severance' });
+
+    await userEvent.selectOptions(season(), '1');
+    expect(within(episode()).getAllByRole('option')).toHaveLength(10);
+
+    await userEvent.selectOptions(season(), '2');
+    expect(within(episode()).getAllByRole('option')).toHaveLength(11);
+
+    await userEvent.selectOptions(season(), '0');
+    expect(within(episode()).getAllByRole('option')).toHaveLength(4);
+  });
+
+  it('clears the episode when the season changes under it', async () => {
+    // S1 E9 and then a switch to Specials leaves a value the dropdown cannot show. Clamping to
+    // the last episode of the new season would be inventing a claim nobody made; clearing says
+    // the honest thing, which is that where you are is no longer known.
+    tvJournalServer();
+
+    openShow();
+    await screen.findByRole('heading', { name: 'Severance' });
+
+    await userEvent.selectOptions(season(), '1');
+    await userEvent.selectOptions(episode(), '9');
+    expect(episode()).toHaveValue('9');
+
+    await userEvent.selectOptions(season(), '0');
+    expect(episode()).toHaveValue('');
+  });
+
+  it('offers no episode at all until a season says which ones there are', async () => {
+    // Not disabled: an empty list is the same statement and needs no second rule. It is also
+    // what keeps the pair the API refuses out of reach — an episode with no season.
+    tvJournalServer();
+
+    openShow();
+    await screen.findByRole('heading', { name: 'Severance' });
+
+    expect(within(episode()).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Not recorded',
+    ]);
+  });
+
+  it('sends the season and the episode with the rest of the pass', async () => {
+    const journal = tvJournalServer({
+      detail: tvShowDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    openShow();
+    await screen.findByRole('heading', { name: 'Severance' });
+
+    await userEvent.selectOptions(season(), '2');
+    await userEvent.selectOptions(episode(), '4');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body).toEqual({
+      status: 'InProgress',
+      rating: null,
+      platform: null,
+      hoursPlayed: null,
+      startedAt: null,
+      completedAt: null,
+      seasonNumber: 2,
+      episodeNumber: 4,
+    });
+  });
+
+  it('fills both dropdowns from the pass the board is showing', async () => {
+    // entrySeed's job. The form is keyed on the values it was seeded from, so a field left out
+    // of that key is one a refetch cannot correct on screen — which is the bug that made a game
+    // dragged to Playing keep showing an empty Started.
+    tvJournalServer({
+      detail: tvShowDetail({
+        logEntries: [logEntry({ id: 7, seasonNumber: 2, episodeNumber: 4 })],
+      }),
+    });
+
+    openShow();
+
+    await screen.findByRole('heading', { name: 'Severance' });
+    expect(season()).toHaveValue('2');
+    expect(episode()).toHaveValue('4');
+  });
+
+  it('keeps a stored season the show has stopped listing', async () => {
+    // The platform select's rule, on a list that moves for a different reason: TMDB restructures
+    // a show's seasons and a pass that named one is still a true thing somebody wrote down.
+    tvJournalServer({
+      detail: tvShowDetail({
+        seasons: [{ seasonNumber: 1, name: 'Season 1', episodeCount: 9 }],
+        logEntries: [logEntry({ id: 7, seasonNumber: 4, episodeNumber: 2 })],
+      }),
+    });
+
+    openShow();
+
+    await screen.findByRole('heading', { name: 'Severance' });
+    expect(season()).toHaveValue('4');
+    expect(episode()).toHaveValue('2');
+  });
+
+  it('has no hours box and no platform select, exactly as a film has neither', async () => {
+    tvJournalServer();
+
+    openShow();
+
+    await screen.findByRole('heading', { name: 'Severance' });
+    expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Platform')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('HowLongToBeat ID')).not.toBeInTheDocument();
+  });
+
+  it('refuses an episode with no season, before the API has to', async () => {
+    // Unreachable through the dropdowns and checked anyway, beside the completed-before-started
+    // rule and for its reason: the server states it too, before the check constraint can turn
+    // it into a 500. A pass that arrived in this shape can still be saved out of it.
+    const journal = tvJournalServer({
+      detail: tvShowDetail({
+        logEntries: [logEntry({ id: 7, seasonNumber: null, episodeNumber: 7 })],
+      }),
+    });
+
+    openShow();
+    await screen.findByRole('heading', { name: 'Severance' });
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('An episode needs a season.');
+    expect(journal.saved).toHaveLength(0);
+  });
+
+  it('picks the genre off the television list, which is not the film one', async () => {
+    // Same provider, two vocabularies. TMDB television list folds science fiction into fantasy,
+    // so a select populated from the films list would offer this show a word it does not have
+    // and miss the one it does. Sci-Fi & Fantasy is the automatic pick over Mystery and Drama
+    // because the list is ordered specific before generic.
+    const journal = tvJournalServer({
+      detail: tvShowDetail({ genres: ['Drama', 'Mystery', 'Sci-Fi & Fantasy'] }),
+    });
+
+    openShow();
+
+    const genre = await screen.findByRole('combobox', { name: 'Genre' });
+    expect(within(genre).getByRole('option', { name: /Automatic/ })).toHaveTextContent(
+      'Automatic \u2014 Sci-Fi & Fantasy',
+    );
+
+    await userEvent.selectOptions(genre, 'Drama');
+
+    await waitFor(() => expect(journal.genresSet).toEqual([{ mediaId: 5005, genre: 'Drama' }]));
   });
 });

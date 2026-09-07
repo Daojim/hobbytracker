@@ -94,4 +94,17 @@ public sealed record LibraryItemDto(
     /// The most recent across *every* pass of yours, deliberately unlike everything else on the
     /// row. See the projection in <c>LibraryService</c>.
     /// </summary>
+
+    /// <summary>
+    /// Where you are, for a hobby that has such an idea — a show's season and episode, straight
+    /// off the current pass like every other field on this row except the note preview.
+    ///
+    /// Null for games and films, and the card does not decide that from the nulls: it asks the
+    /// hobby whether it formats progress at all. A game whose pass somehow carried a season
+    /// would still print nothing, which is the right way round — the hobby says what it has.
+    /// </summary>
+    int? SeasonNumber,
+
+    int? EpisodeNumber,
+
     string? LatestNotePreview);

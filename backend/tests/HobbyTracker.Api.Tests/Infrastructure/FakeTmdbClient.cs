@@ -17,9 +17,13 @@ namespace HobbyTracker.Api.Tests.Infrastructure;
 public sealed class FakeTmdbClient : ITmdbClient
 {
     private readonly List<(string Search, int Limit)> _calls = [];
+    private readonly List<(string Search, int Limit)> _tvCalls = [];
 
     /// <summary>Every search this client was asked for, in order.</summary>
     public IReadOnlyList<(string Search, int Limit)> Calls => _calls;
+
+    /// <summary>Every show search this client was asked for, in order.</summary>
+    public IReadOnlyList<(string Search, int Limit)> TvCalls => _tvCalls;
 
     /// <summary>Canned results per search term. Falls back to <see cref="DefaultResults"/>.</summary>
     public Dictionary<string, List<TmdbMovie>> Results { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -107,5 +111,104 @@ public sealed class FakeTmdbClient : ITmdbClient
                     .. (directors ?? []).Select(name => new TmdbCrewMember { Job = "Director", Name = name }),
                 ],
             },
+        };
+
+    /// <summary>Canned show results per search term. Falls back to <see cref="DefaultTvResults"/>.</summary>
+    public Dictionary<string, List<TmdbTvShow>> TvResults { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    public List<TmdbTvShow> DefaultTvResults { get; set; } = [];
+
+    /// <summary>Every show id anybody asked for the detail of, in order.</summary>
+    public List<int> TvIdLookups { get; } = [];
+
+    /// <summary>
+    /// Canned show details per id. Kept apart from <see cref="ById"/> rather than sharing it,
+    /// because TMDB's film and show ids are separate sequences — one dictionary would make 1396
+    /// mean two things here exactly as it does upstream, which is the confusion the second
+    /// source row exists to prevent in the database.
+    /// </summary>
+    public Dictionary<int, TmdbTvShowDetail> TvById { get; } = [];
+
+    public Task<IReadOnlyList<TmdbTvShow>> SearchTvAsync(
+        string search, int limit, CancellationToken cancellationToken)
+    {
+        _tvCalls.Add((search, limit));
+        ThrowIfAsked();
+
+        var results = TvResults.TryGetValue(search, out var found) ? found : DefaultTvResults;
+
+        return Task.FromResult<IReadOnlyList<TmdbTvShow>>([.. results.Take(limit)]);
+    }
+
+    public Task<TmdbTvShowDetail?> GetTvAsync(int id, CancellationToken cancellationToken)
+    {
+        TvIdLookups.Add(id);
+        ThrowIfAsked();
+
+        return Task.FromResult(TvById.GetValueOrDefault(id));
+    }
+
+    public void SetTvResults(string search, params TmdbTvShow[] shows) => TvResults[search] = [.. shows];
+
+    /// <summary>A search result, shaped the way /search/tv shapes one.</summary>
+    public static TmdbTvShow Show(
+        int id,
+        string name,
+        string? firstAirDate = null,
+        string? posterPath = null,
+        int? voteCount = null) => new()
+        {
+            Id = id,
+            Name = name,
+            FirstAirDate = firstAirDate,
+            PosterPath = posterPath,
+            VoteCount = voteCount,
+        };
+
+    /// <summary>
+    /// A detail, shaped the way /tv/{id} shapes one.
+    ///
+    /// <paramref name="episodeRunTime"/> defaults to empty rather than to a value, because that
+    /// is what TMDB increasingly answers and a fake that always supplied one would let the
+    /// fallback to <paramref name="lastEpisodeRuntime"/> rot untested.
+    /// </summary>
+    public static TmdbTvShowDetail ShowDetail(
+        int id,
+        string name,
+        string? firstAirDate = null,
+        string? lastAirDate = null,
+        string? status = null,
+        int? seasons = null,
+        int? episodes = null,
+        int[]? episodeRunTime = null,
+        int? lastEpisodeRuntime = null,
+        string? posterPath = null,
+        string[]? genres = null,
+        string[]? creators = null,
+        (int Number, int Episodes, string? Name)[]? seasonList = null) => new()
+        {
+            Id = id,
+            Name = name,
+            FirstAirDate = firstAirDate,
+            LastAirDate = lastAirDate,
+            Status = status,
+            NumberOfSeasons = seasons,
+            NumberOfEpisodes = episodes,
+            EpisodeRunTime = [.. episodeRunTime ?? []],
+            PosterPath = posterPath,
+            Genres = [.. (genres ?? []).Select((genre, index) => new TmdbGenre { Id = index, Name = genre })],
+            CreatedBy = [.. (creators ?? []).Select((creator, index) => new TmdbCreatedBy { Id = index, Name = creator })],
+            Seasons =
+            [
+                .. (seasonList ?? []).Select(season => new TmdbTvSeason
+                {
+                    SeasonNumber = season.Number,
+                    EpisodeCount = season.Episodes,
+                    Name = season.Name,
+                }),
+            ],
+            LastEpisodeToAir = lastEpisodeRuntime is null
+                ? null
+                : new TmdbEpisode { Runtime = lastEpisodeRuntime },
         };
 }

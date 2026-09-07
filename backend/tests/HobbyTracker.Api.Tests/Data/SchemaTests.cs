@@ -189,8 +189,9 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
     public async Task Media_can_exist_without_a_detail_table()
     {
         // TPT means a media row is free to have no detail row at all. It used to say "which is
-        // what a movie will be", and movies have their own table now — so this is books, or tv,
-        // or anything else whose phase has not come. Under TPH it could not be expressed.
+        // what a movie will be", and then "books, or tv" — films and TV both have tables of
+        // their own now, so what is left is books, music, or anything else whose phase has
+        // not come. Under TPH it could not be expressed at all.
         await WithDbAsync(async db =>
         {
             db.Media.Add(new Media
@@ -205,6 +206,7 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(1);
         (await WithDbAsync(db => db.Games.CountAsync(Ct))).ShouldBe(0);
         (await WithDbAsync(db => db.Movies.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.TvShows.CountAsync(Ct))).ShouldBe(0);
     }
 
     [Fact]
@@ -343,6 +345,368 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
 
         (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(2);
     }
+
+    [Fact]
+    public async Task A_show_is_a_table_of_its_own_beside_games_and_movies()
+    {
+        // The third detail table, and the one that says Table-Per-Type was the right call rather
+        // than a lucky one: `tv_shows` carries columns no film has any use for, and `movies` and
+        // `games` are untouched by them. Under TPH all three hobbies' columns would sit on
+        // `media` with most of them null on every row, and this test could not be written.
+        await WithDbAsync(async db =>
+        {
+            db.TvShows.Add(new TvShow
+            {
+                HobbyId = SeedData.Hobbies.Tv,
+                SourceId = SeedData.Sources.TmdbTv,
+                ExternalId = "1396",
+                Title = "Breaking Bad",
+                FirstAirYear = 2008,
+                LastAirYear = 2013,
+                AirStatus = "Ended",
+                NumberOfSeasons = 5,
+                NumberOfEpisodes = 62,
+                EpisodeRuntimeMinutes = 45,
+                Genres = ["Crime", "Drama"],
+                Creators = ["Vince Gilligan"],
+            });
+
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(1);
+        (await WithDbAsync(db => db.TvShows.CountAsync(Ct))).ShouldBe(1);
+        (await WithDbAsync(db => db.Movies.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.Games.CountAsync(Ct))).ShouldBe(0);
+
+        var show = await WithDbAsync(db => db.TvShows.SingleAsync(Ct));
+        show.Genres.ShouldBe(["Crime", "Drama"]);
+        show.Creators.ShouldBe(["Vince Gilligan"]);
+        show.AirStatus.ShouldBe("Ended");
+    }
+
+    [Fact]
+    public async Task A_shows_total_runtime_is_multiplied_by_the_database()
+    {
+        // The whole run is a generated column, so nothing in the application ever writes it and
+        // it cannot drift from the two numbers it comes from. Three places read it — both of
+        // LibraryService's terminal projections and its Length sort arm — and none of them
+        // repeats the arithmetic.
+        var mediaId = await GivenAShowAsync(episodes: 62, episodeRuntime: 45);
+
+        var show = await WithDbAsync(db => db.TvShows.SingleAsync(candidate => candidate.Id == mediaId, Ct));
+
+        show.TotalRuntimeMinutes.ShouldBe(2790);
+    }
+
+    [Fact]
+    public async Task A_show_nobody_timed_has_no_total_runtime_rather_than_nought()
+    {
+        // Null propagates through the multiplication for free, which is the other half of why
+        // this is the database's sum: a show with no episode runtime sorts last under
+        // sort=length rather than as though it took no time at all.
+        var mediaId = await GivenAShowAsync(episodes: 12, episodeRuntime: null);
+
+        var show = await WithDbAsync(db => db.TvShows.SingleAsync(candidate => candidate.Id == mediaId, Ct));
+
+        show.TotalRuntimeMinutes.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Rejects_an_episode_runtime_of_nought()
+    {
+        // TMDB's answer for a show nobody has timed, and the same lie a film's runtime of 0
+        // would be. Loud rather than quiet, because a card would otherwise print nought hours
+        // for a show with sixty-two episodes in it.
+        var mediaId = await GivenAShowAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var show = await db.TvShows.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            show.EpisodeRuntimeMinutes = 0;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_tv_shows_episode_runtime_positive");
+    }
+
+    [Fact]
+    public async Task Rejects_a_show_that_stopped_airing_before_it_started()
+    {
+        var mediaId = await GivenAShowAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var show = await db.TvShows.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            show.FirstAirYear = 2013;
+            show.LastAirYear = 2008;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_tv_shows_year_span");
+    }
+
+    [Fact]
+    public async Task A_shows_seasons_each_carry_their_own_episode_count()
+    {
+        // What the journal's two dropdowns are built on: pick a season and the episode list that
+        // follows is that season's real length. Breaking Bad's are uneven on purpose here — 7
+        // then 13 — because equal ones would let a dropdown that ignored the season pass.
+        var mediaId = await GivenAShowAsync(seasons:
+        [
+            (0, 8, "Specials"),
+            (1, 7, "Season 1"),
+            (2, 13, "Season 2"),
+        ]);
+
+        var seasons = await WithDbAsync(db => db.TvShows
+            .Where(show => show.Id == mediaId)
+            .SelectMany(show => show.Seasons)
+            .OrderBy(season => season.SeasonNumber)
+            .ToListAsync(Ct));
+
+        seasons.Select(season => season.SeasonNumber).ShouldBe([0, 1, 2]);
+        seasons.Select(season => season.EpisodeCount).ShouldBe([8, 7, 13]);
+        seasons[0].Name.ShouldBe("Specials");
+    }
+
+    [Fact]
+    public async Task Rejects_a_second_row_for_one_season_of_one_show()
+    {
+        // The key is (media_id, season_number) rather than a surrogate id, so a show cannot have
+        // two season 3s — the database refuses it rather than the refresh code having to
+        // remember not to write it.
+        var mediaId = await GivenAShowAsync(seasons: [(1, 7, "Season 1")]);
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.Add(new TvSeason { MediaId = mediaId, SeasonNumber = 1, EpisodeCount = 99 });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        exception.InnerException.ShouldBeOfType<PostgresException>()
+            .SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
+    }
+
+    [Fact]
+    public async Task Rejects_a_negative_season_number()
+    {
+        // Nought is Specials and is allowed; below that there is nothing to mean.
+        var mediaId = await GivenAShowAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.Add(new TvSeason { MediaId = mediaId, SeasonNumber = -1, EpisodeCount = 3 });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_tv_seasons_season_number");
+    }
+
+    [Fact]
+    public async Task Deleting_a_show_takes_its_seasons_with_it()
+    {
+        var mediaId = await GivenAShowAsync(seasons: [(1, 7, "Season 1"), (2, 13, "Season 2")]);
+
+        await WithDbAsync(async db =>
+        {
+            var media = await db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            db.Media.Remove(media);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.TvShows.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.Set<TvSeason>().CountAsync(Ct))).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task The_same_tmdb_id_as_a_film_and_as_a_show_is_two_titles()
+    {
+        // The reason TV gets a source row of its own rather than riding on `tmdb`. TMDB numbers
+        // films and shows in separate sequences, so 1396 names a film *and* Breaking Bad. Under
+        // one source row the unique index on (source_id, external_id) makes them one row — and
+        // the upsert would not even report it, because its 23505 recovery re-reads and hands
+        // back whichever got there first. A show that is silently a film.
+        await GivenAMovieAsync(externalId: "1396");
+        await GivenAShowAsync(externalId: "1396");
+
+        (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_pass_records_where_you_are()
+    {
+        // The one idea TV adds that neither games nor films had: a show is something you are
+        // partway through. It lives on the pass rather than on the show because it is a fact
+        // about this watch of it — a rewatch starts again — which is the same argument that puts
+        // hours_played and platform here.
+        var mediaId = await GivenAShowAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.InProgress,
+                SeasonNumber = 3,
+                EpisodeNumber = 7,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var entry = await WithDbAsync(db => db.LogEntries.SingleAsync(Ct));
+        entry.SeasonNumber.ShouldBe(3);
+        entry.EpisodeNumber.ShouldBe(7);
+    }
+
+    [Fact]
+    public async Task Accepts_season_nought_because_that_is_specials()
+    {
+        // TMDB numbers a show's specials as season 0, and tv_seasons stores them as a real
+        // season, so a pass has to be able to point at one. This is why the constraint is >= 0
+        // rather than the >= 1 that reads more naturally.
+        var mediaId = await GivenAShowAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.InProgress,
+                SeasonNumber = 0,
+                EpisodeNumber = 4,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.LogEntries.SingleAsync(Ct))).SeasonNumber.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Rejects_a_negative_season()
+    {
+        var mediaId = await GivenAShowAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.InProgress,
+                SeasonNumber = -1,
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_log_entries_season_range");
+    }
+
+    [Fact]
+    public async Task Rejects_an_episode_of_nought()
+    {
+        // Unlike a season, where nought is Specials, there is no episode zero to mean.
+        var mediaId = await GivenAShowAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.InProgress,
+                SeasonNumber = 1,
+                EpisodeNumber = 0,
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_log_entries_episode_range");
+    }
+
+    [Fact]
+    public async Task Rejects_an_episode_with_no_season_to_be_in()
+    {
+        // "Episode 7" on its own says nothing — seven of which season? The pair is only
+        // meaningful together, so the database refuses the half of it that cannot be read.
+        // A season with no episode is fine and means the opposite: you know where you are to
+        // the season and have not said further.
+        var mediaId = await GivenAShowAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.InProgress,
+                SeasonNumber = null,
+                EpisodeNumber = 7,
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_log_entries_episode_needs_season");
+    }
+
+    [Fact]
+    public async Task Accepts_a_season_with_no_episode_named_yet()
+    {
+        var mediaId = await GivenAShowAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.InProgress,
+                SeasonNumber = 2,
+                EpisodeNumber = null,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var entry = await WithDbAsync(db => db.LogEntries.SingleAsync(Ct));
+        entry.SeasonNumber.ShouldBe(2);
+        entry.EpisodeNumber.ShouldBeNull();
+    }
+
+    private async Task<int> GivenAShowAsync(
+        string externalId = "1",
+        int? episodes = null,
+        int? episodeRuntime = null,
+        (int Number, int Episodes, string? Name)[]? seasons = null)
+    {
+        return await WithDbAsync(async db =>
+        {
+            var show = new TvShow
+            {
+                HobbyId = SeedData.Hobbies.Tv,
+                SourceId = SeedData.Sources.TmdbTv,
+                ExternalId = externalId,
+                Title = $"Show {externalId}",
+                NumberOfEpisodes = episodes,
+                EpisodeRuntimeMinutes = episodeRuntime,
+                Seasons =
+                [
+                    .. (seasons ?? []).Select(season => new TvSeason
+                    {
+                        SeasonNumber = season.Number,
+                        EpisodeCount = season.Episodes,
+                        Name = season.Name,
+                    }),
+                ],
+            };
+
+            db.TvShows.Add(show);
+            await db.SaveChangesAsync(Ct);
+            return show.Id;
+        });
+    }
+
 
     private async Task<int> GivenAMovieAsync(string externalId = "1")
     {

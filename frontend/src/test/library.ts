@@ -29,6 +29,8 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     primaryGenre: null,
     lengthHours: null,
     hltbPending: false,
+    seasonNumber: null,
+    episodeNumber: null,
     latestNotePreview: null,
     ...overrides,
   };

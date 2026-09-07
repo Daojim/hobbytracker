@@ -1,13 +1,14 @@
 # HobbyTracker
 
 A personal hobby-tracking and journaling app — what you played or watched, when, and what you
-thought of it. Games and films, with TV, anime, books and music sharing the same schema later.
+thought of it. Games, films and television, with anime, books and music sharing the same schema
+later.
 
-**Status: deployed and in use, behind a sign-in.** Two hobbies — games and films — sharing one
-board, one journal and one schema. A kanban board with a drag, a journal drawer over it, IGDB and
-TMDB search, HowLongToBeat estimates, eight themes, and Google/Discord OAuth with every pass and
-note scoped to whoever wrote it. The next things to build are a title detail page and a year in
-review — see [Roadmap](#roadmap).
+**Status: deployed and in use, behind a sign-in.** Three hobbies — games, films and TV — sharing
+one board, one journal and one schema. A kanban board with a drag, a journal drawer over it, IGDB
+and TMDB search, HowLongToBeat estimates, a show's season and episode on the card, eight themes,
+and Google/Discord OAuth with every pass and note scoped to whoever wrote it. The next things to
+build are a title detail page and a year in review — see [Roadmap](#roadmap).
 
 ---
 
@@ -27,8 +28,10 @@ Search sits above the board rather than on a screen of its own, so the column a 
 in is visible while you decide.
 
 Metadata comes from [IGDB](https://api-docs.igdb.com/) for games and
-[TMDB](https://developer.themoviedb.org/) for films, and is cached locally, so a journal entry
-always has something stable to point at even if the provider later moves or deletes a record.
+[TMDB](https://developer.themoviedb.org/) for films and television, and is cached locally, so a
+journal entry always has something stable to point at even if the provider later moves or deletes
+a record. Films and shows are separate sources rather than one: TMDB numbers them in separate
+sequences, so film 1396 and show 1396 are different titles that share a number.
 
 ```console
 $ curl -b jar "localhost:5173/api/games?search=hollow%20knight&limit=1"
@@ -107,6 +110,10 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `GET /api/movies/{id}` | one film plus everything you logged against it |
 | `PUT /api/movies/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `POST /api/movies/refresh` | re-fetch every TMDB title on the board. One request per film |
+| `GET /api/tv?search=&limit=` | search TMDB for shows, cache the results, return them in TMDB's order |
+| `GET /api/tv/{id}` | one show, its seasons, and everything you logged against it |
+| `PUT /api/tv/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
+| `POST /api/tv/refresh` | re-fetch every TMDB show on the board. One request per show |
 | `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
 | `GET PUT DELETE /api/log-entries/{id}` | |
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
@@ -350,8 +357,13 @@ to prevent something, the test for it is checked by reintroducing the thing.
       word a hobby owns — its column names, its genres, what a pass of that kind even records —
       moved into one file per hobby, so a film's journal has a director and a runtime where a
       game's has a developer and four completion estimates
+- [x] A third hobby, on the same provider and a source row of its own. TV from TMDB — seasons in
+      a table beside `tv_shows` because EF Core refuses JSON on a Table-Per-Type entity, a run
+      length that is an estimate where a film's runtime is exact, and the first pass field no
+      other hobby has: which season and episode you are on, shown on the card as `S3 E7` because
+      being partway through is the whole point of a television board
 - [ ] A title detail page, and a year in review
-- [ ] TV, anime, books, music — each a sibling detail table plus its source integration
+- [ ] Anime, books, music — each a sibling detail table plus its source integration
 
 Architecture and schema notes for anyone (or anything) working in the repo live in
 [CLAUDE.md](CLAUDE.md), which routes to one file per area under [docs/](docs).

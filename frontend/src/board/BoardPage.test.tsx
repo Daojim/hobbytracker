@@ -5,6 +5,7 @@ import { BoardPage } from './BoardPage';
 import { boardServer, libraryItem } from '../test/library';
 import { gameDetail, journalServer, logEntry } from '../test/games';
 import { movieDetail, movieJournalServer } from '../test/movies';
+import { tvShowDetail, tvJournalServer } from '../test/tv';
 import { BackButton, renderWithProviders } from '../test/render';
 
 /**
@@ -316,6 +317,91 @@ describe('BoardPage, on films', () => {
 
     expect(await screen.findByRole('button', { name: 'Close' })).toBeInTheDocument();
     expect(screen.getByLabelText('Watched')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The same page again, at `/board/tv`.
+ *
+ * Fewer cases than films, because films already proved that the slug reaches every word. What
+ * is here is the two things only a show has: a length label that had to be a different word,
+ * and a card that says where you are.
+ */
+describe('BoardPage, on TV', () => {
+  const TV = { route: '/board/tv', path: '/board/:hobby' };
+
+  it('calls the columns what a show in them is called', async () => {
+    boardServer({ hobby: 'tv' });
+
+    renderWithProviders(<BoardPage />, TV);
+    await screen.findByRole('heading', { name: 'Backlog 0' });
+
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(['Dropped 0', 'Backlog 0', 'Watching 0', 'Watched 0']);
+  });
+
+  it('asks the API for the hobby in the address', async () => {
+    const board = boardServer({
+      hobby: 'tv',
+      columns: { Backlog: [libraryItem({ hobby: 'tv', title: 'Severance' })] },
+    });
+
+    renderWithProviders(<BoardPage />, TV);
+
+    expect(await screen.findByText('Severance')).toBeInTheDocument();
+    expect(board.queriesFor('Backlog')[0]?.get('hobby')).toBe('tv');
+  });
+
+  it('orders a column by the whole run, under a name Runtime is not free to take', async () => {
+    // `sort=length` again, and the third word for it. Runtime is spoken for on this board — the
+    // drawer's facts band calls one episode that — so the sort has to say Time to watch or two
+    // controls a few inches apart would name numbers that differ by a factor of nineteen.
+    const board = boardServer({ hobby: 'tv' });
+
+    renderWithProviders(<BoardPage />, TV);
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Watched order' }),
+      'length',
+    );
+
+    await waitFor(() => expect(board.queriesFor('Completed').at(-1)?.get('sort')).toBe('length'));
+    expect(
+      within(screen.getByRole('combobox', { name: 'Watched order' })).getByRole('option', {
+        name: 'Time to watch',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('says on the card which episode you are up to', async () => {
+    boardServer({
+      hobby: 'tv',
+      columns: {
+        InProgress: [
+          libraryItem({ hobby: 'tv', title: 'Severance', seasonNumber: 2, episodeNumber: 4 }),
+        ],
+      },
+    });
+
+    renderWithProviders(<BoardPage />, TV);
+
+    expect(await screen.findByText('S2 E4')).toBeInTheDocument();
+  });
+
+  it("opens a show's journal, with a show's fields", async () => {
+    boardServer({
+      hobby: 'tv',
+      columns: { Backlog: [libraryItem({ mediaId: 5005, hobby: 'tv', title: 'Severance' })] },
+    });
+    tvJournalServer({ detail: tvShowDetail({ title: 'Severance' }) });
+
+    renderWithProviders(<BoardPage />, TV);
+    await userEvent.click(await screen.findByRole('button', { name: 'Severance' }));
+
+    expect(await screen.findByRole('button', { name: 'Close' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Season')).toBeInTheDocument();
+    expect(screen.getByLabelText('Episode')).toBeInTheDocument();
     expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
   });
 });

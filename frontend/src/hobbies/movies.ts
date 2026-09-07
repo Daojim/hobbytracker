@@ -100,6 +100,9 @@ export const MOVIES: HobbyDefinition = {
         // this, so an empty list here is not what takes the platform select away — but a hobby
         // with no platforms and a control offering them would be the same bug twice.
         platforms: [],
+        // Nor seasons. Two empty lists rather than one shape with two nullable halves, so a
+        // hobby that gains one idea and not the other says so.
+        seasons: [],
         // Minutes rather than the board row's hours: this is read straight off TMDB, so there
         // is no round trip to undo. Absent, not "unknown", for a film TMDB has no runtime for —
         // and for one that has only ever been searched for, since search does not carry it.
@@ -117,6 +120,10 @@ export const MOVIES: HobbyDefinition = {
     setHltbId: null,
 
     // The two the user asked for by name. A film's pass is a rating and two dates.
-    fields: { hoursPlayed: false, platform: false },
+    fields: { hoursPlayed: false, platform: false, progress: false },
   },
+
+  // A film is watched or it is not. Being partway through one is a Tuesday rather than a state
+  // worth recording, which is exactly what separates it from a show.
+  progress: null,
 };

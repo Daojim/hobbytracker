@@ -29,9 +29,21 @@ public static class SeedData
         public const int Manual = 2;
         public const int Tmdb = 3;
 
+        // TMDB twice, and this is the one seeded id that needs its reason written down.
+        // TMDB numbers films and shows in *separate sequences*, so 1396 is Breaking Bad
+        // and also some unrelated film. media has one unique index on
+        // (source_id, external_id), so under a single `tmdb` row those two are one row —
+        // and the upsert would not even error, because its 23505 recovery re-reads and
+        // hands back whichever got there first. A show that is silently a film.
+        //
+        // Two rows rather than widening that index, because a source records where a
+        // record came from and these genuinely are different places: /movie/ and /tv/.
+        public const int TmdbTv = 4;
+
         public const string IgdbName = "igdb";
         public const string ManualName = "manual";
         public const string TmdbName = "tmdb";
+        public const string TmdbTvName = "tmdb-tv";
 
         /// <summary>
         /// Slug for a seeded source id, for shaping API responses without a join.
@@ -44,6 +56,7 @@ public static class SeedData
             Igdb => IgdbName,
             Manual => ManualName,
             Tmdb => TmdbName,
+            TmdbTv => TmdbTvName,
             _ => "unknown",
         };
     }
@@ -66,6 +79,7 @@ public static class SeedData
         modelBuilder.Entity<Source>().HasData(
             new Source { Id = Sources.Igdb, Name = Sources.IgdbName, BaseUrl = "https://api.igdb.com/v4/" },
             new Source { Id = Sources.Manual, Name = Sources.ManualName, BaseUrl = null },
-            new Source { Id = Sources.Tmdb, Name = Sources.TmdbName, BaseUrl = "https://api.themoviedb.org/3/" });
+            new Source { Id = Sources.Tmdb, Name = Sources.TmdbName, BaseUrl = "https://api.themoviedb.org/3/" },
+            new Source { Id = Sources.TmdbTv, Name = Sources.TmdbTvName, BaseUrl = "https://api.themoviedb.org/3/tv/" });
     }
 }

@@ -1,5 +1,9 @@
 /**
- * A stand-in for TMDB, serving both of the endpoints the app uses.
+ * A stand-in for TMDB, serving all four of the endpoints the app uses.
+ *
+ * **One stub and not two, and that is forced rather than tidy.** There is one `Tmdb:BaseUrl` and
+ * one bearer, so a second server on a second port would be unreachable — films and shows are the
+ * same host to the same client. Adding TV here is a catalogue and two routes.
  *
  * The same argument the IGDB stub makes: `media` rows are only ever written by a search, so
  * seeding through the API means calling one — and `Tmdb:BaseUrl` is a plain option, so pointing
@@ -79,6 +83,141 @@ const CATALOGUE = [
 ];
 
 /**
+ * The shows, chosen so that each spec measures something rather than agreeing with a constant.
+ *
+ * Five of the six are here for a stated reason, and removing any of them turns a spec into one
+ * that passes for the wrong cause:
+ *
+ * - **`episodeRunTime: []` with a `lastEpisodeRuntime`.** The fallback chain is load-bearing,
+ *   not defensive: `episode_run_time` is empty on most recent entries, so this is the *normal*
+ *   path for anything new and not a corner case. A catalogue where every show filled the array
+ *   in would leave the fallback untested and looking optional.
+ * - **No runtime anywhere.** What untimed-sorts-last is measured against, and the same argument
+ *   as the film nobody timed.
+ * - **A season 0.** Specials are real, TMDB lists them alongside the rest, and the column's
+ *   constraint is `>= 0` rather than `>= 1` because of them.
+ * - **Uneven season lengths — 13, 12, 12, 13, 10.** So a spec that changes the season and counts
+ *   the episode options is watching the dropdown re-size rather than watching it be coincidentally
+ *   right. Two equal seasons would prove nothing.
+ * - **Still running, so `lastAirDate` is absent.** The year span renders `2022–` rather than
+ *   `2022–undefined`, and null there is a fact about the show rather than missing data.
+ *
+ * Genres are TMDB's *television* vocabulary, which is not its film one: Sci-Fi & Fantasy is one
+ * genre here and two on a film, and there is no Horror at all.
+ */
+const TV_CATALOGUE = [
+  // Still running, and the ordinary case: a filled runtime array and a Specials season.
+  {
+    id: 5001, name: 'Severance', firstAirDate: '2022-02-18', lastAirDate: null,
+    status: 'Returning Series', episodeRunTime: [47], lastEpisodeRuntime: null,
+    genres: ['Drama', 'Mystery', 'Sci-Fi & Fantasy'], creators: ['Dan Erickson'],
+    seasons: [
+      { number: 0, name: 'Specials', episodes: 3 },
+      { number: 1, name: 'Season 1', episodes: 9 },
+      { number: 2, name: 'Season 2', episodes: 10 },
+    ],
+  },
+  // The empty-array case, which is the normal one for anything recent. Its runtime can only be
+  // reached through `last_episode_to_air`.
+  {
+    id: 5002, name: 'The Bear', firstAirDate: '2022-06-23', lastAirDate: null,
+    status: 'Returning Series', episodeRunTime: [], lastEpisodeRuntime: 32,
+    genres: ['Drama', 'Comedy'], creators: ['Christopher Storer'],
+    seasons: [
+      { number: 1, name: 'Season 1', episodes: 8 },
+      { number: 2, name: 'Season 2', episodes: 10 },
+    ],
+  },
+  // Uneven seasons, so the episode dropdown is provably sized from the season that was chosen.
+  {
+    id: 5003, name: 'The Wire', firstAirDate: '2002-06-02', lastAirDate: '2008-03-09',
+    status: 'Ended', episodeRunTime: [59], lastEpisodeRuntime: null,
+    genres: ['Crime', 'Drama'], creators: ['David Simon'],
+    seasons: [
+      { number: 1, name: 'Season 1', episodes: 13 },
+      { number: 2, name: 'Season 2', episodes: 12 },
+      { number: 3, name: 'Season 3', episodes: 12 },
+      { number: 4, name: 'Season 4', episodes: 13 },
+      { number: 5, name: 'Season 5', episodes: 10 },
+    ],
+  },
+  // Co-created, so a byline with two names in it is exercised rather than assumed.
+  {
+    id: 5004, name: 'Arcane', firstAirDate: '2021-11-06', lastAirDate: '2024-11-23',
+    status: 'Ended', episodeRunTime: [41], lastEpisodeRuntime: null,
+    genres: ['Animation', 'Sci-Fi & Fantasy', 'Action & Adventure'],
+    creators: ['Christian Linke', 'Alex Yee'],
+    seasons: [
+      { number: 1, name: 'Season 1', episodes: 9 },
+      { number: 2, name: 'Season 2', episodes: 9 },
+    ],
+  },
+  // Began and ended in one year, so the span reads `2019` once rather than `2019-2019`.
+  {
+    id: 5005, name: 'Chernobyl', firstAirDate: '2019-05-06', lastAirDate: '2019-06-03',
+    status: 'Ended', episodeRunTime: [65], lastEpisodeRuntime: null,
+    genres: ['Drama', 'War & Politics'], creators: ['Craig Mazin'],
+    seasons: [{ number: 1, name: 'Season 1', episodes: 5 }],
+  },
+  // No runtime anywhere — neither the array nor the last episode. The untimed one.
+  {
+    id: 5006, name: 'A Show Nobody Timed', firstAirDate: '1994-01-01', lastAirDate: '1994-12-31',
+    status: 'Ended', episodeRunTime: [], lastEpisodeRuntime: null,
+    genres: ['Documentary'], creators: [],
+    seasons: [{ number: 1, name: 'Season 1', episodes: 4 }],
+  },
+];
+
+/**
+ * `/search/tv` answers with less than it knows, exactly as the film one does — and with a
+ * *different field name for the title*, which is the one place the two endpoints diverge.
+ *
+ * A show is `name` and `first_air_date` where a film is `title` and `release_date`. Mirrored
+ * rather than harmonised: a stub that helpfully sent `title` would let a client reading the
+ * wrong field pass, and the symptom in production is a title-less result the upsert skips with
+ * no error anywhere.
+ */
+const asShowSearchResult = (show) => ({
+  id: show.id,
+  name: show.name,
+  first_air_date: show.firstAirDate,
+  poster_path: null,
+  genre_ids: show.genres.map((_, index) => 18 + index),
+  vote_count: 1000 - show.id,
+  popularity: 50,
+});
+
+/** `/tv/{id}`, which needs no `append_to_response` — creators and seasons are on the base body. */
+const asShowDetail = (show) => ({
+  id: show.id,
+  name: show.name,
+  first_air_date: show.firstAirDate,
+  // Absent rather than null for a show still running, which is what TMDB does.
+  ...(show.lastAirDate === null ? {} : { last_air_date: show.lastAirDate }),
+  status: show.status,
+  number_of_seasons: show.seasons.filter((season) => season.number > 0).length,
+  // Specials count towards neither, which is what TMDB does: `number_of_seasons` is 2 for a
+  // show with a Specials and two real ones. The generated `total_runtime_minutes` multiplies
+  // this figure, so counting season 0 here would inflate every card badge on the board.
+  number_of_episodes: show.seasons
+    .filter((season) => season.number > 0)
+    .reduce((total, season) => total + season.episodes, 0),
+  poster_path: null,
+  episode_run_time: show.episodeRunTime,
+  ...(show.lastEpisodeRuntime === null
+    ? {}
+    : { last_episode_to_air: { runtime: show.lastEpisodeRuntime } }),
+  genres: show.genres.map((name, index) => ({ id: 18 + index, name })),
+  created_by: show.creators.map((name, index) => ({ id: index + 1, name })),
+  seasons: show.seasons.map((season) => ({
+    season_number: season.number,
+    name: season.name,
+    episode_count: season.episodes,
+    air_date: show.firstAirDate,
+  })),
+});
+
+/**
  * `/search/movie` answers with less than it knows: no runtime, and genres only as ids.
  *
  * Mirrored rather than simplified, because the whole enrichment design follows from it. A stub
@@ -136,14 +275,17 @@ const flatten = (value) =>
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
-const matches = (term) => {
+const matching = (catalogue, term, nameOf) => {
   const wanted = flatten(term);
   if (wanted === '') {
     return [];
   }
 
-  return CATALOGUE.filter((film) => flatten(film.title).includes(wanted));
+  return catalogue.filter((entry) => flatten(nameOf(entry)).includes(wanted));
 };
+
+const matches = (term) => matching(CATALOGUE, term, (film) => film.title);
+const showMatches = (term) => matching(TV_CATALOGUE, term, (show) => show.name);
 
 const send = (response, status, body) => {
   response.writeHead(status, { 'Content-Type': 'application/json' });
@@ -167,6 +309,38 @@ const server = createServer((request, response) => {
       status_code: 7,
       status_message: 'Invalid API key: You must be granted a valid key.',
     });
+    return;
+  }
+
+  if (url.pathname === '/3/search/tv') {
+    const found = showMatches(url.searchParams.get('query') ?? '');
+
+    send(response, 200, {
+      page: 1,
+      results: found.map(asShowSearchResult),
+      total_pages: 1,
+      total_results: found.length,
+    });
+    return;
+  }
+
+  // Anchored, as the film route below is. `/3/tv/5003/season/1` is a real TMDB endpoint this app
+  // does not call, and an unanchored pattern would answer it with the whole show — which is the
+  // shape of mistake a stub is supposed to make loud.
+  const show = /^\/3\/tv\/(\d+)$/.exec(url.pathname);
+  if (show !== null) {
+    const found = TV_CATALOGUE.find((entry) => entry.id === Number(show[1]));
+
+    if (found === undefined) {
+      send(response, 404, {
+        success: false,
+        status_code: 34,
+        status_message: 'The resource you requested could not be found.',
+      });
+      return;
+    }
+
+    send(response, 200, asShowDetail(found));
     return;
   }
 

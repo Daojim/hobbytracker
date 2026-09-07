@@ -26,6 +26,29 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
             table.HasCheckConstraint(
                 "ck_log_entries_timestamp_order",
                 "started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at");
+
+            // Where you are in a show, and the two halves of it are constrained differently on
+            // purpose. Season nought is TMDB's Specials and is a real season, so it is allowed;
+            // there is no episode zero, so that one starts at 1.
+            table.HasCheckConstraint(
+                "ck_log_entries_season_range",
+                "season_number IS NULL OR season_number >= 0");
+
+            table.HasCheckConstraint(
+                "ck_log_entries_episode_range",
+                "episode_number IS NULL OR episode_number >= 1");
+
+            // "Episode 7" with no season says nothing. The other way round is fine and means
+            // something real — knowing where you are to the season and no further. Three named
+            // constraints rather than one conjunction, so a violation names the rule it broke.
+            //
+            // No upper bound against the show's own season or episode counts, deliberately: a
+            // season gets re-cut upstream, and refusing a value that was true when it was
+            // written is the mistake Platform's comment already argues against. The dropdown
+            // offers the shape that exists now; the column keeps the record.
+            table.HasCheckConstraint(
+                "ck_log_entries_episode_needs_season",
+                "episode_number IS NULL OR season_number IS NOT NULL");
         });
 
         // Stored as text rather than an int ordinal, so `select status from log_entries`

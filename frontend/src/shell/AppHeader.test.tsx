@@ -28,7 +28,7 @@ describe('AppHeader', () => {
     expect(within(nav()).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       'Games',
       'Movies',
-      'TV Soon',
+      'TV',
       'Anime Soon',
       'Books Soon',
       'Music Soon',

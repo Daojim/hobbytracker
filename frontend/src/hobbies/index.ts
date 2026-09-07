@@ -2,6 +2,7 @@ import type { LogStatus } from '../api/types';
 import type { Hobby } from '../shell/hobbies';
 import { GAMES } from './games';
 import { MOVIES } from './movies';
+import { TV } from './tv';
 import type { Genre, HobbyDefinition } from './types';
 
 export type {
@@ -13,6 +14,7 @@ export type {
   TitleDetail,
   TitleFact,
   TitleHltb,
+  TitleSeason,
 } from './types';
 
 /**
@@ -26,6 +28,7 @@ export type {
 const DEFINITIONS: Partial<Record<Hobby, HobbyDefinition>> = {
   games: GAMES,
   movies: MOVIES,
+  tv: TV,
 };
 
 /**

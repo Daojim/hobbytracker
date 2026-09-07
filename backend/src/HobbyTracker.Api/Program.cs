@@ -138,9 +138,11 @@ builder.Services.AddScoped<IHltbService, HltbService>();
 // registered in is not meaningful: LogEntryService calls every one of them. See IMediaAdded.
 builder.Services.AddScoped<IMediaAdded, HltbOnMediaAdded>();
 builder.Services.AddScoped<IMediaAdded, TmdbOnMediaAdded>();
+builder.Services.AddScoped<IMediaAdded, TvOnMediaAdded>();
 
 builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
 builder.Services.AddScoped<IMovieCatalogService, MovieCatalogService>();
+builder.Services.AddScoped<ITvCatalogService, TvCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
