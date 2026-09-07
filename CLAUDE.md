@@ -199,6 +199,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── Directory.Packages.props   ALL package versions (central management)
+    ├── Directory.Build.props      keeps bin/ and obj/ out of the source globs whatever
+    │                              BaseOutputPath is. Not optional — see Tests
     ├── src/HobbyTracker.Api/
     │   ├── Program.cs        composition root — DI wiring lives here, nowhere else
     │   ├── Domain/           EF entities, no attributes, no persistence concerns
@@ -236,7 +238,8 @@ cd frontend && npm run test:e2e                     # a real browser
 Note `--solution`: the .NET 10 SDK's Microsoft.Testing.Platform mode (opted into via `global.json`)
 takes it, where the old VSTest mode took a bare path. The backend suite starts its own throwaway
 Postgres via Testcontainers, so it neither needs nor touches the docker-compose database — but it does
-need Docker running. A full run is under ten seconds.
+need Docker running. A full run is about twenty seconds, and `npm run test:e2e` about two and a
+half minutes end to end.
 
 **A dev server blocks a build, and the ports being one apart never saves you.** Windows will not let a
 build overwrite `bin/Debug/net10.0/HobbyTracker.Api.exe` while a `dotnet run` of yours is executing
@@ -252,6 +255,11 @@ from config.webServer was not able to start"*. **`BaseOutputPath: 'bin/e2e/'` in
   sibling `bin-e2e/`, so the existing `[Bb]in/` rule in `.gitignore` already covers it.
 - **Reproducing the lock needs a `touch`.** With nothing changed MSBuild skips the copy, never
   attempts the locked file, and the suite passes while telling you nothing.
+- **`backend/Directory.Build.props` is what keeps the trick from eating the machine, and it is not
+  optional.** The SDK excludes only `$(BaseOutputPath)**` from the default globs — so the moment
+  that points at `bin/e2e/`, the sibling `bin/testrun/` becomes ordinary Content and the build
+  **copies it into the output**. The next run does it in the other direction, and it compounds.
+  See **A build that gets slower every time you run it** below.
 
 **`dotnet test` has no such fix and hits the same lock** — one environment variable at the call site,
 because unlike the e2e run this is a thing you type rather than a thing that runs itself. Stopping the
@@ -306,34 +314,49 @@ for a test run to delete your backlog. Truncation leaves `hobby_lu` and `source_
 as Respawn does — but it does take `users` and `auth_identities`, so a run starts with nobody signed up
 and one spec cannot be satisfied by the sign-in of the one before it.
 
-**The e2e API's `webServer` can exceed its ten-minute timeout, and it is the machine rather than
-the change.** That one entry runs **two dotnet builds in sequence** — the chained `dotnet ef
-database update`, whose design-time build has to load the assembly to find the DbContext, and then
-`dotnet run`, which builds again. Measured here: a bare `dotnet build` of the API into `bin/e2e/`
-takes **2m25s**, the `dotnet ef` step has been seen at **4 GB resident**, and an earlier session
-timed that step alone at roughly **fourteen minutes**. The four stubs and Vite come up in
-seconds; it is only ever this entry.
+### A build that gets slower every time you run it
 
-**Read the message, because the two failures here are not the same failure.**
+**Fixed on 6 September 2026 by `backend/Directory.Build.props`. Kept because the symptom was
+misdiagnosed twice, and the second misdiagnosis is in this file's own history.**
 
-| what you see | what it is |
+For weeks the e2e suite's API `webServer` would blow through its ten-minute timeout. It was
+blamed on the machine and on a live virus scanner. **It was neither.** The build was slow because
+**each run made the next one slower**, and nothing anywhere said so.
+
+The SDK excludes `$(BaseOutputPath)**` from the default Compile/Content/None globs. That is
+sufficient while `BaseOutputPath` is its default `bin/` — but **two things here override it**, the
+e2e run to `bin/e2e/` and `dotnet test` to `bin/testrun/`, both to dodge the build lock above. With
+it pointed at `bin/e2e/`, the sibling `bin/testrun/` is no longer excluded, so it is globbed as
+ordinary Content and **copied into the output**. The next run, pointed the other way, copies the
+now-larger tree back. It doubles.
+
+What that had reached, measured before the fix:
+
+| | |
 |---|---|
-| `Timed out waiting 600000ms from config.webServer` | this — the builds did not finish in the window |
-| `Process from config.webServer was not able to start` | the **build lock**: a `dotnet run` of yours is holding `bin/`, or Docker is not up |
+| `bin/` across the two projects | **289,490 files, 1.68 GB** |
+| Nesting | `bin/e2e/…/bin/testrun/…/bin/e2e/…` **twenty-five levels deep** |
+| A *no-op* incremental build | **3m21s** — 37.9s in `DefineStaticWebAssets`, 23.2s in `_CopyOutOfDateSourceItemsToOutputDirectory`, both just walking the pile |
+| The same build, after | **7.6s** |
+| `npm run test:e2e`, start to finish | **timed out at 10m** → **2m37s, 100 specs** |
 
-The workaround is reliable and takes about three minutes:
+**What made it hard to see.** Every symptom pointed somewhere else. Playwright reports a slow
+`webServer` the same way it reports a missing database. `git status` is clean throughout, because
+`bin/` is ignored. The build genuinely is compute-bound, so "the machine is busy" fits. And it is
+*intermittent by construction* — it only crosses the ten-minute line once the pile is big enough,
+which is why it worked, then flaked, then failed reliably.
+
+**The measurement that broke it open was `-clp:PerformanceSummary`.** CPU sampling had already
+ruled out the virus scanner — the build processes burned ~1s of CPU per second of wall clock,
+which is compute-bound, where AV interference looks like *low* CPU and high wall time. The
+performance summary then named `DefineStaticWebAssets` and the copy target, and Static Web Assets
+has no business taking 38 seconds in an API with no `wwwroot`.
+
+**If a build here is ever mysteriously slow, count the files in `bin/` before anything else.**
 
 ```bash
-BaseOutputPath='bin/e2e/' dotnet build backend/src/HobbyTracker.Api/HobbyTracker.Api.csproj
-# then run the built dll with the env from playwright.config.ts's API entry, and let
-# `reuseExistingServer: true` adopt it. Observed: it answers within ten seconds.
+find backend/src/HobbyTracker.Api/bin -type f | wc -l    # ~200 is right; 100,000 is the fault
 ```
-
-**The migration can complete even though the deploy of it timed out** — the `dotnet ef` half is
-first in the chain, so it is `dotnet run` that overruns. Observed once on 6 September:
-`hobbytracker_e2e` had the new `movies` table after the timeout. **Check the table before
-concluding the migration is what failed.** **`prepare-database.mjs` could take `--no-build`**,
-which would take one of the two builds off the critical path; named twice now, still not done.
 
 **Do not pipe a suite through `tail` — the exit code you get back is `tail`'s.** A run that
 reports success while a spec failed is worse than no run at all, and this cost a merge: `npm run
@@ -413,6 +436,7 @@ here**.
 | **Options captured from `builder.Configuration` while `Program.cs` runs miss any source added afterwards** — which is exactly what `ApiFactory` does. It surfaced once as all 153 endpoint tests 500ing on an empty ClientId | `docs/auth.md` |
 | **Data Protection falls back to keys held only in memory when its directory is not writable**, and says so in a log line nobody is reading at the time — so every redeploy signs everybody out | `docs/deploy.md` |
 | **A new *required* variable in `deploy/compose.yml` does not reach a deployment that already exists.** `.env` lives on the server and is gitignored, so `${NEW_THING:?…}` fails at interpolation — before compose picks a profile or looks at a service — and nothing starts. Loud, and it leaves the running site up; the quiet version is the same variable without `:?` | `docs/deploy.md` |
+| **Overriding `BaseOutputPath` un-excludes every *other* output directory from the source globs**, so the build copies its siblings into itself and compounds every run. It reached 289,490 files and 1.68 GB, nesting twenty-five deep, and presented only as a build that got slower — `git status` stays clean, because `bin/` is ignored. `backend/Directory.Build.props` holds it; delete those two lines and one build reproduces it | **Tests**, above |
 | **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice** | `docs/games-hltb.md` |
 | **A `TitleDetail` field a hobby leaves empty and one it has no idea of look identical**, which is why `journal.fields` is stated rather than inferred: an unenriched game has no platforms either, and it still wants the select. Inferring it hides the control on a title that was merely not fetched yet | `docs/movies-tmdb.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |

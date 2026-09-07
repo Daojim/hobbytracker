@@ -1,0 +1,32 @@
+<Project>
+
+  <!--
+    Keep every build output out of the source globs, whatever BaseOutputPath happens to be.
+
+    The SDK excludes `$(BaseOutputPath)**` from the default Compile/Content/None globs, and that
+    is enough while BaseOutputPath is its default `bin/`. **Two places here override it** — the
+    e2e run sets `BaseOutputPath=bin/e2e/` so a `dotnet run` of yours cannot lock the output, and
+    `dotnet test` is told `bin/testrun/` for the same reason (see **Tests** in CLAUDE.md). The
+    moment it points at `bin/e2e/`, the sibling `bin/testrun/` stops being excluded and becomes
+    ordinary Content — so the build copies it into the output.
+
+    That compounds, because the next run does it in the other direction. Measured before this
+    file existed: `bin/` held 289,490 files and 1.68 GB across the two projects, nested
+    `bin/e2e/…/bin/testrun/…/bin/e2e/…` twenty-five levels deep, and a *no-op* incremental build
+    took 3m21s — 37.9s of it in `DefineStaticWebAssets` and 23.2s copying, both just walking the
+    pile. With this file, the same build is 7.6s.
+
+    It also explains the e2e suite's ten-minute `webServer` timeout, which had been blamed on the
+    machine and on a virus scanner. It was neither: the builds were slow because each run made
+    the next one slower.
+
+    Checked by reintroducing the fault, which is this repo's standard for a rule that exists to
+    prevent something. Delete these two lines, run `BaseOutputPath='bin/testrun/' dotnet build`
+    on the API, and `bin/testrun/Debug/net10.0/bin/` appears after a single build.
+  -->
+  <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+
+</Project>
