@@ -63,6 +63,36 @@ public sealed class TvBoardTests(PostgresFixture postgres) : DatabaseTestBase(po
     }
 
     [Fact]
+    public async Task An_episode_with_no_season_is_a_pass_the_api_accepts()
+    {
+        // The rule that used to refuse this — in `LogEntryRules` and in
+        // `ck_log_entries_episode_needs_season` — was written when every hobby that existed had
+        // a season to name. **Anime does not.** MAL numbers each cour as its own entry, so the
+        // cour is the title and "episode 7" says everything there is to say.
+        //
+        // Asserted here, on the television board, on purpose: this is the layer that had the
+        // rule, and it now has to be permissive for every hobby because a check constraint
+        // cannot ask what hobby a row is — the hobby lives two tables away on `media`, and a
+        // Postgres CHECK cannot contain a subquery. Television keeps the rule where its other
+        // half always was, in a form whose episode list is empty until a season is chosen.
+        var mediaId = await GivenShowAsync("Breaking Bad");
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+
+        var response = await Client.PutAsJsonAsync(
+            $"/api/log-entries/{await LatestEntryIdAsync(mediaId)}",
+            new UpdateLogEntryRequest(
+                LogStatus.InProgress, null, null, null, null, null, EpisodeNumber: 7),
+            Json,
+            Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var row = (await BoardAsync()).Items.ShouldHaveSingleItem();
+        row.SeasonNumber.ShouldBeNull();
+        row.EpisodeNumber.ShouldBe(7);
+    }
+
+    [Fact]
     public async Task A_board_row_says_where_you_are()
     {
         var mediaId = await GivenShowAsync("Breaking Bad");

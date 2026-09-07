@@ -627,15 +627,22 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
     }
 
     [Fact]
-    public async Task Rejects_an_episode_with_no_season_to_be_in()
+    public async Task Accepts_an_episode_with_no_season_to_be_in()
     {
-        // "Episode 7" on its own says nothing — seven of which season? The pair is only
-        // meaningful together, so the database refuses the half of it that cannot be read.
-        // A season with no episode is fine and means the opposite: you know where you are to
-        // the season and have not said further.
+        // `ck_log_entries_episode_needs_season` used to live here, on the argument that
+        // "episode 7" says nothing without a season. That was true of every hobby that existed
+        // when it was written and **it is false for anime**: MAL numbers each cour as its own
+        // entry, so the cour *is* the title and episode 7 says everything there is to say.
+        //
+        // The rule now lives in each hobby's form, which is where the other half of it always
+        // lived: television's episode dropdown is built from the chosen season's episode count
+        // and is empty until one is picked, so a show still cannot record the pair backwards.
+        // The precedent is in the constraint's own former comment, which declined to bound an
+        // episode against the show's counts because a value true when it was written must
+        // outlive the shape it came from.
         var mediaId = await GivenAShowAsync();
 
-        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        await WithDbAsync(async db =>
         {
             db.LogEntries.Add(new LogEntry
             {
@@ -646,9 +653,11 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
                 EpisodeNumber = 7,
             });
             await db.SaveChangesAsync(Ct);
-        }));
+        });
 
-        ShouldBeCheckViolation(exception, "ck_log_entries_episode_needs_season");
+        var entry = await WithDbAsync(db => db.LogEntries.SingleAsync(Ct));
+        entry.SeasonNumber.ShouldBeNull();
+        entry.EpisodeNumber.ShouldBe(7);
     }
 
     [Fact]

@@ -84,12 +84,18 @@ public sealed record CreateLogEntryRequest(
     // 0 is Specials rather than a missing value, so the floor is nought here and one
     // for the episode. Both are also enforced by ck_log_entries_season_range and
     // ck_log_entries_episode_range - reaching those means a 500, and this is a 400.
+    //
+    // An episode with **no** season is deliberately allowed, and used to be refused here.
+    // Anime is why: MAL numbers each cour as its own entry, so the cour is the title and
+    // "episode 7" says everything there is to say. The rule could not be made conditional on
+    // the hobby either — a Postgres CHECK cannot hold a subquery and the hobby lives two
+    // tables away on `media` — so it moved to where its other half always was, in each
+    // hobby's form. Television's episode list is empty until a season is chosen.
     [Range(0, int.MaxValue)] int? SeasonNumber = null,
     [Range(1, int.MaxValue)] int? EpisodeNumber = null) : IValidatableObject
 {
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
-        [.. LogEntryRules.TimestampOrder(StartedAt, CompletedAt),
-         .. LogEntryRules.EpisodeNeedsSeason(SeasonNumber, EpisodeNumber)];
+        [.. LogEntryRules.TimestampOrder(StartedAt, CompletedAt)];
 }
 
 /// <summary>
@@ -117,12 +123,18 @@ public sealed record UpdateLogEntryRequest(
     // 0 is Specials rather than a missing value, so the floor is nought here and one
     // for the episode. Both are also enforced by ck_log_entries_season_range and
     // ck_log_entries_episode_range - reaching those means a 500, and this is a 400.
+    //
+    // An episode with **no** season is deliberately allowed, and used to be refused here.
+    // Anime is why: MAL numbers each cour as its own entry, so the cour is the title and
+    // "episode 7" says everything there is to say. The rule could not be made conditional on
+    // the hobby either — a Postgres CHECK cannot hold a subquery and the hobby lives two
+    // tables away on `media` — so it moved to where its other half always was, in each
+    // hobby's form. Television's episode list is empty until a season is chosen.
     [Range(0, int.MaxValue)] int? SeasonNumber = null,
     [Range(1, int.MaxValue)] int? EpisodeNumber = null) : IValidatableObject
 {
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext) =>
-        [.. LogEntryRules.TimestampOrder(StartedAt, CompletedAt),
-         .. LogEntryRules.EpisodeNeedsSeason(SeasonNumber, EpisodeNumber)];
+        [.. LogEntryRules.TimestampOrder(StartedAt, CompletedAt)];
 }
 
 /// <summary>Rules shared by the create and update bodies.</summary>
@@ -139,24 +151,6 @@ internal static class LogEntryRules
             yield return new ValidationResult(
                 "completedAt cannot be earlier than startedAt.",
                 [nameof(CreateLogEntryRequest.CompletedAt)]);
-        }
-    }
-
-    /// <summary>
-    /// An episode with no season says nothing — seven of which season? The pair is only
-    /// meaningful together, and the other way round is fine: a season with no episode is
-    /// knowing where you are to the season and no further.
-    ///
-    /// ck_log_entries_episode_needs_season enforces it too, but reaching that is a 500 on a
-    /// request the caller could have been told about.
-    /// </summary>
-    public static IEnumerable<ValidationResult> EpisodeNeedsSeason(int? season, int? episode)
-    {
-        if (episode is not null && season is null)
-        {
-            yield return new ValidationResult(
-                "episodeNumber needs a seasonNumber to be in.",
-                [nameof(CreateLogEntryRequest.EpisodeNumber)]);
         }
     }
 }
