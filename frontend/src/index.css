@@ -571,6 +571,32 @@
   --color-genre-drama: oklch(0.5 0.05 30);
 
   /*
+   * Television, and the shortest of the three blocks on purpose.
+   *
+   * Three whole palettes were rendered again — on a real board in all eight themes, with every
+   * pair's separation printed — and the user picked *Shared vocabulary*: seven of the ten hues
+   * are the films list's above, so only the three words television owns outright are minted
+   * here. A documentary is the same evening on either board, and the year-in-review page is the
+   * one screen that will put two hobbies together, which is where a divergence would show.
+   * Sci-Fi & Fantasy takes science-fiction's cyan and Action & Adventure takes action's orange,
+   * so `hobbies/tv.ts` points at those tokens rather than adding two more.
+   *
+   * Its floor is War & Politics against Action & Adventure at 0.114, above the films list's own
+   * 0.120 only in the sense that both clear the bar `palette.test.ts` holds.
+   *
+   * **The finding worth keeping**: the first pass of all three options failed on the same pair.
+   * War & Politics reads naturally as olive, which puts a *third* near-neutral between
+   * Documentary and Drama — and ten hues have room for two, not three. TMDB's television genres
+   * have no Horror, so the deep-red corner was unclaimed; War & Politics took it, and every
+   * option then cleared the floor. Mystery deliberately carries the same values as Thriller: a
+   * board is one hobby, so the two are never read against each other, and they are the same
+   * word about the same evening.
+   */
+  --color-genre-reality: oklch(0.74 0.13 340);
+  --color-genre-mystery: oklch(0.52 0.16 295);
+  --color-genre-war-politics: oklch(0.53 0.16 15);
+
+  /*
    * A provider's own colours, on the genre block's reasoning exactly: these are content rather
    * than chrome. Google's blue means Google whatever the app is wearing, so they are not
    * per-theme and they sit outside the nine palette blocks. Here rather than as literals in the
