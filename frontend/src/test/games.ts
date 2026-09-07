@@ -78,6 +78,8 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
         hoursPlayed: null,
         startedAt: null,
         completedAt: null,
+        seasonNumber: null,
+        episodeNumber: null,
         loggedAt: '2026-08-21T15:00:00+00:00',
       } satisfies LogEntry);
     }),

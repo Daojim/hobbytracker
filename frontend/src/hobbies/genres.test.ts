@@ -3,6 +3,7 @@ import { automaticGenre, genreStripe, hobbyDefinition, resolveGenre } from './in
 
 const GAMES = hobbyDefinition('games').genres;
 const MOVIES = hobbyDefinition('movies').genres;
+const TV = hobbyDefinition('tv').genres;
 
 describe('automaticGenre', () => {
   it('paints a game as the most specific genre it has', () => {
@@ -36,6 +37,23 @@ describe('automaticGenre', () => {
     // property of the hobby: TMDB's "Science Fiction" is nowhere in IGDB's twenty-odd.
     expect(automaticGenre(MOVIES, ['Drama', 'Science Fiction'])).toBe('Science Fiction');
     expect(automaticGenre(GAMES, ['Drama', 'Science Fiction'])).toBeNull();
+  });
+
+  it("reads a show against TMDB's television list, which is not TMDB's film list", () => {
+    // The same provider and two vocabularies: TMDB's TV genres fold science fiction into
+    // fantasy and action into adventure, and have no Horror or Thriller at all. A show read
+    // against the films list would come back unpainted for exactly the words TV uses most.
+    expect(automaticGenre(TV, ['Drama', 'Sci-Fi & Fantasy'])).toBe('Sci-Fi & Fantasy');
+    expect(automaticGenre(MOVIES, ['Sci-Fi & Fantasy'])).toBeNull();
+    expect(automaticGenre(TV, ['Science Fiction', 'Thriller'])).toBeNull();
+  });
+
+  it('puts what a show is above what it is about, as the other two lists do', () => {
+    // Documentary and Animation lead here for Visual Novel's reason, and Reality is the third
+    // of the same kind — it says what watching it is like whatever the subject is.
+    expect(automaticGenre(TV, ['Drama', 'Documentary'])).toBe('Documentary');
+    expect(automaticGenre(TV, ['Comedy', 'Reality'])).toBe('Reality');
+    expect(automaticGenre(TV, ['Drama', 'Mystery'])).toBe('Mystery');
   });
 
   it('puts the genres that name a form above the ones that name a subject', () => {
@@ -84,6 +102,16 @@ describe('genreStripe', () => {
     expect(genreStripe(GAMES, 'Horror')).toBeNull();
     expect(genreStripe(MOVIES, 'Shooter')).toBeNull();
   });
+
+  it('lets a show share a hue with a film where they share the word', () => {
+    // Deliberate, and the reason the TV palette adds three tokens rather than ten: a documentary
+    // is the same evening on either board, and the year-in-review page is where a divergence
+    // would show. The two words television owns outright get hues of their own.
+    expect(genreStripe(TV, 'Documentary')).toBe('bg-genre-documentary');
+    expect(genreStripe(TV, 'Sci-Fi & Fantasy')).toBe('bg-genre-science-fiction');
+    expect(genreStripe(TV, 'Reality')).toBe('bg-genre-reality');
+    expect(genreStripe(MOVIES, 'Reality')).toBeNull();
+  });
 });
 
 describe('hobbyDefinition', () => {
@@ -101,8 +129,14 @@ describe('hobbyDefinition', () => {
     expect(hobbyDefinition('movies').columnLabel.InProgress).toBe('Watching');
     expect(hobbyDefinition('movies').columnLabel.Completed).toBe('Watched');
 
+    expect(hobbyDefinition('tv').columnLabel.InProgress).toBe('Watching');
+    expect(hobbyDefinition('tv').columnLabel.Completed).toBe('Watched');
+
     expect(hobbyDefinition('games').lengthLabel).toBe('Time to beat');
     expect(hobbyDefinition('movies').lengthLabel).toBe('Runtime');
+    // Not Runtime, which is spoken for on this hobby: a show's facts band already calls one
+    // episode's length that, and the two numbers differ by a factor of nineteen.
+    expect(hobbyDefinition('tv').lengthLabel).toBe('Time to watch');
   });
 
   it('reads one length field two ways', () => {
@@ -110,5 +144,8 @@ describe('hobbyDefinition', () => {
     // drift apart. What that number means, and how it is said, is the hobby's.
     expect(hobbyDefinition('games').formatLength(41.82)).toBe('~41.82 h');
     expect(hobbyDefinition('movies').formatLength(1.93)).toBe('1 h 56 m');
+    // A show takes the tilde a film refuses. Episodes times an *average* episode length is an
+    // estimate, where a film's runtime is exactly how long it is.
+    expect(hobbyDefinition('tv').formatLength(14.88)).toBe('~14.88 h');
   });
 });

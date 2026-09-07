@@ -17,6 +17,8 @@ const item: LibraryItem = {
   primaryGenre: null,
   lengthHours: null,
   hltbPending: false,
+  seasonNumber: null,
+  episodeNumber: null,
   latestNotePreview: null,
 };
 

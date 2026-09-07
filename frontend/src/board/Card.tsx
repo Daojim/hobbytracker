@@ -82,6 +82,10 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   const genre = resolveGenre(hobby.genres, item.genres, item.primaryGenre);
   const stripe = genreStripe(hobby.genres, genre);
 
+  // Null twice over, and they mean different things: this hobby does not have progress, or it
+  // does and this pass has not said where it is. The badge is absent for both.
+  const progress = hobby.progress?.format(item.seasonNumber, item.episodeNumber) ?? null;
+
   // The corner offers the same thing from every column now, which is the change. It used to be
   // a single × meaning *drop* on Playing and *remove* on Backlog, absent on the other two — so
   // which of the two endings a card offered was decided by where it sat rather than by you, and
@@ -242,6 +246,24 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
             {item.lengthHours !== null && (
               <span role="img" aria-label={hobby.describeLength(item.lengthHours)}>
                 {hobby.formatLength(item.lengthHours)}
+              </span>
+            )}
+            {/* Where you are in a show, and nothing at all on the two boards with no such
+                idea. Gated on `hobby.progress` rather than on the values being non-null, which
+                is the right way round: a game whose pass somehow carried a season still prints
+                nothing, because a games card has no word for it. Inferring it from the nulls
+                would put a badge on a board that cannot explain it.
+
+                Beside the rating rather than under the title, because it is the same kind of
+                thing as the rest of this row — a fact about the current pass. It is also the
+                point of a TV board: a film is watched or it is not, and a show is a thing you
+                are three seasons into. */}
+            {progress !== null && (
+              <span
+                role="img"
+                aria-label={hobby.progress!.describe(item.seasonNumber, item.episodeNumber)}
+              >
+                {progress}
               </span>
             )}
             {genre !== null && <span>{genre}</span>}

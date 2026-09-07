@@ -72,6 +72,16 @@ export interface LibraryItem {
    */
   hltbPending: boolean;
   /**
+   * Where you are, straight off the current pass like every other field on this row except the
+   * note preview.
+   *
+   * Null for games and films, and the card does not decide that from the nulls — it asks the
+   * hobby whether it formats progress at all. A game whose pass somehow carried a season still
+   * prints nothing, which is the right way round: the hobby says what it has.
+   */
+  seasonNumber: number | null;
+  episodeNumber: number | null;
+  /**
    * The opening of the most recent thing you wrote about this title, cut by the server. The
    * whole of it lives in the drawer; this is a preview and is named so.
    *
@@ -139,6 +149,67 @@ export interface MovieDetail extends Movie {
   logEntries: LogEntry[];
 }
 
+export interface TvShow {
+  id: number;
+  title: string;
+  coverUrl: string | null;
+  /** The year it first aired. The one thing here that search does carry. */
+  firstAirYear: number | null;
+  /**
+   * The year it last aired, or null for a show still running.
+   *
+   * Null is meaningful and is not missing data: the drawer reads the pair as `2022–` rather
+   * than inventing an end, and a run inside one year reads as that year once.
+   */
+  lastAirYear: number | null;
+  /**
+   * TMDB's own word for where the show stands — Returning Series, Ended, Canceled, In
+   * Production, Planned, Pilot. Theirs to change, so it is carried verbatim and made readable
+   * here, exactly as a runtime in minutes is.
+   *
+   * `airStatus` and never `status`: `LogEntry.status` is where *you* are on a title, and two
+   * fields of that name a few lines apart is a mistake waiting for whoever types the shorter
+   * one out of habit. The column is named the same way for the same reason.
+   */
+  airStatus: string | null;
+  numberOfSeasons: number | null;
+  /** Across the whole run. `TvSeason.episodeCount` is a different number about one season. */
+  numberOfEpisodes: number | null;
+  /**
+   * How long one episode runs, in minutes. Null for a show nobody has timed — never nought,
+   * which is what a check constraint on the column is there to keep true.
+   */
+  episodeRuntimeMinutes: number | null;
+  genres: string[];
+  /** The chosen genre, or null to use the automatic pick. See src/hobbies/. */
+  primaryGenre: string | null;
+  /** The byline under the drawer's title. Plural because shows are co-created, and routinely
+   * empty: TMDB carries no creator for most documentaries and most non-US productions. */
+  creators: string[];
+  externalId: string | null;
+  source: string;
+}
+
+/** One season, as the journal's two dropdowns need it. Season 0 is Specials and is real. */
+export interface TvSeason {
+  seasonNumber: number;
+  /** TMDB's name for it, or null — in which case the client names it from the number. */
+  name: string | null;
+  episodeCount: number;
+}
+
+export interface TvShowDetail extends TvShow {
+  /**
+   * Every season, lowest number first so Specials leads.
+   *
+   * The addition a film has no counterpart for, and the reason the drawer reaches this endpoint
+   * rather than reading the board row: the season dropdown is built from this list, and the
+   * episode dropdown's length comes from whichever entry is chosen.
+   */
+  seasons: TvSeason[];
+  logEntries: LogEntry[];
+}
+
 /**
  * One thing written down during a pass. Several per pass is the point: this replaced a single
  * text field, where writing a second thought destroyed the first.
@@ -166,6 +237,13 @@ export interface LogEntry {
   /** Instants. A value sent without an offset is read as Eastern by the server. */
   startedAt: string | null;
   completedAt: string | null;
+  /**
+   * Where you are in a show, on the pass rather than on the title — so a rewatch begins again,
+   * as a replay does. Null for the hobbies with no such idea, and an episode never travels
+   * without its season: the API refuses that pair, and so does the form.
+   */
+  seasonNumber: number | null;
+  episodeNumber: number | null;
   /** When the entry was written. Server-stamped, and not accepted on the way in. */
   loggedAt: string;
 }
@@ -179,6 +257,8 @@ export interface CreateLogEntry {
   hoursPlayed?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
 }
 
 /** PUT, so anything left out is *cleared* rather than left alone. */

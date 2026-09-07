@@ -310,6 +310,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               entry={current}
               fields={journal.fields}
               platforms={detail.platforms}
+              seasons={detail.seasons}
               estimates={detail.hltb}
               completedLabel={columnLabel.Completed}
               saving={save.isPending}

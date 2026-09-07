@@ -110,6 +110,41 @@ describe('Card', () => {
     expect(screen.queryByText(/h$/)).not.toBeInTheDocument();
   });
 
+  it('says where you are in a show, beside the rating', () => {
+    // The point of a TV board. A film is watched or it is not; a show is a thing you are three
+    // seasons into, and a card that cannot say so is a card you have to open to read.
+    renderCard(
+      libraryItem({
+        hobby: 'tv',
+        title: 'Severance',
+        seasonNumber: 3,
+        episodeNumber: 7,
+      }),
+    );
+
+    expect(screen.getByText('S3 E7')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Season 3, episode 7' })).toBeInTheDocument();
+  });
+
+  it('asks the hobby whether it has progress at all, rather than reading the nulls', () => {
+    // The right way round: a game whose pass somehow carried a season still prints nothing,
+    // because a games card has no such idea. Inferring it from the values would put a badge on
+    // a board that has no word for it.
+    renderCard(
+      libraryItem({ hobby: 'games', title: 'Hollow Knight', seasonNumber: 3, episodeNumber: 7 }),
+    );
+
+    expect(screen.queryByText('S3 E7')).not.toBeInTheDocument();
+  });
+
+  it('leaves the badge off a show nobody has said where they are in', () => {
+    renderCard(
+      libraryItem({ hobby: 'tv', title: 'Severance', seasonNumber: null, episodeNumber: null }),
+    );
+
+    expect(screen.queryByText(/^S\d/)).not.toBeInTheDocument();
+  });
+
   it('shows a rating to one decimal, and nothing at all when unrated', () => {
     // 8.5 and 9.6 are the point of storing numeric(3,1) rather than an integer, so a card that
     // rounded to "9" would be throwing away the only reason the column has a decimal place.

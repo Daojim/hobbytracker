@@ -160,8 +160,8 @@ export function dateFieldValue(input: string, original: string | null): string |
 }
 
 /**
- * What a form seeded from this entry would be holding — its id, and the four values the inputs
- * are filled from.
+ * What a form seeded from this entry would be holding — its id, and every value the inputs are
+ * filled from.
  *
  * Used as the form's React key. `useState` reads its initial value once, and a transition
  * *edits the current entry in place* rather than adding one, so keying on the id alone left a
@@ -179,6 +179,11 @@ export function entrySeed(entry: LogEntry): string {
     entry.hoursPlayed,
     entry.startedAt,
     entry.completedAt,
+    // Both halves, and neither is optional here. The form is keyed on this string, so a field
+    // left out of it is a field a refetch cannot correct on screen — which is exactly the bug
+    // that made a game dragged to Playing keep showing an empty Started.
+    entry.seasonNumber,
+    entry.episodeNumber,
   ]
     .join('|');
 }

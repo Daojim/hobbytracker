@@ -60,6 +60,26 @@ export interface HobbyDefinition {
   };
 
   journal: JournalSection;
+
+  /**
+   * How this hobby says where you are *inside* a title, or null for one with no such idea.
+   *
+   * One nullable block carrying both halves, exactly as {@link TitleDetail.hltb} carries its
+   * four figures and its id: they are one fact, and a hobby that wired the badge without the
+   * spoken form would give a screen reader "S3 E7" to read out letter by letter.
+   *
+   * Paired with {@link PassFields.progress}, which is true if and only if this is not null —
+   * the `setHltbId` and `hltb` rule, and `journal.test.ts` pins it. Wiring the control without
+   * this puts a value on a pass nothing can display; wiring this without the control promises
+   * a badge no pass can reach.
+   */
+  progress: {
+    /** What a card prints beside the rating: `S3 E7`. Null when there is nothing to say. */
+    format(season: number | null, episode: number | null): string | null;
+
+    /** How that reads aloud, which `S3 E7` cannot do on its own. */
+    describe(season: number | null, episode: number | null): string;
+  } | null;
 }
 
 /**
@@ -104,6 +124,15 @@ export interface JournalSection {
 export interface PassFields {
   hoursPlayed: boolean;
   platform: boolean;
+
+  /**
+   * The season and episode pair, which only a show has.
+   *
+   * Not hours by another name: nobody records how long an evening of television took, and the
+   * show already says how long one episode runs. It is where you are, and it is the reason a
+   * TV board is worth having at all.
+   */
+  progress: boolean;
 }
 
 /**
@@ -133,6 +162,15 @@ export interface TitleDetail {
   platforms: readonly string[];
 
   /**
+   * Every season of it, lowest number first. Empty where the hobby has no such idea — the
+   * {@link platforms} precedent, and stated rather than inferred for the same reason.
+   *
+   * The form's two dropdowns are built from this: the season list is these, and the episode
+   * list is however many episodes the chosen one has.
+   */
+  seasons: readonly TitleSeason[];
+
+  /**
    * Facts about the title itself, for the header band beside the genre — a film's runtime.
    *
    * Facts and not controls: everything else in that band is something you set. HowLongToBeat's
@@ -152,6 +190,19 @@ export interface TitleDetail {
 export interface TitleFact {
   label: string;
   value: string;
+}
+
+/**
+ * One season, as the pass form's dropdowns need it.
+ *
+ * `label` rather than a nullable name, because the form has to print *something* in the option
+ * and the fallback is the hobby's business rather than the form's: TMDB leaves a season unnamed
+ * often enough, and season 0 is called Specials by everyone who watches it and 0 by nobody.
+ */
+export interface TitleSeason {
+  number: number;
+  label: string;
+  episodeCount: number;
 }
 
 /** HowLongToBeat's four figures and the stored id, which arrive together or not at all. */

@@ -15,6 +15,8 @@ const entry: LogEntry = {
   platform: null,
   startedAt: '2026-08-21T01:30:00+00:00',
   completedAt: null,
+  seasonNumber: null,
+  episodeNumber: null,
   loggedAt: '2026-08-21T01:30:00+00:00',
 };
 

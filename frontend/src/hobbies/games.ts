@@ -87,6 +87,9 @@ export const GAMES: HobbyDefinition = {
         primaryGenre: game.primaryGenre,
         logEntries: game.logEntries,
         platforms: game.platforms,
+        // A game is one thing you finish, not a run you are partway through in a way anybody
+        // numbers. `[]` rather than a null, on the same rule `platforms` follows for a film.
+        seasons: [],
         // Nothing about a game is a fixed fact worth a line here: its length is HowLongToBeat's
         // guess and belongs beside your own hours, and its release year is on no card yet.
         facts: [],
@@ -103,6 +106,10 @@ export const GAMES: HobbyDefinition = {
     setGenre: setGameGenre,
     setHltbId: setGameHltbId,
 
-    fields: { hoursPlayed: true, platform: true },
+    fields: { hoursPlayed: true, platform: true, progress: false },
   },
+
+  // Replays are passes, not positions. Being eleven hours into Hollow Knight is a number the
+  // pass already carries, and it is not a place in a list of episodes.
+  progress: null,
 };
