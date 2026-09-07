@@ -127,6 +127,24 @@ date and left without a beginning — and `now` over that would put the start af
 `ck_log_entries_timestamp_order` answers with a 500 on a request that had nothing wrong with it. The
 `Completed` arm carries the same guard facing the other way.
 
+**Dropped sits last, and this board has had it both ways.** `BOARD_STATUSES` in
+`frontend/src/hobbies/index.ts` is the one list the order comes from, so a hobby can rename a
+column and cannot reorder the board out from under the drag. It ran Backlog · Playing · Completed ·
+Dropped until 29 August 2026, when Dropped moved to the front on this argument: the titles in it
+*left* the progression rather than finished it, so a muted well ahead of Backlog sits off the path
+the eye takes across a board it reads left to right, which is what a column collapsed by default
+wants anyway. **That argument is still sound, and nine days of living with it settled the question
+the other way** — it moved back to the far right on 7 September 2026. Neither position is provable;
+what decided it was use, which is the only evidence either of them was ever going to get.
+
+**Moving it is one line, and two tests are what say so.** `otherColumns` filters the same list, so
+a card's menu follows the board without a second ordering to keep in step — which is why *Move to
+Dropped* is the last of a card's three moves again, above the one item that is not a move. Nothing
+else moved either time: every e2e locator names its column rather than its position. What goes red
+is `BoardPage.test.tsx`'s exhaustive list of the four `<h2>`s, in all three hobbies, and three of
+`Card.test.tsx`'s four menu-order rows — the Dropped card's row is the one that reads the same
+whichever end the column is at.
+
 **A card's corner is an `⋯` menu, same items from every column** — *Open journal*, the three columns
 this card is not in, then *Remove from board*. `columnsFor` in `frontend/src/hobbies/` is the one
 list of the four, per hobby; `otherColumns` gives a card its three, never its own, because

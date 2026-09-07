@@ -89,10 +89,6 @@ export function genreStripe(
 /**
  * The board's columns for a hobby: what order they sit in, and what each one is called.
  *
- * Dropped is first, ahead of the three rather than after them — it is not a stage of the
- * progression but where the titles that left it go, so it sits off the path the eye takes across
- * a board it reads left to right.
- *
  * Nothing here may be sent to the API. The label is not the status: the wire says `InProgress`
  * and a games board says Playing while a movies board says Watching.
  */
@@ -105,12 +101,24 @@ export function columnsFor(hobby: string): readonly { status: LogStatus; label: 
 /**
  * Left to right, as the board lays them out. The one list the order comes from, so a hobby can
  * rename a column but cannot reorder the board out from under the drag.
+ *
+ * Dropped is last, and this board has had it both ways. It sat ahead of Backlog from 29 August
+ * to 7 September 2026, on the argument that a dropped title *left* the progression rather than
+ * finished it and so belongs off the path the eye takes across the board. That argument is
+ * still sound; nine days of living with it settled the question the other way, and it is back
+ * at the end — a muted well in the corner of the board rather than in the doorway to it.
+ * Everything else about it is unchanged: still collapsed until it is asked for, still a drop
+ * target while it is.
+ *
+ * `otherColumns` derives from this, so a card's menu follows the board without a second list
+ * to keep in step — which puts *Move to Dropped* back at the bottom of the three moves, above
+ * the one item that is not a move.
  */
 export const BOARD_STATUSES: readonly LogStatus[] = [
-  'Dropped',
   'Backlog',
   'InProgress',
   'Completed',
+  'Dropped',
 ];
 
 /**

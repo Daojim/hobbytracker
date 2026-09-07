@@ -51,7 +51,7 @@ function contrast(a: string, b: string): number {
  * in index.css, and this — and the first three all fail loudly when it is missed. This one went
  * quiet: the theme would simply arrive with **no contrast assertions at all**, on precisely the
  * measurements a brand-new palette is likeliest to get wrong, and the suite would stay green
- * saying so. `BOARD_STATUSES` is derived from `COLUMNS` to close the same kind of gap.
+ * saying so. `columnsFor` and `otherColumns` derive from `BOARD_STATUSES` to close the same kind of gap.
  *
  * `system` is not a palette — it is the absence of a choice — so it contributes the media-query
  * block instead, which is the thing that actually answers for it.

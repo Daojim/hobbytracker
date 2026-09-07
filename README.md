@@ -14,8 +14,8 @@ build are a title detail page and a year in review — see [Roadmap](#roadmap).
 
 ## What it does
 
-The board is four columns — Dropped kept out of the way on the left, then Backlog, Playing and
-Completed — and a title moves between them by drag or from the card's own options menu. Which
+The board is four columns — Backlog, Playing, Completed, and Dropped kept out of the way at the
+end — and a title moves between them by drag or from the card's own options menu. Which
 entry a move touches and which timestamps it stamps are decided server-side, so no client has to
 know which pass is current.
 

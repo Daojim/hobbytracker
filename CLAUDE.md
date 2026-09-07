@@ -394,9 +394,9 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
 | Scope | **`/board/:hobby`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
-| Columns | **Dropped first**, then Backlog · Playing · Completed — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list, and the card's menu and the drawer both read it |
+| Columns | Backlog · Playing · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list, and the card's menu and the drawer both read it |
 | A hobby's words | **`frontend/src/hobbies/`, one file per hobby.** Column labels, the length label and its format, the pass noun, the genre list, search dispatch, which fields a pass has, and how it says where you are in one. Never a branch on the slug |
-| Dropped | A muted well **ahead of** the progression rather than after it, collapsed by default. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
+| Dropped | A muted well **at the far right**, after the progression, collapsed by default. It spent 29 August to 7 September 2026 ahead of Backlog and came back; the argument on both sides is in `docs/board.md`. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog is exempt; the other three filter on the date each is about |
@@ -539,6 +539,14 @@ rather than the list being wrong. Both rows are marked below.
 
 ### Small things, named so they are not rediscovered
 
+- **Hiding the Dropped column, per board.** Asked for on 7 September 2026, in the same breath as
+  moving it back to the far right, and deliberately not designed yet. The open question is what
+  *per board* means: a fact about the hobby, like `columnLabel` — a films board that simply never
+  has one — or a preference somebody sets and the browser remembers, like the theme and the
+  journal's box. The second is the likelier reading and the more expensive one. `BOARD_STATUSES`
+  is what the grid, the drop targets and `otherColumns` all derive from, so a hidden column has to
+  leave a card's menu with it, or *Move to Dropped* offers a move to somewhere that is not on
+  screen — and a title already sitting in a hidden column needs an answer before, not after.
 - **Sweep up titles with no headline figure when the worker starts.** The first thing to pick up. See
   **The backfill is a thing you run** in `docs/games-hltb.md`, including the reason it was not
   simply done.

@@ -29,10 +29,11 @@ function boardWithBack() {
 }
 
 describe('BoardPage', () => {
-  it('opens with Dropped, then the three columns a title moves through', async () => {
-    // Dropped is not a stage of that progression — it is where the titles that left it go — so
-    // it sits ahead of the three rather than after them, off the path the eye takes across a
-    // board it reads left to right. Still collapsed, still muted; only the place has changed.
+  it('opens with the three columns a title moves through, then Dropped', async () => {
+    // Dropped last, at the far right — where it sat for most of this board's life. It spent
+    // nine days ahead of Backlog on the argument that a title in it *left* the progression
+    // rather than finished it: sound on paper, and answered by using it. Still collapsed,
+    // still muted; only the place has changed back.
     boardServer();
 
     renderWithProviders(<BoardPage />, BOARD_ROUTE);
@@ -40,7 +41,7 @@ describe('BoardPage', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Dropped 0', 'Backlog 0', 'Playing 0', 'Completed 0']);
+    ).toEqual(['Backlog 0', 'Playing 0', 'Completed 0', 'Dropped 0']);
   });
 
   it('puts one year control above the board rather than one in a column', async () => {
@@ -267,7 +268,7 @@ describe('BoardPage, on films', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Dropped 0', 'Backlog 0', 'Watching 0', 'Watched 0']);
+    ).toEqual(['Backlog 0', 'Watching 0', 'Watched 0', 'Dropped 0']);
   });
 
   it('asks the API for the hobby in the address', async () => {
@@ -339,7 +340,7 @@ describe('BoardPage, on TV', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Dropped 0', 'Backlog 0', 'Watching 0', 'Watched 0']);
+    ).toEqual(['Backlog 0', 'Watching 0', 'Watched 0', 'Dropped 0']);
   });
 
   it('asks the API for the hobby in the address', async () => {
