@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using HobbyTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -12,9 +13,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace HobbyTracker.Api.Data.Migrations
 {
     [DbContext(typeof(HobbyTrackerDbContext))]
-    partial class HobbyTrackerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907050002_AddTvShows")]
+    partial class AddTvShows
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -133,10 +136,6 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
-                    b.Property<int?>("EpisodeNumber")
-                        .HasColumnType("integer")
-                        .HasColumnName("episode_number");
-
                     b.Property<decimal?>("HoursPlayed")
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)")
@@ -166,10 +165,6 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("numeric(3,1)")
                         .HasColumnName("rating");
 
-                    b.Property<int?>("SeasonNumber")
-                        .HasColumnType("integer")
-                        .HasColumnName("season_number");
-
                     b.Property<DateTimeOffset?>("StartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
@@ -195,15 +190,9 @@ namespace HobbyTracker.Api.Data.Migrations
 
                     b.ToTable("log_entries", null, t =>
                         {
-                            t.HasCheckConstraint("ck_log_entries_episode_needs_season", "episode_number IS NULL OR season_number IS NOT NULL");
-
-                            t.HasCheckConstraint("ck_log_entries_episode_range", "episode_number IS NULL OR episode_number >= 1");
-
                             t.HasCheckConstraint("ck_log_entries_hours_played_range", "hours_played IS NULL OR (hours_played > 0 AND hours_played <= 999.99)");
 
                             t.HasCheckConstraint("ck_log_entries_rating_range", "rating IS NULL OR (rating >= 1.0 AND rating <= 10.0)");
-
-                            t.HasCheckConstraint("ck_log_entries_season_range", "season_number IS NULL OR season_number >= 0");
 
                             t.HasCheckConstraint("ck_log_entries_timestamp_order", "started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at");
                         });

@@ -51,6 +51,40 @@ public class LogEntry
     public string? Platform { get; set; }
 
     /// <summary>
+    /// Which season this pass has reached. Null on a hobby with no such idea, and on a show you
+    /// have not said a position for.
+    ///
+    /// **On the pass and not on the show**, for <see cref="Platform"/>'s reason exactly: a
+    /// rewatch begins again, so where you are belongs to *this* watch of it. The transition out
+    /// of Completed inserts a new pass and this arrives null on it, which is what makes a
+    /// rewatch start at the beginning without any code saying so.
+    ///
+    /// **0 is Specials, not "unset"** — TMDB numbers them that way and `tv_seasons` stores them
+    /// as a real season, so `ck_log_entries_season_range` allows nought. Null is how unset is
+    /// said.
+    ///
+    /// Deliberately not checked against the show's actual seasons. The journal offers the
+    /// seasons that exist today, and the column keeps what was true when it was written — the
+    /// same argument <see cref="Platform"/> makes about IGDB's list, and it matters more here,
+    /// because a show can be re-cut upstream and a season count can change under a record.
+    ///
+    /// Named without a hobby in it because anime will use it unchanged.
+    /// </summary>
+    public int? SeasonNumber { get; set; }
+
+    /// <summary>
+    /// Which episode of <see cref="SeasonNumber"/> this pass has reached.
+    ///
+    /// **Only meaningful with a season**, which `ck_log_entries_episode_needs_season` enforces:
+    /// "episode 7" alone says nothing, seven of which season? The other way round is fine and
+    /// means something real — a season with no episode is knowing where you are to the season
+    /// and no further.
+    ///
+    /// There is no episode zero, so unlike a season this one starts at 1.
+    /// </summary>
+    public int? EpisodeNumber { get; set; }
+
+    /// <summary>
     /// When this pass began. An instant rather than a date — this was a DateOnly, and the
     /// argument for that was "started on the 3rd" having no meaningful time of day. True of a
     /// start you half-remember; false of the moment you finally beat something at 11:47pm, which

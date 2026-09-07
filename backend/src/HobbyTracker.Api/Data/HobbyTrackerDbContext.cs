@@ -23,6 +23,12 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     /// </summary>
     public DbSet<Movie> Movies => Set<Movie>();
 
+    /// <summary>
+    /// Shows only, and an INNER JOIN of `media` and `tv_shows` for the same reason. The third
+    /// derived set, and the reason there is no `Shows` alongside it: one name per table.
+    /// </summary>
+    public DbSet<TvShow> TvShows => Set<TvShow>();
+
     public DbSet<LogEntry> LogEntries => Set<LogEntry>();
 
     /// <summary>What was written during a pass. Child of log_entries, cascade deleted.</summary>
