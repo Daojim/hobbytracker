@@ -27,6 +27,9 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     /// <summary>TMDB, for the films half of the catalogue. See FakeTmdbClient.</summary>
     protected FakeTmdbClient Tmdb { get; } = new();
 
+    /// <summary>MyAnimeList, which answers the same node to a search and to a detail call.</summary>
+    protected FakeMalClient Mal { get; } = new();
+
     /// <summary>HowLongToBeat, and the queue that would have asked it. See FakeHltbQueue.</summary>
     protected FakeHltbClient Hltb { get; } = new();
 
@@ -70,7 +73,7 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     private HttpClient? _anonymousClient;
     private readonly List<HttpClient> _extraClients = [];
 
-    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock);
+    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Tmdb, Mal, Hltb, HltbQueue, Clock);
     /// <summary>
     /// Whose journal this is. Created fresh per test, because Respawn truncates users between
     /// them; every fixture below and every request through <see cref="Client"/> belongs to it.

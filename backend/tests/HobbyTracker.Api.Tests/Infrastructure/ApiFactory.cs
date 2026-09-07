@@ -1,6 +1,7 @@
 using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
+using HobbyTracker.Api.Integrations.Mal;
 using HobbyTracker.Api.Integrations.Tmdb;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
@@ -23,6 +24,7 @@ public sealed class ApiFactory(
     PostgresFixture postgres,
     FakeIgdbClient igdb,
     FakeTmdbClient tmdb,
+    FakeMalClient mal,
     FakeHltbClient hltb,
     FakeHltbQueue hltbQueue,
     TimeProvider clock,
@@ -61,6 +63,13 @@ public sealed class ApiFactory(
                 // only component that would read it.
                 ["Tmdb:AccessToken"] = "test-tmdb-token",
 
+                // MalOptions is validated at startup too. A missing required option refuses to
+                // boot the *whole suite* rather than the one hobby that needed it, which is the
+                // loud failure and the good one — but it is loud a long way from its cause, so
+                // it is worth knowing that a new provider without a line here fails every
+                // endpoint test at once.
+                ["Mal:ClientId"] = "test-mal-client",
+
                 // AuthOptions is validated at startup too, so the host will not boot without these.
                 // The endpoints are never reached: nothing in the backend suite signs in through
                 // OAuth, which is what the Google stub and the end-to-end specs are for.
@@ -93,6 +102,9 @@ public sealed class ApiFactory(
 
             services.RemoveAll<ITmdbClient>();
             services.AddSingleton<ITmdbClient>(tmdb);
+
+            services.RemoveAll<IMalClient>();
+            services.AddSingleton<IMalClient>(mal);
 
             services.RemoveAll<IHltbClient>();
             services.AddSingleton<IHltbClient>(hltb);

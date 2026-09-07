@@ -88,7 +88,7 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         // The mirror of the test above. ValidateOnStart is only worth having if it actually
         // fails the boot: a zone id that quietly fell back to UTC would put every evening's
         // dates a day out with nothing anywhere looking broken.
-        await using var factory = new ApiFactory(Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, timeZone: "Mars/Olympus_Mons");
+        await using var factory = new ApiFactory(Postgres, Igdb, Tmdb, Mal, Hltb, HltbQueue, Clock, timeZone: "Mars/Olympus_Mons");
 
         var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
 
@@ -102,7 +102,7 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         // should fail at boot naming the setting, not surface later as an opaque error from
         // the provider on the first person's first sign-in.
         await using var factory = new ApiFactory(
-            Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, googleClientId: "");
+            Postgres, Igdb, Tmdb, Mal, Hltb, HltbQueue, Clock, googleClientId: "");
 
         var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
 
@@ -117,7 +117,7 @@ public sealed class HarnessTests(PostgresFixture postgres) : DatabaseTestBase(po
         // the error arriving from somebody else's server. Absent is fine and means "use the
         // request"; present and unusable has to stop the boot naming itself.
         await using var factory = new ApiFactory(
-            Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock, publicOrigin: "hobbytracker.example");
+            Postgres, Igdb, Tmdb, Mal, Hltb, HltbQueue, Clock, publicOrigin: "hobbytracker.example");
 
         var error = Should.Throw<OptionsValidationException>(() => factory.CreateClient());
 
