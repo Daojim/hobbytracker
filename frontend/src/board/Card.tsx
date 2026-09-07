@@ -86,6 +86,23 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   // does and this pass has not said where it is. The badge is absent for both.
   const progress = hobby.progress?.format(item.seasonNumber, item.episodeNumber) ?? null;
 
+  /**
+   * The title's other name, unless it is the same name.
+   *
+   * **Found by the e2e suite rather than reasoned about**, and it is not a stub artefact: MAL
+   * genuinely answers `alternative_titles.en` of "Cowboy Bebop" for *Cowboy Bebop*, and does the
+   * same for every title whose romaji reading is already English. Rendered blindly, those cards
+   * print their own name twice.
+   *
+   * Compared case-insensitively and with the ends trimmed, because "the same name" is a thing a
+   * reader judges rather than a byte comparison — and never any looser than that, since
+   * `Frieren` and `Frieren: Beyond Journey's End` are genuinely two names.
+   */
+  const subtitle =
+    item.subtitle !== null && item.subtitle.trim().toLowerCase() === item.title.trim().toLowerCase()
+      ? null
+      : item.subtitle;
+
   // The corner offers the same thing from every column now, which is the change. It used to be
   // a single × meaning *drop* on Playing and *remove* on Backlog, absent on the other two — so
   // which of the two endings a card offered was decided by where it sat rather than by you, and
@@ -198,9 +215,9 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
             leaves the English title off a great many entries, and every other hobby sends null
             always. A blank line would push the metadata row down on some cards and not
             others. */}
-        {item.subtitle !== null && (
+        {subtitle !== null && (
           <p data-subtitle="" className="text-xs break-words text-muted">
-            {item.subtitle}
+            {subtitle}
           </p>
         )}
 

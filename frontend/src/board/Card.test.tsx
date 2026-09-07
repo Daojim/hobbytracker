@@ -145,6 +145,26 @@ describe('Card', () => {
     expect(screen.queryByText(/^S\d/)).not.toBeInTheDocument();
   });
 
+  it('leaves out a second title that is the same as the first', () => {
+    // Found by the e2e suite rather than reasoned about, and not a stub artefact: MAL answers
+    // `alternative_titles.en` of "Cowboy Bebop" for Cowboy Bebop, and does the same for every
+    // title whose romaji reading is already English. Rendered blindly, those cards print their
+    // own name twice.
+    const same = renderCard(
+      libraryItem({ hobby: 'anime', title: 'Cowboy Bebop', subtitle: 'Cowboy Bebop' }),
+    );
+
+    expect(same.container.querySelector('[data-subtitle]')).toBeNull();
+
+    // Case and surrounding space are not a difference a reader would call one, and anything
+    // looser than that is wrong: Frieren and Frieren: Beyond Journey's End are two names.
+    const cased = renderCard(
+      libraryItem({ hobby: 'anime', title: 'Cowboy Bebop', subtitle: '  cowboy bebop ' }),
+    );
+
+    expect(cased.container.querySelector('[data-subtitle]')).toBeNull();
+  });
+
   it('says which episode of an anime, with no season half to be missing', () => {
     // Television refuses to print an episode with no season, on the argument that it would be
     // inventing the half that is missing. That is right *for television* — and wrong here,
