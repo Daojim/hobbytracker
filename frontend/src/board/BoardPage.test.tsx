@@ -3,8 +3,8 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BoardPage } from './BoardPage';
 import { boardServer, libraryItem } from '../test/library';
-import { gameDetail, journalServer, logEntry } from '../test/games';
-import { movieDetail, movieJournalServer } from '../test/movies';
+import { game, gameDetail, journalServer, logEntry, searchServer } from '../test/games';
+import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
 import { BackButton, renderWithProviders } from '../test/render';
 
@@ -29,10 +29,11 @@ function boardWithBack() {
 }
 
 describe('BoardPage', () => {
-  it('opens with Dropped, then the three columns a title moves through', async () => {
-    // Dropped is not a stage of that progression — it is where the titles that left it go — so
-    // it sits ahead of the three rather than after them, off the path the eye takes across a
-    // board it reads left to right. Still collapsed, still muted; only the place has changed.
+  it('opens with the three columns a title moves through, then Dropped', async () => {
+    // Dropped last, at the far right — where it sat for most of this board's life. It spent
+    // nine days ahead of Backlog on the argument that a title in it *left* the progression
+    // rather than finished it: sound on paper, and answered by using it. Still collapsed,
+    // still muted; only the place has changed back.
     boardServer();
 
     renderWithProviders(<BoardPage />, BOARD_ROUTE);
@@ -40,7 +41,7 @@ describe('BoardPage', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Dropped 0', 'Backlog 0', 'Playing 0', 'Completed 0']);
+    ).toEqual(['Backlog 0', 'Playing 0', 'Completed 0', 'Dropped 0']);
   });
 
   it('puts one year control above the board rather than one in a column', async () => {
@@ -244,6 +245,37 @@ describe('BoardPage', () => {
 
     expect(screen.queryByRole('group', { name: 'Options for Celeste' })).not.toBeInTheDocument();
   });
+
+  it('empties the search when the nav goes to another hobby', async () => {
+    // The bar belongs to the board under it, and the nav changes that board without leaving the
+    // page — so a term left in the box used to ride across and then be sent to the *other*
+    // provider, because the search is dispatched by hobby. Typing "hollow" on games and
+    // clicking Movies asked TMDB about Hollow Knight.
+    //
+    // Through BoardPage rather than in BoardSearch's own file, which is the one exception to the
+    // rule there: the defect is the bar outliving the hobby, and only the page can produce that.
+    // Nothing here asserts an h3, which is what that rule is protecting.
+    const igdb = searchServer({ results: [game({ title: 'Hollow Knight' })] });
+    const tmdb = movieSearchServer({ results: [movie({ title: 'Arrival' })] });
+    // Last, so the board's own /api/library answers the columns rather than the search
+    // fixture's — a later server.use wins.
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.type(await screen.findByRole('searchbox', { name: 'Search games' }), 'hollow');
+    await waitFor(() => expect(igdb.searches).toEqual(['hollow']));
+
+    await userEvent.click(screen.getByRole('link', { name: 'Movies' }));
+
+    const films = await screen.findByRole('searchbox', { name: 'Search movies' });
+    expect(films).toHaveValue('');
+
+    // And nothing went with it on the way past. Asserted by typing a second term rather than by
+    // reading the list straight away: the leaked search lands a moment later, so an empty list
+    // read too early passes whether or not it was going to stay empty.
+    await userEvent.type(films, 'arriv');
+    await waitFor(() => expect(tmdb.searches).toEqual(['arriv']));
+  });
 });
 
 /**
@@ -267,7 +299,7 @@ describe('BoardPage, on films', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Dropped 0', 'Backlog 0', 'Watching 0', 'Watched 0']);
+    ).toEqual(['Backlog 0', 'Watching 0', 'Watched 0', 'Dropped 0']);
   });
 
   it('asks the API for the hobby in the address', async () => {
@@ -339,7 +371,7 @@ describe('BoardPage, on TV', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Dropped 0', 'Backlog 0', 'Watching 0', 'Watched 0']);
+    ).toEqual(['Backlog 0', 'Watching 0', 'Watched 0', 'Dropped 0']);
   });
 
   it('asks the API for the hobby in the address', async () => {

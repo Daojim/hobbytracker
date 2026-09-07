@@ -40,6 +40,31 @@ export function movieDetail(overrides: Partial<MovieDetail> = {}): MovieDetail {
   };
 }
 
+export interface MovieSearchFixture {
+  results?: Movie[];
+}
+
+/**
+ * TMDB's half of the search bar, and what it was asked for.
+ *
+ * `games.ts` keeps the same pair against IGDB, and two of them is the point rather than
+ * duplication: the search route is the hobby's, so a test that wants to say *TMDB was never
+ * asked* has to be able to watch one provider on its own.
+ */
+export function movieSearchServer({ results = [] }: MovieSearchFixture = {}) {
+  const searches: string[] = [];
+
+  server.use(
+    http.get('/api/movies', ({ request }) => {
+      searches.push(new URL(request.url).searchParams.get('search') ?? '');
+
+      return HttpResponse.json(results);
+    }),
+  );
+
+  return { searches };
+}
+
 export interface MovieJournalFixture extends PassFixture {
   detail?: MovieDetail;
 }
