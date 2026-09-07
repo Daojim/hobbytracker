@@ -12,7 +12,7 @@ import type { LogEntry, LogStatus } from '../../src/api/types';
  * Which board a helper is talking about. Games unless a spec says otherwise, because every
  * spec written before there was a second hobby means games and should not have to say so.
  */
-export type Hobby = 'games' | 'movies';
+export type Hobby = 'games' | 'movies' | 'tv';
 
 const DEFAULT_HOBBY: Hobby = 'games';
 
@@ -32,6 +32,14 @@ export const COLUMN_LABEL: Record<Hobby, Record<LogStatus, string>> = {
     Dropped: 'Dropped',
   },
   movies: {
+    Backlog: 'Backlog',
+    InProgress: 'Watching',
+    Completed: 'Watched',
+    Dropped: 'Dropped',
+  },
+  // The same four words as films, written out again rather than shared. Two hobbies agreeing
+  // today is a fact about today, and the copy is what would catch one of them changing.
+  tv: {
     Backlog: 'Backlog',
     InProgress: 'Watching',
     Completed: 'Watched',
