@@ -101,10 +101,38 @@ const CATALOGUE = [
  *   right. Two equal seasons would prove nothing.
  * - **Still running, so `lastAirDate` is absent.** The year span renders `2022–` rather than
  *   `2022–undefined`, and null there is a fact about the show rather than missing data.
+ * - **One anime.** It is here to *never* come back: `/search/tv` drops anything Japanese and
+ *   animated, because anime is its own hobby from MAL. A catalogue with no anime in it would
+ *   let that filter be deleted with every spec still green.
  *
  * Genres are TMDB's *television* vocabulary, which is not its film one: Sci-Fi & Fantasy is one
  * genre here and two on a film, and there is no Horror at all.
+ *
+ * `originalLanguage` defaults to `en` below and is stated only where it matters, which is the
+ * anime — it is half of the exclusion rule and the other half is genre 16.
  */
+
+/**
+ * TMDB's real television genre ids, because one of them is load-bearing.
+ *
+ * These used to be synthesised as `18 + index`, which was fine while nothing read them: the
+ * detail response spells its genres out, so the ids on a search result went nowhere. The anime
+ * exclusion reads `genre_ids` for 16, so a made-up numbering would let a show be animated
+ * without ever saying 16 — and the filter would look as though it worked while never firing.
+ */
+const TV_GENRE_IDS = {
+  'Action & Adventure': 10759,
+  Animation: 16,
+  Comedy: 35,
+  Crime: 80,
+  Documentary: 99,
+  Drama: 18,
+  Mystery: 9648,
+  Reality: 10764,
+  'Sci-Fi & Fantasy': 10765,
+  'War & Politics': 10768,
+};
+
 const TV_CATALOGUE = [
   // Still running, and the ordinary case: a filled runtime array and a Specials season.
   {
@@ -166,6 +194,16 @@ const TV_CATALOGUE = [
     genres: ['Documentary'], creators: [],
     seasons: [{ number: 1, name: 'Season 1', episodes: 4 }],
   },
+  // Japanese and animated, which is the whole of the exclusion rule — so this must never come
+  // back from `/search/tv`. Anime is its own hobby from MAL, one card per cour, and a show
+  // findable on two boards with episode progress on each is the confusing case that closes.
+  {
+    id: 5007, name: 'Frieren', firstAirDate: '2023-09-29', lastAirDate: null,
+    originalLanguage: 'ja',
+    status: 'Returning Series', episodeRunTime: [24], lastEpisodeRuntime: null,
+    genres: ['Animation', 'Sci-Fi & Fantasy'], creators: [],
+    seasons: [{ number: 1, name: 'Season 1', episodes: 28 }],
+  },
 ];
 
 /**
@@ -182,7 +220,10 @@ const asShowSearchResult = (show) => ({
   name: show.name,
   first_air_date: show.firstAirDate,
   poster_path: null,
-  genre_ids: show.genres.map((_, index) => 18 + index),
+  genre_ids: show.genres.map((name) => TV_GENRE_IDS[name]),
+  // The other half of what keeps anime off this board. Defaulted rather than stated on every
+  // entry, because `en` is what all but one of them is.
+  original_language: show.originalLanguage ?? 'en',
   vote_count: 1000 - show.id,
   popularity: 50,
 });
@@ -207,7 +248,7 @@ const asShowDetail = (show) => ({
   ...(show.lastEpisodeRuntime === null
     ? {}
     : { last_episode_to_air: { runtime: show.lastEpisodeRuntime } }),
-  genres: show.genres.map((name, index) => ({ id: 18 + index, name })),
+  genres: show.genres.map((name) => ({ id: TV_GENRE_IDS[name], name })),
   created_by: show.creators.map((name, index) => ({ id: index + 1, name })),
   seasons: show.seasons.map((season) => ({
     season_number: season.number,

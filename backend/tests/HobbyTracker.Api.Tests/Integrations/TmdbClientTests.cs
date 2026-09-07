@@ -303,6 +303,52 @@ public sealed class TmdbClientTests
         (await client.GetTvAsync(999_999, Ct)).ShouldBeNull();
     }
 
+    [Fact]
+    public async Task Leaves_anime_off_the_television_board()
+    {
+        // Anime is its own hobby here, from MAL, one card per cour — so a show that is anime
+        // has a board of its own and must not also be findable on this one. The rule is both
+        // halves together: Japanese *and* animated. Japanese live-action is not animation and
+        // stays; Western animation is not Japanese and stays.
+        //
+        // Applied to the response rather than to the query, which is the opposite of the rule
+        // `docs/games-igdb.md` states for IGDB — and it is not a choice. TMDB's /search/tv
+        // accepts only query, first_air_date_year, include_adult, language, page and year:
+        // there is no genre, keyword or original-language parameter to ask with.
+        const string body = """
+            {
+              "results": [
+                {"id": 1, "name": "Frieren", "original_language": "ja", "genre_ids": [16, 10765]},
+                {"id": 2, "name": "Shogun", "original_language": "ja", "genre_ids": [18]},
+                {"id": 3, "name": "Bojack Horseman", "original_language": "en", "genre_ids": [16]}
+              ]
+            }
+            """;
+
+        var found = await CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.OK, body))
+            .SearchTvAsync("anything", 10, Ct);
+
+        found.Select(show => show.Name).ShouldBe(["Shogun", "Bojack Horseman"]);
+    }
+
+    [Fact]
+    public async Task Drops_anime_before_it_counts_towards_the_limit()
+    {
+        // Over-fetch and cut, rather than cut and then filter. TMDB pages at twenty and the
+        // exclusion is applied to what came back, so filtering *after* Take(limit) would ask
+        // for five and show none — a strip that empties itself the closer the search term is to
+        // something anime. Filtering first spends the page TMDB already sent.
+        var results = string.Join(",", Enumerable.Range(1, 20).Select(id =>
+            $$"""{"id":{{id}},"name":"Show {{id}}","original_language":"{{(id <= 10 ? "ja" : "en")}}","genre_ids":[16]}"""));
+
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK, $$"""{"results":[{{results}}]}""");
+
+        var found = await CreateClient(stub).SearchTvAsync("show", 5, Ct);
+
+        found.Select(show => show.Name)
+            .ShouldBe(["Show 11", "Show 12", "Show 13", "Show 14", "Show 15"]);
+    }
+
     private static TmdbClient CreateClient(StubHttpMessageHandler stub) =>
         new(new HttpClient(stub) { BaseAddress = new Uri("https://api.themoviedb.org/3/") },
             NullLogger<TmdbClient>.Instance);
