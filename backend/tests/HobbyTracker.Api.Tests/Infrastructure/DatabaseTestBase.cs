@@ -255,6 +255,60 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
         });
 
     /// <summary>
+    /// Inserts an anime straight into the catalog, bypassing MAL.
+    ///
+    /// No seasons parameter, and that absence is the decision rather than an omission: MAL
+    /// numbers each cour as its own entry, so a second cour is a second call to this.
+    /// <paramref name="episodeRuntimeSeconds"/> is in MAL's own unit, which is what the
+    /// generated `total_runtime_minutes` converts.
+    /// </summary>
+    protected Task<int> GivenAnimeAsync(
+        string title = "Test Anime",
+        string externalId = "1",
+        string? englishTitle = null,
+        string? coverUrl = null,
+        int? episodeCount = null,
+        int? episodeRuntimeSeconds = null,
+        string? mediaType = null,
+        string? airStatus = null,
+        string? startSeason = null,
+        int? startYear = null,
+        string? sourceMaterial = null,
+        decimal? meanScore = null,
+        string[]? genres = null,
+        string[]? studios = null) => WithDbAsync(async db =>
+        {
+            var anime = new Anime
+            {
+                HobbyId = SeedData.Hobbies.Anime,
+
+                // The fifth source row. MAL numbers its catalogue independently of both TMDB
+                // sequences, so a test seeding Sources.Tmdb here would collide with a film of
+                // the same id — the thing the row exists to prevent.
+                SourceId = SeedData.Sources.Mal,
+
+                ExternalId = externalId,
+                Title = title,
+                EnglishTitle = englishTitle,
+                CoverUrl = coverUrl,
+                EpisodeCount = episodeCount,
+                EpisodeRuntimeSeconds = episodeRuntimeSeconds,
+                MediaType = mediaType,
+                AirStatus = airStatus,
+                StartSeason = startSeason,
+                StartYear = startYear,
+                SourceMaterial = sourceMaterial,
+                MeanScore = meanScore,
+                Genres = [.. genres ?? []],
+                Studios = [.. studios ?? []],
+            };
+
+            db.Anime.Add(anime);
+            await db.SaveChangesAsync(Ct);
+            return anime.Id;
+        });
+
+    /// <summary>
     /// Inserts a media row with no detail table behind it. Only expressible because the mapping
     /// is TPT.
     ///

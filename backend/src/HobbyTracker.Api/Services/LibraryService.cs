@@ -111,6 +111,12 @@ public sealed class LibraryService(
             .Select(row => new LibraryItemDto(
                 row.Media.Id,
                 row.Media.Title,
+
+                // The second title, for the one hobby whose titles have two names. No coalesce
+                // because there is nothing to coalesce with: three hobbies have no such idea,
+                // and the LEFT JOIN behind the downcast answers null for each of them.
+                (row.Media as Anime)!.EnglishTitle,
+
                 row.Media.CoverUrl,
                 row.HobbyName,
                 row.Latest.Status,
@@ -127,9 +133,9 @@ public sealed class LibraryService(
                 // the whole of the dispatch — there is no hobby predicate here and there should
                 // not be one.
                 (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres
-                    ?? (row.Media as TvShow)!.Genres,
+                    ?? (row.Media as TvShow)!.Genres ?? (row.Media as Anime)!.Genres,
                 (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre
-                    ?? (row.Media as TvShow)!.PrimaryGenre,
+                    ?? (row.Media as TvShow)!.PrimaryGenre ?? (row.Media as Anime)!.PrimaryGenre,
 
                 // How long the title takes, whichever hobby is answering: HowLongToBeat's
                 // headline figure for a game, the runtime for a film. Rounded to the two places
@@ -142,7 +148,10 @@ public sealed class LibraryService(
                         : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2))
                     ?? ((row.Media as TvShow)!.TotalRuntimeMinutes == null
                         ? (decimal?)null
-                        : Math.Round(((row.Media as TvShow)!.TotalRuntimeMinutes ?? 0) / 60m, 2)),
+                        : Math.Round(((row.Media as TvShow)!.TotalRuntimeMinutes ?? 0) / 60m, 2))
+                    ?? ((row.Media as Anime)!.TotalRuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as Anime)!.TotalRuntimeMinutes ?? 0) / 60m, 2)),
 
                 // Still to be asked about, which is what tells the card whether looking
                 // again is worth anything. The type test is not decoration and it is not
@@ -517,10 +526,12 @@ public sealed class LibraryService(
         LibrarySort.Length => query
             .OrderBy(row => (row.Media as Game)!.HltbAllStylesHours == null
                             && (row.Media as Movie)!.RuntimeMinutes == null
-                            && (row.Media as TvShow)!.TotalRuntimeMinutes == null)
+                            && (row.Media as TvShow)!.TotalRuntimeMinutes == null
+                            && (row.Media as Anime)!.TotalRuntimeMinutes == null)
             .ThenBy(row => (row.Media as Game)!.HltbAllStylesHours
                            ?? (row.Media as Movie)!.RuntimeMinutes / 60m
-                           ?? (row.Media as TvShow)!.TotalRuntimeMinutes / 60m),
+                           ?? (row.Media as TvShow)!.TotalRuntimeMinutes / 60m
+                           ?? (row.Media as Anime)!.TotalRuntimeMinutes / 60m),
 
         // Manual: the user's own ranking. Every other mode is a read-only view that leaves
         // Position untouched, which is why dragging is only offered in this one.
@@ -596,6 +607,7 @@ public sealed class LibraryService(
             .Select(row => new LibraryItemDto(
                 row.Media.Id,
                 row.Media.Title,
+                (row.Media as Anime)!.EnglishTitle,
                 row.Media.CoverUrl,
                 row.HobbyName,
                 row.Latest.Status,
@@ -606,16 +618,19 @@ public sealed class LibraryService(
                 // a transition answers with the row it just wrote and the board caches that, so
                 // a field populated in one projection and null in the other flickers on a drag.
                 (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres
-                    ?? (row.Media as TvShow)!.Genres,
+                    ?? (row.Media as TvShow)!.Genres ?? (row.Media as Anime)!.Genres,
                 (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre
-                    ?? (row.Media as TvShow)!.PrimaryGenre,
+                    ?? (row.Media as TvShow)!.PrimaryGenre ?? (row.Media as Anime)!.PrimaryGenre,
                 (row.Media as Game)!.HltbAllStylesHours
                     ?? ((row.Media as Movie)!.RuntimeMinutes == null
                         ? (decimal?)null
                         : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2))
                     ?? ((row.Media as TvShow)!.TotalRuntimeMinutes == null
                         ? (decimal?)null
-                        : Math.Round(((row.Media as TvShow)!.TotalRuntimeMinutes ?? 0) / 60m, 2)),
+                        : Math.Round(((row.Media as TvShow)!.TotalRuntimeMinutes ?? 0) / 60m, 2))
+                    ?? ((row.Media as Anime)!.TotalRuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as Anime)!.TotalRuntimeMinutes ?? 0) / 60m, 2)),
 
                 // Still to be asked about, which is what tells the card whether looking
                 // again is worth anything. The type test is not decoration and it is not
