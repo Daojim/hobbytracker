@@ -109,8 +109,15 @@ function Board({ hobby }: { hobby: Hobby }) {
         <AppHeader title="HobbyTracker" />
 
         {/* Above the board rather than on a screen of its own, so the column a title is
-            about to land in is visible while you decide. */}
-        <BoardSearch hobby={hobby} />
+            about to land in is visible while you decide.
+
+            Keyed on the hobby, and that key is the whole of what empties the box when the nav
+            goes from one board to another. Everything the bar holds belongs to the board it was
+            typed on — and clearing the term from inside it would not have been enough, because
+            the debounced copy has already settled by the time the prop changes: the first render
+            under the new hobby sends the old word to the new provider, measured, before any
+            effect could run. Remounting starts all of it empty at once. */}
+        <BoardSearch key={hobby} hobby={hobby} />
 
         {/* Nothing until the years arrive, and that is deliberate rather than a missing
             loading state. The board opens on the latest year there is, so rendering before they

@@ -21,6 +21,12 @@ import { SearchResult } from './SearchResult';
  * Self-contained on purpose. BoardPage renders it and knows nothing else about search, which
  * keeps its tests about the board — and lets this one be tested without a board around it, which
  * matters because a result's title and a card's title are both an h3.
+ *
+ * Everything it holds belongs to the board it sits above: the term, the debounced copy the query
+ * is keyed on, and the ids added since it opened. So the page keys this on the hobby and the nav
+ * remounts it, which is the one thing about search that this file cannot do for itself — by the
+ * time the prop changed, the debounced term had already settled, and the query keyed on both was
+ * away to the new provider with the old word before anything here could clear it.
  */
 export interface BoardSearchProps {
   hobby: string;

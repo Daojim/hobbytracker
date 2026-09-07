@@ -157,9 +157,21 @@ hundred-and-first title twice.
   from a control in the strip.
 - **The strip is only there when there is something to show**, and is `aria-label`led rather than
   headed — `BoardPage.test.tsx` asserts the board's four `<h2>`s as an exhaustive list.
+- **The bar is remounted when the nav changes hobby, and the remount is the whole of what empties
+  it.** `BoardPage` keys `BoardSearch` on the hobby. Without that key a term stays in the box across
+  the nav and is then sent to the *other* provider, because the search is dispatched and keyed by
+  hobby — measured, not argued: typing "hollow" on games and clicking Movies asks TMDB about Hollow
+  Knight. **Clearing the term from inside would not have been enough.** `useDebounced` has already
+  settled by the time the prop changes, so the first render under the new hobby is away to the new
+  provider with the old word before any effect could run. Remounting starts the term, its debounced
+  copy and the ids added since it opened empty together, which is the honest description of what a
+  hobby change means to this component.
 - **`BoardSearch` is tested on its own, never through `BoardPage`**, because a result's title and a
-  card's title are both an `<h3>`. For the same reason `e2e/support/board.ts`'s `card()` is scoped to
-  `[data-board]` — it was a bare `getByRole('listitem')`, which a search result tile answers to.
+  card's title are both an `<h3>`. **One case is the exception and has to be**: the box emptying on
+  a hobby change is the bar outliving the board it belongs to, which only the page can produce — it
+  asserts a box's value and what each provider was asked, and no `<h3>` anywhere. For the same
+  reason `e2e/support/board.ts`'s `card()` is scoped to `[data-board]` — it was a bare
+  `getByRole('listitem')`, which a search result tile answers to.
 
 `/search` redirects to the games board rather than being dropped — the address outlived the page, and
 so did the bare `/board` it used to redirect to, which now redirects in turn.

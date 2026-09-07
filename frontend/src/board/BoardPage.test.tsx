@@ -3,8 +3,8 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BoardPage } from './BoardPage';
 import { boardServer, libraryItem } from '../test/library';
-import { gameDetail, journalServer, logEntry } from '../test/games';
-import { movieDetail, movieJournalServer } from '../test/movies';
+import { game, gameDetail, journalServer, logEntry, searchServer } from '../test/games';
+import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
 import { BackButton, renderWithProviders } from '../test/render';
 
@@ -244,6 +244,37 @@ describe('BoardPage', () => {
     await userEvent.click(screen.getByRole('heading', { name: 'Playing 0' }));
 
     expect(screen.queryByRole('group', { name: 'Options for Celeste' })).not.toBeInTheDocument();
+  });
+
+  it('empties the search when the nav goes to another hobby', async () => {
+    // The bar belongs to the board under it, and the nav changes that board without leaving the
+    // page — so a term left in the box used to ride across and then be sent to the *other*
+    // provider, because the search is dispatched by hobby. Typing "hollow" on games and
+    // clicking Movies asked TMDB about Hollow Knight.
+    //
+    // Through BoardPage rather than in BoardSearch's own file, which is the one exception to the
+    // rule there: the defect is the bar outliving the hobby, and only the page can produce that.
+    // Nothing here asserts an h3, which is what that rule is protecting.
+    const igdb = searchServer({ results: [game({ title: 'Hollow Knight' })] });
+    const tmdb = movieSearchServer({ results: [movie({ title: 'Arrival' })] });
+    // Last, so the board's own /api/library answers the columns rather than the search
+    // fixture's — a later server.use wins.
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.type(await screen.findByRole('searchbox', { name: 'Search games' }), 'hollow');
+    await waitFor(() => expect(igdb.searches).toEqual(['hollow']));
+
+    await userEvent.click(screen.getByRole('link', { name: 'Movies' }));
+
+    const films = await screen.findByRole('searchbox', { name: 'Search movies' });
+    expect(films).toHaveValue('');
+
+    // And nothing went with it on the way past. Asserted by typing a second term rather than by
+    // reading the list straight away: the leaked search lands a moment later, so an empty list
+    // read too early passes whether or not it was going to stay empty.
+    await userEvent.type(films, 'arriv');
+    await waitFor(() => expect(tmdb.searches).toEqual(['arriv']));
   });
 });
 
