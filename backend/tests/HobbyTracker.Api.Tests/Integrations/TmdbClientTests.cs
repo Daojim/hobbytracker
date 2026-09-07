@@ -158,6 +158,151 @@ public sealed class TmdbClientTests
         await Should.ThrowAsync<TmdbException>(() => client.SearchMoviesAsync("arrival", 10, Ct));
     }
 
+    [Fact]
+    public async Task Asks_for_a_show_by_query_string()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK, """{"results":[]}""");
+
+        await CreateClient(stub).SearchTvAsync("breaking bad", 5, Ct);
+
+        var request = stub.Requests.ShouldHaveSingleItem();
+        request.Method.ShouldBe(HttpMethod.Get);
+        request.Uri!.AbsolutePath.ShouldBe("/3/search/tv");
+        request.Uri.Query.ShouldContain("query=breaking%20bad");
+        request.Uri.Query.ShouldContain("include_adult=false");
+    }
+
+    [Fact]
+    public async Task Cuts_the_shows_it_finds_for_the_same_reason_it_cuts_films()
+    {
+        var results = string.Join(",", Enumerable.Range(1, 20).Select(id =>
+            $$"""{"id":{{id}},"name":"Show {{id}}"}"""));
+
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK, $$"""{"results":[{{results}}]}""");
+
+        (await CreateClient(stub).SearchTvAsync("show", 5, Ct)).Count.ShouldBe(5);
+    }
+
+    [Fact]
+    public async Task Reads_a_shows_name_and_first_air_date_rather_than_a_films_fields()
+    {
+        // The one thing about the TV endpoints that is not a copy: a show has `name` and
+        // `first_air_date` where a film has `title` and `release_date`. A model that reused the
+        // film's property names would deserialise to nulls and say nothing about why.
+        const string body = """
+            {
+              "results": [
+                {
+                  "id": 1396,
+                  "name": "Breaking Bad",
+                  "first_air_date": "2008-01-20",
+                  "poster_path": "/ggFHVNu6YYI5L9pCfOacjizRGt.jpg",
+                  "genre_ids": [80, 18],
+                  "vote_count": 14000
+                }
+              ]
+            }
+            """;
+
+        var found = await CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.OK, body))
+            .SearchTvAsync("breaking bad", 10, Ct);
+
+        var show = found.ShouldHaveSingleItem();
+        show.Id.ShouldBe(1396);
+        show.Name.ShouldBe("Breaking Bad");
+        show.FirstAirDate.ShouldBe("2008-01-20");
+        show.PosterPath.ShouldBe("/ggFHVNu6YYI5L9pCfOacjizRGt.jpg");
+    }
+
+    [Fact]
+    public async Task Asks_for_one_show_without_appending_anything()
+    {
+        // A film's detail call appends `credits`, because that is where a director hides in a
+        // crew list hundreds long. A show's creators and its seasons are on the base response,
+        // so appending here would suggest a dependency that does not exist.
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK, """{"id":1396,"name":"x"}""");
+
+        await CreateClient(stub).GetTvAsync(1396, Ct);
+
+        var request = stub.Requests.ShouldHaveSingleItem();
+        request.Uri!.AbsolutePath.ShouldBe("/3/tv/1396");
+        request.Uri.Query.ShouldNotContain("append_to_response");
+        request.Uri.Query.ShouldContain("language=en-US");
+    }
+
+    [Fact]
+    public async Task Reads_everything_one_show_request_answers_with()
+    {
+        const string body = """
+            {
+              "id": 1396,
+              "name": "Breaking Bad",
+              "first_air_date": "2008-01-20",
+              "last_air_date": "2013-09-29",
+              "status": "Ended",
+              "number_of_seasons": 5,
+              "number_of_episodes": 62,
+              "episode_run_time": [45, 47],
+              "genres": [{"id": 80, "name": "Crime"}, {"id": 18, "name": "Drama"}],
+              "created_by": [{"id": 66633, "name": "Vince Gilligan"}],
+              "seasons": [
+                {"season_number": 0, "name": "Specials", "episode_count": 8},
+                {"season_number": 1, "name": "Season 1", "episode_count": 7},
+                {"season_number": 2, "name": "Season 2", "episode_count": 13}
+              ],
+              "last_episode_to_air": {"runtime": 55}
+            }
+            """;
+
+        var show = await CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.OK, body))
+            .GetTvAsync(1396, Ct);
+
+        show.ShouldNotBeNull();
+        show.Name.ShouldBe("Breaking Bad");
+        show.LastAirDate.ShouldBe("2013-09-29");
+        show.Status.ShouldBe("Ended");
+        show.NumberOfSeasons.ShouldBe(5);
+        show.NumberOfEpisodes.ShouldBe(62);
+        show.EpisodeRunTime.ShouldBe([45, 47]);
+        show.Genres!.Select(genre => genre.Name).ShouldBe(["Crime", "Drama"]);
+        show.CreatedBy!.Select(creator => creator.Name).ShouldBe(["Vince Gilligan"]);
+        show.Seasons!.Select(season => season.SeasonNumber).ShouldBe([0, 1, 2]);
+        show.Seasons!.Select(season => season.EpisodeCount).ShouldBe([8, 7, 13]);
+        show.LastEpisodeToAir!.Runtime.ShouldBe(55);
+    }
+
+    [Fact]
+    public async Task Reads_a_show_with_no_episode_run_time_at_all()
+    {
+        // TMDB has been dropping episode_run_time on newer entries, and an empty array is what
+        // that looks like. The client's job is to report it faithfully; the catalog service is
+        // what falls back to last_episode_to_air.
+        const string body = """
+            {
+              "id": 95396,
+              "name": "Severance",
+              "episode_run_time": [],
+              "last_episode_to_air": {"runtime": 47}
+            }
+            """;
+
+        var show = await CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.OK, body))
+            .GetTvAsync(95396, Ct);
+
+        show!.EpisodeRunTime.ShouldBeEmpty();
+        show.LastEpisodeToAir!.Runtime.ShouldBe(47);
+    }
+
+    [Fact]
+    public async Task Answers_null_for_a_show_tmdb_does_not_know()
+    {
+        // An answer rather than a failure, exactly as for a film: an id TMDB has never heard of
+        // has to be distinguishable from TMDB being down.
+        var client = CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.NotFound));
+
+        (await client.GetTvAsync(999_999, Ct)).ShouldBeNull();
+    }
+
     private static TmdbClient CreateClient(StubHttpMessageHandler stub) =>
         new(new HttpClient(stub) { BaseAddress = new Uri("https://api.themoviedb.org/3/") },
             NullLogger<TmdbClient>.Instance);

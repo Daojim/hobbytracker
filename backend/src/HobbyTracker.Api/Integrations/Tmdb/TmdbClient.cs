@@ -21,6 +21,21 @@ public interface ITmdbClient
     /// rather than a failure.
     /// </summary>
     Task<TmdbMovieDetail?> GetMovieAsync(int id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Shows matching a title, best first, cut to <paramref name="limit"/>.
+    ///
+    /// Carries no season counts, no creators and no status — that is the endpoint, not a
+    /// shortcut. See <see cref="GetTvAsync"/>.
+    /// </summary>
+    Task<IReadOnlyList<TmdbTvShow>> SearchTvAsync(
+        string search, int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One show in full, its seasons and creators included. **Null when TMDB does not know the
+    /// id**, exactly as for a film.
+    /// </summary>
+    Task<TmdbTvShowDetail?> GetTvAsync(int id, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -67,6 +82,24 @@ public sealed class TmdbClient(HttpClient httpClient, ILogger<TmdbClient> logger
         // a film's byline is the only place a person's name appears in the drawer.
         GetAsync<TmdbMovieDetail>(
             $"movie/{id}?append_to_response=credits&language=en-US", cancellationToken);
+
+    public async Task<IReadOnlyList<TmdbTvShow>> SearchTvAsync(
+        string search, int limit, CancellationToken cancellationToken)
+    {
+        var path = $"search/tv?query={Uri.EscapeDataString(search)}"
+            + "&include_adult=false&language=en-US&page=1";
+
+        var page = await GetAsync<TmdbTvSearchPage>(path, cancellationToken);
+
+        return [.. (page?.Results ?? []).Take(limit)];
+    }
+
+    public Task<TmdbTvShowDetail?> GetTvAsync(int id, CancellationToken cancellationToken) =>
+        // No append_to_response, and that is not an oversight. A film needs `credits` appended
+        // because its director is buried in a crew list hundreds long; a show's created_by and
+        // its seasons are both on the base response, so appending anything here would imply a
+        // dependency that does not exist.
+        GetAsync<TmdbTvShowDetail>($"tv/{id}?language=en-US", cancellationToken);
 
     private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
         where T : class
@@ -123,6 +156,12 @@ public sealed class TmdbClient(HttpClient httpClient, ILogger<TmdbClient> logger
                 throw new TmdbException("TMDB returned a response that could not be parsed.", ex);
             }
         }
+    }
+
+    /// <summary>The envelope `/search/tv` wraps its results in.</summary>
+    private sealed class TmdbTvSearchPage
+    {
+        public List<TmdbTvShow>? Results { get; init; }
     }
 
     /// <summary>The envelope `/search/movie` wraps its results in.</summary>
