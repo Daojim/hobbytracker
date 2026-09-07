@@ -92,18 +92,19 @@ describe('App', () => {
   });
 
   it('sends a hobby nobody has built yet to the one that exists', async () => {
-    // `anime` is a real slug — it is in hobby_lu and the API answers it — so what this prevents
+    // `books` is a real slug — it is in hobby_lu and the API answers it — so what this prevents
     // is not a 404. It is an empty four-column board that reads as broken rather than as
-    // unbuilt, which is the reasoning that already leaves the nav's three unready hobbies as
+    // unbuilt, which is the reasoning that already leaves the nav's two unready hobbies as
     // plain text rather than as links to somewhere disappointing.
     //
-    // It said `tv` until the day TV shipped, which is the one way this test can go wrong: it
-    // does not fail when the flag flips, it passes for the wrong reason, because the board it
-    // redirects *from* now exists and the redirect it asserts no longer happens.
+    // It said `tv` until the day television shipped and `anime` until the day anime did, which
+    // is the one way this test can go wrong: it does not fail when the flag flips, it passes
+    // for the wrong reason, because the board it redirects *from* now exists and the redirect
+    // it asserts no longer happens. Twice now. Move it again when books ship.
     boardServer({ years: [2026] });
     authServer();
 
-    renderWithProviders(<App />, { route: '/board/anime' });
+    renderWithProviders(<App />, { route: '/board/books' });
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Games' })).toHaveAttribute('aria-current', 'page');

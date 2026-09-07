@@ -29,7 +29,7 @@ describe('AppHeader', () => {
       'Games',
       'Movies',
       'TV',
-      'Anime Soon',
+      'Anime',
       'Books Soon',
       'Music Soon',
     ]);

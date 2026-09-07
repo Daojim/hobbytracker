@@ -18,7 +18,7 @@ export const HOBBIES = [
   { slug: 'games', label: 'Games', ready: true },
   { slug: 'movies', label: 'Movies', ready: true },
   { slug: 'tv', label: 'TV', ready: true },
-  { slug: 'anime', label: 'Anime', ready: false },
+  { slug: 'anime', label: 'Anime', ready: true },
   { slug: 'books', label: 'Books', ready: false },
   { slug: 'music', label: 'Music', ready: false },
 ] as const;

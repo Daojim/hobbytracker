@@ -597,6 +597,39 @@
   --color-genre-war-politics: oklch(0.53 0.16 15);
 
   /*
+   * Anime, and the longest of the four blocks because anime's vocabulary is mostly its own.
+   *
+   * Thirteen genres where games has eleven and the two TMDB lists have ten, and seven hues
+   * minted here — the rest are the films list's, on television's shared-vocabulary argument
+   * exactly: a horror is the same evening on either board, and the year-in-review page is the
+   * one screen that will put two hobbies together. `hobbies/anime.ts` points Sci-Fi at
+   * science-fiction's cyan and takes Horror, Romance, Comedy, Action and Drama unchanged.
+   *
+   * **MAL flattens genres, themes and demographics into one array**, which is why four of the
+   * seven are *themes*: Isekai, Iyashikei, Mecha and Psychological each say what an evening is
+   * like in a way none of the broad words can, so they sit at the top of the ordered list
+   * exactly as Visual Novel sits above Role-playing (RPG). Demographics are deliberately
+   * unpainted — Shounen says who a thing was published for rather than what watching it is
+   * like, and a title carrying nothing else then paints as nothing, which is honest.
+   *
+   * Its floor is Isekai against Mecha at 0.103, then Iyashikei against Sci-Fi at 0.107. Both
+   * clear the 0.087 this palette already accepts between Strategy and Adventure, and thirteen
+   * hues is two more than anything else here has had to fit.
+   *
+   * The hues are chosen for what each genre feels like, which is the films list's rule: Isekai
+   * is a portal-teal, Mecha the steel-blue of the machine, Iyashikei a soft mint that is the
+   * quietest thing on the board, Psychological a deep plum, Sports a vivid green, Fantasy a
+   * violet, and Slice of Life the near-neutral sand that the most ordinary evening deserves.
+   */
+  --color-genre-isekai: oklch(0.55 0.14 210);
+  --color-genre-iyashikei: oklch(0.75 0.11 150);
+  --color-genre-mecha: oklch(0.62 0.15 240);
+  --color-genre-psychological: oklch(0.52 0.18 330);
+  --color-genre-sports: oklch(0.66 0.17 145);
+  --color-genre-slice-of-life: oklch(0.68 0.05 95);
+  --color-genre-fantasy: oklch(0.58 0.18 285);
+
+  /*
    * A provider's own colours, on the genre block's reasoning exactly: these are content rather
    * than chrome. Google's blue means Google whatever the app is wearing, so they are not
    * per-theme and they sit outside the nine palette blocks. Here rather than as literals in the
