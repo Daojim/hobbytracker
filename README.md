@@ -1,12 +1,13 @@
 # HobbyTracker
 
 A personal hobby-tracking and journaling app — what you played or watched, when, and what you
-thought of it. Games, films and television, with anime, books and music sharing the same schema
+thought of it. Games, films, television and anime, with books and music sharing the same schema
 later.
 
-**Status: deployed and in use, behind a sign-in.** Three hobbies — games, films and TV — sharing
-one board, one journal and one schema. A kanban board with a drag, a journal drawer over it, IGDB
-and TMDB search, HowLongToBeat estimates, a show's season and episode on the card, eight themes,
+**Status: deployed and in use, behind a sign-in.** Four hobbies — games, films, TV and anime —
+sharing one board, one journal and one schema. A kanban board with a drag, a journal drawer over
+it, IGDB, TMDB and MAL search, HowLongToBeat estimates, a show's season and episode on the card,
+eight themes,
 and Google/Discord OAuth with every pass and note scoped to whoever wrote it. The next things to
 build are a title detail page and a year in review — see [Roadmap](#roadmap).
 
@@ -27,11 +28,13 @@ earlier pass with its own notes below it.
 Search sits above the board rather than on a screen of its own, so the column a title will land
 in is visible while you decide.
 
-Metadata comes from [IGDB](https://api-docs.igdb.com/) for games and
-[TMDB](https://developer.themoviedb.org/) for films and television, and is cached locally, so a
-journal entry always has something stable to point at even if the provider later moves or deletes
-a record. Films and shows are separate sources rather than one: TMDB numbers them in separate
-sequences, so film 1396 and show 1396 are different titles that share a number.
+Metadata comes from [IGDB](https://api-docs.igdb.com/) for games,
+[TMDB](https://developer.themoviedb.org/) for films and television, and
+[MyAnimeList](https://myanimelist.net/apiconfig/references/api/v2) for anime, and is cached
+locally, so a journal entry always has something stable to point at even if the provider later
+moves or deletes a record. Every provider gets a source row of its own, and TMDB gets two: films
+and shows are numbered independently, so film 1396 and show 1396 are different titles that share
+a number.
 
 ```console
 $ curl -b jar "localhost:5173/api/games?search=hollow%20knight&limit=1"
@@ -114,6 +117,10 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `GET /api/tv/{id}` | one show, its seasons, and everything you logged against it |
 | `PUT /api/tv/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `POST /api/tv/refresh` | re-fetch every TMDB show on the board. One request per show |
+| `GET /api/anime?search=&limit=` | search MAL, cache the results, re-rank them by how many people log each |
+| `GET /api/anime/{id}` | one anime and everything you logged against it |
+| `PUT /api/anime/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
+| `POST /api/anime/refresh` | re-fetch every MAL title on the board. One request per title |
 | `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
 | `GET PUT DELETE /api/log-entries/{id}` | |
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
@@ -137,6 +144,8 @@ Needs the .NET 10 SDK, Node, and Docker. IGDB credentials come from a
 [Twitch application](https://dev.twitch.tv/console/apps) — IGDB has no separate signup. TMDB is
 one token rather than a pair: the v4 read access token from
 [your TMDB settings](https://www.themoviedb.org/settings/api), with no handshake and no expiry.
+MAL is a client id and nothing else, from [its app page](https://myanimelist.net/apiconfig) — the
+client secret signs an OAuth exchange this app never performs, so it is deliberately not stored.
 Sign-in needs one app per provider, each with
 `http://localhost:5173/api/auth/{provider}/callback` as an authorised redirect URI: the
 **frontend's** port, not the API's, because the whole flow has to stay on one origin.
@@ -313,7 +322,7 @@ cd frontend && npm run test:e2e                     # in a real browser
 
 The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
 neither needs nor touches the development database. The end-to-end specs drive a real browser
-against the real API on a separate `hobbytracker_e2e` database, with IGDB, TMDB, HowLongToBeat and
+against the real API on a separate `hobbytracker_e2e` database, with IGDB, TMDB, MAL, HowLongToBeat and
 the OAuth provider stubbed — the drag needs layout and pointer events, which jsdom has neither of.
 
 Those three stubs are servers rather than mocks, deliberately. The OAuth one is a whole
@@ -362,8 +371,16 @@ to prevent something, the test for it is checked by reintroducing the thing.
       length that is an estimate where a film's runtime is exact, and the first pass field no
       other hobby has: which season and episode you are on, shown on the card as `S3 E7` because
       being partway through is the whole point of a television board
+- [x] A fourth hobby, from a provider nothing here had seen. Anime from MyAnimeList — **one card
+      per cour**, because MAL numbers each season as its own entry and that is how anybody who
+      uses MAL already thinks of them. It needed the platform to bend twice, and both bends went
+      in as things every hobby now has: a pass can record an episode with no season, because a
+      cour *is* the title; and a card can carry a second name, so a romaji title has its English
+      one under it. A search here needs no follow-up request at all, which is the first time that
+      has been true — and MAL's own result order is wrong for a person often enough to be worth
+      re-ranking, which is measured rather than argued
 - [ ] A title detail page, and a year in review
-- [ ] Anime, books, music — each a sibling detail table plus its source integration
+- [ ] Books and music — each a sibling detail table plus its source integration
 
 Architecture and schema notes for anyone (or anything) working in the repo live in
 [CLAUDE.md](CLAUDE.md), which routes to one file per area under [docs/](docs).
@@ -371,4 +388,4 @@ Architecture and schema notes for anyone (or anything) working in the repo live 
 ## Credits
 
 Game data from [IGDB](https://www.igdb.com/). This product uses the TMDB API but is not endorsed
-or certified by TMDB.
+or certified by TMDB. Anime data from [MyAnimeList](https://myanimelist.net/).
