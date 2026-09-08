@@ -90,24 +90,32 @@ export const ANIME: HobbyDefinition = {
     label: 'Search anime',
     placeholder: 'Search to add an anime — Frieren, Cowboy Bebop, Mushishi…',
     run: async (term) =>
-      (await searchAnime(term)).map((anime) => ({
-        id: anime.id,
-        title: anime.title,
-        coverUrl: anime.coverUrl,
-        // **Both lines are filled from the search itself**, unlike every other hobby here: MAL
-        // answers the same node to a search and to a detail call, so nothing is waiting on the
-        // title being added. The English title leads because it is what the card will show
-        // under the romaji one, and the cour says which of several entries this is.
-        byline: [anime.englishTitle ?? '', seasonAndYear(anime.startSeason, anime.startYear) ?? ''],
-      })),
+      (await searchAnime(term)).map((anime) => {
+        const [leading, other] = titleLines(anime);
+
+        return {
+          id: anime.id,
+          title: leading,
+          coverUrl: anime.coverUrl,
+          // **Both lines are filled from the search itself**, unlike every other hobby here:
+          // MAL answers the same node to a search and to a detail call, so nothing is waiting
+          // on the title being added. The romaji name is under the English one, in the order
+          // the card will show them, and the cour says which of several entries this is.
+          byline: [other ?? '', seasonAndYear(anime.startSeason, anime.startYear) ?? ''],
+        };
+      }),
   },
 
   journal: {
     load: async (mediaId) => {
       const anime = await getAnime(mediaId);
+      const [leading, other] = titleLines(anime);
 
       return {
-        title: anime.title,
+        // The card's order, and the drawer opens off the card: a heading that disagreed with
+        // the thing just clicked would read as the wrong title having been opened.
+        title: leading,
+        subtitle: other,
         // The studio, which is what anybody names when they say who made an anime — a game's
         // developers and a film's directors answer the same question.
         byline: anime.studios,
@@ -149,6 +157,36 @@ export const ANIME: HobbyDefinition = {
 };
 
 /**
+ * A cour's two names, in the order they are read: the English one, then the romaji one.
+ *
+ * **The English name leads**, because it is what a person here calls the thing. `media.title`
+ * still holds the romaji — that is MAL's own `title` and what its search matches on — so this
+ * is a reading order rather than a second place a title is stored. The board row arrives with
+ * the choice already made by the server, in `LibraryItemDto`; this is the same rule for the two
+ * places that read a catalogue response directly, the search tile and the drawer.
+ *
+ * **The second name is dropped when it is the first one again.** Found by the e2e suite rather
+ * than reasoned about, and not a stub artefact: MAL genuinely answers `alternative_titles.en`
+ * of "Cowboy Bebop" for *Cowboy Bebop*, and does the same for every title whose romaji reading
+ * is already English. Rendered blindly, those print their own name twice.
+ *
+ * Compared case-insensitively and with the ends trimmed, because "the same name" is a thing a
+ * reader judges rather than a byte comparison — and **never any looser than that**, since
+ * `Frieren` and `Frieren: Beyond Journey's End` are genuinely two names. `Card.tsx` states the
+ * same rule over the row's own pair, which is the platform's copy of it rather than a duplicate
+ * of this one: the card has to hold for a hobby that has not been written yet.
+ */
+function titleLines(anime: {
+  title: string;
+  englishTitle: string | null;
+}): [leading: string, other: string | null] {
+  const leading = anime.englishTitle ?? anime.title;
+  const same = leading.trim().toLowerCase() === anime.title.trim().toLowerCase();
+
+  return [leading, same ? null : anime.title];
+}
+
+/**
  * `Fall 2023`, which is how anybody says when a cour aired.
  *
  * Both halves or neither: a season with no year says nothing about *which* autumn, and a year
@@ -173,6 +211,7 @@ const capitalise = (word: string) => word.charAt(0).toUpperCase() + word.slice(1
  * so a missing one is genuinely missing rather than not yet fetched.
  */
 function animeFacts(anime: {
+  externalId: string | null;
   mediaType: string | null;
   episodeCount: number | null;
   episodeRuntimeSeconds: number | null;
@@ -217,16 +256,43 @@ function animeFacts(anime: {
   }
 
   // MAL's own score, and the reason it is worth a line: it is out of ten, which is the scale a
-  // pass's rating uses, so the two sit beside each other with no footnote. `MAL` names whose
-  // opinion it is, which a bare number could not.
+  // pass's rating uses, so the two sit beside each other with no footnote.
+  //
+  // It was labelled `MAL` while that was the only thing here MAL's name could mean. It is not
+  // any more — the link below wants the word more than the number does, because a label reading
+  // `MAL` beside `View on MyAnimeList` is the one that explains itself. What says whose
+  // opinion the score is, is that it sits in the band of things the provider states rather than
+  // in the form below, where you record your own.
   if (anime.meanScore !== null) {
-    facts.push({ label: 'MAL', value: anime.meanScore.toFixed(2) });
+    facts.push({ label: 'Rating', value: anime.meanScore.toFixed(2) });
   }
 
   if (anime.sourceMaterial !== null) {
     // Whether a thing is an original or an adaptation is most of what anybody wants to know
     // before starting it.
     facts.push({ label: 'Source', value: sourceMaterialName(anime.sourceMaterial) });
+  }
+
+  // The way back to the entry this card was built from — last, because it is the only row here
+  // that leaves the app, and everything above it is something to read rather than to press.
+  //
+  // **Not `source_lu.base_url`**, which is `https://api.myanimelist.net/v2/` — the API rather
+  // than the site, and the two are not the same host. Written out here for the same reason
+  // `HltbPin` writes howlongtobeat.com out: it is a fact about where a person goes, which is
+  // the client's business, and threading it through the DTO would put a reader-facing URL in a
+  // column that holds a machine-facing one.
+  //
+  // Dropped where there is no id to build it from. `external_id` is nullable because `media`'s
+  // is, and an anime is only ever written by a MAL search — so this is a shape the app cannot
+  // currently reach rather than one it reaches often. A link to `/anime/null` is worse than no
+  // link, and this is the one fact here that is not MAL's opinion about the title: a cour MAL
+  // knows nothing else about is exactly the one worth being able to open.
+  if (anime.externalId !== null) {
+    facts.push({
+      label: 'MAL',
+      value: 'View on MyAnimeList',
+      href: `https://myanimelist.net/anime/${anime.externalId}`,
+    });
   }
 
   return facts;

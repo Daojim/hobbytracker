@@ -92,6 +92,9 @@ export const MOVIES: HobbyDefinition = {
 
       return {
         title: movie.title,
+        // One name, so no second line. Stated rather than inferred, for the reason `seasons`
+        // is: a hobby with two names that left this out would look exactly like this one.
+        subtitle: null,
         byline: movie.directors,
         genres: movie.genres,
         primaryGenre: movie.primaryGenre,

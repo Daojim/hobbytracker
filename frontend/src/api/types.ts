@@ -32,17 +32,27 @@ export interface PagedResult<T> {
  */
 export interface LibraryItem {
   mediaId: number;
+  /**
+   * The name on the card's heading, which is **not always `media.title`**.
+   *
+   * For three hobbies it is exactly that. For anime it is MAL's English title where there is
+   * one and the romaji title where there is not — the name a person here calls the thing leads,
+   * and the one MAL matched on goes to {@link subtitle}. The server decides it, in the two
+   * projections and the title sort; nothing on the client picks between the two names for a
+   * board row.
+   */
   title: string;
   /**
    * A second line under the title on a card, for a hobby whose titles have two names.
    *
    * Anime is why it exists: MAL states a romaji title and, often but not always, an English
-   * one. `title` holds the romaji, so search, the drawer's heading and the remove confirmation
-   * all need no special case, and this is the extra one.
+   * one. The English one is the heading and this is the romaji — which is what a MAL search
+   * matches on, and so what you would type to find the thing again.
    *
    * Named for what it is on the row rather than for what anime means by it — the next hobby to
-   * want one may not mean English by it. Null for every other hobby and null for most anime,
-   * which are the same kind of null: the card renders nothing rather than an empty line.
+   * want one may not mean romaji by it. Null for every other hobby and null for an anime MAL
+   * has only one name for, which land in the same place for different reasons: the card renders
+   * nothing rather than an empty line for both.
    */
   subtitle: string | null;
   coverUrl: string | null;
@@ -232,12 +242,21 @@ export interface TvShowDetail extends TvShow {
  */
 export interface Anime {
   id: number;
-  /** The romaji title — `Sousou no Frieren`. What MAL's own search matches on. */
+  /**
+   * The romaji title — `Sousou no Frieren`. What MAL's own search matches on, and therefore
+   * what `media.title` holds and what a catalogue endpoint answers with.
+   *
+   * It is **not** what leads a card or the drawer's heading; {@link englishTitle} is, where
+   * there is one. This is the line under it.
+   */
   title: string;
   /**
    * The English title, and **null is the ordinary case rather than a gap**: plenty of anime
-   * have no official English title at all. It is the second line under a card's heading, and
-   * reaches the board row as `LibraryItem.subtitle`.
+   * have no official English title at all.
+   *
+   * It leads wherever a person reads a title — the card's heading, the drawer's, the search
+   * tile — with {@link title} underneath, and reaches the board row as `LibraryItem.title`
+   * already chosen. Null falls back to {@link title}, so nothing anywhere renders empty.
    */
   englishTitle: string | null;
   coverUrl: string | null;

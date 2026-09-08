@@ -79,6 +79,9 @@ export const GAMES: HobbyDefinition = {
 
       return {
         title: game.title,
+        // One name, so no second line. Stated rather than inferred, for the reason `seasons`
+        // is: a hobby with two names that left this out would look exactly like this one.
+        subtitle: null,
         // The developer alone. The platforms were in this line while it was the game's only
         // byline, but they have a control of their own further down — a list of them under the
         // title was a spec sheet where a name belongs.

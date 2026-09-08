@@ -183,24 +183,25 @@ describe('Card', () => {
     expect(screen.getByRole('img', { name: 'Episode 12' })).toBeInTheDocument();
   });
 
-  it("prints the English title under the romaji one, and nothing when there is none", () => {
-    // The second stretch this hobby asked of the platform. Both names are worth finding by eye,
-    // and `title` holds the romaji so that everything else — search, the drawer's heading, the
-    // remove confirmation — needs no special case.
+  it("prints the row's second title under its first, and nothing when there is none", () => {
+    // The second stretch this hobby asked of the platform, and the card is where it lands. The
+    // row decides which name leads — for an anime that is MAL's English title, with the romaji
+    // one it was matched on underneath — and the card renders the pair it is given without
+    // knowing whose names they are.
     const named = renderCard(
       libraryItem({
         hobby: 'anime',
-        title: 'Sousou no Frieren',
-        subtitle: "Frieren: Beyond Journey's End",
+        title: "Frieren: Beyond Journey's End",
+        subtitle: 'Sousou no Frieren',
       }),
     );
 
-    expect(named.getByText("Frieren: Beyond Journey's End")).toBeInTheDocument();
+    expect(named.getByText('Sousou no Frieren')).toBeInTheDocument();
 
     // Outside the heading, so a screen reader reads the title as the title. An accessible name
     // carrying both would be the one string nobody could search for.
     expect(
-      named.getByRole('heading', { name: 'Sousou no Frieren' }),
+      named.getByRole('heading', { name: "Frieren: Beyond Journey's End" }),
     ).toBeInTheDocument();
 
     // Absent rather than blank, which is the ordinary case: MAL leaves the English title off a

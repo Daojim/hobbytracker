@@ -375,10 +375,10 @@ to prevent something, the test for it is checked by reintroducing the thing.
       per cour**, because MAL numbers each season as its own entry and that is how anybody who
       uses MAL already thinks of them. It needed the platform to bend twice, and both bends went
       in as things every hobby now has: a pass can record an episode with no season, because a
-      cour *is* the title; and a card can carry a second name, so a romaji title has its English
-      one under it. A search here needs no follow-up request at all, which is the first time that
-      has been true — and MAL's own result order is wrong for a person often enough to be worth
-      re-ranking, which is measured rather than argued
+      cour *is* the title; and a card can carry a second name, so an English title has the romaji
+      one it was found by under it. A search here needs no follow-up request at all, which is the
+      first time that has been true — and MAL's own result order is wrong for a person often
+      enough to be worth re-ranking, which is measured rather than argued
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

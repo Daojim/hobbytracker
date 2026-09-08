@@ -202,6 +202,18 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               {detail?.title ?? 'Loading…'}
             </h2>
 
+            {/* The title's other name, for the one hobby whose titles have two. MAL states an
+                English name and a romaji one, the English leads, and this is the other — the
+                card's pair in the card's order, because this drawer opens off that card.
+
+                Outside the <h2> rather than inside it, exactly as the card keeps it outside the
+                <h3>: an accessible name carrying both names run together would be the one
+                string nobody could search for. Absent rather than blank when there is nothing,
+                which is every other hobby and most anime. */}
+            {detail?.subtitle != null && (
+              <p className="text-xs break-words text-muted">{detail.subtitle}</p>
+            )}
+
             {/* Who made it, and nothing else — the developer of a game, the director of a film.
                 This carried the platforms too while it was the game's only byline, but they have
                 a control of their own further down: a list of them here was a spec sheet where a
@@ -272,7 +284,26 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
             {detail.facts.map((fact) => (
               <Fragment key={fact.label}>
                 <span className="font-medium">{fact.label}</span>
-                <span>{fact.value}</span>
+
+                {/* A fact with somewhere to go is an anchor and the rest are spans — the way
+                    back to MAL is the only one so far. It is still not a control: the genre
+                    select above changes what the app holds, and this leaves the app entirely.
+
+                    justify-self-start, because a grid child fills its track: without it the
+                    underline and the click target would run the width of the drawer. New tab
+                    and noreferrer, which is HltbPin's anchor exactly. */}
+                {fact.href === undefined ? (
+                  <span>{fact.value}</span>
+                ) : (
+                  <a
+                    href={fact.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="justify-self-start underline hover:text-fg"
+                  >
+                    {fact.value}
+                  </a>
+                )}
               </Fragment>
             ))}
 

@@ -159,6 +159,18 @@ export interface PassFields {
 export interface TitleDetail {
   title: string;
 
+  /**
+   * The title's other name, under the heading, for a hobby whose titles have two.
+   *
+   * `LibraryItem.subtitle`'s counterpart, and the drawer opens off a card — a heading that
+   * disagreed with the thing just clicked would read as the wrong title having been opened. For
+   * anime that pair is MAL's English name leading and the romaji one under it.
+   *
+   * Null where the hobby has no such idea, and null for a title with only one name — the
+   * {@link platforms} rule, stated per hobby rather than inferred.
+   */
+  subtitle: string | null;
+
   /** Who made it: a game's developers, a film's directors. */
   byline: readonly string[];
 
@@ -220,6 +232,17 @@ export interface TitleDetail {
 export interface TitleFact {
   label: string;
   value: string;
+
+  /**
+   * Where the value goes, for a fact that is a way *out of* the app rather than a statement
+   * about the title. Absent on all but one: anime's MAL row, which opens the entry the card was
+   * built from.
+   *
+   * Optional rather than nullable, so a hobby that has no such fact writes nothing. The drawer
+   * renders a plain span without it — a band where every row had become an anchor would promise
+   * a destination for a runtime and a genre.
+   */
+  href?: string;
 }
 
 /**

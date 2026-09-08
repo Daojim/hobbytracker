@@ -36,7 +36,7 @@ Everything else here falls out of those two:
 - **The pass has an episode and no season**, because the cour *is* the title and "episode 7" says
   everything there is to say.
 - **The card needs two lines**, because MAL states romaji and English and both are worth finding
-  by eye.
+  by eye. Which of them *leads* is settled below and was reversed once.
 
 ## The provider works in a way MAL does not document
 
@@ -191,18 +191,81 @@ everything else, in **both terminal projections and nowhere near `BoardQuery`**.
   platform's and the next hobby to want one may not mean English: a book has a series, an album
   has an artist. `anime.english_title` is allowed to be specific because that column is the
   hobby's.
-- **`media.title` holds the romaji**, which is MAL's own `title` and what its search matches on —
-  so search, the drawer's heading and the remove confirmation all need no special case.
-- Null for every other hobby and null for most anime, which are the same kind of null.
+- **`media.title` holds the romaji**, which is MAL's own `title` and what its search matches on.
+  Nothing below changes that, and nothing here is stored twice.
+- Null for every other hobby and null for an anime MAL has one name for, which are not the same
+  kind of null and land in the same place anyway.
+
+### The English name leads, and it did not at first
+
+**Reversed on 7 September 2026, the day the hobby shipped, at the user's request**: the heading
+is the English title and the romaji one sits under it. It went in the other way round on the
+argument that `media.title` is the romaji and a row that led with it needed no special case
+anywhere. That argument was about the code rather than about reading a board.
+
+The reversal is **presentation only, and `media.title` is untouched.** A MAL search matches on
+romaji, the catalogue endpoints answer with it, and `seed` in the e2e specs still finds a title
+by it — which is why those specs seed under one name and assert under another.
+
+**Where the choice is made depends on who is answering**, and there are two answers rather than
+one because a board row and a catalogue response are different shapes:
+
+| | |
+|---|---|
+| A board row | The **server** chooses. `LibraryItemDto.Title` is `EnglishTitle ?? Media.Title` and `Subtitle` is the romaji when there is an English one — so `Card.tsx` renders the pair it is handed and stays a platform component with no idea whose names they are |
+| The drawer, the search tile | The **client** chooses, in `titleLines` in `hobbies/anime.ts`. Both read a catalogue response directly, where both names arrive side by side and nothing has picked yet |
+
+**Three places on the server have to agree, and only two of them are projections.**
+`LibrarySort.Title` orders on the same coalesce, in `Sorted` — which is the *second* accepted
+downcast site there, after `LibrarySort.Length`, and still never `BoardQuery`. Left ordering on
+`media.title`, the Anime board would file Frieren under S while showing an F, which reads as a
+sort that is simply broken rather than as a disagreement about names.
+
+**The coalesce is doing two jobs and dropping either one empties something.** MAL leaves the
+English title off a great many entries, so the heading has to fall back to the one name there is;
+and three hobbies have no `anime` row at all, so the LEFT JOIN behind the downcast answers null
+and they fall back too. A bare `EnglishTitle` would blank every heading on every other board.
 
 ### The card refuses a subtitle that is the title
 
 **Found by the e2e suite rather than reasoned about, and it is not a stub artefact.** MAL answers
 `alternative_titles.en: "Cowboy Bebop"` for *Cowboy Bebop*, and does the same for every title
-whose romaji reading is already English. Rendered blindly, those cards print their own name twice.
+whose romaji reading is already English. Rendered blindly, those print their own name twice.
 
 Compared case-insensitively and trimmed, and **never any looser than that**: `Frieren` and
 `Frieren: Beyond Journey's End` are genuinely two names.
+
+**The rule is stated twice on purpose.** `Card.tsx` holds it over the row's own pair — the
+platform's copy, which has to keep working for a hobby that has not been written yet — and
+`titleLines` holds it over MAL's pair for the drawer and the search tile. The search tile printed
+the name twice until the reversal, because only the card had ever had the rule.
+
+## The drawer's facts band, and the row that leaves the app
+
+Six rows where a show has three: **Run · Airing · Episode · Rating · Source · MAL**, built in
+`animeFacts` and dropped individually wherever MAL has nothing to say. The last one is the only
+thing in the drawer that leaves the app.
+
+- **`Rating` is MAL's mean score**, and it was labelled `MAL` until 7 September 2026. It is out
+  of ten, which is the scale a pass's own rating uses, so the two sit beside each other with no
+  footnote. The label moved because the link below wants the word more than the number does: a
+  row reading `MAL — View on MyAnimeList` explains itself, where `MAL — 9.25` needs the reader
+  to already know. **The pass form's own `Rating` field is a few inches below it**, and what
+  keeps the two apart is the band each sits in — everything above the rule is what the provider
+  says about the title, everything below it is what you recorded.
+- **The URL is written out on the client**, in `hobbies/anime.ts`, exactly as `HltbPin` writes
+  out howlongtobeat.com. It is **not** `source_lu.base_url`, which is
+  `https://api.myanimelist.net/v2/` — the API host rather than the site, and threading a
+  reader-facing URL through the DTO would put one in a column that holds a machine-facing one.
+- **`TitleFact.href` is optional and on the contract for every hobby**, which is the fourth time
+  this hobby has widened a shared shape rather than branched on a slug. The drawer renders a
+  plain `<span>` without it; a band where every row had become an anchor would promise a
+  destination for a runtime and a genre.
+- **Dropped where `external_id` is null.** That is a shape the app cannot currently reach — an
+  anime row is only ever written by a MAL search — but the column is nullable because `media`'s
+  is, and a link to `/anime/null` is worse than no link. It is also the one row here that is not
+  MAL's *opinion* about the title, so it survives a cour MAL knows nothing else about, which is
+  exactly the one worth being able to open.
 
 ## `MalRelevance`: MAL's order is wrong for a person
 
@@ -318,6 +381,13 @@ it, this is the wiring that has to be re-proved.
 the list above testable end to end. Its catalogue is chosen so nothing passes for the wrong
 cause: two cours of Frieren plus the unaired third with `num_episodes: 0`, a title with no
 English name, a film, and one nobody has timed.
+
+**The stub's English titles are load-bearing now, in a way they were not.** Since the heading is
+the English name, `openJournal` and the search tile's *Add* button are named for it while `seed`
+still finds a title by the romaji one — so a spec that seeds *Sousou no Frieren* opens
+*Frieren: Beyond Journey's End*. That reads like a mistake and is the feature. *Cowboy Bebop* is
+in the catalogue with an English title identical to its romaji one, which is what keeps the
+same-name rule exercised end to end.
 
 **It returns catalogue order rather than MAL's**, deliberately. Mirroring MAL's would be testing
 the stub; mirroring the *fixed* order would let the re-rank be deleted with every spec still

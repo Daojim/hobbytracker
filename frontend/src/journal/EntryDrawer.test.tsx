@@ -1655,15 +1655,47 @@ describe('EntryDrawer, on an anime', () => {
     );
   });
 
-  it('bylines the studio and states the five facts a cour has', async () => {
+  it('heads the English title, puts the romaji one under it, and bylines the studio', async () => {
+    // The card's order, and the drawer opens off the card — a heading that disagreed with the
+    // thing just clicked would read as the wrong title having been opened. `media.title` is
+    // unchanged underneath and still holds the romaji, which is what MAL matched on.
     animeJournalServer();
 
     openAnime();
 
     expect(
-      await screen.findByRole('heading', { name: 'Sousou no Frieren' }),
+      await screen.findByRole('heading', { name: "Frieren: Beyond Journey's End" }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Madhouse')).toBeInTheDocument();
+
+    // Outside the heading, as it is on the card, so a screen reader announces the title as the
+    // title rather than as both names run together.
+    expect(screen.getByText('Sousou no Frieren')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /Sousou no Frieren/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('leaves the second line off an anime MAL has no English title for', async () => {
+    // The ordinary case. Absent rather than blank, so the byline does not sit a line lower on
+    // some titles than on others.
+    animeJournalServer({
+      detail: animeDetail({ title: 'Ping Pong the Animation', englishTitle: null }),
+    });
+
+    openAnime();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Ping Pong the Animation' }),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Ping Pong the Animation')).toHaveLength(1);
+  });
+
+  it('bylines the studio and states the six facts a cour has', async () => {
+    animeJournalServer();
+
+    openAnime();
+
+    expect(await screen.findByText('Madhouse')).toBeInTheDocument();
     expect(screen.getByText('TV · 28 episodes')).toBeInTheDocument();
     expect(screen.getByText('Finished · Fall 2023')).toBeInTheDocument();
     expect(screen.getByText('9.25')).toBeInTheDocument();
@@ -1673,5 +1705,30 @@ describe('EntryDrawer, on an anime', () => {
     expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Platform')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('HowLongToBeat ID')).not.toBeInTheDocument();
+  });
+
+  it('offers the way back to MAL as a link, in a band that is otherwise text', async () => {
+    // The one fact you can operate, and it is not a control: everything else in this band is
+    // either something you set (the genre) or something the provider states. HltbPin's anchor
+    // is the precedent — a new tab, and `noreferrer` with it.
+    animeJournalServer();
+
+    openAnime();
+
+    const link = await screen.findByRole('link', { name: 'View on MyAnimeList' });
+
+    expect(link).toHaveAttribute('href', 'https://myanimelist.net/anime/52991');
+    expect(link).toHaveAttribute('target', '_blank');
+  });
+
+  it('renders a fact with no link of its own as plain text', async () => {
+    // The half of the same rule that is easy to lose: `href` is optional on a fact, and a band
+    // where every row had become an anchor would promise five destinations that do not exist.
+    animeJournalServer();
+
+    openAnime();
+
+    await screen.findByText('Manga');
+    expect(screen.getAllByRole('link')).toHaveLength(1);
   });
 });
