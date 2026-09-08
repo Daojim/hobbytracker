@@ -10,8 +10,14 @@ import { card, column, drag, entriesFor, openJournal, seed, setSort } from './su
  * Television stretched the platform once: it needed a control no other hobby had. Anime
  * stretches the same two seams further and in the opposite direction. Its pass carries an
  * episode and **no season**, which a check constraint refused until this phase; and its card
- * carries a **second title**, which no board row had a field for. What a spec proves that no
- * unit test can is that both survive a real browser, a real Postgres and a real HTTP round trip.
+ * carries a **second title** — MAL's English name leading, the romaji one it was matched on
+ * underneath — which no board row had a field for. What a spec proves that no unit test can is
+ * that both survive a real browser, a real Postgres and a real HTTP round trip.
+ *
+ * **The two names are why `seed` and the assertions disagree about what a title is called.**
+ * Seeding goes through `GET /api/anime`, which answers MAL's own `title` — the romaji one, and
+ * what a search matches on. Everything a person reads is the English one. Both are true at once
+ * and that is the point: nothing about what is *stored* changed.
  *
  * **Nothing here waits on enrichment**, which is the other difference. MAL's search and detail
  * endpoints take the same `fields` and answer with the same node, so a card is complete the
@@ -28,7 +34,10 @@ test.beforeEach(async ({ page }) => {
 
 test('finding an anime puts it on the board, complete, without leaving it', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Search anime' }).fill('frieren');
-  await page.getByRole('button', { name: 'Add Sousou no Frieren to backlog' }).click();
+
+  // Named for the English title, which is what the tile leads with — and the romaji one is
+  // what MAL matched `frieren` against, two lines that both have to be right at once.
+  await page.getByRole('button', { name: "Add Frieren: Beyond Journey's End to backlog" }).click();
 
   await expect(page.getByText('On your board')).toBeVisible();
 
@@ -47,21 +56,52 @@ test('finding an anime puts it on the board, complete, without leaving it', asyn
   await expect(frieren.getByText('Fantasy')).toBeVisible();
 });
 
-test('a card carries the English title under the romaji one', async ({ page }) => {
-  // The second stretch, at the only layer that can prove it. `media.title` holds the romaji, so
-  // search, the drawer's heading and the remove confirmation all need no special case — and
-  // this is the extra line the board row grew a field for.
+test('a card leads with the English title and carries the romaji one under it', async ({
+  page,
+}) => {
+  // The second stretch, at the only layer that can prove it — and the layer that proves which
+  // of the two names leads, since the choice is the server's and is made three times over.
   await seed(page.request, 'Sousou no Frieren', 'Backlog', { hobby: 'anime' });
   await page.reload();
 
   const frieren = card(page, 'Sousou no Frieren');
-  await expect(frieren.getByText("Frieren: Beyond Journey's End")).toBeVisible();
 
-  // And absent rather than blank where MAL has no English title, which is the ordinary case.
+  // The heading is the button that opens the journal, which is what makes this an assertion
+  // about the *heading* rather than about the card containing the string anywhere.
+  await expect(
+    frieren.getByRole('button', { name: "Frieren: Beyond Journey's End", exact: true }),
+  ).toBeVisible();
+  await expect(frieren.locator('[data-subtitle]')).toHaveText('Sousou no Frieren');
+
+  // And one line rather than a blank second one where MAL has no English title, which is the
+  // ordinary case — the coalesce falling back rather than the heading emptying.
   await seed(page.request, 'Ping Pong the Animation', 'Backlog', { hobby: 'anime' });
   await page.reload();
 
-  await expect(card(page, 'Ping Pong the Animation').locator('[data-subtitle]')).toHaveCount(0);
+  const pingPong = card(page, 'Ping Pong the Animation');
+  await expect(
+    pingPong.getByRole('button', { name: 'Ping Pong the Animation', exact: true }),
+  ).toBeVisible();
+  await expect(pingPong.locator('[data-subtitle]')).toHaveCount(0);
+});
+
+test('sorting the Backlog by title files an anime under the name on its card', async ({ page }) => {
+  // The third place the rule is stated, and the only one that is a sort rather than a
+  // projection. Ordered on `media.title`, Frieren would sit under S while showing an F.
+  await seed(page.request, 'Sousou no Frieren', 'Backlog', { hobby: 'anime' });
+  await seed(page.request, 'Ping Pong the Animation', 'Backlog', { hobby: 'anime' });
+  await seed(page.request, 'Cowboy Bebop', 'Backlog', { hobby: 'anime' });
+  await page.reload();
+
+  await setSort(page, 'Backlog', 'Title', 'anime');
+
+  // The headings rather than the list items: a card's text begins with the cover placeholder's
+  // letter, so a whole-card assertion would be anchored on "C" and "F" rather than on a name.
+  await expect(column(page, 'Backlog', 'anime').getByRole('heading', { level: 3 })).toHaveText([
+    'Cowboy Bebop',
+    "Frieren: Beyond Journey's End",
+    'Ping Pong the Animation',
+  ]);
 });
 
 test('two cours of one show are two cards', async ({ page }) => {
@@ -102,7 +142,7 @@ test('a pass records which episode, with no season to name first', async ({ page
   const mediaId = await seed(page.request, 'Sousou no Frieren', 'InProgress', { hobby: 'anime' });
   await page.reload();
 
-  await openJournal(page, 'Sousou no Frieren');
+  await openJournal(page, "Frieren: Beyond Journey's End");
   const drawer = page.getByRole('dialog');
 
   await expect(drawer.getByLabel('Episode')).toBeVisible();
@@ -124,12 +164,18 @@ test('a pass records which episode, with no season to name first', async ({ page
   await expect(card(page, 'Sousou no Frieren').getByText('E12')).toBeVisible();
 });
 
-test("the drawer states a cour's five facts and bylines its studio", async ({ page }) => {
+test("the drawer states a cour's six facts and bylines its studio", async ({ page }) => {
   await seed(page.request, 'Sousou no Frieren', 'InProgress', { hobby: 'anime' });
   await page.reload();
 
-  await openJournal(page, 'Sousou no Frieren');
+  await openJournal(page, "Frieren: Beyond Journey's End");
   const drawer = page.getByRole('dialog');
+
+  // The card's pair, in the card's order, because this drawer opened off that card.
+  await expect(
+    drawer.getByRole('heading', { name: "Frieren: Beyond Journey's End" }),
+  ).toBeVisible();
+  await expect(drawer.getByText('Sousou no Frieren')).toBeVisible();
 
   await expect(drawer.getByText('Madhouse')).toBeVisible();
   await expect(drawer.getByText('TV · 28 episodes')).toBeVisible();
@@ -143,6 +189,14 @@ test("the drawer states a cour's five facts and bylines its studio", async ({ pa
   // worth a line rather than a footnote.
   await expect(drawer.getByText('9.25')).toBeVisible();
   await expect(drawer.getByText('Manga')).toBeVisible();
+
+  // The one row in that band you can press, and the only thing in the drawer that leaves the
+  // app. Built from the id the row was found by rather than from `source_lu.base_url`, which
+  // is the API host and not the site — an assertion on the href is what says which.
+  await expect(drawer.getByRole('link', { name: 'View on MyAnimeList' })).toHaveAttribute(
+    'href',
+    'https://myanimelist.net/anime/52991',
+  );
 
   // The three controls this hobby does not have, absent rather than blank.
   await expect(drawer.getByLabel('Hours played')).toHaveCount(0);
@@ -162,7 +216,7 @@ test('a cour nobody has counted offers no episodes at all', async ({ page }) => 
   await expect(unaired).toBeVisible();
   await expect(unaired.getByText(/h$/)).toHaveCount(0);
 
-  await openJournal(page, 'Sousou no Frieren: Ougonkyou-hen');
+  await openJournal(page, "Frieren: Beyond Journey's End - Golden Land Arc");
 
   const episode = page.getByRole('dialog').getByLabel('Episode');
   await expect(episode.getByRole('option')).toHaveCount(1);

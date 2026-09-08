@@ -188,6 +188,50 @@ describe('journal.load', () => {
     expect((await hobbyDefinition('games').journal.load(14)).seasons).toEqual([]);
   });
 
+  it('heads an anime with its English title and puts the romaji one under it', async () => {
+    // The name a person here calls the thing leads, and the one MAL matched on sits under it.
+    // `media.title` is unchanged and still holds the romaji — this is a decision about reading
+    // order rather than about what is stored.
+    server.use(http.get('/api/anime/14', () => HttpResponse.json(animeDetail())));
+
+    const frieren = await hobbyDefinition('anime').journal.load(14);
+    expect(frieren.title).toBe("Frieren: Beyond Journey's End");
+    expect(frieren.subtitle).toBe('Sousou no Frieren');
+  });
+
+  it('heads an anime MAL has no English title for with the one name it has', async () => {
+    // The ordinary case rather than a gap, and the second line is absent rather than blank —
+    // the card's rule, and the same one that drops a second title that is only the first again.
+    server.use(
+      http.get('/api/anime/14', () =>
+        HttpResponse.json(animeDetail({ title: 'Ping Pong the Animation', englishTitle: null })),
+      ),
+      http.get('/api/anime/15', () =>
+        HttpResponse.json(animeDetail({ title: 'Cowboy Bebop', englishTitle: '  cowboy bebop ' })),
+      ),
+    );
+
+    const pingPong = await hobbyDefinition('anime').journal.load(14);
+    expect(pingPong.title).toBe('Ping Pong the Animation');
+    expect(pingPong.subtitle).toBeNull();
+
+    expect((await hobbyDefinition('anime').journal.load(15)).subtitle).toBeNull();
+  });
+
+  it('gives every other hobby one name and no second line', async () => {
+    // The field is the platform's, and null is what a hobby with no such idea answers — the
+    // `seasons` and `platforms` precedent, stated rather than inferred for the same reason.
+    server.use(
+      http.get('/api/games/14', () => HttpResponse.json(gameDetail())),
+      http.get('/api/movies/14', () => HttpResponse.json(movieDetail())),
+      http.get('/api/tv/14', () => HttpResponse.json(tvShowDetail())),
+    );
+
+    for (const slug of ['games', 'movies', 'tv'] as const) {
+      expect((await hobbyDefinition(slug).journal.load(14)).subtitle).toBeNull();
+    }
+  });
+
   it('bylines an anime with its studio, which is who anybody says made it', async () => {
     // A game's developers, a film's directors, a show's creators — the fourth answer to one
     // question, and the reason the drawer has a `byline` rather than four fields.
@@ -198,22 +242,31 @@ describe('journal.load', () => {
     expect((await hobbyDefinition('anime').journal.load(14)).byline).toEqual(['Madhouse']);
   });
 
-  it('states an anime as its run, its airing, one episode, a score and a source', async () => {
-    // Five facts where a show has three, and two of them exist only here. MAL's mean is worth a
-    // line because it is out of ten, which is the scale a pass's own rating uses — the two sit
-    // beside each other with no footnote. The source material is what tells you whether a thing
-    // is an original or an adaptation, which is most of what anybody wants to know first.
+  it('states an anime as its run, its airing, one episode, a rating, a source and a link', async () => {
+    // Six facts where a show has three, and three of them exist only here. MAL's mean is worth
+    // a line because it is out of ten, which is the scale a pass's own rating uses — the two
+    // sit beside each other with no footnote. The source material is what tells you whether a
+    // thing is an original or an adaptation, which is most of what anybody wants to know first.
     //
     // MAL's snake_case is made readable here rather than stored differently, exactly as TMDB's
     // "Returning Series" is carried verbatim and a runtime in minutes is turned into words.
+    //
+    // `MAL` now names the link rather than the score, which is the label doing the job it
+    // reads as. The score is `Rating`, and what says whose opinion it is, is that it sits in
+    // the band of things the provider states rather than in the form where you record your own.
     server.use(http.get('/api/anime/14', () => HttpResponse.json(animeDetail())));
 
     expect((await hobbyDefinition('anime').journal.load(14)).facts).toEqual([
       { label: 'Run', value: 'TV · 28 episodes' },
       { label: 'Airing', value: 'Finished · Fall 2023' },
       { label: 'Episode', value: '25 m' },
-      { label: 'MAL', value: '9.25' },
+      { label: 'Rating', value: '9.25' },
       { label: 'Source', value: 'Manga' },
+      {
+        label: 'MAL',
+        value: 'View on MyAnimeList',
+        href: 'https://myanimelist.net/anime/52991',
+      },
     ]);
   });
 
@@ -238,7 +291,28 @@ describe('journal.load', () => {
       ),
     );
 
-    expect((await hobbyDefinition('anime').journal.load(14)).facts).toEqual([]);
+    // The link survives, and it is the one thing here that is not MAL's opinion about the
+    // title: it is built from the id the row was found by, which every anime has. A title MAL
+    // knows nothing else about is exactly the one worth being able to open.
+    expect((await hobbyDefinition('anime').journal.load(14)).facts).toEqual([
+      {
+        label: 'MAL',
+        value: 'View on MyAnimeList',
+        href: 'https://myanimelist.net/anime/52991',
+      },
+    ]);
+  });
+
+  it('leaves the MAL link off a row with no external id to build it from', async () => {
+    // Nullable on the wire because `media.external_id` is, and an anime is only ever written
+    // by a MAL search — so this is a shape the app cannot currently reach rather than one it
+    // reaches often. A link to `/anime/null` is worse than no link.
+    server.use(
+      http.get('/api/anime/14', () => HttpResponse.json(animeDetail({ externalId: null }))),
+    );
+
+    const { facts } = await hobbyDefinition('anime').journal.load(14);
+    expect(facts.some((fact) => fact.label === 'MAL')).toBe(false);
   });
 
   it('sizes an anime from its own episode count, and gives it no seasons at all', async () => {

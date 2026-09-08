@@ -11,24 +11,38 @@ namespace HobbyTracker.Api.Contracts;
 /// </summary>
 public sealed record LibraryItemDto(
     int MediaId,
+
+    /// <summary>
+    /// The name on the card's heading, which is not always <c>media.title</c>.
+    ///
+    /// For three hobbies it is exactly that. For anime it is MAL's English title where there is
+    /// one, falling back to the romaji title where there is not — the name a person here calls
+    /// the thing leads, and the one MAL matched on goes to <see cref="Subtitle"/>.
+    ///
+    /// <b>Nothing is stored twice.</b> <c>media.title</c> still holds the romaji, which is what
+    /// a MAL search matches on and what the catalogue endpoints answer with; this field is a
+    /// reading order chosen for the board, and it is chosen in three places that must agree —
+    /// both terminal projections and <c>LibrarySort.Title</c>.
+    /// </summary>
     string Title,
 
     /// <summary>
     /// A second line under the title on a card, for a hobby whose titles have two names.
     ///
     /// Anime is why it exists: MAL states a romaji title and, often but not always, an English
-    /// one — <c>Sousou no Frieren</c> with <c>Frieren: Beyond Journey's End</c> under it. Both
-    /// are worth finding by eye, and <c>media.title</c> holds the romaji so that search, the
-    /// drawer's heading and the remove confirmation all need no special case.
+    /// one — <c>Frieren: Beyond Journey's End</c> with <c>Sousou no Frieren</c> under it. Both
+    /// are worth finding by eye, and the second one is the romaji rather than the English
+    /// because the English is the heading.
     ///
     /// <b>Named for what it is on the row rather than for what anime means by it.</b> This is
     /// the platform's field and the next hobby to want one may not mean English by it: a book
     /// has a series, an album has an artist. <c>anime.english_title</c> is allowed to be
     /// specific because that column is the hobby's.
     ///
-    /// Null for every other hobby and null for most anime, which are the same kind of null —
-    /// the LEFT JOIN behind the TPT downcast answers it for free, and the card renders nothing
-    /// rather than an empty line.
+    /// Null for every other hobby and null for most anime, which are <em>not</em> the same kind
+    /// of null and land in the same place anyway: a hobby with no such idea has nothing to put
+    /// here, and an anime MAL has one name for has already spent it on the heading. The card
+    /// renders nothing rather than an empty line for both.
     /// </summary>
     string? Subtitle,
 

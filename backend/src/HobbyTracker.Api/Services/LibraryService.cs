@@ -110,12 +110,29 @@ public sealed class LibraryService(
             .Take(normalisedSize)
             .Select(row => new LibraryItemDto(
                 row.Media.Id,
-                row.Media.Title,
 
-                // The second title, for the one hobby whose titles have two names. No coalesce
-                // because there is nothing to coalesce with: three hobbies have no such idea,
-                // and the LEFT JOIN behind the downcast answers null for each of them.
-                (row.Media as Anime)!.EnglishTitle,
+                // Which of a title's two names leads, for the one hobby that has two.
+                //
+                // The English one, because it is what a person here calls the thing — and the
+                // romaji one under it, because it is what MAL matched on and what you would
+                // type to find it again. media.title is untouched and still holds the romaji:
+                // this pair is a reading order, not a second place a title is stored.
+                //
+                // The coalesce is what makes the missing half harmless, and it is doing two
+                // jobs. MAL leaves the English title off a great many entries, so the heading
+                // falls back to the one name there is; and three hobbies have no such idea at
+                // all, so the LEFT JOIN behind the downcast answers null and they fall back
+                // too. Without it, every other board's headings would be empty.
+                //
+                // Sorted's Title arm repeats this expression and must keep agreeing with it:
+                // a column filed alphabetically under a name that is nowhere on screen reads
+                // as a sort that is simply broken.
+                (row.Media as Anime)!.EnglishTitle ?? row.Media.Title,
+
+                // The second line, which is the *other* name and only when there is one. Null
+                // when MAL has no English title, because the one name it has is already the
+                // heading and printing it twice is what the card refuses further along.
+                (row.Media as Anime)!.EnglishTitle == null ? null : row.Media.Title,
 
                 row.Media.CoverUrl,
                 row.HobbyName,
@@ -499,7 +516,17 @@ public sealed class LibraryService(
 
     private static IQueryable<BoardRow> Sorted(IQueryable<BoardRow> query, LibrarySort sort) => sort switch
     {
-        LibrarySort.Title => query.OrderBy(row => row.Media.Title),
+        // Alphabetical on the name the card prints, which for an anime is MAL's English title
+        // rather than the romaji one in media.title. The same coalesce the two projections
+        // build Title from, for sort=length's reason exactly: a column ordered by a string
+        // nobody can see reads as a sort that is broken rather than as one that disagrees.
+        //
+        // The downcast is confined to this arm and to Length, and never goes into BoardQuery —
+        // there it would empty the whole board with no error, where here the worst case is this
+        // one mode. Sorting_anime_by_title_orders_on_the_name_the_card_shows is what says so.
+        LibrarySort.Title => query
+            .OrderBy(row => (row.Media as Anime)!.EnglishTitle ?? row.Media.Title),
+
         LibrarySort.Added => query.OrderByDescending(row => row.Latest.Id),
 
         // Unrated last in both directions of the scale, rather than sorting as if they were 0.
@@ -606,8 +633,13 @@ public sealed class LibraryService(
             .Where(row => row.Media.Id == mediaId)
             .Select(row => new LibraryItemDto(
                 row.Media.Id,
-                row.Media.Title,
-                (row.Media as Anime)!.EnglishTitle,
+
+                // As in ListAsync, coalesce and all — see the comment there for why the English
+                // name leads and what the fallback is doing. This copy has to match for the
+                // same reason Genres does: a drag answers with the row it just wrote.
+                (row.Media as Anime)!.EnglishTitle ?? row.Media.Title,
+                (row.Media as Anime)!.EnglishTitle == null ? null : row.Media.Title,
+
                 row.Media.CoverUrl,
                 row.HobbyName,
                 row.Latest.Status,

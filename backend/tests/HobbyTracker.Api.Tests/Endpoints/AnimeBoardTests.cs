@@ -14,9 +14,13 @@ namespace HobbyTracker.Api.Tests.Endpoints;
 /// assert a column comes back non-empty, because emptiness is the symptom rather than an
 /// exception.
 ///
-/// One of them is new to this hobby. A card here carries a <b>second title</b> — romaji from
-/// MAL with the English underneath — which is a field no board row had before, and it reaches
-/// the row through the same downcast as everything else.
+/// One of them is new to this hobby. A card here carries a <b>second title</b> — MAL's English
+/// name leading, with the romaji one it was matched on underneath — which is a field no board
+/// row had before, and it reaches the row through the same downcast as everything else.
+///
+/// <b>Three places have to agree about which name leads, and only two are projections.</b>
+/// <c>LibrarySort.Title</c> orders on the same coalesce, because a column filed alphabetically
+/// under a name that is nowhere on screen reads as a sort that is simply broken.
 /// </summary>
 [Collection(DatabaseCollection.Name)]
 public sealed class AnimeBoardTests(PostgresFixture postgres) : DatabaseTestBase(postgres)
@@ -69,45 +73,83 @@ public sealed class AnimeBoardTests(PostgresFixture postgres) : DatabaseTestBase
     }
 
     [Fact]
-    public async Task A_board_row_carries_the_english_title_under_the_romaji_one()
+    public async Task A_board_row_leads_with_the_english_title_and_carries_the_romaji_one_under_it()
     {
-        // The second stretch this hobby asks of the platform. `media.title` holds the romaji,
-        // because that is MAL's own `title` and what its search matches on — so every other
-        // thing the platform does with a title needs no special case, and this is the extra one.
+        // The second stretch this hobby asks of the platform, in the order the user asked for:
+        // the English name is what a person here calls the thing, so it is the line they read
+        // first. `media.title` is untouched and still holds the romaji, because that is MAL's
+        // own `title` and what its search matches on — the row decides a reading order rather
+        // than what is stored.
         var mediaId = await GivenAnimeAsync(
             "Sousou no Frieren", englishTitle: "Frieren: Beyond Journey's End");
 
         await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
 
         var row = (await BoardAsync()).Items.ShouldHaveSingleItem();
-        row.Title.ShouldBe("Sousou no Frieren");
-        row.Subtitle.ShouldBe("Frieren: Beyond Journey's End");
+        row.Title.ShouldBe("Frieren: Beyond Journey's End");
+        row.Subtitle.ShouldBe("Sousou no Frieren");
     }
 
     [Fact]
-    public async Task An_anime_MAL_has_no_english_title_for_carries_none()
+    public async Task An_anime_MAL_has_no_english_title_for_leads_with_the_one_name_it_has()
     {
         // Null is the ordinary case rather than an error — MAL leaves `en` absent on a great
-        // many entries — and the card renders nothing rather than an empty line.
+        // many entries — and the card renders one line rather than an empty second one. The
+        // coalesce is what makes the missing half fall back rather than blank the heading.
         var mediaId = await GivenAnimeAsync("Ping Pong the Animation");
         await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
 
-        (await BoardAsync()).Items.ShouldHaveSingleItem().Subtitle.ShouldBeNull();
+        var row = (await BoardAsync()).Items.ShouldHaveSingleItem();
+        row.Title.ShouldBe("Ping Pong the Animation");
+        row.Subtitle.ShouldBeNull();
     }
 
     [Fact]
-    public async Task Every_other_hobby_carries_no_subtitle_at_all()
+    public async Task Sorting_anime_by_title_orders_on_the_name_the_card_shows()
+    {
+        // The third place the rule is stated, and the only one that is a sort rather than a
+        // projection. Left ordering on `media.title`, the Anime board would file Frieren under
+        // S while showing an F — which reads as a sort that is simply broken rather than as a
+        // disagreement about names.
+        await GivenLogEntryAsync(
+            await GivenAnimeAsync(
+                "Sousou no Frieren", englishTitle: "Frieren: Beyond Journey's End"),
+            LogStatus.Backlog);
+
+        await GivenLogEntryAsync(
+            await GivenAnimeAsync("Ao no Exorcist", externalId: "2", englishTitle: "Blue Exorcist"),
+            LogStatus.Backlog);
+
+        // No English title at all, so the coalesce falls back to the romaji one — and it has to
+        // sort on the same string it prints.
+        await GivenLogEntryAsync(
+            await GivenAnimeAsync("Ping Pong the Animation", externalId: "3"), LogStatus.Backlog);
+
+        var column = await BoardAsync(LogStatus.Backlog, LibrarySort.Title);
+
+        column.Items.Select(item => item.Title).ShouldBe(
+            ["Blue Exorcist", "Frieren: Beyond Journey's End", "Ping Pong the Animation"]);
+    }
+
+    [Fact]
+    public async Task Every_other_hobby_carries_its_one_title_and_no_subtitle_at_all()
     {
         // The field is the platform's rather than anime's, so the honest answer for a hobby with
         // no such idea is null — the LEFT JOIN behind the downcast gives that for free, which is
-        // the same mechanism `Genres` and `LengthHours` already lean on.
+        // the same mechanism `Genres` and `LengthHours` already lean on. The heading has to
+        // survive the same coalesce: a null English title must fall back to the media title
+        // rather than empty every other board's headings.
         await GivenLogEntryAsync(await GivenGameAsync("Celeste"), LogStatus.InProgress);
         await GivenLogEntryAsync(await GivenMovieAsync("Arrival"), LogStatus.InProgress);
         await GivenLogEntryAsync(await GivenShowAsync("Severance"), LogStatus.InProgress);
 
-        foreach (var hobby in new[] { "games", "movies", "tv" })
+        foreach (var (hobby, title) in new[]
+                 {
+                     ("games", "Celeste"), ("movies", "Arrival"), ("tv", "Severance"),
+                 })
         {
             var row = (await BoardAsync(hobby: hobby)).Items.ShouldHaveSingleItem();
+            row.Title.ShouldBe(title);
             row.Subtitle.ShouldBeNull();
         }
     }
@@ -133,11 +175,13 @@ public sealed class AnimeBoardTests(PostgresFixture postgres) : DatabaseTestBase
             Json,
             Ct));
 
-        moved.Subtitle.ShouldBe("Frieren: Beyond Journey's End");
+        moved.Title.ShouldBe("Frieren: Beyond Journey's End");
+        moved.Subtitle.ShouldBe("Sousou no Frieren");
         moved.Genres.ShouldBe(["Adventure", "Fantasy"]);
         moved.LengthHours.ShouldBe(11.43m);
 
         var row = (await BoardAsync(LogStatus.Completed)).Items.ShouldHaveSingleItem();
+        row.Title.ShouldBe(moved.Title);
         row.Subtitle.ShouldBe(moved.Subtitle);
         row.Genres.ShouldBe(moved.Genres);
         row.LengthHours.ShouldBe(moved.LengthHours);
