@@ -195,8 +195,6 @@ namespace HobbyTracker.Api.Data.Migrations
 
                     b.ToTable("log_entries", null, t =>
                         {
-                            t.HasCheckConstraint("ck_log_entries_episode_needs_season", "episode_number IS NULL OR season_number IS NOT NULL");
-
                             t.HasCheckConstraint("ck_log_entries_episode_range", "episode_number IS NULL OR episode_number >= 1");
 
                             t.HasCheckConstraint("ck_log_entries_hours_played_range", "hours_played IS NULL OR (hours_played > 0 AND hours_played <= 999.99)");
@@ -340,6 +338,12 @@ namespace HobbyTracker.Api.Data.Migrations
                             Id = 4,
                             BaseUrl = "https://api.themoviedb.org/3/tv/",
                             Name = "tmdb-tv"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            BaseUrl = "https://api.myanimelist.net/v2/",
+                            Name = "mal"
                         });
                 });
 
@@ -406,6 +410,84 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasName("pk_users");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.Anime", b =>
+                {
+                    b.HasBaseType("HobbyTracker.Api.Domain.Media");
+
+                    b.Property<string>("AirStatus")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("air_status");
+
+                    b.Property<string>("EnglishTitle")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("english_title");
+
+                    b.Property<int?>("EpisodeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("episode_count");
+
+                    b.Property<int?>("EpisodeRuntimeSeconds")
+                        .HasColumnType("integer")
+                        .HasColumnName("episode_runtime_seconds");
+
+                    b.PrimitiveCollection<List<string>>("Genres")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("genres");
+
+                    b.Property<decimal?>("MeanScore")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("numeric(4,2)")
+                        .HasColumnName("mean_score");
+
+                    b.Property<string>("MediaType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("media_type");
+
+                    b.Property<string>("PrimaryGenre")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("primary_genre");
+
+                    b.Property<string>("SourceMaterial")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("source_material");
+
+                    b.Property<string>("StartSeason")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("start_season");
+
+                    b.Property<int?>("StartYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_year");
+
+                    b.PrimitiveCollection<List<string>>("Studios")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("studios");
+
+                    b.Property<int?>("TotalRuntimeMinutes")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("integer")
+                        .HasColumnName("total_runtime_minutes")
+                        .HasComputedColumnSql("episode_count * episode_runtime_seconds / 60", true);
+
+                    b.ToTable("anime", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_anime_counts_positive", "(episode_count IS NULL OR episode_count > 0)\nAND (episode_runtime_seconds IS NULL OR episode_runtime_seconds > 0)");
+
+                            t.HasCheckConstraint("ck_anime_mean_score_range", "mean_score IS NULL OR (mean_score >= 1.0 AND mean_score <= 10.0)");
+
+                            t.Property("Id")
+                                .HasColumnName("media_id");
+                        });
                 });
 
             modelBuilder.Entity("HobbyTracker.Api.Domain.Game", b =>
@@ -561,7 +643,7 @@ namespace HobbyTracker.Api.Data.Migrations
 
                     b.ToTable("tv_shows", null, t =>
                         {
-                            t.HasCheckConstraint("ck_tv_shows_counts_positive", "(number_of_seasons IS NULL OR number_of_seasons > 0)\nAND (number_of_episodes IS NULL OR number_of_episodes > 0)");
+                            t.HasCheckConstraint("ck_tv_shows_counts_positive", "(number_of_seasons IS NULL OR number_of_seasons > 0)\r\nAND (number_of_episodes IS NULL OR number_of_episodes > 0)");
 
                             t.HasCheckConstraint("ck_tv_shows_episode_runtime_positive", "episode_runtime_minutes IS NULL OR episode_runtime_minutes > 0");
 
@@ -648,6 +730,16 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasConstraintName("fk_tv_seasons_tv_shows_media_id");
 
                     b.Navigation("Show");
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.Anime", b =>
+                {
+                    b.HasOne("HobbyTracker.Api.Domain.Media", null)
+                        .WithOne()
+                        .HasForeignKey("HobbyTracker.Api.Domain.Anime", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_anime_media_id");
                 });
 
             modelBuilder.Entity("HobbyTracker.Api.Domain.Game", b =>

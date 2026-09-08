@@ -33,6 +33,18 @@ export interface PagedResult<T> {
 export interface LibraryItem {
   mediaId: number;
   title: string;
+  /**
+   * A second line under the title on a card, for a hobby whose titles have two names.
+   *
+   * Anime is why it exists: MAL states a romaji title and, often but not always, an English
+   * one. `title` holds the romaji, so search, the drawer's heading and the remove confirmation
+   * all need no special case, and this is the extra one.
+   *
+   * Named for what it is on the row rather than for what anime means by it — the next hobby to
+   * want one may not mean English by it. Null for every other hobby and null for most anime,
+   * which are the same kind of null: the card renders nothing rather than an empty line.
+   */
+  subtitle: string | null;
   coverUrl: string | null;
   hobby: string;
   /** From the most recent entry: a replay under way beats an old completion. */
@@ -207,6 +219,73 @@ export interface TvShowDetail extends TvShow {
    * episode dropdown's length comes from whichever entry is chosen.
    */
   seasons: TvSeason[];
+  logEntries: LogEntry[];
+}
+
+/**
+ * One anime, from MAL.
+ *
+ * The one shape here that is complete straight out of a search: MAL's search and detail
+ * endpoints take the same `fields` and answer with the same node, where TMDB's `/search/*`
+ * carries neither runtimes nor genre names. So there is nothing filled in later, and nothing
+ * on this type that only the detail call knows.
+ */
+export interface Anime {
+  id: number;
+  /** The romaji title — `Sousou no Frieren`. What MAL's own search matches on. */
+  title: string;
+  /**
+   * The English title, and **null is the ordinary case rather than a gap**: plenty of anime
+   * have no official English title at all. It is the second line under a card's heading, and
+   * reaches the board row as `LibraryItem.subtitle`.
+   */
+  englishTitle: string | null;
+  coverUrl: string | null;
+  /** MAL's own word for the shape of it: `tv`, `movie`, `ova`, `ona`, `special`. */
+  mediaType: string | null;
+  /**
+   * How many episodes the cour has, or null for one nobody has counted — never nought, which
+   * is what MAL answers for an entry that has not aired and what a check constraint on the
+   * column keeps out.
+   *
+   * It is also what the journal's episode control is sized from, where a show reads a chosen
+   * season's count. A cour is its own MAL entry, so there is no season to choose.
+   */
+  episodeCount: number | null;
+  /**
+   * One episode in **seconds**, which is MAL's own unit carried through untouched — the client
+   * divides it for display, exactly as it recovers a film's runtime from hours.
+   */
+  episodeRuntimeSeconds: number | null;
+  /** Which cour it began in — `fall`, with {@link startYear} beside it. */
+  startSeason: string | null;
+  startYear: number | null;
+  /**
+   * `finished_airing`, `currently_airing`, `not_yet_aired`. MAL's vocabulary, made readable
+   * here — and `airStatus` rather than `status` for `TvShow.airStatus`'s reason exactly.
+   */
+  airStatus: string | null;
+  /** What it was adapted from: `manga`, `light_novel`, `original`. */
+  sourceMaterial: string | null;
+  genres: string[];
+  /** The chosen genre, or null to use the automatic pick. See src/hobbies/. */
+  primaryGenre: string | null;
+  /** Who animated it. The byline under the drawer's title. */
+  studios: string[];
+  /** MAL's mean user score, out of ten — the same scale a pass's own rating uses. */
+  meanScore: number | null;
+  externalId: string | null;
+  source: string;
+}
+
+/**
+ * One anime and every pass against it.
+ *
+ * **No seasons list, and that absence is the decision.** A cour is its own MAL entry, so the
+ * drawer's episode control is sized from {@link Anime.episodeCount} directly and there is
+ * nothing to choose a season from.
+ */
+export interface AnimeDetail extends Anime {
   logEntries: LogEntry[];
 }
 

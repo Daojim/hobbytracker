@@ -27,6 +27,9 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     /// <summary>TMDB, for the films half of the catalogue. See FakeTmdbClient.</summary>
     protected FakeTmdbClient Tmdb { get; } = new();
 
+    /// <summary>MyAnimeList, which answers the same node to a search and to a detail call.</summary>
+    protected FakeMalClient Mal { get; } = new();
+
     /// <summary>HowLongToBeat, and the queue that would have asked it. See FakeHltbQueue.</summary>
     protected FakeHltbClient Hltb { get; } = new();
 
@@ -70,7 +73,7 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     private HttpClient? _anonymousClient;
     private readonly List<HttpClient> _extraClients = [];
 
-    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Tmdb, Hltb, HltbQueue, Clock);
+    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Tmdb, Mal, Hltb, HltbQueue, Clock);
     /// <summary>
     /// Whose journal this is. Created fresh per test, because Respawn truncates users between
     /// them; every fixture below and every request through <see cref="Client"/> belongs to it.
@@ -252,6 +255,60 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
             db.TvShows.Add(show);
             await db.SaveChangesAsync(Ct);
             return show.Id;
+        });
+
+    /// <summary>
+    /// Inserts an anime straight into the catalog, bypassing MAL.
+    ///
+    /// No seasons parameter, and that absence is the decision rather than an omission: MAL
+    /// numbers each cour as its own entry, so a second cour is a second call to this.
+    /// <paramref name="episodeRuntimeSeconds"/> is in MAL's own unit, which is what the
+    /// generated `total_runtime_minutes` converts.
+    /// </summary>
+    protected Task<int> GivenAnimeAsync(
+        string title = "Test Anime",
+        string externalId = "1",
+        string? englishTitle = null,
+        string? coverUrl = null,
+        int? episodeCount = null,
+        int? episodeRuntimeSeconds = null,
+        string? mediaType = null,
+        string? airStatus = null,
+        string? startSeason = null,
+        int? startYear = null,
+        string? sourceMaterial = null,
+        decimal? meanScore = null,
+        string[]? genres = null,
+        string[]? studios = null) => WithDbAsync(async db =>
+        {
+            var anime = new Anime
+            {
+                HobbyId = SeedData.Hobbies.Anime,
+
+                // The fifth source row. MAL numbers its catalogue independently of both TMDB
+                // sequences, so a test seeding Sources.Tmdb here would collide with a film of
+                // the same id — the thing the row exists to prevent.
+                SourceId = SeedData.Sources.Mal,
+
+                ExternalId = externalId,
+                Title = title,
+                EnglishTitle = englishTitle,
+                CoverUrl = coverUrl,
+                EpisodeCount = episodeCount,
+                EpisodeRuntimeSeconds = episodeRuntimeSeconds,
+                MediaType = mediaType,
+                AirStatus = airStatus,
+                StartSeason = startSeason,
+                StartYear = startYear,
+                SourceMaterial = sourceMaterial,
+                MeanScore = meanScore,
+                Genres = [.. genres ?? []],
+                Studios = [.. studios ?? []],
+            };
+
+            db.Anime.Add(anime);
+            await db.SaveChangesAsync(Ct);
+            return anime.Id;
         });
 
     /// <summary>

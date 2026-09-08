@@ -27,9 +27,31 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
                 "ck_log_entries_timestamp_order",
                 "started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at");
 
-            // Where you are in a show, and the two halves of it are constrained differently on
+            // Where you are in a title, and the two halves of it are constrained differently on
             // purpose. Season nought is TMDB's Specials and is a real season, so it is allowed;
-            // there is no episode zero, so that one starts at 1.
+            // there is no episode zero, so that one starts at 1. Two named constraints rather
+            // than one conjunction, so a violation names the rule it broke.
+            //
+            // **There is deliberately no third rule pairing them.**
+            // `ck_log_entries_episode_needs_season` sat here until anime, on the argument that
+            // "episode 7" with no season says nothing. That was true of every hobby that
+            // existed when it was written and is false for anime: MAL numbers each cour as its
+            // own entry, so the cour *is* the title and episode 7 says everything there is
+            // to say.
+            //
+            // It could not be made conditional on the hobby, and the reason is worth knowing
+            // before an afternoon goes into it: a Postgres CHECK cannot contain a subquery, and
+            // the hobby lives two tables away on `media`. A trigger could, at the cost of a
+            // rule that no longer reads as one. So it moved to where its other half always
+            // was — each hobby's form. Television's episode dropdown is built from the chosen
+            // season's episode count and is empty until one is picked, so behaviour there is
+            // unchanged with the rule gone.
+            //
+            // No upper bound against a title's own season or episode counts either, and for the
+            // same family of reason: a season gets re-cut upstream, and refusing a value that
+            // was true when it was written is the mistake Platform's comment already argues
+            // against. The dropdown offers the shape that exists now; the column keeps the
+            // record.
             table.HasCheckConstraint(
                 "ck_log_entries_season_range",
                 "season_number IS NULL OR season_number >= 0");
@@ -37,18 +59,6 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
             table.HasCheckConstraint(
                 "ck_log_entries_episode_range",
                 "episode_number IS NULL OR episode_number >= 1");
-
-            // "Episode 7" with no season says nothing. The other way round is fine and means
-            // something real — knowing where you are to the season and no further. Three named
-            // constraints rather than one conjunction, so a violation names the rule it broke.
-            //
-            // No upper bound against the show's own season or episode counts, deliberately: a
-            // season gets re-cut upstream, and refusing a value that was true when it was
-            // written is the mistake Platform's comment already argues against. The dropdown
-            // offers the shape that exists now; the column keeps the record.
-            table.HasCheckConstraint(
-                "ck_log_entries_episode_needs_season",
-                "episode_number IS NULL OR season_number IS NOT NULL");
         });
 
         // Stored as text rather than an int ordinal, so `select status from log_entries`

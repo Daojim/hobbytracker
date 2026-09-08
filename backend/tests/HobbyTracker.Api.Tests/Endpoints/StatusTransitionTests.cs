@@ -501,6 +501,37 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         games.Items.Select(item => item.Title).ShouldBe(["Celeste"]);
     }
 
+    [Fact]
+    public async Task An_anime_moves_by_the_same_rules_and_forgets_an_episode_with_no_season()
+    {
+        // The fourth hobby through the same rules, and the one that exercises a shape none of
+        // the others can reach: a cour is its own MAL entry, so where you are inside it is an
+        // episode and no season — which `ck_log_entries_episode_needs_season` used to refuse.
+        //
+        // `ApplyTransitionTimestamps` clears both halves of the pair on the way back to Backlog,
+        // and it does so without asking which hobby it is looking at. That is what this checks:
+        // a rule that had quietly grown a season-shaped assumption would leave `episode_number`
+        // standing on a card that claims to be unstarted.
+        var mediaId = await GivenAnimeAsync("Sousou no Frieren", episodeCount: 28);
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+
+        await Client.PutAsJsonAsync(
+            $"/api/log-entries/{(await EntriesAsync(mediaId))[0].Id}",
+            new UpdateLogEntryRequest(
+                LogStatus.InProgress, null, null, null, null, null, EpisodeNumber: 12),
+            Json,
+            Ct);
+
+        (await EntriesAsync(mediaId)).ShouldHaveSingleItem().EpisodeNumber.ShouldBe(12);
+
+        await MoveAsync(mediaId, LogStatus.Backlog);
+
+        var back = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        back.SeasonNumber.ShouldBeNull();
+        back.EpisodeNumber.ShouldBeNull();
+        back.StartedAt.ShouldBeNull();
+    }
+
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync(
             $"/api/library/{mediaId}/status", new StatusTransitionRequest(status), Json, Ct);

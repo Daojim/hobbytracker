@@ -270,3 +270,21 @@ test('the three boards are separate, and a show appears on none of the others', 
   await expect(card(page, 'Celeste')).toBeVisible();
   await expect(card(page, 'Severance')).toHaveCount(0);
 });
+
+test('searching the TV board for an anime finds nothing, because anime is its own hobby', async ({
+  page,
+}) => {
+  // The decision, at the only layer that can prove it: anime is its own hobby from MAL, one
+  // card per cour, so a title that is anime must not also be addable here. A film is left
+  // findable on both boards deliberately — it is self-contained and reads fine twice — and it
+  // is a *series* with episode progress on two boards that this closes.
+  //
+  // The rule cannot be a query. TMDB's `/search/tv` accepts only query, first_air_date_year,
+  // include_adult, language, page and year, so the filter is applied to the response: Japanese
+  // *and* genre 16. The stub carries Frieren for exactly this, with TMDB's real genre ids —
+  // synthesised ones would let the filter look as though it worked while never firing.
+  await page.getByRole('searchbox', { name: 'Search TV shows' }).fill('frieren');
+
+  await expect(page.getByText(/Nothing matched .frieren./)).toBeVisible();
+  await expect(page.getByRole('button', { name: /Add Frieren/ })).toHaveCount(0);
+});

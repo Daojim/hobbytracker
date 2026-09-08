@@ -41,6 +41,15 @@ export interface EntryFormProps {
    */
   seasons: readonly TitleSeason[];
   /**
+   * How many episodes the title has, when the hobby counts them without seasons.
+   *
+   * What sizes the one dropdown a `progress: 'episode'` hobby gets. Null both for a hobby with
+   * no such idea and for a title nobody has counted — MAL answers nought for a cour that has
+   * not aired, and nought there means unknown — so the list is empty rather than offering a
+   * number the title cannot back up.
+   */
+  episodeCount: number | null;
+  /**
    * HowLongToBeat's figures, for reading your own hours against. Passed as one object rather
    * than three numbers because three nullable numbers in a row is the argument list where two
    * get swapped silently.
@@ -92,6 +101,7 @@ export function EntryForm({
   fields,
   platforms,
   seasons,
+  episodeCount,
   estimates,
   completedLabel,
   saving,
@@ -259,7 +269,20 @@ export function EntryForm({
    * an episode with no season — kept out of reach without a second rule to state it.
    */
   const chosen = seasonOptions.find((one) => String(one.number) === season);
-  const numbered = Array.from({ length: chosen?.episodeCount ?? 0 }, (_, index) => index + 1);
+
+  /**
+   * How many episodes the dropdown offers, which is the whole of what the two shapes of this
+   * control differ by.
+   *
+   * A show counts them per season and has to be told which one first; an anime counts them for
+   * the title, because a cour *is* the title — `Sousou no Frieren` and its 2nd Season are two
+   * MAL entries and two cards. So one reads the chosen season and the other reads the title,
+   * and neither invents the number the other has.
+   */
+  const available =
+    fields.progress === 'episode' ? (episodeCount ?? 0) : (chosen?.episodeCount ?? 0);
+
+  const numbered = Array.from({ length: available }, (_, index) => index + 1);
   const episodeOptions =
     episode === '' || numbered.includes(Number(episode))
       ? numbered
@@ -299,11 +322,17 @@ export function EntryForm({
       found['completedAt'] = 'Completed cannot be earlier than started.';
     }
 
-    // Unreachable through the dropdowns — the episode list is empty until a season is chosen —
-    // and stated anyway, beside the rule above and for its reason: the API states it too, before
-    // a check constraint can turn it into a 500. A pass that somehow arrived in this shape is
-    // then something you can save your way out of rather than something that silently 400s.
-    if (fields.progress && season === '' && episode !== '') {
+    // **This form is now the only place the rule lives**, for the hobbies that have it.
+    // `ck_log_entries_episode_needs_season` and its LogEntryRules twin were both dropped when
+    // anime arrived: a cour is its own MAL entry, so "episode 7" says everything there is to
+    // say, and a Postgres CHECK cannot ask which hobby a row belongs to — the hobby is two
+    // tables away on `media`.
+    //
+    // It is still unreachable through the dropdowns, because a show's episode list is empty
+    // until a season is chosen. Stated anyway, so a pass that somehow arrived in that shape is
+    // something you can save your way out of rather than something that quietly writes half a
+    // fact.
+    if (fields.progress === 'season-episode' && season === '' && episode !== '') {
       found['episodeNumber'] = 'An episode needs a season.';
     }
 
@@ -328,8 +357,12 @@ export function EntryForm({
       hoursPlayed: fields.hoursPlayed ? (playtime.value ?? null) : null,
       startedAt: dateFieldValue(started, entry.startedAt),
       completedAt: dateFieldValue(completed, entry.completedAt),
-      seasonNumber: !fields.progress || season === '' ? null : Number(season),
-      episodeNumber: !fields.progress || episode === '' ? null : Number(episode),
+      // A hobby that has no season half sends null for it always, which is not the same as
+      // "cleared": there was never a control to clear. It is the same argument that sends a
+      // film's hours as null rather than as whatever the row was seeded with.
+      seasonNumber:
+        fields.progress !== 'season-episode' || season === '' ? null : Number(season),
+      episodeNumber: fields.progress === false || episode === '' ? null : Number(episode),
     });
   }
 
@@ -487,27 +520,34 @@ export function EntryForm({
         </Field>
       )}
 
-      {/* Two selects on one row, as the two dates are, because they are one answer to one
-          question: where are you. Sized from the show rather than typed, so an episode that
-          does not exist is not a thing anybody can record — the reason the drawer loads a
-          show's seasons at all. */}
-      {fields.progress && (
+      {/* Where you are, in one row or two controls depending on what the hobby counts in.
+          Sized from the title rather than typed, so an episode that does not exist is not a
+          thing anybody can record — which is the reason the drawer reaches the detail endpoint
+          rather than reading the board row.
+
+          A show gets both, and its episode list is empty until a season is picked: that is
+          where the "an episode needs a season" rule actually lives now, the database having
+          stopped holding it. An anime gets the episode alone, because a cour is its own MAL
+          entry and there is no season to name. */}
+      {fields.progress !== false && (
         <div className="flex gap-3">
-          <Field id={`${ids}-season`} label="Season" message={messageFor('seasonNumber')}>
-            <select
-              id={`${ids}-season`}
-              value={season}
-              onChange={(event) => chooseSeason(event.target.value)}
-              className="rounded border border-line bg-surface px-2 py-1 text-sm"
-            >
-              <option value="">Not recorded</option>
-              {seasonOptions.map((one) => (
-                <option key={one.number} value={one.number}>
-                  {one.label}
-                </option>
-              ))}
-            </select>
-          </Field>
+          {fields.progress === 'season-episode' && (
+            <Field id={`${ids}-season`} label="Season" message={messageFor('seasonNumber')}>
+              <select
+                id={`${ids}-season`}
+                value={season}
+                onChange={(event) => chooseSeason(event.target.value)}
+                className="rounded border border-line bg-surface px-2 py-1 text-sm"
+              >
+                <option value="">Not recorded</option>
+                {seasonOptions.map((one) => (
+                  <option key={one.number} value={one.number}>
+                    {one.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
 
           <Field id={`${ids}-episode`} label="Episode" message={messageFor('episodeNumber')}>
             <select

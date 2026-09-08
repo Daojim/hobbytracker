@@ -5,6 +5,7 @@ using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
+using HobbyTracker.Api.Integrations.Mal;
 using HobbyTracker.Api.Integrations.Tmdb;
 using HobbyTracker.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -94,6 +95,34 @@ builder.Services.AddHttpClient<ITmdbClient, TmdbClient>((serviceProvider, client
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
 
+// ------------------------------------------------------------ MAL integration
+builder.Services.AddOptions<MalOptions>()
+    .Bind(builder.Configuration.GetSection(MalOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+// No auth handler, exactly as for TMDB above — and for a reason MAL does not document. Their
+// own docs describe only the OAuth2 authorization-code flow with PKCE, which needs a human to
+// sign in; a client id alone answers the public catalogue, which is what every third-party
+// wrapper relies on and what was measured before any of this was written. So the credential is
+// one header set once here, with no handshake, no expiry and no refresh.
+//
+// There is deliberately no client secret: it signs the token exchange this app never performs.
+//
+// IOptions is resolved inside the lambda rather than read off builder.Configuration, for the
+// reason the other two clients already are: the configuration is still being assembled while
+// this file runs, so a value captured here misses any source added afterwards — which is
+// exactly what ApiFactory does.
+builder.Services.AddHttpClient<IMalClient, MalClient>((serviceProvider, client) =>
+{
+    var mal = serviceProvider.GetRequiredService<IOptions<MalOptions>>().Value;
+
+    client.BaseAddress = new Uri(mal.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(mal.RequestTimeoutSeconds);
+    client.DefaultRequestHeaders.Add("X-MAL-CLIENT-ID", mal.ClientId);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
 // -------------------------------------------------- HowLongToBeat integration
 // No credentials to validate: HowLongToBeat has no account to hold one, so every setting has a
 // working default and nothing here can fail the boot the way a missing IGDB secret does.
@@ -143,6 +172,7 @@ builder.Services.AddScoped<IMediaAdded, TvOnMediaAdded>();
 builder.Services.AddScoped<IGameCatalogService, GameCatalogService>();
 builder.Services.AddScoped<IMovieCatalogService, MovieCatalogService>();
 builder.Services.AddScoped<ITvCatalogService, TvCatalogService>();
+builder.Services.AddScoped<IAnimeCatalogService, AnimeCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
@@ -304,6 +334,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<IgdbExceptionHandler>();
 builder.Services.AddExceptionHandler<HltbExceptionHandler>();
 builder.Services.AddExceptionHandler<TmdbExceptionHandler>();
+builder.Services.AddExceptionHandler<MalExceptionHandler>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

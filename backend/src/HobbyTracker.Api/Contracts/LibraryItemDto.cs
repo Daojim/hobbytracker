@@ -12,6 +12,26 @@ namespace HobbyTracker.Api.Contracts;
 public sealed record LibraryItemDto(
     int MediaId,
     string Title,
+
+    /// <summary>
+    /// A second line under the title on a card, for a hobby whose titles have two names.
+    ///
+    /// Anime is why it exists: MAL states a romaji title and, often but not always, an English
+    /// one — <c>Sousou no Frieren</c> with <c>Frieren: Beyond Journey's End</c> under it. Both
+    /// are worth finding by eye, and <c>media.title</c> holds the romaji so that search, the
+    /// drawer's heading and the remove confirmation all need no special case.
+    ///
+    /// <b>Named for what it is on the row rather than for what anime means by it.</b> This is
+    /// the platform's field and the next hobby to want one may not mean English by it: a book
+    /// has a series, an album has an artist. <c>anime.english_title</c> is allowed to be
+    /// specific because that column is the hobby's.
+    ///
+    /// Null for every other hobby and null for most anime, which are the same kind of null —
+    /// the LEFT JOIN behind the TPT downcast answers it for free, and the card renders nothing
+    /// rather than an empty line.
+    /// </summary>
+    string? Subtitle,
+
     string? CoverUrl,
     string Hobby,
     /// <summary>Status of the most recent entry — a replay in progress beats an old completion.</summary>
@@ -102,6 +122,9 @@ public sealed record LibraryItemDto(
     /// Null for games and films, and the card does not decide that from the nulls: it asks the
     /// hobby whether it formats progress at all. A game whose pass somehow carried a season
     /// would still print nothing, which is the right way round — the hobby says what it has.
+    ///
+    /// An anime carries an episode and <b>no season</b>, which used to be a shape the database
+    /// refused: a cour is the entry, so where you are inside it is one number.
     /// </summary>
     int? SeasonNumber,
 

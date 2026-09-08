@@ -70,7 +70,7 @@ export const MOVIES: HobbyDefinition = {
 
   search: {
     label: 'Search movies',
-    placeholder: 'Search to add a film — Arrival, Parasite, Portrait of a Lady on Fire…',
+    placeholder: 'Search to add a film — The Odyssey, Fight Club, Guardians of the Galaxy…',
     run: async (term) =>
       (await searchMovies(term)).map((movie) => ({
         id: movie.id,
@@ -103,6 +103,7 @@ export const MOVIES: HobbyDefinition = {
         // Nor seasons. Two empty lists rather than one shape with two nullable halves, so a
         // hobby that gains one idea and not the other says so.
         seasons: [],
+        episodeCount: null,
         // Minutes rather than the board row's hours: this is read straight off TMDB, so there
         // is no round trip to undo. Absent, not "unknown", for a film TMDB has no runtime for —
         // and for one that has only ever been searched for, since search does not carry it.

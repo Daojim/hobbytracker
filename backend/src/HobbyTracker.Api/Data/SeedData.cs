@@ -40,10 +40,17 @@ public static class SeedData
         // record came from and these genuinely are different places: /movie/ and /tv/.
         public const int TmdbTv = 4;
 
+        // MAL, and the same fact a third time: it numbers its own catalogue independently of
+        // both TMDB sequences, so MAL anime 1 and TMDB film 1 would be one row under a shared
+        // source. The 23505 recovery would not even error — it re-reads and hands back
+        // whichever got there first, so an anime would silently be a film.
+        public const int Mal = 5;
+
         public const string IgdbName = "igdb";
         public const string ManualName = "manual";
         public const string TmdbName = "tmdb";
         public const string TmdbTvName = "tmdb-tv";
+        public const string MalName = "mal";
 
         /// <summary>
         /// Slug for a seeded source id, for shaping API responses without a join.
@@ -57,6 +64,7 @@ public static class SeedData
             Manual => ManualName,
             Tmdb => TmdbName,
             TmdbTv => TmdbTvName,
+            Mal => MalName,
             _ => "unknown",
         };
     }
@@ -74,12 +82,13 @@ public static class SeedData
             new Hobby { Id = Hobbies.Music, Name = "music" });
 
         // Only sources that have an integration behind them, plus "manual", which by
-        // definition needs none. `mal` gets seeded when its phase ships — a source row with no
-        // client behind it is dead data that reads like a working feature.
+        // definition needs none. A source row with no client behind it is dead data that reads
+        // like a working feature, which is why each of these has arrived with its own phase.
         modelBuilder.Entity<Source>().HasData(
             new Source { Id = Sources.Igdb, Name = Sources.IgdbName, BaseUrl = "https://api.igdb.com/v4/" },
             new Source { Id = Sources.Manual, Name = Sources.ManualName, BaseUrl = null },
             new Source { Id = Sources.Tmdb, Name = Sources.TmdbName, BaseUrl = "https://api.themoviedb.org/3/" },
-            new Source { Id = Sources.TmdbTv, Name = Sources.TmdbTvName, BaseUrl = "https://api.themoviedb.org/3/tv/" });
+            new Source { Id = Sources.TmdbTv, Name = Sources.TmdbTvName, BaseUrl = "https://api.themoviedb.org/3/tv/" },
+            new Source { Id = Sources.Mal, Name = Sources.MalName, BaseUrl = "https://api.myanimelist.net/v2/" });
     }
 }

@@ -5,11 +5,19 @@ const STUB_PORT = 5399;
 const HLTB_STUB_PORT = 5398;
 const GOOGLE_STUB_PORT = 5397;
 const TMDB_STUB_PORT = 5396;
+const MAL_STUB_PORT = 5395;
 const API_PORT = 5202;
 const WEB_PORT = 5174;
 
 /** Enforced by the stub, so removing the bearer from the typed client fails a spec. */
 const TMDB_STUB_TOKEN = 'e2e-tmdb-token';
+
+/**
+ * Enforced by the stub too, and it carries more weight than the TMDB bearer does: MAL does not
+ * document that a client id alone reaches the public catalogue, so this is the one place that
+ * wiring is proved rather than assumed.
+ */
+const MAL_STUB_CLIENT_ID = 'e2e-mal-client';
 
 /**
  * The drag gets a real browser.
@@ -64,6 +72,11 @@ export default defineConfig({
     {
       command: 'node e2e/support/tmdb-stub.mjs',
       url: `http://localhost:${TMDB_STUB_PORT}/health`,
+      reuseExistingServer: true,
+    },
+    {
+      command: 'node e2e/support/mal-stub.mjs',
+      url: `http://localhost:${MAL_STUB_PORT}/health`,
       reuseExistingServer: true,
     },
     {
@@ -130,6 +143,14 @@ export default defineConfig({
         // is the one place the bearer wiring is exercised end to end.
         Tmdb__BaseUrl: `http://localhost:${TMDB_STUB_PORT}/3/`,
         Tmdb__AccessToken: TMDB_STUB_TOKEN,
+
+        // MAL takes a base URL and a client id and nothing else — no handshake to point
+        // anywhere, which is why it has no auth handler either. The id is not decoration: the
+        // stub refuses a request arriving without the X-MAL-CLIENT-ID header, so this is the one
+        // place that wiring is exercised end to end. It matters more than the TMDB bearer does,
+        // because MAL does not document that a client id alone reaches the public catalogue.
+        Mal__BaseUrl: `http://localhost:${MAL_STUB_PORT}/v2/`,
+        Mal__ClientId: MAL_STUB_CLIENT_ID,
 
         // The provider, pointed at the stub the same way IGDB and HowLongToBeat are. Every
         // endpoint is a plain option precisely so this is possible: the framework's real OAuth

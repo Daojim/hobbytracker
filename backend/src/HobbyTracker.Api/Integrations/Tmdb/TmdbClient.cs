@@ -91,7 +91,18 @@ public sealed class TmdbClient(HttpClient httpClient, ILogger<TmdbClient> logger
 
         var page = await GetAsync<TmdbTvSearchPage>(path, cancellationToken);
 
-        return [.. (page?.Results ?? []).Take(limit)];
+        // Filtered before the cut, not after. Anime is its own hobby here — from MAL, one card
+        // per cour — so it must not also be findable on the television board, and TMDB's
+        // /search/tv has no parameter to ask that with: it accepts query, first_air_date_year,
+        // include_adult, language, page and year, and nothing else. So the rule is applied to
+        // the response, which is the opposite of what `docs/games-igdb.md` says to do and is
+        // the only thing available.
+        //
+        // Doing it here rather than in TvCatalogService keeps a wire fact inside this folder —
+        // genre 16 and an ISO 639-1 code are TMDB's vocabulary, not the app's — and it is the
+        // one place where "asked for five, showed three" can be avoided at all: TMDB pages at
+        // twenty, so cutting what is left of a page it already sent costs nothing.
+        return [.. (page?.Results ?? []).Where(IsTelevisionRatherThanAnime).Take(limit)];
     }
 
     public Task<TmdbTvShowDetail?> GetTvAsync(int id, CancellationToken cancellationToken) =>
@@ -100,6 +111,27 @@ public sealed class TmdbClient(HttpClient httpClient, ILogger<TmdbClient> logger
         // its seasons are both on the base response, so appending anything here would imply a
         // dependency that does not exist.
         GetAsync<TmdbTvShowDetail>($"tv/{id}?language=en-US", cancellationToken);
+
+    /// <summary>
+    /// Whether a search result belongs on the television board, which every show does except
+    /// anime.
+    ///
+    /// <b>Both halves, and both are needed.</b> Japanese live-action is not animation and stays;
+    /// Western animation is not Japanese and stays. Genre 16 is TMDB's Animation, an id rather
+    /// than a name because that is all `/search/tv` carries.
+    ///
+    /// Two failure modes are known and accepted rather than discovered later. A donghua is `zh`
+    /// and stays on the television board; an anime whose original language TMDB records as
+    /// something other than Japanese stays too. Both are rare. The exact alternative is TMDB's
+    /// own *anime* keyword, 210024 — which costs a `/tv/{id}/keywords` call per result, an N+1
+    /// on every keystroke, and is not worth it for the handful of rows it would move.
+    /// </summary>
+    private static bool IsTelevisionRatherThanAnime(TmdbTvShow show) =>
+        !(string.Equals(show.OriginalLanguage, "ja", StringComparison.OrdinalIgnoreCase)
+          && (show.GenreIds ?? []).Contains(TmdbAnimationGenreId));
+
+    /// <summary>TMDB's Animation genre, the same id on the film and television lists alike.</summary>
+    private const int TmdbAnimationGenreId = 16;
 
     private async Task<T?> GetAsync<T>(string path, CancellationToken cancellationToken)
         where T : class

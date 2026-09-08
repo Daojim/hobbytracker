@@ -44,12 +44,17 @@ thing always known before an edit:
 | `Integrations/Hltb/`, `Services/Hltb*`, `Infrastructure/Hltb*`, `board/estimates.ts`, `journal/HltbPin.tsx` | `docs/games-hltb.md` |
 | `Integrations/Tmdb/`, `MovieCatalogService`, `TmdbOnMediaAdded`, `MoviesController`, `hobbies/movies.ts` | `docs/movies-tmdb.md` |
 | `TvCatalogService`, `TvOnMediaAdded`, `TvController`, `Domain/TvShow.cs`, `hobbies/tv.ts` | `docs/tv-tmdb.md` |
+| `Integrations/Mal/`, `AnimeCatalogService`, `MalRelevance`, `AnimeController`, `Domain/Anime.cs`, `hobbies/anime.ts` | `docs/anime-mal.md` |
 
-**The last four are the hobbies; everything above them is the platform.** That is the axis the
+**The last five are the hobbies; everything above them is the platform.** That is the axis the
 split was made on, because the phase after it was a second hobby — and `docs/movies-tmdb.md` was
 written as `docs/games-igdb.md`'s sibling, with no new section needed in any platform file.
 `docs/tv-tmdb.md` is the films file's sibling in turn and assumes it: the provider, the client
 and the attribution are shared, so it says only where television differs.
+
+**`docs/anime-mal.md` is nobody's sibling and should be read whole.** Anime and television are
+both episodic and that is where the resemblance ends: a different provider, a different client, a
+pass with an episode and no season, and a card with two titles.
 
 ## What exists
 
@@ -63,12 +68,13 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
+| **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
 | **The design layer** | Semantic tokens, eight themes, two densities, and a board that works from 768px up | `docs/design.md` |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it | `docs/auth.md` |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
-**Three hobbies are live**, television included. **Detail and review is the next phase** — a title
+**Four hobbies are live**, anime included. **Detail and review is the next phase** — a title
 detail page and a year in review. See **What is next**, which also lists the smaller things named
 but not built.
 
@@ -77,8 +83,8 @@ but not built.
 Five things that will otherwise cost a first run an hour.
 
 - **Sign-in and metadata credentials are all required to boot.** Google *and* Discord, IGDB *and*
-  TMDB. The host fails deliberately and names the missing key; that is `ValidateOnStart`, not a bug
-  to work around.
+  TMDB *and* MAL. The host fails deliberately and names the missing key; that is `ValidateOnStart`,
+  not a bug to work around.
 - **Use http://localhost:5173, not the API's port.** The whole sign-in has to stay on one origin, and
   the Vite proxy is what makes that true. See **The five traps** in `docs/auth.md`.
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon itself if
@@ -104,6 +110,12 @@ dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTra
 # https://www.themoviedb.org/settings/api. No handshake and no expiry, which is why there is
 # no auth handler behind it where IGDB has one.
 dotnet user-secrets set "Tmdb:AccessToken" "..." --project backend/src/HobbyTracker.Api
+
+# One-time: MAL credentials. A client id and nothing else — register an app at
+# https://myanimelist.net/apiconfig. One header, no handshake, no expiry, and so no auth handler.
+# There is deliberately no client secret: it signs the OAuth exchange this app never performs.
+# Client-ID-only access is undocumented by MAL and was measured working; see docs/anime-mal.md.
+dotnet user-secrets set "Mal:ClientId" "..." --project backend/src/HobbyTracker.Api
 
 # One-time: sign-in credentials, one pair per provider. Both are required. Register the apps at
 # https://console.cloud.google.com/apis/credentials and
@@ -149,11 +161,15 @@ dotnet ef migrations add <Name> \
 
 **After a migration that adds a column a provider owns, run that provider's refresh** — `media`
 rows are only ever written by a search, so a new column stays empty on the library you already have
-until something goes and asks. `POST /api/games/refresh` for IGDB's columns, and
+until something goes and asks. `POST /api/games/refresh` for IGDB's columns;
 `POST /api/movies/refresh` and `POST /api/tv/refresh` for TMDB's — **two routes, because films and
-shows are separate source rows**. HowLongToBeat has its own, which answers immediately rather than
-when the work is done: `POST /api/games/hltb/refresh`. See **The backfill is a thing you run** in
-`docs/games-hltb.md`.
+shows are separate source rows**; and `POST /api/anime/refresh` for MAL's. HowLongToBeat has its
+own, which answers immediately rather than when the work is done: `POST /api/games/hltb/refresh`.
+See **The backfill is a thing you run** in `docs/games-hltb.md`.
+
+**`POST /api/anime/refresh` exists for that and only that.** The other three also recover a title
+whose enrichment failed on add; anime has no enrichment step, because a MAL search already answers
+with everything a detail call would.
 
 ## Stack
 
@@ -162,7 +178,7 @@ when the work is done: `POST /api/games/hltb/refresh`. See **The backfill is a t
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
 | Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit |
-| External data | IGDB v4 (games) through Twitch; HowLongToBeat by scrape; TMDB v3 (**films and shows**, two source rows) on a static bearer |
+| External data | IGDB v4 (games) through Twitch; HowLongToBeat by scrape; TMDB v3 (**films and shows**, two source rows) on a static bearer; MAL v2 (anime) on a client id alone |
 
 Pinned: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
 10.0.11, `EFCore.NamingConventions` 10.0.1. The `dotnet-ef` CLI must match EF Core (10.0.11).
@@ -215,6 +231,10 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
     │   ├── Integrations/Tmdb/   client, image helper, wire models for films AND shows — no auth
     │   │                        handler, because a v4 read token never expires. (And no
     │   │                        Integrations/Auth: the OAuth handler is the framework's)
+    │   ├── Integrations/Mal/    client, options, ONE wire model — search and detail answer the
+    │   │                        same node, so there is nothing for a second one to say. No auth
+    │   │                        handler and no image helper: a client id never expires, and MAL
+    │   │                        sends full cover URLs where TMDB sends bare paths
     │   ├── Services/         orchestration (provider → database → DTO), and AuthService
     │   ├── Contracts/        what the API accepts and returns
     │   ├── Controllers/
@@ -299,13 +319,14 @@ otherwise have to state four column requests and the year list before it could a
 
 **The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit assertion
 there passes or fails for reasons unrelated to whether dragging a card works. `npm run test:e2e`
-starts six servers itself — no manual setup beyond `docker compose up -d db`: a **HowLongToBeat
+starts seven servers itself — no manual setup beyond `docker compose up -d db`: a **HowLongToBeat
 stub** on :5398 with `Hltb__MinSecondsBetweenRequests=0` (see **Testing it** in
 `docs/games-hltb.md`); an **OAuth provider stub** on :5397 (see **The test harnesses** in
-`docs/auth.md`); an **IGDB stub** on :5399 and a **TMDB stub** on :5396, which are what make
-"seed through the API, never the provider" possible at all, since `media` rows are *only* ever
-written by a search; **the API** on :5202 under `ASPNETCORE_ENVIRONMENT=E2E`; and **Vite** on :5174
-with `VITE_API_TARGET` pointed at :5202. Two things about that wiring fail quietly:
+`docs/auth.md`); an **IGDB stub** on :5399, a **TMDB stub** on :5396 and a **MAL stub** on :5395,
+which are what make "seed through the API, never the provider" possible at all, since `media` rows
+are *only* ever written by a search; **the API** on :5202 under `ASPNETCORE_ENVIRONMENT=E2E`; and
+**Vite** on :5174 with `VITE_API_TARGET` pointed at :5202. Two things about that wiring fail
+quietly:
 
 - **`--no-launch-profile` matters** — without it `launchSettings.json` pins :5201 and quietly wins over
   `ASPNETCORE_URLS`.
@@ -396,6 +417,8 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Scope | **`/board/:hobby`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
 | Columns | Backlog · Playing · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list, and the card's menu and the drawer both read it |
 | A hobby's words | **`frontend/src/hobbies/`, one file per hobby.** Column labels, the length label and its format, the pass noun, the genre list, search dispatch, which fields a pass has, and how it says where you are in one. Never a branch on the slug |
+| Anime | **Its own hobby, from MAL, and one card per cour** — Frieren and Frieren 2nd Season are two cards because they are two MAL ids. Anime does not appear in a TV search; **the Movies board is deliberately left alone**, and that asymmetry is intended. A film reads fine on two boards; a series with episode progress on two boards is the confusing case. `docs/anime-mal.md` |
+| Where you are | The season-and-episode pair is **television's**; anime has the episode alone, because the cour *is* the entry. `PassFields.progress` is `false \| 'episode' \| 'season-episode'`, and **the database no longer holds the rule** — `ck_log_entries_episode_needs_season` is gone, and each hobby's form holds it instead |
 | Dropped | A muted well **at the far right**, after the progression, collapsed by default. It spent 29 August to 7 September 2026 ahead of Backlog and came back; the argument on both sides is in `docs/board.md`. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
@@ -405,7 +428,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
 | Dev wiring | Vite proxy `/api` → `:5201`, **`changeOrigin: false`** so sign-in stays on one origin. **No CORS change needed or wanted** |
 | Testing | Vitest + RTL + MSW for logic and components; Playwright for the drag |
-| E2E harness | Real API and real Postgres on a **separate `hobbytracker_e2e` database**, with IGDB, HowLongToBeat and the OAuth provider stubbed |
+| E2E harness | Real API and real Postgres on a **separate `hobbytracker_e2e` database**, with IGDB, TMDB, MAL, HowLongToBeat and the OAuth provider stubbed |
 | Sessions | An **httpOnly cookie**, and every board route is `[Authorize]`d |
 | Timezone | `America/New_York`, server-configured, DST-following |
 | Timestamps | `started_at` / `completed_at` / `logged_at` are instants, not dates |
@@ -444,7 +467,9 @@ here**.
 | **Overriding `BaseOutputPath` un-excludes every *other* output directory from the source globs**, so the build copies its siblings into itself and compounds every run. It reached 289,490 files and 1.68 GB, nesting twenty-five deep, and presented only as a build that got slower — `git status` stays clean, because `bin/` is ignored. `backend/Directory.Build.props` holds it; delete those two lines and one build reproduces it | **Tests**, above |
 | **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice** | `docs/games-hltb.md` |
 | **A `TitleDetail` field a hobby leaves empty and one it has no idea of look identical**, which is why `journal.fields` is stated rather than inferred: an unenriched game has no platforms either, and it still wants the select. Inferring it hides the control on a title that was merely not fetched yet | `docs/movies-tmdb.md` |
-| **TMDB numbers films and shows separately, so one shared `tmdb` source row makes film 1396 and show 1396 the same row.** In production that would not even error: `UpsertAsync`'s `23505` recovery re-reads and hands back the film, and a show is silently a film. `tmdb-tv` is a **fourth source row**, and a second provider for an existing hobby needs one too | `docs/tv-tmdb.md` |
+| **TMDB numbers films and shows separately, so one shared `tmdb` source row makes film 1396 and show 1396 the same row.** In production that would not even error: `UpsertAsync`'s `23505` recovery re-reads and hands back the film, and a show is silently a film. `tmdb-tv` is a **fourth source row**, `mal` a **fifth**, and a second provider for an existing hobby needs one too | `docs/tv-tmdb.md` |
+| **A MAL node carries `id`, `title` and `main_picture` whatever `fields` asks for, and nothing else.** A column added to `anime` without a word added to `MalClient.Fields` fills with nulls for ever — and a null there is **indistinguishable from a title MAL has nothing to say about**. `MalClientTests` asserts the list rather than trusting it | `docs/anime-mal.md` |
+| **MAL answers `0`, not null, for a figure nobody has filled in** — an unaired cour's episode count and duration, an unrated title's mean. Nought is not merely a lie a card would print: `ck_anime_counts_positive` and `ck_anime_mean_score_range` **refuse the write**, so an ordinary search becomes a 500 | `docs/anime-mal.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
 
 ## Schema
@@ -462,6 +487,7 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 | `movies` | `media_id` (PK **and** FK to media), `release_year`, `runtime_minutes`, `genres`, `primary_genre`, `directors` |
 | `tv_shows` | `media_id` (PK **and** FK to media), `first_air_year`, `last_air_year`, `air_status`, `number_of_seasons`, `number_of_episodes`, `episode_runtime_minutes`, `total_runtime_minutes` (**generated**), `genres`, `primary_genre`, `creators` |
 | `tv_seasons` | `media_id` + `season_number` (composite PK), `name`, `episode_count`, `air_date` |
+| `anime` | `media_id` (PK **and** FK to media), `english_title`, `media_type`, `episode_count`, `episode_runtime_seconds` (**MAL's own unit**), `total_runtime_minutes` (**generated**, and it converts), `start_season`, `start_year`, `air_status`, `source_material`, `genres`, `primary_genre`, `studios`, `mean_score`. **No seasons table** — a cour is its own MAL entry |
 | `log_entries` | `id`, `user_id` (**NOT NULL**), `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `season_number`, `episode_number`, `started_at`, `completed_at`, `logged_at` |
 | `notes` | `id`, `log_entry_id`, `body`, `written_at` |
 | `users` | `id`, `display_name`, `role`, `created_at` |
@@ -494,13 +520,17 @@ shuffled.
 - [x] **Television, from TMDB** — a third hobby on the same client and a **second source row**;
       `tv_seasons` as a table because EF refuses JSON on a TPT entity; a pass that says which
       episode you are on, on the card as well as in the drawer.
+- [x] **Anime, from MAL** — its own hobby rather than a filter on television, **one card per
+      cour**, and a fifth source row. The platform stretched twice and both stretches went in as
+      additions to every hobby's contract: `ck_log_entries_episode_needs_season` was dropped and
+      `PassFields.progress` became three-valued, because a cour *is* the entry; and
+      `LibraryItemDto.Subtitle` gave the board row a second title. No `IMediaAdded` handler,
+      because a MAL search answers everything a detail call would.
 - [ ] **Detail and review — next.** A title detail page and a year-in-review page.
 - [ ] **Filling the board without searching — named, not designed.** See **Discovery** in `docs/games-igdb.md`.
-- [ ] **The remaining hobbies.** Anime/books/music — each a sibling detail table deriving from
-      `Media`, plus its source integration (MAL for anime). Add the `source_lu` row with the
-      client, and a file in `frontend/src/hobbies/`. **Anime is the one to think about before
-      starting**: TMDB carries most of it under `tv`, so the question is whether it is a fourth
-      hobby or a filter on the third, and that is a product decision rather than a schema one.
+- [ ] **The hobbies after it.** Books and music — each a sibling detail table deriving from
+      `Media`, plus its source integration. Add the `source_lu` row with the client, and a file
+      in `frontend/src/hobbies/`.
 
 **A completed phase gets one line, because what it *learned* is in the `docs/` file for the area
 it touched** — that is the growth rule at work, applied to this list. `README.md`'s roadmap is the
@@ -511,19 +541,33 @@ original brief had it second, but `log_entries.user_id` was nullable, so sequenc
 have left the app unable to do its job while it was built. The column is `NOT NULL` now, and the
 deferral is spent.
 
-### What a fourth hobby has to do
+### What a fifth hobby has to do
 
-**Television went through this list on 7 September 2026 and it held.** Nothing in `board/`,
-`search/` or the platform needed touching; the two things that *did* change — `PassFields` and
-`TitleDetail` — changed because a show has an idea no other hobby has, which is the list working
-rather than the list being wrong. Both rows are marked below.
+**Television went through this list on 7 September 2026 and it held. Anime went through it the
+same day and it held again**, which is the more useful of the two runs: television is TMDB twice
+and anime is a provider nothing here had seen. Nothing in `board/`, `search/` or the platform
+needed touching either time. What *did* change both times was `PassFields` and `TitleDetail`,
+because each hobby had an idea no other one has — which is the list working rather than the list
+being wrong. Both rows are marked below.
+
+**Anime found three things this list did not say, and they are now in it:**
+
+- **A provider may need no enrichment at all.** MAL's search and detail endpoints answer the same
+  node, so there is no `IMediaAdded` handler and a card is complete the moment it is *found*.
+  The Enrichment row already said "if the provider needs a second call"; it is worth knowing that
+  one of four does not.
+- **A hobby may need a field on the *board row*.** `LibraryItemDto.Subtitle` was the first
+  addition there since television's progress pair, and it goes in through the same downcast in
+  both projections.
+- **A hobby may need a rule *removed*.** `ck_log_entries_episode_needs_season` was true of every
+  hobby that existed when it was written and false for the fourth.
 
 | | |
 |---|---|
 | Schema | A `Domain/<Thing>.cs` deriving from `Media`, and a configuration copying `MovieConfiguration` — **including `ToTable(...)`, which is the entire mechanism that makes EF choose TPT.** A `SeedData.Sources` id, its `NameFor` arm and its `HasData` row; `hobby_lu` already carries all six hobbies |
 | Backend | An `Integrations/<Provider>/` client and exception handler, a catalog service on `MovieCatalogService`'s shape (the `23505` catch included), a controller, and the `Program.cs` block — **resolving `IOptions` inside the configuring lambda**, never from `builder.Configuration` |
 | `LibraryService` | One more `?? (row.Media as <Thing>)!` beside the existing pair, in **both terminal projections and the `LibrarySort.Length` arm — and nowhere near `BoardQuery`**. Nulling only `ItemAsync` fails the move-and-list-agree test and nothing else, which reads as drag flicker |
-| Frontend | `api/<thing>.ts`, its two types, one file in `hobbies/`, and `ready: true` in `shell/hobbies.ts`. **Nothing else in `board/`, `journal/` or `search/` should need touching** — if it does, that is the finding, and it is a finding worth having rather than a failure. TV's was `PassFields.progress`: a real new idea, added to the contract for every hobby rather than branched on the slug |
+| Frontend | `api/<thing>.ts`, its two types, one file in `hobbies/`, and `ready: true` in `shell/hobbies.ts`. **Nothing else in `board/`, `journal/` or `search/` should need touching** — if it does, that is the finding, and it is a finding worth having rather than a failure. TV's was `PassFields.progress`; anime's widened that same field to three values and added `TitleDetail.episodeCount` and `LibraryItemDto.Subtitle`. All four went into the contract for every hobby rather than branching on the slug |
 | The flip | **`index.css`'s tokens and `ready: true` are one atomic commit.** `palette.test.ts` fails in both directions — hues with the hobby unbuilt fail *are all spoken for*, and the hobby built with unpainted genres fails *paints every genre it names*. `App.test.tsx`'s "a hobby nobody has built" example has to move to a still-unbuilt slug, and it does **not** fail when it should: it passes for the wrong reason |
 | Enrichment | An `IMediaAdded` implementation if the provider needs a second call. Decline by hobby id first, and never let a failure take the log entry with it |
 | Tests | A fake client, an `ApiFactory` entry (**a missing required option refuses to boot the whole suite**), a `Given<Thing>Async`, an e2e stub serving *every* endpoint the client calls, and one case in `StatusTransitionTests` |
@@ -533,9 +577,9 @@ rather than the list being wrong. Both rows are marked below.
 - **`BoardPositions.TopOfColumnAsync` is scoped to `(status, user)` and not to hobby.** A film
   taking `min(position) - 1` lowers a floor the games board shares — and moves nothing, because
   only the *relative* order inside a column is ever read. Its own comment says so. Do not change it.
-- **A title's entries order `logged_at DESC, id DESC` at four call sites that must agree, with no
-  shared helper.** `MovieCatalogService.EntriesFor` was the fourth. See **Library is not the
-  catalog** in `docs/board.md`.
+- **A title's entries order `logged_at DESC, id DESC` at six call sites that must agree, with no
+  shared helper.** `MovieCatalogService.EntriesFor` was the fourth and `AnimeCatalogService`'s the
+  sixth. See **Library is not the catalog** in `docs/board.md`.
 
 ### Small things, named so they are not rediscovered
 
@@ -584,6 +628,13 @@ approaches were already ruled out and why. **Read it before proposing any deploy
 obvious ones have been considered and rejected for stated reasons, and re-proposing them is repeated
 work. It stays machine-local deliberately, because it describes a private machine: **do not copy it
 into this repo, and do not publish it anywhere.**
+
+**`anime-as-its-own-hobby.md` is now history**, and its contents live in `docs/anime-mal.md` —
+the decisions, the provider measurements, and the two stretches it predicted. The phase shipped on
+7 September 2026, the day after the file was written. Two things it got wrong are worth knowing if
+anybody opens it: it expected the genre palette to be workshopped with the user (it was picked,
+at the user's request), and it left the search re-rank's rules open where they are now measured
+and pinned.
 
 One is worth a warning if you open it: `for-the-next-part-delightful-alpaca.md`, the HowLongToBeat
 plan. Three of its assumptions did not survive contact with the site — it has an `HltbSessionHandler`

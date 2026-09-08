@@ -6,6 +6,7 @@ import { EntryDrawer } from './EntryDrawer';
 import { gameDetail, journalServer, logEntry, note } from '../test/games';
 import { movieDetail, movieJournalServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
+import { animeDetail, animeJournalServer } from '../test/anime';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { mediaKey } from '../board/keys';
@@ -1574,5 +1575,103 @@ describe('EntryDrawer, on a show', () => {
     await userEvent.selectOptions(genre, 'Drama');
 
     await waitFor(() => expect(journal.genresSet).toEqual([{ mediaId: 5005, genre: 'Drama' }]));
+  });
+});
+
+/**
+ * The same drawer once more, opened on an anime.
+ *
+ * Its own describe for the shows block's reason, and one thing more: this is the hobby whose
+ * pass carries an episode and **no season**, which `ck_log_entries_episode_needs_season`
+ * forbade until it was dropped. `animeJournalServer` answers `/api/anime/:id` and nothing else,
+ * so a drawer that dispatched to television would fail as an unhandled request rather than
+ * showing Severance under Frieren's title.
+ */
+describe('EntryDrawer, on an anime', () => {
+  function openAnime(mediaId = 52991, onClose = vi.fn()) {
+    return {
+      onClose,
+      ...renderWithProviders(<EntryDrawer hobby="anime" mediaId={mediaId} onClose={onClose} />),
+    };
+  }
+
+  it('offers the episode alone, with no season to choose first', async () => {
+    // The whole of what `progress: 'episode'` means, and the reason the field is three-valued
+    // rather than a boolean. A cour is its own MAL entry — Sousou no Frieren and its 2nd Season
+    // are two ids and two cards — so there is no season to name.
+    animeJournalServer();
+
+    openAnime();
+
+    expect(await screen.findByLabelText('Episode')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Season')).not.toBeInTheDocument();
+  });
+
+  it('sizes the episode list from the title rather than from a chosen season', async () => {
+    // A show counts episodes per season and has to be told which one first; an anime counts
+    // them for the title. The list is 28 long here without anything being picked, which is the
+    // behaviour a show's dropdown cannot have.
+    animeJournalServer({ detail: animeDetail({ episodeCount: 28 }) });
+
+    openAnime();
+
+    const episode = await screen.findByLabelText('Episode');
+    // Twenty-eight, plus the "Not recorded" that every optional select carries.
+    expect(within(episode).getAllByRole('option')).toHaveLength(29);
+    expect(within(episode).getByRole('option', { name: '28' })).toBeInTheDocument();
+  });
+
+  it('offers nothing for a cour that has not aired', async () => {
+    // MAL answers `num_episodes: 0` for an announced entry and nought means unknown rather than
+    // none, so the server stores null. Offering episode 0 — or a list built from a zero — would
+    // be the control claiming a shape the title cannot back up.
+    animeJournalServer({ detail: animeDetail({ episodeCount: null }) });
+
+    openAnime();
+
+    const episode = await screen.findByLabelText('Episode');
+    expect(within(episode).getAllByRole('option')).toHaveLength(1);
+  });
+
+  it('saves an episode with no season number beside it', async () => {
+    // The shape the database refused until this phase. `seasonNumber` goes as null always
+    // rather than as whatever the row was seeded with — a hobby with no such control has
+    // nothing to clear, which is the same argument that sends a film's hours as null.
+    const journal = animeJournalServer({
+      detail: animeDetail({
+        logEntries: [logEntry({ id: 77, mediaId: 52991, status: 'InProgress' })],
+      }),
+    });
+
+    openAnime();
+
+    await userEvent.selectOptions(await screen.findByLabelText('Episode'), '12');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(journal.saved[0]?.body).toEqual(
+        expect.objectContaining({ seasonNumber: null, episodeNumber: 12 }),
+      ),
+    );
+  });
+
+  it('bylines the studio and states the five facts a cour has', async () => {
+    animeJournalServer();
+
+    openAnime();
+
+    expect(
+      await screen.findByRole('heading', { name: 'Sousou no Frieren' }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Madhouse')).toBeInTheDocument();
+    expect(screen.getByText('TV · 28 episodes')).toBeInTheDocument();
+    expect(screen.getByText('Finished · Fall 2023')).toBeInTheDocument();
+    expect(screen.getByText('9.25')).toBeInTheDocument();
+    expect(screen.getByText('Manga')).toBeInTheDocument();
+
+    // The three controls this hobby does not have, absent rather than blank.
+    expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Platform')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('HowLongToBeat ID')).not.toBeInTheDocument();
   });
 });

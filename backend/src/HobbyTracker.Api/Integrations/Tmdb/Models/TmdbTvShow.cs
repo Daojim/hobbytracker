@@ -29,6 +29,19 @@ public sealed class TmdbTvShow
     /// </summary>
     public List<int>? GenreIds { get; init; }
 
+    /// <summary>
+    /// ISO 639-1, as TMDB tags the language a show was made in — `ja`, `en`, `ko`, `zh`.
+    ///
+    /// Here for one reason: it is half of what keeps anime off the television board. Anime is
+    /// its own hobby, from MAL, so a show that is Japanese *and* animated is excluded from
+    /// these results by <see cref="TmdbClient.SearchTvAsync"/>. Both halves are needed — a
+    /// Japanese live-action drama is television, and Western animation is television.
+    ///
+    /// Read from the search response rather than the detail one, because the exclusion has to
+    /// happen before anybody is offered the title. `/tv/{id}` carries the same field.
+    /// </summary>
+    public string? OriginalLanguage { get; init; }
+
     public int? VoteCount { get; init; }
     public double? Popularity { get; init; }
 }

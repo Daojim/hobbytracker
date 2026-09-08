@@ -5,6 +5,7 @@ import { server } from '../test/server';
 import { gameDetail } from '../test/games';
 import { movieDetail } from '../test/movies';
 import { tvShowDetail } from '../test/tv';
+import { animeDetail } from '../test/anime';
 
 /**
  * The half of a hobby the journal drawer reads.
@@ -187,6 +188,92 @@ describe('journal.load', () => {
     expect((await hobbyDefinition('games').journal.load(14)).seasons).toEqual([]);
   });
 
+  it('bylines an anime with its studio, which is who anybody says made it', async () => {
+    // A game's developers, a film's directors, a show's creators — the fourth answer to one
+    // question, and the reason the drawer has a `byline` rather than four fields.
+    server.use(
+      http.get('/api/anime/14', () => HttpResponse.json(animeDetail({ studios: ['Madhouse'] }))),
+    );
+
+    expect((await hobbyDefinition('anime').journal.load(14)).byline).toEqual(['Madhouse']);
+  });
+
+  it('states an anime as its run, its airing, one episode, a score and a source', async () => {
+    // Five facts where a show has three, and two of them exist only here. MAL's mean is worth a
+    // line because it is out of ten, which is the scale a pass's own rating uses — the two sit
+    // beside each other with no footnote. The source material is what tells you whether a thing
+    // is an original or an adaptation, which is most of what anybody wants to know first.
+    //
+    // MAL's snake_case is made readable here rather than stored differently, exactly as TMDB's
+    // "Returning Series" is carried verbatim and a runtime in minutes is turned into words.
+    server.use(http.get('/api/anime/14', () => HttpResponse.json(animeDetail())));
+
+    expect((await hobbyDefinition('anime').journal.load(14)).facts).toEqual([
+      { label: 'Run', value: 'TV · 28 episodes' },
+      { label: 'Airing', value: 'Finished · Fall 2023' },
+      { label: 'Episode', value: '25 m' },
+      { label: 'MAL', value: '9.25' },
+      { label: 'Source', value: 'Manga' },
+    ]);
+  });
+
+  it('drops the facts MAL has nothing to say about', async () => {
+    // The films runtime rule. Unlike a show, none of these arrives late — MAL answers
+    // everything to a search — so a missing one is genuinely missing rather than not yet
+    // fetched, which makes a dash here even less honest than it would be there.
+    server.use(
+      http.get('/api/anime/14', () =>
+        HttpResponse.json(
+          animeDetail({
+            mediaType: null,
+            episodeCount: null,
+            episodeRuntimeSeconds: null,
+            airStatus: null,
+            startSeason: null,
+            startYear: null,
+            sourceMaterial: null,
+            meanScore: null,
+          }),
+        ),
+      ),
+    );
+
+    expect((await hobbyDefinition('anime').journal.load(14)).facts).toEqual([]);
+  });
+
+  it('sizes an anime from its own episode count, and gives it no seasons at all', async () => {
+    // The second half of the `progress: 'episode'` contract. `seasons` is empty because a cour
+    // is its own MAL entry, and `episodeCount` is what the one dropdown is built from instead.
+    //
+    // Deliberately *not* a synthetic one-season list, which would look tidier and would be the
+    // same mistake as writing season 1 on every anime pass: a fact in the column nobody
+    // claimed, which every later reader then has to know to ignore.
+    server.use(
+      http.get('/api/anime/14', () => HttpResponse.json(animeDetail({ episodeCount: 28 }))),
+      http.get('/api/tv/14', () => HttpResponse.json(tvShowDetail())),
+    );
+
+    const anime = await hobbyDefinition('anime').journal.load(14);
+    expect(anime.seasons).toEqual([]);
+    expect(anime.episodeCount).toBe(28);
+
+    // And the other way round: a show has seasons and no title-wide count, because its second
+    // dropdown is sized from whichever season was chosen. The whole run's total there would
+    // offer episode 19 of a season with nine in it.
+    expect((await hobbyDefinition('tv').journal.load(14)).episodeCount).toBeNull();
+  });
+
+  it('offers no episodes for a cour that has not aired', async () => {
+    // MAL answers `num_episodes: 0` for an announced entry, and nought means unknown rather
+    // than none — Frieren's 2027 cour is the ordinary case for it. The server stores null, and
+    // the control then offers nothing rather than offering episode 0.
+    server.use(
+      http.get('/api/anime/14', () => HttpResponse.json(animeDetail({ episodeCount: null }))),
+    );
+
+    expect((await hobbyDefinition('anime').journal.load(14)).episodeCount).toBeNull();
+  });
+
   it('names a season TMDB has not named, rather than leaving the option blank', async () => {
     server.use(
       http.get('/api/tv/14', () =>
@@ -231,21 +318,55 @@ describe('journal.fields', () => {
     expect(hobbyDefinition('tv').journal.fields).toEqual({
       hoursPlayed: false,
       platform: false,
-      progress: true,
+      progress: 'season-episode',
+    });
+  });
+
+  it('gives an anime the episode half alone, which is why progress is not a boolean', () => {
+    // The decision this field was widened for. MAL numbers each cour as its own entry —
+    // `Sousou no Frieren` and `Sousou no Frieren 2nd Season` are two ids and two cards — so the
+    // cour *is* the title and "episode 7" says everything there is to say.
+    //
+    // `ck_log_entries_episode_needs_season` forbade exactly that shape and was dropped for it,
+    // along with its LogEntryRules twin. This is where the rule went: a hobby with no season
+    // half never renders the control, and a hobby with one keeps its episode list empty until
+    // a season is chosen.
+    expect(hobbyDefinition('anime').journal.fields).toEqual({
+      hoursPlayed: false,
+      platform: false,
+      progress: 'episode',
     });
   });
 });
 
 describe('progress', () => {
-  it('exists for exactly the hobbies whose passes carry a season and an episode', () => {
+  it('exists for exactly the hobbies whose passes say where you are', () => {
     // The `setHltbId` and `hltb` pairing, applied to the second half-and-half thing a hobby has:
-    // a form offering the control while nothing formats it would put S3 E7 nowhere, and a card
+    // a form offering the control while nothing formats it would put E12 nowhere, and a card
     // formatting one nothing can set would promise a badge no pass can reach.
-    for (const slug of ['games', 'movies', 'tv']) {
+    for (const slug of ['games', 'movies', 'tv', 'anime']) {
       const { journal, progress } = hobbyDefinition(slug);
 
-      expect(progress !== null, slug).toBe(journal.fields.progress);
+      expect(progress !== null, slug).toBe(journal.fields.progress !== false);
     }
+  });
+
+  it('writes an anime as E12, with no season half to be missing', () => {
+    // Television's `format` returns null for an episode with no season, on the argument that
+    // printing `E7` would be inventing the half that is missing. That is correct *for
+    // television* and is exactly why this is not a shared function: here there is no missing
+    // half, because a cour is the entry.
+    const { progress } = hobbyDefinition('anime');
+
+    expect(progress!.format(null, 12)).toBe('E12');
+    expect(progress!.describe(null, 12)).toBe('Episode 12');
+  });
+
+  it('says nothing for an anime pass that has not said where it is', () => {
+    const { progress } = hobbyDefinition('anime');
+
+    expect(progress!.format(null, null)).toBeNull();
+    expect(progress!.describe(null, null)).toBe('Not started');
   });
 
   it('writes where you are as S3 E7, and reads it aloud in full', () => {
@@ -292,9 +413,10 @@ describe('journal.setHltbId', () => {
       http.get('/api/games/14', () => HttpResponse.json(gameDetail())),
       http.get('/api/movies/14', () => HttpResponse.json(movieDetail())),
       http.get('/api/tv/14', () => HttpResponse.json(tvShowDetail())),
+      http.get('/api/anime/14', () => HttpResponse.json(animeDetail())),
     );
 
-    for (const slug of ['games', 'movies', 'tv']) {
+    for (const slug of ['games', 'movies', 'tv', 'anime']) {
       const { journal } = hobbyDefinition(slug);
       const carries = (await journal.load(14)).hltb !== null;
 

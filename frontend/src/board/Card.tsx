@@ -86,6 +86,23 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   // does and this pass has not said where it is. The badge is absent for both.
   const progress = hobby.progress?.format(item.seasonNumber, item.episodeNumber) ?? null;
 
+  /**
+   * The title's other name, unless it is the same name.
+   *
+   * **Found by the e2e suite rather than reasoned about**, and it is not a stub artefact: MAL
+   * genuinely answers `alternative_titles.en` of "Cowboy Bebop" for *Cowboy Bebop*, and does the
+   * same for every title whose romaji reading is already English. Rendered blindly, those cards
+   * print their own name twice.
+   *
+   * Compared case-insensitively and with the ends trimmed, because "the same name" is a thing a
+   * reader judges rather than a byte comparison — and never any looser than that, since
+   * `Frieren` and `Frieren: Beyond Journey's End` are genuinely two names.
+   */
+  const subtitle =
+    item.subtitle !== null && item.subtitle.trim().toLowerCase() === item.title.trim().toLowerCase()
+      ? null
+      : item.subtitle;
+
   // The corner offers the same thing from every column now, which is the change. It used to be
   // a single × meaning *drop* on Playing and *remove* on Backlog, absent on the other two — so
   // which of the two endings a card offered was decided by where it sat rather than by you, and
@@ -185,6 +202,24 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
             </button>
           )}
         </h3>
+
+        {/* The title's other name, under it and quieter, for the one hobby whose titles have
+            two. MAL states romaji as its own `title` — `Sousou no Frieren` — with the English
+            one beside it, and both are worth finding by eye.
+
+            Outside the <h3> rather than inside it, so a screen reader announces the heading as
+            the title and this as a line of its own: an accessible name of "Sousou no Frieren
+            Frieren: Beyond Journey's End" would be the one string nobody could search for.
+
+            Absent rather than blank when there is nothing, which is the ordinary case — MAL
+            leaves the English title off a great many entries, and every other hobby sends null
+            always. A blank line would push the metadata row down on some cards and not
+            others. */}
+        {subtitle !== null && (
+          <p data-subtitle="" className="text-xs break-words text-muted">
+            {subtitle}
+          </p>
+        )}
 
         {/* The confirm takes the metadata row's place rather than sitting under it, so a card
             asking a question does not also resize the column it is in. */}

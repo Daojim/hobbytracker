@@ -90,6 +90,7 @@ export const GAMES: HobbyDefinition = {
         // A game is one thing you finish, not a run you are partway through in a way anybody
         // numbers. `[]` rather than a null, on the same rule `platforms` follows for a film.
         seasons: [],
+        episodeCount: null,
         // Nothing about a game is a fixed fact worth a line here: its length is HowLongToBeat's
         // guess and belongs beside your own hours, and its release year is on no card yet.
         facts: [],
