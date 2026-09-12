@@ -63,7 +63,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | | | |
 |---|---|---|
 | **The board** | Four columns, drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board | `docs/board.md` |
-| **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields | `docs/journal.md` |
+| **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
 | **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
@@ -328,6 +328,13 @@ The frontend suite is Vitest over **MSW**, with no handlers registered by defaul
 pass-through. `src/test/library.ts` stubs a whole board in one call, because a component test would
 otherwise have to state four column requests and the year list before it could assert anything.
 
+**`renderWithProviders` sets `gcTime: 0`, and that default hides a whole class of bug.** A query is
+collected the instant its last observer goes, so a board can never be handed a cache entry it left
+behind — which is exactly how a card ends up rendered in two columns at once. Pass
+`keepsCache: true` for a test about what the cache is left holding; one test asks for it, and
+everything else is better off without a query outliving its test. See **A card mounted twice** in
+`docs/board.md`.
+
 **The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit assertion
 there passes or fails for reasons unrelated to whether dragging a card works. `npm run test:e2e`
 starts seven servers itself — no manual setup beyond `docker compose up -d db`: a **HowLongToBeat
@@ -434,7 +441,8 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Dropped | A muted well **at the far right**, after the progression, collapsed by default. It spent 29 August to 7 September 2026 ahead of Backlog and came back; the argument on both sides is in `docs/board.md`. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
-| Year | **One control above the whole board**, defaulting to the latest year there is. Backlog is exempt; the other three filter on the date each is about |
+| Saving a pass | **The pass writes itself and there is no Save button.** A change arms a 500ms timer; the timer checks the rules and sends every field. Leaving a field deliberately does *not* send it — that would be a write per stop while tabbing, and would write "season 2, no episode" on the way to naming one — but **closing the drawer does**, which is the one hole a form like this opens. A refused value stops the write and stays on screen to be corrected. `docs/journal.md` |
+| Year | **One control above the whole board**, defaulting to the latest year there is. Backlog is exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a fifth status and not a fifth column.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's four tracks wide** rather than the whole of it. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
 | What counts as coming | **Asked a provider and got no date at all is *TBA* on the calendar**, whatever shape the nothing arrived in — that is *Stellar Blade: Blood Rain*, and it read as released until 12 September 2026. **A title the provider calls a rumour is not**, because it was never announced, and it stays in the Backlog column. Measured both ways round in `docs/games-igdb.md` |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
@@ -468,6 +476,7 @@ here**.
 | **TPT downcasts live in the two terminal DTO projections only, never in `BoardQuery`.** Every `Where` and `OrderBy` is pushed through `BoardQuery`, so a downcast that stops translating there **empties the whole board with no error** | `docs/board.md` |
 | **Validation attributes go on record primary-constructor parameters**, not `[property:]` targets — MVC throws `InvalidOperationException` rather than skipping them | `docs/board.md` |
 | **The sort and the year belong in the query key**, not only in the request. Left out, the cache serves the previous ordering and corrects itself only on the next refetch — a board showing one order while claiming another. A move invalidates the column *prefix* and `'years'`, never the fully-qualified key | `docs/board.md` |
+| **Two cards with one media id leave the survivor permanently undraggable.** dnd-kit keys its draggables by id, so the second mount overwrites the first and its unmount deletes the entry the *other* one is now using — after which no sensor ever activates on it. The card is visible, in the right column, and stuck until a reload. It needs no bug of its own to happen: a stale cache entry rendered for one frame while it refetches is enough, which is why a move **removes** the inactive views of both columns rather than only marking them stale | `docs/board.md` |
 | **`builder.ToTable("games", …)` is the entire mechanism that makes EF choose Table-Per-Type.** Delete that line and EF **silently** falls back to Table-Per-Hierarchy, folding every hobby's columns into `media` behind a discriminator. Nothing errors | `docs/data-model.md` |
 | **Npgsql writes only an offset-0 `DateTimeOffset` to `timestamptz`.** Anything else throws `ArgumentException` — a 500, not a validation error | `docs/data-model.md` |
 | **`System.Text.Json` reads a bare `"2026-03-03"` as midnight *UTC*** — 7pm on the 2nd here, which is the original timezone bug walking back in through the API | `docs/data-model.md` |
