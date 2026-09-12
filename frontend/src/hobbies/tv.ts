@@ -103,6 +103,9 @@ export const TV: HobbyDefinition = {
           show.firstAirYear === null ? '' : String(show.firstAirYear),
           show.creators.join(', '),
         ],
+        // No release window: TMDB is not asked for one, so this hobby has no calendar for a
+        // tile to offer. See HobbyDefinition.releases.
+        release: null,
       })),
   },
 
@@ -171,6 +174,11 @@ export const TV: HobbyDefinition = {
       return episode === null ? where : `${where}, episode ${episode}`;
     },
   },
+
+  // No release calendar: this hobby's provider is not asked for a release window, so
+  // nothing ever fills the columns the board would partition Backlog on. Turning it on is this
+  // block plus that provider work, in one commit — see HobbyDefinition.releases.
+  releases: null,
 };
 
 /**

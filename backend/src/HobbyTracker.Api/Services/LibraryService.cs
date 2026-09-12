@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
@@ -13,9 +14,20 @@ public interface ILibraryService
         LogStatus? status,
         int? year,
         LibrarySort sort,
+        LibraryPartition partition,
         int? page,
         int? pageSize,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The release calendar: your Backlog entries whose title is not out yet, nearest first and
+    /// the undated last.
+    ///
+    /// A read of the same rows the Backlog column answers with, not a place of its own — which
+    /// is what makes a title arrive in Backlog on release day with no job having run anywhere.
+    /// </summary>
+    Task<IReadOnlyList<LibraryItemDto>> UpcomingAsync(
+        string? hobby, CancellationToken cancellationToken);
 
     Task<bool> HobbyExistsAsync(string hobby, CancellationToken cancellationToken);
 
@@ -88,11 +100,41 @@ public sealed class LibraryService(
     public Task<bool> HobbyExistsAsync(string hobby, CancellationToken cancellationToken) =>
         db.Hobbies.AnyAsync(h => h.Name == hobby, cancellationToken);
 
+    /// <summary>
+    /// How many titles the calendar will answer with before it stops.
+    ///
+    /// Generous rather than paged, because a person's list of things they are waiting for is
+    /// tens — which is what lets the client show the first twenty and reveal the rest from the
+    /// same response rather than fetching again. <c>ActivityYearsAsync</c> leans on the same
+    /// scale argument.
+    /// </summary>
+    private const int UpcomingCap = 200;
+
+    public async Task<IReadOnlyList<LibraryItemDto>> UpcomingAsync(
+        string? hobby, CancellationToken cancellationToken)
+    {
+        // Straight through ListAsync rather than a projection of its own. The two terminal
+        // projections already have to agree field for field, and a third copy of them is how
+        // that quietly stops being true.
+        var page = await ListAsync(
+            hobby,
+            LogStatus.Backlog,
+            year: null,
+            LibrarySort.Manual,
+            LibraryPartition.Upcoming,
+            page: 1,
+            pageSize: UpcomingCap,
+            cancellationToken);
+
+        return page.Items;
+    }
+
     public async Task<PagedResult<LibraryItemDto>> ListAsync(
         string? hobby,
         LogStatus? status,
         int? year,
         LibrarySort sort,
+        LibraryPartition partition,
         int? page,
         int? pageSize,
         CancellationToken cancellationToken)
@@ -101,11 +143,12 @@ public sealed class LibraryService(
 
         var (normalisedPage, normalisedSize) = Paging.Normalise(page, pageSize);
 
-        var query = Filtered(BoardQuery().AsNoTracking(), hobby, status, SpanOf(year));
+        var query = Filtered(
+            BoardQuery().AsNoTracking(), hobby, status, SpanOf(year), partition, clock.Today);
 
         var total = await query.CountAsync(cancellationToken);
 
-        var items = await Sorted(query, sort)
+        var items = await Ordered(query, sort, partition)
             .Skip((normalisedPage - 1) * normalisedSize)
             .Take(normalisedSize)
             .Select(row => new LibraryItemDto(
@@ -187,6 +230,15 @@ public sealed class LibraryService(
                 row.Latest.SeasonNumber,
                 row.Latest.EpisodeNumber,
 
+                // The release window, straight off `media` — no downcast and no coalesce chain,
+                // unlike Genres and LengthHours above. That is the point of the columns living
+                // on the shared table: nothing here needs extending when a fifth hobby arrives,
+                // and nothing here can stop translating and empty a board.
+                row.Media.ReleaseDate,
+                row.Media.ReleaseEnd,
+                row.Media.ReleasePrecision,
+                row.Media.ReleaseStatus,
+
                 // The last thing you wrote about this title, from *any* pass of yours —
                 // deliberately unlike every other field on this row, all of which come from
                 // Latest. A replay begun this morning has nothing written on it yet, and what
@@ -228,7 +280,8 @@ public sealed class LibraryService(
         // and finished nothing in would be a year the columns handle perfectly well and the
         // picker has no way to ask for.
         var activity = await Filtered(
-                BoardQuery().AsNoTracking(), hobby, status: null, year: null)
+                BoardQuery().AsNoTracking(), hobby, status: null, year: null,
+                LibraryPartition.Default, clock.Today)
             .Select(row => new { row.Latest.StartedAt, row.Latest.CompletedAt })
             .ToListAsync(cancellationToken);
 
@@ -334,7 +387,11 @@ public sealed class LibraryService(
         // caller listed that has since moved elsewhere simply is not here — a board loaded a
         // moment ago can legitimately be one drag out of date, and failing the whole request
         // over that would strand the user's reorder.
-        var inColumn = await Filtered(BoardQuery(), request.Hobby, request.Status, year: null)
+        // Default, so a reorder acts on the column as it is drawn: an unreleased title is on the
+        // calendar rather than in the well, and is not one of the cards being dragged past.
+        var inColumn = await Filtered(
+                BoardQuery(), request.Hobby, request.Status, year: null,
+                LibraryPartition.Default, clock.Today)
             .Where(row => request.MediaIds.Contains(row.Media.Id))
             .Select(row => new { MediaId = row.Media.Id, Entry = row.Latest })
             .ToListAsync(cancellationToken);
@@ -438,7 +495,12 @@ public sealed class LibraryService(
     }
 
     private static IQueryable<BoardRow> Filtered(
-        IQueryable<BoardRow> query, string? hobby, LogStatus? status, YearSpan? year)
+        IQueryable<BoardRow> query,
+        string? hobby,
+        LogStatus? status,
+        YearSpan? year,
+        LibraryPartition partition,
+        DateOnly today)
     {
         if (!string.IsNullOrWhiteSpace(hobby))
         {
@@ -451,6 +513,10 @@ public sealed class LibraryService(
             // being replayed now belongs under InProgress, and must not also appear under
             // Completed.
             query = query.Where(row => row.Latest.Status == wanted);
+
+            // And only then, because the release partition is a fact about *one* column. See
+            // ByRelease, which holds why putting it any higher breaks the search strip.
+            query = ByRelease(query, status, partition, today);
         }
 
         if (year is { } span)
@@ -459,6 +525,54 @@ public sealed class LibraryService(
         }
 
         return query;
+    }
+
+
+    /// <summary>
+    /// Splits the Backlog column from the release calendar — and does so <b>only</b> on Backlog.
+    ///
+    /// <para>
+    /// <b>Why it is here, inside the status branch, rather than beside the hobby filter above.</b>
+    /// Filtered also runs with no status named: <c>ActivityYearsAsync</c>, <c>ReorderAsync</c>
+    /// and the un-statused <c>GET /api/library</c> all go through it, and that last one is what
+    /// <c>libraryMediaIds()</c> pages through to build the search strip's "On your board" set.
+    /// Narrow that and an unreleased title drops out of it, the strip offers to add a title you
+    /// already have, and the second press writes a second Backlog entry the card renders as a
+    /// replay that never happened. Nobody would trace that symptom back to this line.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>And why it carries no hobby condition.</b> A film's <c>release_precision</c> is null
+    /// for ever — TMDB never writes one — so the first clause below leaves the movies board
+    /// exactly as it was. That is what makes "no branch on the hobby slug" true on the server by
+    /// construction rather than by discipline: whether a hobby has a calendar is decided by
+    /// whether anything fills its columns, not by a list of slugs. The flag in
+    /// <c>frontend/src/hobbies/</c> only decides whether the section renders.
+    /// </para>
+    /// </summary>
+    private static IQueryable<BoardRow> ByRelease(
+        IQueryable<BoardRow> query, LogStatus? status, LibraryPartition partition, DateOnly today)
+    {
+        // Every other column holds titles you have already started. Whether those are out is
+        // not a question worth asking, and asking it would hide an early build somebody is
+        // deliberately recording.
+        if (status != LogStatus.Backlog)
+        {
+            return query;
+        }
+
+        // The app's one definition of "not out yet", re-pointed at the row rather than restated
+        // for it. The nightly sweep asks the database this very same question.
+        var notOut = ReleaseWindow.NotOutOn<BoardRow>(today, row => row.Media);
+
+        // And the two halves negate that one expression rather than stating two, which is the
+        // point: a second hand-written predicate is free to drift, and a title that fell into
+        // both the column and the calendar — or into neither — is the failure this pairing
+        // exists to make impossible. `A board row is on exactly one side of the release line`
+        // pins it.
+        return partition == LibraryPartition.Upcoming
+            ? query.Where(notOut)
+            : query.Where(ReleaseWindow.Not(notOut));
     }
 
     /// <summary>
@@ -513,6 +627,23 @@ public sealed class LibraryService(
                 && row.Latest.CompletedAt >= span.From
                 && row.Latest.CompletedAt < span.To)),
     };
+
+    /// <summary>
+    /// The calendar's order: soonest first, and the titles nobody has announced a date for last.
+    ///
+    /// Not a <see cref="LibrarySort"/> member, because that enum is the per-column sort control's
+    /// vocabulary and is mirrored by hand on the client. It needs <b>no downcast</b>, which is
+    /// the dividend for putting these columns on <c>media</c> — <c>Title</c> and <c>Length</c>
+    /// below both carry one.
+    /// </summary>
+    private static IQueryable<BoardRow> ByReleaseDate(IQueryable<BoardRow> query) => query
+        .OrderBy(row => row.Media.ReleaseDate == null)
+        .ThenBy(row => row.Media.ReleaseDate)
+        .ThenBy(row => row.Media.Title);
+
+    private static IQueryable<BoardRow> Ordered(
+        IQueryable<BoardRow> query, LibrarySort sort, LibraryPartition partition) =>
+        partition == LibraryPartition.Upcoming ? ByReleaseDate(query) : Sorted(query, sort);
 
     private static IQueryable<BoardRow> Sorted(IQueryable<BoardRow> query, LibrarySort sort) => sort switch
     {
@@ -675,6 +806,15 @@ public sealed class LibraryService(
 
                 row.Latest.SeasonNumber,
                 row.Latest.EpisodeNumber,
+
+                // The release window, straight off `media` — no downcast and no coalesce chain,
+                // unlike Genres and LengthHours above. That is the point of the columns living
+                // on the shared table: nothing here needs extending when a fifth hobby arrives,
+                // and nothing here can stop translating and empty a board.
+                row.Media.ReleaseDate,
+                row.Media.ReleaseEnd,
+                row.Media.ReleasePrecision,
+                row.Media.ReleaseStatus,
 
                 // As in ListAsync, predicate and all. This copy has to exist: it is what a drag
                 // or a menu move answers with, and a field arriving null here and populated on

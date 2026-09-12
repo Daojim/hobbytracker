@@ -42,7 +42,44 @@ public class LibraryController(ILibraryService library) : ControllerBase
         }
 
         return Ok(await library.ListAsync(
-            hobby, status, year, sort ?? LibrarySort.Manual, page, pageSize, cancellationToken));
+            hobby,
+            status,
+            year,
+            sort ?? LibrarySort.Manual,
+            LibraryPartition.Default,
+            page,
+            pageSize,
+            cancellationToken));
+    }
+
+    /// <summary>
+    /// The release calendar under the board: your Backlog entries whose title is not out yet,
+    /// soonest first with the ones nobody has announced a date for last.
+    ///
+    /// <para>
+    /// A route of its own rather than a flag on <see cref="List"/>, for three reasons. The
+    /// ordering is not something the per-column sort control could ever offer, so a sixth
+    /// <see cref="LibrarySort"/> would be a value the board has to hide. A flag makes nonsense
+    /// expressible — <c>?status=Completed&amp;upcoming=true</c> is a question with no meaning
+    /// that the controller would then have to refuse. And the board's column cache key stays the
+    /// shape it is, rather than growing a dimension that four columns carry and none uses.
+    /// </para>
+    ///
+    /// Not paged. A person's list of things they are waiting for is tens, so the client shows
+    /// the first twenty and reveals the rest from this same response.
+    /// </summary>
+    [HttpGet("upcoming")]
+    [ProducesResponseType<IReadOnlyList<LibraryItemDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<LibraryItemDto>>> Upcoming(
+        [FromQuery] string? hobby, CancellationToken cancellationToken)
+    {
+        if (await RejectUnknownHobbyAsync(hobby, cancellationToken) is { } problem)
+        {
+            return problem;
+        }
+
+        return Ok(await library.UpcomingAsync(hobby, cancellationToken));
     }
 
     /// <summary>Years with any activity, newest first, for the board's year picker.</summary>

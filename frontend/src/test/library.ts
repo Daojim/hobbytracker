@@ -32,6 +32,16 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     hltbPending: false,
     seasonNumber: null,
     episodeNumber: null,
+
+    // Nobody has asked a provider about this title, which is what a null precision means and
+    // what every row that predates the release calendar carries. It reads as *released*, so a
+    // fixture that says nothing about release dates stays in Backlog — which is the whole reason
+    // none of the existing board specs had to learn about any of this.
+    releaseDate: null,
+    releaseEnd: null,
+    releasePrecision: null,
+    releaseStatus: null,
+
     latestNotePreview: null,
     ...overrides,
   };
@@ -40,6 +50,17 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
 export interface BoardFixture {
   columns?: Partial<Record<LogStatus, LibraryItem[]>>;
   years?: number[];
+
+  /**
+   * The release calendar under the board. Empty unless a test is about it.
+   *
+   * Served whether or not a test asks, and that is the point of it living here: MSW registers
+   * nothing by default and errors on an unhandled request, so the moment the board renders this
+   * section every board test would fail — with an unhandled-request error naming a URL, rather
+   * than with anything about release dates.
+   */
+  upcoming?: LibraryItem[];
+
   /**
    * Whose board this is. The handler answers with nothing for any other hobby, rather than
    * serving these rows to whoever asks: a movies board handed the games fixtures would pass a
@@ -48,7 +69,9 @@ export interface BoardFixture {
   hobby?: string;
 }
 
-export function boardServer({ columns = {}, years = [], hobby = 'games' }: BoardFixture = {}) {
+export function boardServer(
+  { columns = {}, years = [], upcoming = [], hobby = 'games' }: BoardFixture = {},
+) {
   // The shell asks who is signed in the moment it mounts, and MSW refuses a request no test
   // stated. Answered here so every board test does not have to say so; call authServer(...)
   // afterwards to override it, since a later server.use wins.
@@ -60,6 +83,16 @@ export function boardServer({ columns = {}, years = [], hobby = 'games' }: Board
 
   server.use(
     http.get('/api/library/years', () => HttpResponse.json(years)),
+
+    // Before the bare /api/library handler, because MSW matches in order and that one would
+    // otherwise swallow this path and answer a paged envelope where the calendar expects a list.
+    http.get('/api/library/upcoming', ({ request }) => {
+      const asked = new URL(request.url).searchParams.get('hobby');
+
+      // Another hobby's calendar is empty rather than this one's, for the reason the column
+      // handler below says: fixtures served to whoever asks make a test pass on nothing.
+      return HttpResponse.json(asked !== null && asked !== hobby ? [] : upcoming);
+    }),
 
     http.get('/api/library', ({ request }) => {
       const url = new URL(request.url);

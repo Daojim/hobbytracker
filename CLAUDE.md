@@ -66,6 +66,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
+| **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
@@ -167,6 +168,14 @@ shows are separate source rows**; and `POST /api/anime/refresh` for MAL's. HowLo
 own, which answers immediately rather than when the work is done: `POST /api/games/hltb/refresh`.
 See **The backfill is a thing you run** in `docs/games-hltb.md`.
 
+**The release calendar is the first time that rule has a visible symptom**, so it is worth knowing
+before it looks like a bug: until `POST /api/games/refresh` has been run once, every game has a null
+release window, every game therefore reads as released, and the *Coming soon* section is empty on a
+board full of titles that have not come out. The nightly sweep does **not** fix this — it
+deliberately asks only about titles already known to be unreleased, because sweeping the ones with
+no window never terminates. See **The backfill is a thing you run, and the sweep is not** in
+`docs/games-igdb.md`.
+
 **`POST /api/anime/refresh` exists for that and only that.** The other three also recover a title
 whose enrichment failed on add; anime has no enrichment step, because a MAL search already answers
 with everything a detail call would.
@@ -205,6 +214,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │   └── src/
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
+│       ├── lib/release.ts  release DAYS, which are not instants — a publisher's calendar
+│       │                 day belongs to no zone. Never new Date('2026-09-26')
 │       ├── lib/hours.ts  formatHours and formatMinutes — display, so board/ need not reach
 │       │                 into journal/
 │       ├── lib/useWheelStep.ts  a non-passive wheel listener; React's onWheel cannot cancel
@@ -424,6 +435,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog is exempt; the other three filter on the date each is about |
+| Coming soon | **A view of Backlog, under the board — not a fifth status and not a fifth column.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
@@ -472,6 +484,8 @@ here**.
 | **A MAL node carries `id`, `title` and `main_picture` whatever `fields` asks for, and nothing else.** A column added to `anime` without a word added to `MalClient.Fields` fills with nulls for ever — and a null there is **indistinguishable from a title MAL has nothing to say about**. `MalClientTests` asserts the list rather than trusting it | `docs/anime-mal.md` |
 | **MAL answers `0`, not null, for a figure nobody has filled in** — an unaired cour's episode count and duration, an unrated title's mean. Nought is not merely a lie a card would print: `ck_anime_counts_positive` and `ck_anime_mean_score_range` **refuse the write**, so an ordinary search becomes a 500 | `docs/anime-mal.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
+| **A null `media.release_precision` means *no window is known* and must read as *released*.** Every row that existed before the release calendar carries it. Get it backwards and the migration empties every user's Backlog column on deploy day — no error, no log line, just a board with its queue gone. It is `games.hltb_checked_at`'s distinction, and `Unknown` is the *different* claim that a provider was asked and says the title is announced but undated | `docs/data-model.md` |
+| **A release date is a day and must never go through the journal zone.** `new Date('2026-09-26')` is midnight *UTC*, so rendering one the way every other date in this app is rendered shows the 25th — the `System.Text.Json` trap above, arriving from the other side of the wire. Days live in `lib/release.ts`; `lib/time.ts` is instants | `docs/data-model.md` |
 
 ## Schema
 
@@ -483,7 +497,7 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 |---|---|
 | `hobby_lu` | `id`, `name` — games, movies, tv, anime, books, music |
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
-| `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url` |
+| `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url`, `release_date`, `release_end`, `release_precision`, `release_status`. **The four release columns are here rather than on `games` deliberately** — the board *filters* on them, and a TPT downcast in a filter position empties it with no error |
 | `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_all_styles_hours`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at` |
 | `movies` | `media_id` (PK **and** FK to media), `release_year`, `runtime_minutes`, `genres`, `primary_genre`, `directors` |
 | `tv_shows` | `media_id` (PK **and** FK to media), `first_air_year`, `last_air_year`, `air_status`, `number_of_seasons`, `number_of_episodes`, `episode_runtime_minutes`, `total_runtime_minutes` (**generated**), `genres`, `primary_genre`, `creators` |
@@ -528,7 +542,14 @@ shuffled.
       `LibraryItemDto.Subtitle` gave the board row a second title. No `IMediaAdded` handler,
       because a MAL search answers everything a detail call would.
 - [ ] **Detail and review — next.** A title detail page and a year-in-review page.
-- [ ] **Filling the board without searching — named, not designed.** See **Discovery** in `docs/games-igdb.md`.
+- [x] **The release calendar** — a *Coming soon* agenda under the board, and the first half of
+      *filling the board without searching*. Not a fifth status and not a fifth column: the same
+      Backlog rows read the other way round, which is the whole of why release day needs no job.
+      Four `media.release_*` columns rather than `games.*`, because the board filters on them;
+      one expression owning the word *released*, negated for the other half; and IGDB's
+      `date_format` and `game_status`, which are the deprecated-twin trap a second time.
+- [ ] **Filling the board without searching — half done.** The calendar shipped; the grid of what
+      is popular has not. See **Discovery: a grid of what is popular** in `docs/games-igdb.md`.
 - [ ] **The hobbies after it.** Books and music — each a sibling detail table deriving from
       `Media`, plus its source integration. Add the `source_lu` row with the client, and a file
       in `frontend/src/hobbies/`.
@@ -567,7 +588,7 @@ being wrong. Both rows are marked below.
 |---|---|
 | Schema | A `Domain/<Thing>.cs` deriving from `Media`, and a configuration copying `MovieConfiguration` — **including `ToTable(...)`, which is the entire mechanism that makes EF choose TPT.** A `SeedData.Sources` id, its `NameFor` arm and its `HasData` row; `hobby_lu` already carries all six hobbies |
 | Backend | An `Integrations/<Provider>/` client and exception handler, a catalog service on `MovieCatalogService`'s shape (the `23505` catch included), a controller, and the `Program.cs` block — **resolving `IOptions` inside the configuring lambda**, never from `builder.Configuration` |
-| `LibraryService` | One more `?? (row.Media as <Thing>)!` beside the existing pair, in **both terminal projections and the `LibrarySort.Length` arm — and nowhere near `BoardQuery`**. Nulling only `ItemAsync` fails the move-and-list-agree test and nothing else, which reads as drag flicker. **`LibrarySort.Title` carries a downcast too**, added when anime's English title became the name a card leads with — so `Sorted` now has two arms a hobby can need and `BoardQuery` still has none |
+| `LibraryService` | One more `?? (row.Media as <Thing>)!` beside the existing pair, in **both terminal projections and the `LibrarySort.Length` arm — and nowhere near `BoardQuery`**. Nulling only `ItemAsync` fails the move-and-list-agree test and nothing else, which reads as drag flicker. **`LibrarySort.Title` carries a downcast too**, added when anime's English title became the name a card leads with — so `Sorted` now has two arms a hobby can need and `BoardQuery` still has none. **The four `release_*` fields need nothing** — they are on `media`, so both projections read them plainly, which is the argument for putting a shared fact on the shared table rather than filing it by provider |
 | Frontend | `api/<thing>.ts`, its two types, one file in `hobbies/`, and `ready: true` in `shell/hobbies.ts`. **Nothing else in `board/`, `journal/` or `search/` should need touching** — if it does, that is the finding, and it is a finding worth having rather than a failure. TV's was `PassFields.progress`; anime's widened that same field to three values and added `TitleDetail.episodeCount` and `LibraryItemDto.Subtitle`. All four went into the contract for every hobby rather than branching on the slug |
 | The flip | **`index.css`'s tokens and `ready: true` are one atomic commit.** `palette.test.ts` fails in both directions — hues with the hobby unbuilt fail *are all spoken for*, and the hobby built with unpainted genres fails *paints every genre it names*. `App.test.tsx`'s "a hobby nobody has built" example has to move to a still-unbuilt slug, and it does **not** fail when it should: it passes for the wrong reason |
 | Enrichment | An `IMediaAdded` implementation if the provider needs a second call. Decline by hobby id first, and never let a failure take the log entry with it |

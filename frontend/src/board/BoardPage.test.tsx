@@ -39,9 +39,12 @@ describe('BoardPage', () => {
     renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await screen.findByRole('heading', { name: 'Backlog 0' });
 
+    // Exhaustive on purpose, so a section arriving on this page has to come here and say so.
+    // The fifth heading is the release calendar, which is *not* a fifth column: it sits under
+    // the grid and holds the Backlog entries that are not out yet.
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Backlog 0', 'Playing 0', 'Completed 0', 'Dropped 0']);
+    ).toEqual(['Backlog 0', 'Playing 0', 'Completed 0', 'Dropped 0', 'Coming soon 0']);
   });
 
   it('puts one year control above the board rather than one in a column', async () => {

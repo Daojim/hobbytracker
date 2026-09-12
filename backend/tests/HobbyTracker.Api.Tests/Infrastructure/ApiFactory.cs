@@ -115,14 +115,12 @@ public sealed class ApiFactory(
             services.RemoveAll<IHltbQueue>();
             services.AddSingleton<IHltbQueue>(hltbQueue);
 
-            var worker = services.FirstOrDefault(service =>
-                service.ServiceType == typeof(IHostedService)
-                && service.ImplementationType == typeof(HltbWorker));
+            RemoveHostedService<HltbWorker>(services);
 
-            if (worker is not null)
-            {
-                services.Remove(worker);
-            }
+            // And the release sweep, which is worse than the queue worker if left in: that one
+            // does nothing unless something enqueues, where a PeriodicTimer needs no invitation
+            // and would start rewriting release windows partway through a run.
+            RemoveHostedService<ReleaseRefreshWorker>(services);
 
             // Stopped, so "today" is whatever the test says it is. Without this, every
             // assertion about a stamped date is really an assertion about the wall clock.
@@ -136,5 +134,25 @@ public sealed class ApiFactory(
                 .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
                     TestAuthHandler.SchemeName, _ => { });
         });
+    }
+
+    /// <summary>
+    /// Takes one background worker out of the test host.
+    ///
+    /// A helper rather than the block it replaces, so that the third worker somebody adds is one
+    /// line here instead of eight lines nobody remembers to copy. A worker left running writes to
+    /// the same rows the tests are asserting on, and presents as a flake somewhere else entirely.
+    /// </summary>
+    private static void RemoveHostedService<T>(IServiceCollection services)
+        where T : IHostedService
+    {
+        var registration = services.FirstOrDefault(service =>
+            service.ServiceType == typeof(IHostedService)
+            && service.ImplementationType == typeof(T));
+
+        if (registration is not null)
+        {
+            services.Remove(registration);
+        }
     }
 }

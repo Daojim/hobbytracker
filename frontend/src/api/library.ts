@@ -36,6 +36,20 @@ export function activityYears(hobby: string): Promise<number[]> {
 }
 
 /**
+ * The release calendar under the board: your Backlog entries whose title is not out yet,
+ * soonest first with the ones nobody has announced a date for last.
+ *
+ * The same rows the Backlog column answers with, read the other way round — which is what makes
+ * a title arrive in Backlog on release day without anything having run.
+ *
+ * Not paged, unlike every other list here. What a person is waiting for is tens of titles, so
+ * the whole answer arrives at once and the section's *show the rest* toggle costs no request.
+ */
+export function upcoming(hobby: string): Promise<LibraryItem[]> {
+  return apiJson<LibraryItem[]>('/api/library/upcoming', { query: { hobby } });
+}
+
+/**
  * Moves a title to a column. What dragging a card calls.
  *
  * The target column is the whole request. Whether that edits the current entry or starts a fresh

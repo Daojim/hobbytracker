@@ -34,6 +34,22 @@ public interface IGameCatalogService
     /// slow and rude to a service that never agreed to serve us.
     /// </summary>
     Task<int> RefreshLibraryAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Re-fetches only the titles on a board that IGDB has not said are out yet — the nightly
+    /// half of <see cref="RefreshLibraryAsync"/>, and the only thing in this app that asks a
+    /// provider a question nobody typed.
+    ///
+    /// <para>
+    /// <b>It deliberately leaves alone the titles nobody has asked about at all.</b> A null
+    /// precision is exactly the set with no window to go stale, so sweeping it looks like the
+    /// obvious improvement — and it never terminates: a title IGDB has stopped answering for
+    /// never gets a precision, so it would be re-asked about every night, for ever. That is
+    /// <c>games.hltb_checked_at</c>'s lesson, and the consequence is worth stating plainly: on
+    /// the day this ships the calendar is empty until <c>POST /api/games/refresh</c> is run.
+    /// </para>
+    /// </summary>
+    Task<int> RefreshUnreleasedAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -48,7 +64,8 @@ public sealed class GameCatalogService(
     IIgdbClient igdb,
     IOptions<IgdbOptions> options,
     ILogger<GameCatalogService> logger,
-    ICurrentUser user) : IGameCatalogService
+    ICurrentUser user,
+    IJournalClock clock) : IGameCatalogService
 {
     public async Task<IReadOnlyList<GameDto>> SearchAsync(
         string search, int? limit, CancellationToken cancellationToken)
@@ -81,7 +98,7 @@ public sealed class GameCatalogService(
             .. results
                 .Select(result => stored.GetValueOrDefault(ExternalIdOf(result)))
                 .Where(game => game is not null)
-                .Select(game => GameDto.From(game!))
+                .Select(game => GameDto.From(game!, clock.Today))
         ];
     }
 
@@ -115,7 +132,7 @@ public sealed class GameCatalogService(
             .ThenByDescending(entry => entry.Id)
             .ToListAsync(cancellationToken);
 
-        return GameDetailDto.From(game, entries);
+        return GameDetailDto.From(game, entries, clock.Today);
     }
 
     public async Task<GameDetailDto?> SetPrimaryGenreAsync(
@@ -140,13 +157,33 @@ public sealed class GameCatalogService(
     /// <summary>IGDB caps a response at 500, so ask for at most that many at a time.</summary>
     private const int RefreshBatchSize = 500;
 
-    public async Task<int> RefreshLibraryAsync(CancellationToken cancellationToken)
+    public Task<int> RefreshLibraryAsync(CancellationToken cancellationToken) =>
+        RefreshAsync(OnSomebodysBoard(), cancellationToken);
+
+    public Task<int> RefreshUnreleasedAsync(CancellationToken cancellationToken) =>
+        RefreshAsync(
+            // The same set the calendar is drawn from, asked of the database with the same
+            // expression rather than one that looks like it. See ReleaseWindow.NotOutOn.
+            OnSomebodysBoard().Where(ReleaseWindow.NotOutOn<Game>(clock.Today, game => game)),
+            cancellationToken);
+
+    /// <summary>
+    /// Titles something has been logged against, and that IGDB can be asked about.
+    ///
+    /// Pointedly not the catalogue: searching upserts every result, so <c>media</c> accumulates
+    /// whatever has ever been typed into a search box. <c>LogEntries.Any()</c> is deliberately
+    /// not scoped to the current user — a refresh is maintenance over everybody's boards, and
+    /// there is no caller to scope it to when the nightly sweep runs it.
+    /// </summary>
+    private IQueryable<Game> OnSomebodysBoard() => db.Games
+        .Where(game => game.SourceId == SeedData.Sources.Igdb
+                       && game.ExternalId != null
+                       && game.LogEntries.Any());
+
+    private async Task<int> RefreshAsync(
+        IQueryable<Game> games, CancellationToken cancellationToken)
     {
-        // Only titles something has been logged against, and only ones IGDB can be asked about.
-        var wanted = await db.Games
-            .Where(game => game.SourceId == SeedData.Sources.Igdb
-                           && game.ExternalId != null
-                           && game.LogEntries.Any())
+        var wanted = await games
             .Select(game => game.ExternalId!)
             .ToListAsync(cancellationToken);
 
@@ -266,6 +303,21 @@ public sealed class GameCatalogService(
         target.ReleaseYear = source.FirstReleaseDate is { } seconds
             ? DateTimeOffset.FromUnixTimeSeconds(seconds).UtcDateTime.Year
             : null;
+
+        // The release calendar's window, which is a different fact from the year above however
+        // much the two look like duplicates. The year is a bare number compared against
+        // HowLongToBeat's release_world; this is a span of days with a precision attached, and
+        // repointing one at the other re-breaks the matcher on a December release.
+        //
+        // Written every time rather than only when absent: a date that slips is the whole reason
+        // the daily refresh exists, and it slips in both directions — a dated game pulled back to
+        // TBD has to lose its window, not keep a date the publisher has withdrawn. All three
+        // move together or ck_media_release_window refuses the row.
+        var window = IgdbRelease.WindowOf(source);
+        target.ReleaseDate = window.Start;
+        target.ReleaseEnd = window.End;
+        target.ReleasePrecision = window.Precision;
+        target.ReleaseStatus = IgdbRelease.StatusOf(source);
 
         target.Platforms =
         [

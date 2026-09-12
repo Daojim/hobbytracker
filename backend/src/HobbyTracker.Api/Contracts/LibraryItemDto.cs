@@ -144,4 +144,31 @@ public sealed record LibraryItemDto(
 
     int? EpisodeNumber,
 
+    /// <summary>
+    /// The first and last day this title could come out on, and how precisely that is known.
+    ///
+    /// Off <c>media</c> rather than through a downcast, which is the whole reason the columns
+    /// live there — see <see cref="Domain.Media.ReleaseDate"/>. So unlike genres and length,
+    /// nothing here needs extending when a fifth hobby arrives.
+    ///
+    /// <b>All four are null for a title nobody has asked a provider about</b>, which reads as
+    /// released. A client showing a date must therefore check the precision rather than the
+    /// dates: null there is "never asked" and
+    /// <see cref="Domain.ReleasePrecision.Unknown"/> is "asked, and nobody has announced one".
+    /// </summary>
+    DateOnly? ReleaseDate,
+
+    /// <inheritdoc cref="ReleaseDate"/>
+    DateOnly? ReleaseEnd,
+
+    /// <inheritdoc cref="ReleaseDate"/>
+    ReleasePrecision? ReleasePrecision,
+
+    /// <summary>
+    /// What the provider says about the title's life, which outranks the window above. Mostly
+    /// null, and the calendar only prints it when it says something a date cannot —
+    /// <see cref="Domain.ReleaseStatus.Cancelled"/> above all.
+    /// </summary>
+    ReleaseStatus? ReleaseStatus,
+
     string? LatestNotePreview);

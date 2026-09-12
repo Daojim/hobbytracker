@@ -180,6 +180,7 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
                   onBoard={onBoard.has(hit.id)}
                   adding={add.isPending && add.variables === hit.id}
                   onAdd={(mediaId) => add.mutate(mediaId)}
+                  definition={definition}
                 />
               ))}
             </ul>

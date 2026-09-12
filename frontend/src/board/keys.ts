@@ -57,3 +57,19 @@ export const yearsKey = (hobby: string) => ['library', hobby, 'years'] as const;
  * whole journal cache be dropped with the `['media', hobby]` prefix.
  */
 export const mediaKey = (hobby: string, mediaId: number) => ['media', hobby, mediaId] as const;
+
+/**
+ * The release calendar under the board — the Backlog entries whose title is not out yet.
+ *
+ * `'upcoming'` sits where a `LogStatus` sits, beside `'years'` and the search strip's `'ids'`.
+ * That placement is what makes it reachable from the `['library', hobby]` prefix, which is the
+ * invalidation an add, a remove and a drawer write all use — and unreachable from
+ * `['library', hobby, from]`, the narrower one a move settles with.
+ *
+ * **So a move has to name it, and that is easy to miss.** A card's menu can move a title out of
+ * Backlog and back, and the calendar is the other half of that column: settle only the two
+ * column keys and the section goes on showing a title that is no longer waiting, until
+ * something unrelated happens to refetch. `'years'` needs naming for the same reason and for
+ * the same lack of a shared prefix.
+ */
+export const upcomingKey = (hobby: string) => ['library', hobby, 'upcoming'] as const;

@@ -70,6 +70,14 @@ export const GAMES: HobbyDefinition = {
         title: game.title,
         coverUrl: game.coverUrl,
         byline: [game.platforms.join(', '), game.developers.join(', ')],
+        // Passed through rather than re-decided here. `released` is the server's answer to the
+        // same question the Backlog column is partitioned on, and deriving a second one on the
+        // client is how a tile ends up offering the calendar for a title that lands in Backlog.
+        release: {
+          released: game.released,
+          day: game.releaseDate,
+          precision: game.releasePrecision,
+        },
       })),
   },
 
@@ -116,4 +124,15 @@ export const GAMES: HobbyDefinition = {
   // Replays are passes, not positions. Being eleven hours into Hollow Knight is a number the
   // pass already carries, and it is not a place in a list of episodes.
   progress: null,
+
+  // The one hobby with a release calendar, and only because IGDB is the only provider asked for
+  // a release window. Films and shows have one too; nothing has gone and fetched it.
+  releases: {
+    heading: 'Coming soon',
+    addAction: 'Add to calendar',
+    describeAdd: (title) => `Add ${title} to your release calendar`,
+    noDateHeading: 'No date yet',
+    empty: 'Nothing on your board is waiting to come out.',
+    newBadge: 'New',
+  },
 };

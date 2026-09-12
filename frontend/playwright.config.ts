@@ -137,6 +137,13 @@ export default defineConfig({
         // us, and a spec that waited it out would spend its whole budget being polite to a stub.
         Hltb__MinSecondsBetweenRequests: '0',
 
+        // The release calendar's nightly sweep, off. Unlike the HowLongToBeat worker above —
+        // which is left registered and is harmless, because nothing enqueues unless a spec adds
+        // a title — this one is driven by a timer and needs no invitation. Left on it would wake
+        // partway through a run and rewrite the release windows the specs are asserting on,
+        // which would present as a flake in a spec that never mentions IGDB.
+        ReleaseRefresh__Enabled: 'false',
+
         // TMDB takes a base URL and a token and nothing else — there is no handshake to point
         // anywhere, which is the whole reason it has no auth handler where IGDB has one. The
         // token is not decoration: the stub refuses a request that arrives without it, so this

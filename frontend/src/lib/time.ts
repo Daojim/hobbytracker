@@ -70,3 +70,18 @@ export function journalYear(instant: string): number {
 export function journalDateInput(instant: string | null): string {
   return instant === null ? '' : inputDateFormat.format(new Date(instant));
 }
+
+/**
+ * Today, here, as `YYYY-MM-DD`.
+ *
+ * The fourth and last place this app applies the journal zone, and the only one that is not
+ * about an instant: the release calendar compares announced *days* against this. The zone is
+ * used to learn what day it is and for nothing else — a release date is never run through it,
+ * because a publisher's day belongs to no timezone and converting one moves it. See
+ * `lib/release.ts`, and **Time** in `docs/data-model.md`, which counts the four.
+ *
+ * Reuses the `en-CA` formatter above, which already produces exactly this shape.
+ */
+export function todayHere(): string {
+  return inputDateFormat.format(new Date());
+}

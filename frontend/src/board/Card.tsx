@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
+import { isRecentRelease } from '../lib/release';
 
 import { ratingTone } from '../lib/rating';
 import { genreStripe, hobbyDefinition, otherColumns, resolveGenre } from '../hobbies';
@@ -85,6 +86,11 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   // Null twice over, and they mean different things: this hobby does not have progress, or it
   // does and this pass has not said where it is. The badge is absent for both.
   const progress = hobby.progress?.format(item.seasonNumber, item.episodeNumber) ?? null;
+
+  // Out in the last few weeks. Day precision only, deliberately: a title announced for "Q1 2027"
+  // has no day to be recent relative to, and calling it new on the last day of March would be
+  // announcing something nobody said. Nothing is stored — the badge appears and goes on its own.
+  const isNew = isRecentRelease(item.releaseDate, item.releasePrecision);
 
   /**
    * The title's other name, unless it is the same name.
@@ -300,6 +306,14 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
               >
                 {progress}
               </span>
+            )}
+            {/* Out in the last few weeks — the thing you were waiting for, arrived.
+                A title reaches Backlog on its release day with nothing having run and nothing
+                to announce it, so without this it simply appears among things that have been
+                queued for years. Derived from the date and not stored, so there is no state to
+                keep and nothing to dismiss: it fades on its own once the date is old enough. */}
+            {isNew && hobby.releases !== null && (
+              <span className="font-medium text-accent">{hobby.releases.newBadge}</span>
             )}
             {genre !== null && <span>{genre}</span>}
             {lastActivity !== null && <span>{lastActivity}</span>}

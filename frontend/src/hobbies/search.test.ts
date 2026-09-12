@@ -25,6 +25,7 @@ describe('search.run, on an anime', () => {
         title: "Frieren: Beyond Journey's End",
         coverUrl: null,
         byline: ['Sousou no Frieren', 'Fall 2023'],
+        release: null,
       },
     ]);
   });
