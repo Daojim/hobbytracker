@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Card, type CardMenu, type CardRemoval } from './Card';
@@ -498,5 +498,71 @@ describe('Card', () => {
     );
     expect(withoutCover.querySelector('img')).toBeNull();
     expect(screen.getByText('H')).toBeInTheDocument();
+  });
+
+  describe('a title that has just come out', () => {
+    const TODAY = new Date('2026-09-15T16:00:00Z');
+
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      vi.setSystemTime(TODAY);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('wears a badge saying so', () => {
+      // A title reaches Backlog on its release day with nothing having run and nothing to
+      // announce it — that is the whole elegance of the calendar being a view rather than a
+      // place. The cost is that the thing you were waiting for simply appears among things
+      // queued for years, and this is what stops that being silent.
+      renderCard(
+        libraryItem({
+          title: 'Silksong II',
+          releaseDate: '2026-09-10',
+          releaseEnd: '2026-09-10',
+          releasePrecision: 'Day',
+        }),
+      );
+
+      expect(screen.getByText('New')).toBeInTheDocument();
+    });
+
+    it('stops wearing it once it is no longer news', () => {
+      renderCard(
+        libraryItem({
+          title: 'Hollow Knight',
+          releaseDate: '2017-02-24',
+          releaseEnd: '2017-02-24',
+          releasePrecision: 'Day',
+        }),
+      );
+
+      expect(screen.queryByText('New')).not.toBeInTheDocument();
+    });
+
+    it('never wears it on a date vaguer than a day', () => {
+      // A title announced for "Q1 2027" carries 31 March, and calling it new on 1 April would
+      // be announcing a day nobody said. A vague window is never new; it simply arrives.
+      renderCard(
+        libraryItem({
+          title: 'Vague',
+          releaseDate: '2026-07-01',
+          releaseEnd: '2026-09-30',
+          releasePrecision: 'Quarter',
+        }),
+      );
+
+      expect(screen.queryByText('New')).not.toBeInTheDocument();
+    });
+
+    it('never wears it on a title nobody has asked a provider about', () => {
+      // Which is every row that predates the release calendar, so this is also what says a
+      // board full of old titles does not light up the first time the feature ships.
+      renderCard(libraryItem({ title: 'Never Asked' }));
+
+      expect(screen.queryByText('New')).not.toBeInTheDocument();
+    });
   });
 });

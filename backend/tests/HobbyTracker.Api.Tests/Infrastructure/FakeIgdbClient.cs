@@ -68,17 +68,62 @@ public sealed class FakeIgdbClient : IIgdbClient
     public void SetResults(string search, params IgdbGame[] games) =>
         Results[search] = [.. games];
 
+    /// <summary>
+    /// What a lookup by id will find, replacing whatever was there. Passing nothing is a real
+    /// case rather than a degenerate one: IGDB stops answering for entries that get merged or
+    /// withdrawn, and a refresh has to leave those rows as they were.
+    /// </summary>
+    public void SetGames(params IgdbGame[] games)
+    {
+        ById.Clear();
+
+        foreach (var game in games)
+        {
+            ById[game.Id] = game;
+        }
+    }
+
     /// <summary>Builds an IGDB game the way the real API shapes one.</summary>
+    /// <param name="releaseDate">
+    /// Taken as a day and sent as midnight UTC of it, which is how IGDB sends one. For a vague
+    /// <paramref name="dateFormat"/> give the day IGDB would give — the <i>last</i> of the
+    /// window, so "Q3 2026" is 30 September — since reproducing that is most of the point.
+    /// </param>
+    /// <param name="dateFormat">
+    /// One of IGDB's eight: YYYYMMDD, YYYYMM, YYYY, YYYYQ1-Q4, TBD. Null alongside a date means
+    /// a game whose release_dates rows IGDB has pruned, which is a real shape and its own test.
+    /// </param>
     public static IgdbGame Game(
         int id,
         string name,
         string? coverImageId = null,
         string[]? platforms = null,
         string[]? developers = null,
-        string[]? genres = null) => new()
+        string[]? genres = null,
+        DateOnly? releaseDate = null,
+        string? dateFormat = null,
+        string? gameStatus = null) => new()
         {
             Id = id,
             Name = name,
+            FirstReleaseDate = releaseDate is { } day
+                ? new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).ToUnixTimeSeconds()
+                : null,
+            ReleaseDates = dateFormat is null
+                ? null
+                :
+                [
+                    new IgdbReleaseDate
+                    {
+                        // A TBD row carries no date at all, which is what IGDB actually sends
+                        // and what the matching has to walk over.
+                        Date = releaseDate is { } announced
+                            ? new DateTimeOffset(announced.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).ToUnixTimeSeconds()
+                            : null,
+                        DateFormat = new IgdbDateFormat { Format = dateFormat },
+                    },
+                ],
+            GameStatus = gameStatus is null ? null : new IgdbGameStatus { Status = gameStatus },
             Cover = coverImageId is null ? null : new IgdbCover { ImageId = coverImageId },
             Platforms = [.. (platforms ?? []).Select(p => new IgdbPlatform { Name = p })],
             Genres = [.. (genres ?? []).Select(g => new IgdbGenre { Name = g })],

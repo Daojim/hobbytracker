@@ -44,9 +44,23 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     // Services.IgdbRelevance uses to break a tie between two titles that match equally
     // well — which is how a fan game called "Hollow Knight Silksong" stops outranking
     // "Hollow Knight: Silksong".
+    //
+    // release_dates and game_status feed the release calendar. Three things about them are worth
+    // knowing before touching this line:
+    //
+    //   - `date_format` and `game_status`, never the deprecated `category` and `status`. IGDB
+    //     leaves a deprecated twin unpopulated rather than removing it, so a query against the
+    //     old name comes back absent on every row and reads as perfectly correct — which is the
+    //     trap game_type already sprang on this client once.
+    //   - `.format` and `.status` rather than the reference ids. Both moved to endpoints of
+    //     their own, and the integers those answer with are published nowhere.
+    //   - depth three, matching involved_companies.company.name. Measured working, and measured
+    //     to cost: a 500-id batch grows from 549 KB to 967 KB, which is the price of not making
+    //     a second request per game.
     private const string SearchFields =
         "fields id, name, first_release_date, cover.image_id, platforms.name, genres.name, " +
         "total_rating_count, hypes, " +
+        "release_dates.date, release_dates.date_format.format, game_status.status, " +
         "involved_companies.developer, involved_companies.company.name;";
 
     // IGDB game_type ids, read off /v4/game_types rather than assumed from the deprecated

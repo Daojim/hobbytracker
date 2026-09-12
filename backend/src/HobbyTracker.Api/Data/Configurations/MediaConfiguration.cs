@@ -8,7 +8,37 @@ public class MediaConfiguration : IEntityTypeConfiguration<Media>
 {
     public void Configure(EntityTypeBuilder<Media> builder)
     {
-        builder.ToTable("media");
+        // The three states of release_precision, spelled out so a fourth is unreachable rather
+        // than merely unlikely.
+        //
+        // The failure this exists for is silent and permanent. A precision carrying a start and
+        // no end never satisfies `release_end <= today`, so the title sits in the calendar for
+        // ever with nothing anywhere to say why — and a date carrying no precision is
+        // indistinguishable from a title nobody has asked about, so it reads as released
+        // whatever day it holds.
+        //
+        // Every row that exists when this arrives is all-null, which is the first branch, which
+        // is what makes the migration safe to run against a real library.
+        //
+        // A CASE rather than the OR of three conjunctions it started as, and the test caught
+        // why: a null precision carrying dates made every arm of that version either false or
+        // NULL, and `false OR false OR NULL` is NULL — which a Postgres CHECK accepts. The hole
+        // was exactly the state the constraint exists to forbid. A CASE is total, and its ELSE
+        // also refuses a precision string this app has no enum member for.
+        builder.ToTable("media", table => table.HasCheckConstraint(
+            "ck_media_release_window",
+            """
+            CASE
+                WHEN release_precision IS NULL
+                    THEN release_date IS NULL AND release_end IS NULL
+                WHEN release_precision = 'Unknown'
+                    THEN release_date IS NULL AND release_end IS NULL
+                WHEN release_precision IN ('Day', 'Month', 'Quarter', 'Year')
+                    THEN release_date IS NOT NULL AND release_end IS NOT NULL
+                         AND release_end >= release_date
+                ELSE false
+            END
+            """));
 
         builder.Property(m => m.Title).HasMaxLength(500);
         builder.Property(m => m.ExternalId).HasMaxLength(100);
@@ -45,5 +75,14 @@ public class MediaConfiguration : IEntityTypeConfiguration<Media>
 
         // Supports the cross-hobby filter that Media.HobbyId exists for.
         builder.HasIndex(m => m.HobbyId);
+
+        // Text rather than an int ordinal, exactly as log_entries.status is stored and for the
+        // stated reason there: reordering the enum must never reinterpret existing rows.
+        builder.Property(m => m.ReleasePrecision).HasConversion<string>().HasMaxLength(20);
+        builder.Property(m => m.ReleaseStatus).HasConversion<string>().HasMaxLength(20);
+
+        // What the Backlog partition compares against. Narrow by construction: only the rows a
+        // provider has actually answered about carry a value.
+        builder.HasIndex(m => m.ReleaseEnd);
     }
 }

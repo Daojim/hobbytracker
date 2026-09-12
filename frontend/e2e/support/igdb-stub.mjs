@@ -13,6 +13,34 @@
 import { createServer } from 'node:http';
 
 const PORT = Number(process.env.STUB_PORT ?? 5399);
+/** A day this many whole months from today, as `YYYY-MM-DD`. */
+const inMonths = (months) => {
+  const day = new Date();
+  day.setUTCMonth(day.getUTCMonth() + months);
+  return day.toISOString().slice(0, 10);
+};
+
+/**
+ * A quarter that many months out, as the date-and-precision pair IGDB would send for it.
+ *
+ * Both halves come from the same computed day, which is the point: written separately, a date
+ * that drifted into the next quarter would go on carrying last quarter's label, and the stub
+ * would be asserting a shape the real API never produces. It cost one round to notice.
+ *
+ * The date is the **last** day of the quarter, because that is what IGDB actually states —
+ * "Q3 2026" arrives as 30 September, not 1 July. A stub sending the first day would let a
+ * mapping that truncates the wrong way pass, which is the bug this shape exists to catch.
+ */
+const upcomingQuarter = (months) => {
+  const day = new Date();
+  day.setUTCMonth(day.getUTCMonth() + months);
+
+  const quarter = Math.floor(day.getUTCMonth() / 3) + 1;
+  const lastDay = new Date(Date.UTC(day.getUTCFullYear(), quarter * 3, 0));
+
+  return { released: lastDay.toISOString().slice(0, 10), precision: `YYYYQ${quarter}` };
+};
+
 /**
  * Ids are fixed, because a second search for the same title must upsert, not insert.
  *
@@ -21,40 +49,79 @@ const PORT = Number(process.env.STUB_PORT ?? 5399);
  * the word that describes half the catalogue.
  *
  * gameType mirrors IGDB game_type: 0 Main Game, 3 Bundle, 5 Mod, and ratings mirrors
- * total_rating_count. The last four entries are the ones that are not the real thing, and
- * they exist so a spec can watch them lose. None of it is invented: searching "Hollow Knight"
+ * total_rating_count. Ids 3007 to 3010 are the ones that are not the real thing, and they
+ * exist so a spec can watch them lose. None of it is invented: searching "Hollow Knight"
  * on the live API really does return a mod of it, and searching "Hollow Knight Silksong"
  * really does put a one-person Game Boy Color game above Team Cherry's, because the fan
  * game's title is the exact string and the real one has a colon in it.
+ *
+ * `released` and `precision` are the release window. Every title that has come out carries a
+ * past date, and that is load-bearing rather than decoration: the Backlog column answers
+ * without the titles that are not out yet, so a catalogue with no dates would put the whole
+ * stub in the calendar and empty the board every other spec asserts on.
  */
 const CATALOGUE = [
-  { id: 3001, gameType: 0, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games',
+  { id: 3001, released: '2018-01-25', precision: 'YYYYMMDD', gameType: 0, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games',
     genres: ['Platform', 'Indie'] },
-  { id: 3002, gameType: 0, name: 'Hades', platforms: ['PC', 'Switch'], developer: 'Supergiant Games',
+  { id: 3002, released: '2020-09-17', precision: 'YYYYMMDD', gameType: 0, name: 'Hades', platforms: ['PC', 'Switch'], developer: 'Supergiant Games',
     genres: ["Hack and slash/Beat 'em up", 'Indie'] },
-  { id: 3003, gameType: 0, name: 'Hollow Knight', platforms: ['PC', 'Switch'], developer: 'Team Cherry',
+  { id: 3003, released: '2017-02-24', precision: 'YYYYMMDD', gameType: 0, name: 'Hollow Knight', platforms: ['PC', 'Switch'], developer: 'Team Cherry',
     genres: ['Adventure', 'Platform', 'Indie'] },
-  { id: 3004, gameType: 0, name: 'Outer Wilds', platforms: ['PC', 'Xbox'], developer: 'Mobius Digital',
+  { id: 3004, released: '2019-05-28', precision: 'YYYYMMDD', gameType: 0, name: 'Outer Wilds', platforms: ['PC', 'Xbox'], developer: 'Mobius Digital',
     genres: ['Adventure', 'Puzzle'] },
-  { id: 3005, gameType: 0, name: 'Anthem', platforms: ['PC'], developer: 'BioWare',
+  // No precision, on purpose: IGDB prunes release_dates rows from older entries while keeping
+  // first_release_date, and that shape has to read as a day rather than as TBD.
+  { id: 3005, released: '2019-02-22', gameType: 0, name: 'Anthem', platforms: ['PC'], developer: 'BioWare',
     genres: ['Shooter', 'Role-playing (RPG)'] },
-  { id: 3006, gameType: 0, name: 'Stardew Valley', platforms: ['PC', 'Switch'], developer: 'ConcernedApe',
+  { id: 3006, released: '2016-02-26', precision: 'YYYYMMDD', gameType: 0, name: 'Stardew Valley', platforms: ['PC', 'Switch'], developer: 'ConcernedApe',
     genres: ['Simulator', 'Role-playing (RPG)'] },
-  { id: 3007, gameType: 5, name: 'Hollow Knight: Pale Court', platforms: ['PC'],
+  { id: 3007, released: '2021-11-01', precision: 'YYYYMMDD', gameType: 5, name: 'Hollow Knight: Pale Court', platforms: ['PC'],
     developer: 'Team Cherry', genres: ['Platform'] },
-  { id: 3008, gameType: 3, name: 'Hollow Knight Collection', platforms: ['PC', 'Switch'],
+  { id: 3008, released: '2019-06-12', precision: 'YYYYMMDD', gameType: 3, name: 'Hollow Knight Collection', platforms: ['PC', 'Switch'],
     developer: 'Team Cherry', genres: ['Platform'] },
   // Listed above the real one on purpose, so the catalogue order is the wrong order and
   // something has to actively fix it.
-  { id: 3009, gameType: 0, name: 'Hollow Knight Silksong', platforms: ['Game Boy Color'],
+  { id: 3009, released: '2019-08-01', precision: 'YYYYMMDD', gameType: 0, name: 'Hollow Knight Silksong', platforms: ['Game Boy Color'],
     developer: 'Elvies', genres: ['Platform'] },
-  { id: 3010, gameType: 0, ratings: 502, name: 'Hollow Knight: Silksong',
+  { id: 3010, released: '2025-09-04', precision: 'YYYYMMDD', gameType: 0, ratings: 502, name: 'Hollow Knight: Silksong',
     platforms: ['PC', 'Switch'], developer: 'Team Cherry', genres: ['Platform'] },
+
+  // The three that have not come out, for the release calendar. They are dated relative to the
+  // run rather than pinned, because a fixed date stops being in the future and the spec would
+  // then fail on a day nobody changed anything — the year control's specs learned this already.
+  //
+  // One of each shape the calendar has to tell apart: a day, a window vaguer than a day, and a
+  // title nobody has announced anything for at all.
+  { id: 3011, released: inMonths(3), precision: 'YYYYMMDD', gameType: 0, name: 'Silksong II',
+    platforms: ['PC'], developer: 'Team Cherry', genres: ['Platform'] },
+  { id: 3012, ...upcomingQuarter(18), gameType: 0, name: 'Hades III',
+    platforms: ['PC'], developer: 'Supergiant Games', genres: ['Indie'] },
+  { id: 3013, precision: 'TBD', gameType: 0, name: 'Celeste 64', platforms: ['PC'],
+    developer: 'Extremely OK Games', genres: ['Platform'] },
 ];
+
+/** Midnight UTC of a `YYYY-MM-DD` day, in unix seconds, which is how IGDB sends a date. */
+const unixDay = (day) => Date.parse(`${day}T00:00:00Z`) / 1000;
 
 const asIgdbGame = (game) => ({
   id: game.id,
   name: game.name,
+  // The release window. Modelled the way the live API answers rather than the way it would be
+  // convenient to: a title with no date carries no `first_release_date` key at all, and a TBD
+  // release_dates row carries no `date` key — neither sends a null or a zero. A stub that
+  // mirrored only the happy shape could not catch a mapping that reads those as a day.
+  ...(game.released === undefined ? {} : { first_release_date: unixDay(game.released) }),
+  ...(game.precision === undefined
+    ? {}
+    : {
+        release_dates: [
+          {
+            ...(game.released === undefined ? {} : { date: unixDay(game.released) }),
+            date_format: { id: 0, format: game.precision },
+          },
+        ],
+      }),
+  ...(game.status === undefined ? {} : { game_status: { id: 0, status: game.status } }),
   // What IgdbRelevance ranks on. Absent rather than zero for most of the catalogue, because
   // IGDB omits a field it has no value for rather than sending a null.
   ...(game.ratings === undefined ? {} : { total_rating_count: game.ratings }),

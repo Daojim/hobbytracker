@@ -81,6 +81,33 @@ the column in `media` too and leaves the base table with no `id` at all.
 - **Lookup ids are fixed constants**, `ValueGeneratedNever()` + `HasData`. They are part of the
   schema contract, which is why `SeedData.Sources.Igdb` can be used directly instead of paying
   for a lookup query per request.
+- **The four `media.release_*` columns are on `media` and not on `games`, and that is a deliberate
+  exception to how every other provider-owned column is filed.** Two reasons, in order. The board
+  *filters* on them — the Backlog column answers without the titles that are not out yet — and a
+  Table-Per-Type downcast in a filter position stops translating silently and empties the whole
+  board. And a release date is not hobby-specific: films, shows and cours all have one, so putting
+  it on the shared table makes "every hobby could have a calendar" true by construction rather than
+  by discipline. `media.hobby_id` is the standing precedent for a column kept here so that a filter
+  touches one table. The dividend shows up in `LibraryService`: unlike `Genres` and `LengthHours`,
+  these need no `?? (row.Media as X)!` chain extending when a fifth hobby arrives.
+- **`release_precision` has three states and the third is `NULL`.** `Day`/`Month`/`Quarter`/`Year`
+  is a known window; `Unknown` is *the provider was asked and says it is announced but undated*;
+  and **`NULL` is *no window is known*, which reads as released.** That last one covers both a row
+  written before this feature existed and a title the provider has no date for at all — measured,
+  IGDB carries a great many of those and they are obscure games that shipped years ago, not
+  upcoming ones. Getting it backwards empties every existing board's Backlog column on deploy day
+  with no error anywhere. It is `games.hltb_checked_at`'s distinction, and it also decides what the
+  nightly sweep asks about: re-asking about titles with no window never terminates.
+- **`release_date` and `release_end` are both ends of the announced window, truncated to its
+  unit.** `Q1 2027` is 1 January to 31 March, and the calendar sorts on the first while printing
+  neither. `release_end` exists so "is it out" is one indexable comparison rather than date
+  arithmetic over an enum — and it is the *last* day that decides, or a title announced for "2026"
+  would appear in Backlog on 1 January. `ck_media_release_window` makes every other combination
+  unreachable, because a precision with a missing end is permanently unreleased with nothing to
+  say why. **It is a `CASE`, not an `OR` of three conjunctions**: the first version was the latter,
+  and a row with a null precision carrying dates made every arm false or NULL — and
+  `false OR false OR NULL` is NULL, which a Postgres CHECK accepts. The hole was exactly the state
+  the constraint exists to forbid.
 - **Only `igdb` and `manual` are seeded.** `tmdb`/`mal` get added when their integrations ship —
   a source row with no client behind it reads like a working feature.
 
@@ -101,11 +128,20 @@ remember which.
 in the evening — which is most of them — was stamped with tomorrow's date. That was a four-to-five
 hour hole in every day the app is actually used.
 
-**The rule that keeps the rest simple: an instant is stored as an instant, and a zone is applied
-only where a human or a calendar question is involved.** The zone is applied in exactly three
-places: `?year=`, `GET /api/library/years`, and the UI. *(A release calendar would be the fourth.
-That sentence is a tripwire — update it rather than quietly falsifying it. See **Discovery** in
-`docs/games-igdb.md`.)*
+**The rule that keeps the rest simple: an instant is stored as an instant, a day is stored as a
+day, and the zone is applied only where one of them has to be compared with the other.** The zone
+is applied in exactly four places: `?year=`, `GET /api/library/years`, the UI, and **the release
+calendar's idea of today** — `IJournalClock.Today` on the server, mirrored by `todayHere()` in
+`lib/time.ts`.
+
+**The fourth is the one that is not an instant, and that is the whole of why it is worth counting
+separately.** A release date is a calendar day a publisher announced. It belongs to no timezone,
+is stored as `date` / `DateOnly`, and is **never** run through the zone: converting
+`2026-09-26T00:00:00Z` into Eastern gives the 25th, a day nobody announced. The zone is applied
+only to learn what day it is *here*, so that an announced day can be compared against it.
+
+*This sentence is still a tripwire. A fifth place — a year-in-review page is the likely one —
+updates it rather than quietly falsifying it.*
 
 `IJournalClock` (`Infrastructure/JournalClock.cs`) wraps `TimeProvider` plus the zone. It exists
 so the date rules have something to ask and something a test can stop — `FrozenTimeProvider` is
@@ -117,7 +153,7 @@ was written, which is not something a caller is in a position to assert — the 
 keeps `mediaId` off the PUT body. It has a `now()` default so a row written by hand in psql is
 still valid, but `LogEntryService` sets it explicitly on every insert it makes.
 
-### Three traps, every one of which fails as a 500 or not at all
+### Four traps, every one of which fails as a 500 or not at all
 
 - **Npgsql will only write a `DateTimeOffset` with offset 0 to `timestamptz`.** Anything else
   throws `ArgumentException` — not a validation error, a 500. The offset is not stored regardless,
@@ -136,6 +172,11 @@ still valid, but `LogEntryService` sets it explicitly on every insert it makes.
   that — it needs a year per row — so it selects the instants and groups them in C#: Postgres can
   only localise a `timestamptz` through `AT TIME ZONE`, which is `STABLE` rather than `IMMUTABLE`
   and so cannot be indexed or put in a generated column. A few hundred rows, at this scale.
+
+- **A day written to `timestamptz` moves.** Npgsql accepts it, the journal zone renders it, and a
+  26 September release becomes the 25th. The four `media.release_*` columns are `date`, and the
+  column type is the enforcement: there is no validation anywhere that would catch a day stored as
+  an instant, because by the time it is read it looks like a perfectly ordinary timestamp.
 
 **docker-compose sets `timezone=America/New_York` on the server**, so `psql` renders timestamps in
 Eastern and what you read there matches what the app shows. Convenience only — nothing is correct

@@ -1,4 +1,4 @@
-import type { LogEntry, LogStatus } from '../api/types';
+import type { LogEntry, LogStatus, ReleasePrecision } from '../api/types';
 import type { HltbEstimates } from '../journal/fields';
 import type { Hobby } from '../shell/hobbies';
 
@@ -79,6 +79,41 @@ export interface HobbyDefinition {
 
     /** How that reads aloud, which `S3 E7` cannot do on its own. */
     describe(season: number | null, episode: number | null): string;
+  } | null;
+
+  /**
+   * Whether this hobby's board carries a calendar of what has not come out yet, and the words on
+   * it. Null for a hobby with no such idea.
+   *
+   * **Only games sets it, and that is a fact about providers rather than about hobbies.** Films
+   * and shows have release dates too; TMDB simply is not asked for them yet. So this says what
+   * the board *renders*, and nothing more — the server decides which titles are on the calendar
+   * by whether anything has filled their release columns, which for every other hobby is never.
+   * There is no branch on the slug here or anywhere, and turning a hobby on is one entry in this
+   * block plus the provider work that fills the columns.
+   *
+   * **Those two halves are one commit.** Filling a hobby's release columns without this set
+   * would take its unreleased titles out of Backlog with nowhere to show them; setting this
+   * without filling them renders a section that is always empty.
+   */
+  releases: {
+    /** The section's heading, under the grid. */
+    heading: string;
+
+    /** What the search strip's add button says for a title that is not out yet. */
+    addAction: string;
+
+    /** How that button reads aloud, which two words on their own cannot. */
+    describeAdd(title: string): string;
+
+    /** The heading over the titles nobody has announced a date for. */
+    noDateHeading: string;
+
+    /** What the section says when there is nothing waiting. */
+    empty: string;
+
+    /** The badge a card wears for a title that came out in the last few weeks. */
+    newBadge: string;
   } | null;
 }
 
@@ -310,4 +345,21 @@ export interface SearchHit {
 
   /** Up to two lines under the title. Empty entries are not rendered. */
   byline: readonly string[];
+
+  /**
+   * Whether the provider says this is out, and when — so the tile can offer to put an unreleased
+   * title on the calendar rather than into a Backlog it would not appear in.
+   *
+   * **`released` is the server's answer and is never re-derived here.** It is the same rule the
+   * board partitions on, and a second copy of it on the client is free to disagree — which would
+   * show *Add to calendar* on a title that then landed in Backlog, or the reverse.
+   *
+   * Null for a hobby whose provider is not asked about release dates, which is every hobby but
+   * games. A tile with none simply says *Add*.
+   */
+  release: {
+    released: boolean;
+    day: string | null;
+    precision: ReleasePrecision | null;
+  } | null;
 }

@@ -25,13 +25,23 @@ public sealed record GameDetailDto(
     decimal? HltbCompletionistHours,
 
     /// <summary>
+    /// The release window, so a title does not change shape when you open it. <c>GameDetail</c>
+    /// extends <c>Game</c> on the client, and a field present on the search response and absent
+    /// here would be a contract that narrows on the way to the drawer.
+    /// </summary>
+    bool Released,
+    DateOnly? ReleaseDate,
+    ReleasePrecision? ReleasePrecision,
+
+    /// <summary>
     /// HowLongToBeat's id, once matched or pinned. The drawer offers it for correction and
     /// links out to it, which is how you check that it matched the game you meant.
     /// </summary>
     int? HltbId,
     IReadOnlyList<LogEntryDto> LogEntries)
 {
-    public static GameDetailDto From(Game game, IReadOnlyList<LogEntry> entries) => new(
+    public static GameDetailDto From(
+        Game game, IReadOnlyList<LogEntry> entries, DateOnly today) => new(
         game.Id,
         game.Title,
         game.CoverUrl,
@@ -45,6 +55,12 @@ public sealed record GameDetailDto(
         game.HltbMainStoryHours,
         game.HltbMainExtraHours,
         game.HltbCompletionistHours,
+
+        // The same expression the board filters with. See GameDto.
+        ReleaseWindow.IsOut(game, today),
+        game.ReleaseDate,
+        game.ReleasePrecision,
+
         game.HltbId,
         [.. entries.Select(LogEntryDto.From)]);
 }

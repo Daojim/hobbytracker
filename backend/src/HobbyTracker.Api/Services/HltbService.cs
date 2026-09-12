@@ -233,6 +233,6 @@ public sealed class HltbService(
             .ThenByDescending(entry => entry.Id)
             .ToListAsync(cancellationToken);
 
-        return GameDetailDto.From(game, entries);
+        return GameDetailDto.From(game, entries, clock.Today);
     }
 }

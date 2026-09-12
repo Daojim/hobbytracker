@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SearchResult } from './SearchResult';
+import { GAMES } from '../hobbies/games';
 import type { SearchHit } from '../hobbies';
 
 const hit = (overrides: Partial<SearchHit> = {}): SearchHit => ({
@@ -9,12 +10,22 @@ const hit = (overrides: Partial<SearchHit> = {}): SearchHit => ({
   title: 'Hollow Knight',
   coverUrl: 'https://images.example/cover.jpg',
   byline: [],
+  release: null,
   ...overrides,
 });
 
 function renderResult(props: Partial<Parameters<typeof SearchResult>[0]> = {}) {
   const onAdd = vi.fn();
-  render(<SearchResult hit={hit()} onBoard={false} adding={false} onAdd={onAdd} {...props} />);
+  render(
+    <SearchResult
+      hit={hit()}
+      onBoard={false}
+      adding={false}
+      onAdd={onAdd}
+      definition={GAMES}
+      {...props}
+    />,
+  );
   return { onAdd };
 }
 
@@ -49,6 +60,7 @@ describe('SearchResult', () => {
         onBoard={false}
         adding={false}
         onAdd={vi.fn()}
+        definition={GAMES}
       />,
     );
 
@@ -86,10 +98,71 @@ describe('SearchResult', () => {
         onBoard={false}
         adding={false}
         onAdd={vi.fn()}
+        definition={GAMES}
       />,
     );
 
     expect(container.querySelector('img')).toBeNull();
     expect(screen.getByText('H')).toBeInTheDocument();
+  });
+
+  it('offers the calendar for a title that is not out yet', () => {
+    // The one place the two actions differ, and they differ only in wording: both write the
+    // same Backlog entry. What changes is where it appears afterwards, and the button says so
+    // rather than leaving somebody to wonder where the card went.
+    renderResult({
+      hit: hit({
+        title: 'Silksong II',
+        release: { released: false, day: '2027-03-12', precision: 'Day' },
+      }),
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Add Silksong II to your release calendar' }),
+    ).toHaveTextContent('Add to calendar');
+  });
+
+  it('says when an unreleased title is due, at the precision it was announced at', () => {
+    renderResult({
+      hit: hit({
+        title: 'Hades III',
+        release: { released: false, day: '2027-01-01', precision: 'Quarter' },
+      }),
+    });
+
+    expect(screen.getByText('Q1 2027')).toBeInTheDocument();
+    expect(screen.queryByText(/Jan 1/)).not.toBeInTheDocument();
+  });
+
+  it('still says Add for a title that is out', () => {
+    renderResult({
+      hit: hit({
+        title: 'Hollow Knight',
+        release: { released: true, day: '2017-02-24', precision: 'Day' },
+      }),
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Add Hollow Knight to backlog' }),
+    ).toHaveTextContent('Add');
+  });
+
+  it('says Add for a hobby with no calendar, whatever the title carries', async () => {
+    // The guard against a hobby's words leaking out of `src/hobbies/`. A film that is not out
+    // yet still gets a plain Add, because the movies board has nowhere to show a calendar —
+    // and the tile decides that by asking the definition rather than by looking at the slug.
+    const { MOVIES } = await import('../hobbies/movies');
+
+    renderResult({
+      definition: MOVIES,
+      hit: hit({
+        title: 'Dune: Part Three',
+        release: { released: false, day: '2027-03-12', precision: 'Day' },
+      }),
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Add Dune: Part Three to backlog' }),
+    ).toHaveTextContent('Add');
   });
 });

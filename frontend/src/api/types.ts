@@ -17,6 +17,32 @@ export type LogStatus = 'Backlog' | 'InProgress' | 'Completed' | 'Dropped';
 /** `manual` is the default, and the only mode in which dragging to reorder means anything. */
 export type LibrarySort = 'manual' | 'added' | 'title' | 'rating' | 'length';
 
+/**
+ * How precisely a title's release day is known.
+ *
+ * **Three states, not two, and the third is `null`.** `Unknown` means a provider was asked and
+ * had no date to give; `null` on {@link LibraryItem.releasePrecision} means nobody has asked at
+ * all, which reads as *released* and keeps such a title in Backlog. Anything reading a release
+ * date must branch on this rather than on the dates being absent — they are absent for both.
+ */
+export type ReleasePrecision = 'Day' | 'Month' | 'Quarter' | 'Year' | 'Unknown';
+
+/**
+ * What the provider says about a title's life, which outranks its date.
+ *
+ * Mostly null, and mostly invisible: a title the provider calls released is not on the calendar
+ * to be labelled. `Cancelled` is the one worth printing — see `releaseNote` in `lib/release.ts`.
+ */
+export type ReleaseStatus =
+  | 'Released'
+  | 'Alpha'
+  | 'Beta'
+  | 'EarlyAccess'
+  | 'Offline'
+  | 'Cancelled'
+  | 'Rumored'
+  | 'Delisted';
+
 /** Every list endpoint returns this envelope. Search does not — see `searchGames`. */
 export interface PagedResult<T> {
   items: T[];
@@ -103,6 +129,32 @@ export interface LibraryItem {
    */
   seasonNumber: number | null;
   episodeNumber: number | null;
+
+  /**
+   * The window a publisher announced, as `YYYY-MM-DD` days rather than instants — and that is
+   * the distinction to hold on to.
+   *
+   * A release date belongs to no timezone, so it must never be run through `lib/time.ts`:
+   * `new Date('2026-09-26')` parses as midnight **UTC** and renders here as the 25th. Everything
+   * that reads these lives in `lib/release.ts`, which reads the parts out of the string.
+   *
+   * **Read `releasePrecision`, never the dates, to decide what to show.** It is three-valued:
+   * `null` is a title nobody has asked a provider about, `'Unknown'` is one the provider had no
+   * date for, and the two mean different things while looking identical from the dates alone.
+   * The first reads as *released* and is why a board that predates this feature is untouched.
+   */
+  releaseDate: string | null;
+  releaseEnd: string | null;
+  releasePrecision: ReleasePrecision | null;
+
+  /**
+   * What the provider says about the title's life, which outranks its date.
+   *
+   * Almost always null and almost always invisible — a title the provider calls released is not
+   * on the calendar to be labelled. `'Cancelled'` is the one worth printing.
+   */
+  releaseStatus: ReleaseStatus | null;
+
   /**
    * The opening of the most recent thing you wrote about this title, cut by the server. The
    * whole of it lives in the drawer; this is a preview and is named so.
@@ -136,6 +188,22 @@ export interface Game {
   hltbMainStoryHours: number | null;
   hltbMainExtraHours: number | null;
   hltbCompletionistHours: number | null;
+
+  /**
+   * The window IGDB announced, and whether it says the game is out.
+   *
+   * `released` is the server's answer to the same question the board partitions Backlog on, sent
+   * rather than derived here: a second copy of that rule on the client is free to disagree, and
+   * the visible symptom would be a search tile offering to add a title to the calendar that then
+   * lands in Backlog.
+   *
+   * `releasePrecision` is three-valued — see {@link ReleasePrecision}. Read it, never the dates:
+   * both are null for a title nobody has asked IGDB about and for one IGDB calls TBD, and those
+   * are different claims.
+   */
+  released: boolean;
+  releaseDate: string | null;
+  releasePrecision: ReleasePrecision | null;
 }
 
 export interface GameDetail extends Game {

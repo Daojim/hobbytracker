@@ -20,6 +20,10 @@ const item: LibraryItem = {
   hltbPending: false,
   seasonNumber: null,
   episodeNumber: null,
+  releaseDate: null,
+  releaseEnd: null,
+  releasePrecision: null,
+  releaseStatus: null,
   latestNotePreview: null,
 };
 

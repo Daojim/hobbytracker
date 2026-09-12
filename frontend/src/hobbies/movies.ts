@@ -83,6 +83,9 @@ export const MOVIES: HobbyDefinition = {
           movie.releaseYear === null ? '' : String(movie.releaseYear),
           movie.directors.join(', '),
         ],
+        // No release window: TMDB is not asked for one, so this hobby has no calendar for a
+        // tile to offer. See HobbyDefinition.releases.
+        release: null,
       })),
   },
 
@@ -130,4 +133,9 @@ export const MOVIES: HobbyDefinition = {
   // A film is watched or it is not. Being partway through one is a Tuesday rather than a state
   // worth recording, which is exactly what separates it from a show.
   progress: null,
+
+  // No release calendar: this hobby's provider is not asked for a release window, so
+  // nothing ever fills the columns the board would partition Backlog on. Turning it on is this
+  // block plus that provider work, in one commit — see HobbyDefinition.releases.
+  releases: null,
 };

@@ -24,6 +24,12 @@ export function game(overrides: Partial<Game> = {}): Game {
     hltbMainStoryHours: null,
     hltbMainExtraHours: null,
     hltbCompletionistHours: null,
+
+    // Out, and nobody has asked IGDB exactly when. A tile for this offers a plain *Add*.
+    released: true,
+    releaseDate: null,
+    releasePrecision: null,
+
     ...overrides,
   };
 }

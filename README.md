@@ -7,7 +7,7 @@ later.
 **Status: deployed and in use, behind a sign-in.** Four hobbies — games, films, TV and anime —
 sharing one board, one journal and one schema. A kanban board with a drag, a journal drawer over
 it, IGDB, TMDB and MAL search, HowLongToBeat estimates, a show's season and episode on the card,
-eight themes,
+eight themes, a release calendar for the games that are not out yet,
 and Google/Discord OAuth with every pass and note scoped to whoever wrote it. The next things to
 build are a title detail page and a year in review — see [Roadmap](#roadmap).
 
@@ -379,7 +379,17 @@ to prevent something, the test for it is checked by reintroducing the thing.
       one it was found by under it. A search here needs no follow-up request at all, which is the
       first time that has been true — and MAL's own result order is wrong for a person often
       enough to be worth re-ranking, which is measured rather than argued
+- [x] A release calendar, for the half of a backlog that has not come out yet. A *Coming soon*
+      agenda under the board, showing how far off each thing is — and it is a **view of the
+      backlog rather than a place of its own**, which is the whole of why a game arrives in the
+      backlog column on its release day with no job having run anywhere: the same row simply
+      starts answering the other question. Dates are shown exactly as precisely as a publisher
+      announced them, so a game slated for "Q1 2027" says that rather than a day nobody named —
+      IGDB states those as a real date, and taking it at face value would be a fabrication that
+      looked entirely plausible. A nightly sweep re-asks about the things that have not shipped,
+      because release dates slip constantly and nothing else in the app goes stale on its own
 - [ ] A title detail page, and a year in review
+- [ ] Browsing what is popular, rather than having to know what to search for
 - [ ] Books and music — each a sibling detail table plus its source integration
 
 Architecture and schema notes for anyone (or anything) working in the repo live in

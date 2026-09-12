@@ -1,5 +1,6 @@
 using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
+using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Services;
 using HobbyTracker.Api.Tests.Infrastructure;
@@ -256,6 +257,163 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
         (await CountMediaAsync()).ShouldBe(20);
     }
 
+    [Fact]
+    public async Task A_searched_game_stores_the_window_at_the_precision_IGDB_announced()
+    {
+        Igdb.SetResults("witcher", FakeIgdbClient.Game(
+            194662, "The Witcher IV",
+            releaseDate: new DateOnly(2028, 12, 31),
+            dateFormat: "YYYY",
+            gameStatus: "Rumored"));
+
+        await SearchAsync("witcher");
+
+        var game = await WithDbAsync(db => db.Games.SingleAsync(Ct));
+
+        // IGDB sends "2028" as its last day. Stored as that day it would sit in the calendar's
+        // December, eleven months after the game is actually due.
+        game.ReleaseDate.ShouldBe(new DateOnly(2028, 1, 1));
+        game.ReleaseEnd.ShouldBe(new DateOnly(2028, 12, 31));
+        game.ReleasePrecision.ShouldBe(ReleasePrecision.Year);
+        game.ReleaseStatus.ShouldBe(ReleaseStatus.Rumored);
+    }
+
+    [Fact]
+    public async Task A_game_IGDB_has_no_date_for_is_stored_as_asked_rather_than_as_unasked()
+    {
+        // The three-state null, at the layer that creates it. "Asked, and IGDB said TBD" has to
+        // be distinguishable from "nobody has asked", because the second reads as released and
+        // the first does not.
+        Igdb.SetResults("elder", FakeIgdbClient.Game(81249, "The Elder Scrolls VI", dateFormat: "TBD"));
+
+        await SearchAsync("elder");
+
+        var game = await WithDbAsync(db => db.Games.SingleAsync(Ct));
+
+        game.ReleasePrecision.ShouldBe(ReleasePrecision.Unknown);
+        game.ReleaseDate.ShouldBeNull();
+        game.ReleaseEnd.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_refresh_re_derives_the_precision_rather_than_only_the_date()
+    {
+        // A slipping date is the whole reason the daily refresh exists, and this is how it goes
+        // wrong quietly: write the date and leave the precision, and the card goes on reading
+        // "Q1 2027" while the calendar sorts it under 12 March, with nothing to say the two
+        // disagree.
+        Igdb.SetResults("silksong", FakeIgdbClient.Game(
+            1, "Silksong", releaseDate: new DateOnly(2027, 3, 31), dateFormat: "YYYYQ1"));
+        await SearchAsync("silksong");
+
+        var vague = await WithDbAsync(db => db.Games.SingleAsync(Ct));
+        vague.ReleasePrecision.ShouldBe(ReleasePrecision.Quarter);
+        vague.ReleaseDate.ShouldBe(new DateOnly(2027, 1, 1));
+
+        Igdb.SetResults("silksong", FakeIgdbClient.Game(
+            1, "Silksong", releaseDate: new DateOnly(2027, 3, 12), dateFormat: "YYYYMMDD"));
+        await SearchAsync("silksong");
+
+        var sharpened = await WithDbAsync(db => db.Games.SingleAsync(Ct));
+
+        sharpened.ReleasePrecision.ShouldBe(ReleasePrecision.Day);
+        sharpened.ReleaseDate.ShouldBe(new DateOnly(2027, 3, 12));
+        sharpened.ReleaseEnd.ShouldBe(new DateOnly(2027, 3, 12));
+    }
+
+    [Fact]
+    public async Task A_release_window_can_go_back_to_being_a_date_nobody_has_announced()
+    {
+        // Delays run the other way too: a dated game is pulled back to TBD often enough that
+        // leaving the old window standing would show a date the publisher has withdrawn.
+        Igdb.SetResults("game", FakeIgdbClient.Game(
+            1, "Game", releaseDate: new DateOnly(2027, 3, 12), dateFormat: "YYYYMMDD"));
+        await SearchAsync("game");
+
+        Igdb.SetResults("game", FakeIgdbClient.Game(1, "Game", dateFormat: "TBD"));
+        await SearchAsync("game");
+
+        var game = await WithDbAsync(db => db.Games.SingleAsync(Ct));
+
+        game.ReleasePrecision.ShouldBe(ReleasePrecision.Unknown);
+        game.ReleaseDate.ShouldBeNull();
+        game.ReleaseEnd.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_refresh_does_not_move_the_year_the_matcher_reads()
+    {
+        // games.release_year and media.release_date look like the same fact and are not. The
+        // year is read in UTC because it is compared against HowLongToBeat's release_world, a
+        // bare year belonging to no timezone — so repointing it at the window, which is the
+        // obvious tidying edit once both exist, silently re-breaks the matcher on exactly the
+        // December releases it was added to disambiguate.
+        Igdb.SetResults("game", FakeIgdbClient.Game(
+            1, "Game", releaseDate: new DateOnly(2026, 12, 31), dateFormat: "YYYYMMDD"));
+
+        await SearchAsync("game");
+
+        var game = await WithDbAsync(db => db.Games.SingleAsync(Ct));
+
+        game.ReleaseYear.ShouldBe(2026);
+        game.ReleaseDate.ShouldBe(new DateOnly(2026, 12, 31));
+    }
+
+    [Fact]
+    public async Task A_game_nobody_has_asked_about_keeps_a_null_precision_until_something_does()
+    {
+        // The deploy-day contract, one layer up from SchemaTests. A title inserted by anything
+        // other than a provider read carries no window, and that has to keep meaning "never
+        // asked" rather than "TBD".
+        var mediaId = await GivenGameAsync(title: "Already Here", externalId: "900");
+
+        var stored = await WithDbAsync(db =>
+            db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct));
+
+        stored.ReleasePrecision.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_search_says_whether_each_result_is_out_rather_than_leaving_it_to_be_worked_out()
+    {
+        // Caught by the end-to-end suite rather than by anything here, which is the finding: the
+        // client had a `released` field and the server never sent one, so every tile read
+        // `undefined` as "not out" and offered the calendar for games from 2018.
+        //
+        // It is the same question the Backlog column is partitioned on, so it is answered once,
+        // on the server, from ReleaseWindow.NotOutOn. A second copy of that rule on the client
+        // would be free to disagree — and the visible failure is a tile offering the calendar
+        // for a title that then lands in the column.
+        Igdb.SetResults("mixed",
+            FakeIgdbClient.Game(1, "Long Ago", releaseDate: new DateOnly(2018, 1, 25), dateFormat: "YYYYMMDD"),
+            FakeIgdbClient.Game(2, "Years Off", releaseDate: new DateOnly(2028, 1, 25), dateFormat: "YYYYMMDD"),
+            FakeIgdbClient.Game(3, "No Date", dateFormat: "TBD"));
+
+        var results = await SearchAsync("mixed");
+
+        results.Single(game => game.Title == "Long Ago").Released.ShouldBeTrue();
+        results.Single(game => game.Title == "Years Off").Released.ShouldBeFalse();
+        results.Single(game => game.Title == "No Date").Released.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_search_result_IGDB_has_no_date_for_reads_as_out()
+    {
+        // The tile end of the measured distinction. IGDB carries a great many obscure titles
+        // with no date and no release_dates rows at all, and those are games that exist — so
+        // they get no window, offer a plain Add, and land in Backlog where they belong.
+        //
+        // A game IGDB models as announced-and-undated carries explicit TBD rows instead, and the
+        // case below is that one.
+        Igdb.SetResults("obscure", FakeIgdbClient.Game(94975, "Wubble Bubbles"));
+
+        var results = await SearchAsync("obscure");
+
+        var found = results.ShouldHaveSingleItem();
+        found.Released.ShouldBeTrue();
+        found.ReleasePrecision.ShouldBeNull();
+    }
+
     private async Task<IReadOnlyList<Api.Contracts.GameDto>> SearchAsync(string search, int? limit = null)
     {
         await using var db = Postgres.CreateDbContext();
@@ -267,7 +425,8 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
         Igdb,
         Options.Create(new IgdbOptions { ClientId = "id", ClientSecret = "secret" }),
         NullLogger<GameCatalogService>.Instance,
-        new FakeCurrentUser(UserId));
+        new FakeCurrentUser(UserId),
+        new JournalClock(Clock, Options.Create(new JournalOptions())));
 
     private Task<int> CountMediaAsync() => WithDbAsync(db => db.Media.CountAsync(Ct));
 }

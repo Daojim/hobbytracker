@@ -18,6 +18,9 @@ const celeste: Game = {
   hltbMainStoryHours: null,
   hltbMainExtraHours: null,
   hltbCompletionistHours: null,
+  released: true,
+  releaseDate: null,
+  releasePrecision: null,
 };
 
 describe('searchGames', () => {

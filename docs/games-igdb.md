@@ -237,57 +237,200 @@ synchronous and reports what it changed, because IGDB answers 500 titles in one 
 one at a time behind a politeness floor of seconds, so its backfill queues and answers 202 with a
 count of what was queued.
 
-## Discovery: a grid of what is popular, a calendar of what is coming
+## The release calendar
 
-**Not designed yet, and that is the point of writing it down now.** The user has asked for the phase
-to exist and said plainly that the shape still needs workshopping. Two things are known: **popular
-games are a grid of cover art**, and **upcoming games are a calendar**. Everything below is constraint
-the codebase already carries, gathered so none of it has to be rediscovered while the design is being
-had. **None of it is a decision.** The reason for the phase: a search box asks you to already know
-what you want, and filling a board — especially filling one *backwards*, which is what the year
-control now exists for — is mostly the other problem.
+**A "Coming soon" agenda under the board, holding the Backlog entries whose title is not out yet.**
+Built September 2026, and it is half of what **Discovery** below was written to describe: the
+calendar is done, the popular grid is not.
+
+### It is a view of Backlog, not a fifth column
+
+An unreleased title is a real Backlog entry. *Add to calendar* and *Add to Backlog* write the
+identical row through the identical endpoint; only the button's wording differs, because the game
+is not out. The calendar is those entries pulled out of the Backlog column and drawn on a time axis
+below the board.
+
+**Three things follow for free, and every one of them would otherwise be machinery:**
+
+- **A title arrives in Backlog on its release day with nothing having run.** No job, no sweep, no
+  scheduled transition. The day the date passes, the same row answers the other question.
+  `a title arrives in the backlog on its release day, with nothing having run` proves it by moving
+  the date rather than the row.
+- **Backlog titles that are not out move to the calendar with no migration.** Same partition,
+  applied the moment release dates exist.
+- **The status vocabulary is untouched.** A fifth `LogStatus` was never on the table — it is one
+  shared four-value enum across every hobby so cross-hobby views stay writable.
+
+The cost, accepted: the Backlog column's count is no longer a count of Backlog rows, and one
+expression has to own the word *released*.
+
+### One expression owns "released"
+
+`ReleaseWindow.NotOutOn(today)` in `Domain/`, and **three things ask it**: the Backlog column
+excludes them, the calendar is exactly them, and the nightly sweep re-asks IGDB about exactly them.
+`GameDto` asks a fourth time, in memory, so a search tile cannot disagree with the column a title
+will land in.
+
+Written out three times it would drift, and **the drift is invisible** — a title in both the column
+and the calendar, or in neither, with nothing erroring. So:
+
+- The column and the calendar are literally `p` and `Not(p)`, negated as an expression rather than
+  restated. `A board row is on exactly one side of the release line` seeds one title of every shape
+  and asserts the two sides partition them — which is the test that would catch a three-valued-logic
+  hole, the kind that bit `ck_media_release_window` during its first draft.
+- `NotOutOn<T>(today, row => row.Media)` re-points the same expression at a shape that *has* a
+  media rather than being one, because EF Core cannot translate an `Invoke`.
+- `ReleaseWindow.IsOut(media, today)` is the in-memory form, compiled from the same expression and
+  memoised per day — a search returns up to five hundred results and compiling an expression tree
+  each time is real work for an answer that changes at midnight.
+
+**The partition applies only where a status is named**, and that is load-bearing rather than tidy.
+`Filtered` also runs with no status — `ActivityYearsAsync`, `ReorderAsync`, and the un-statused
+`GET /api/library` that `libraryMediaIds()` pages through. Narrow that last one and an unreleased
+title drops out of the search strip's *"On your board"* set, the strip offers to add a title you
+already have, and the second press writes a Backlog entry the card renders as a replay that never
+happened. Nobody would trace that back to a release date.
+
+**And it carries no hobby condition.** A film's `release_precision` is null for ever, so the first
+clause leaves the movies board exactly as it was. That is what makes "no branch on the hobby slug"
+true on the server *by construction*: whether a hobby has a calendar is decided by whether anything
+fills its columns. The flag in `frontend/src/hobbies/` only decides whether the section renders —
+and the two halves are one commit, or a hobby's unreleased titles leave Backlog with nowhere to go.
+
+### What IGDB had to be asked for, measured
+
+`SearchFields` gained `release_dates.date`, `release_dates.date_format.format` and
+`game_status.status`. Four things about that, all measured against the live API on 11 September
+2026 rather than read off a doc page.
+
+- **`release_dates.category` is deprecated in favour of `date_format`, and `game.status` in favour
+  of `game_status`. This is the `game_type` trap a second time** — see **Game types** above, which
+  records the first. A deprecated twin here stops being *populated* rather than erroring, so a
+  mapping written against `category` comes back absent on every row, defaults to 0, and calls every
+  game day-precision while reading as perfectly correct. `Does_not_read_the_deprecated_release_date_category`
+  asserts the query does not mention either.
+- **Both replacements are reference endpoints whose integer ids are published nowhere**, so the
+  string is what gets mapped. `/v4/date_formats` answers `YYYYMMDD`, `YYYYMM`, `YYYY`, `YYYYQ1`
+  through `YYYYQ4`, `TBD` — note the spelling, which the deprecated enum documents as `YYYYMMMMDD`
+  and `YYYYMMMM`. `/v4/game_statuses` answers `Released`, `Alpha`, `Beta`, **`Early Access`** with a
+  space, `Offline`, `Cancelled`, `Rumored`, `Delisted`, and there is no id 1.
+- **The depth-3 expansion works**, and costs: a 500-id batch grows from 549 KB to 967 KB. Accepted,
+  because the alternative is a second request per game.
+- **`game_status` is absent on most games.** Neither *Grand Theft Auto VI* nor *The Elder Scrolls VI*
+  carries one, so null there is ordinary rather than a failure and the window is the fallback.
+
+### The three shapes a date arrives in, and why the third is not the second
+
+**A vague date is sent as the *last* day of its window.** *The Witcher IV* "2028" arrives as
+2028-12-31; *007 First Light*'s "Q3 2026" row as 2026-09-30. This inverts the obvious assumption,
+and reading either as a start would file the title a whole window late. `ReleaseWindow.For` derives
+both ends from **the unit the day falls in**, which is right whichever end a provider chooses to
+give and needs no bet on their convention.
+
+**`release_dates` is one row per platform and per region.** *The Wolf Among Us 2* carries six rows
+all reading 2027; *Inzoi* carries two real dates and two TBD ones. `release_dates[0]` is therefore a
+coin flip that often lands on a Japan-only date or a re-release — the row that matters is whichever
+one's `date` equals `first_release_date`. **A TBD row carries no `date` key at all**, rather than a
+null or a nought, which is what lets the matching walk over them.
+
+And the distinction that took a measurement to find:
+
+| what IGDB sends | what it means | where the title goes |
+|---|---|---|
+| a date, with a matching `date_format` row | an announced window | its month, quarter or year |
+| no date, **with** explicit `TBD` rows | announced and undated | the *No date yet* bucket |
+| no date, **and no rows at all** | IGDB has nothing to say | **Backlog** — no window at all |
+| a date, with no row to explain it | rows pruned from an old entry | read as a day |
+
+The third row is the one worth knowing. A query for games with no `first_release_date` comes back
+full of *Wubble Bubbles*, *Soccer Cup 2022* and *Flashy Maze* — obscure titles that shipped and
+nobody filled in. Reading those as TBD would fill the calendar with shovelware nobody is waiting
+for, and the nightly sweep would ask about them for ever, since nothing would ever give them a
+date. So they get no window, which reads as released.
+
+### The backfill is a thing you run, and the sweep is not
+
+`ReleaseRefreshWorker` is the first time-driven worker in the app. It copies `HltbWorker`'s three
+conventions exactly — a singleton taking `IServiceScopeFactory` and opening a scope per unit of
+work, an options flag that short-circuits at startup and logs that it did, and every failure logged
+and swallowed — and adds the one thing a queue-driven worker never needs: a `PeriodicTimer`.
+
+**It sweeps the not-yet-released titles only, never the ones with no window.** That is
+`games.hltb_checked_at`'s lesson exactly: without a marker saying we asked, a title IGDB has
+stopped answering for is re-asked about every night, for ever. The consequence is worth stating
+plainly rather than discovering: **on the day this ships the calendar is empty until
+`POST /api/games/refresh` is run.** Which is what `CLAUDE.md` already tells you to do after a
+migration adds a provider-owned column — this one just has a visible symptom.
+
+**It is switched off in two places and the second is easy to miss.** `ApiFactory` removes it from
+the test host, through a `RemoveHostedService<T>` helper so the third worker somebody adds is one
+line rather than eight nobody copies. And `playwright.config.ts` sets `ReleaseRefresh__Enabled` to
+false — which `HltbWorker` has never needed, because nothing enqueues unless a spec adds a title. A
+timer needs no invitation: left on, it would wake five minutes into a run and rewrite the release
+windows the specs are asserting on, presenting as a flake in a spec that never mentions IGDB.
+
+### The stub grew dates, and that was the largest single cost
+
+`igdb-stub.mjs` sent no release data at all. The moment the client asked for some, every stub game
+became *announced and undated*, left Backlog, and took most of the board and journal specs with
+it — failing with nothing anywhere naming a release date. So **every catalogue entry carries a past
+day-precision date**, and that is load-bearing rather than decoration.
+
+Three upcoming fixtures were added, one of each shape: *Silksong II* three months out to the day,
+*Hades III* a quarter eighteen months out, and *Celeste 64* with explicit TBD. They are dated
+relative to the run rather than pinned, because a fixed date stops being in the future. **The
+quarter fixture computes its date and its label from the same day** — written separately, a date
+drifting into the next quarter went on carrying the previous quarter's label, and the stub asserted
+a shape the real API never produces. It cost one round to notice.
+
+One fixture is deliberately *without* a precision: IGDB prunes `release_dates` from older entries
+while keeping `first_release_date`, and that shape has to read as a day.
+
+**A catalogue name that prefixes another is a locator hazard.** "Celeste 64" makes a search for
+"Celeste" answer with two tiles, one of them unreleased, and Playwright's `hasText` is a substring
+match — so a spec filtering on a title that is also a prefix will silently pick the wrong tile.
+Name the tile by its heading, or search something unambiguous.
+
+## Discovery: a grid of what is popular
+
+**Half of this shipped as the release calendar above; what is left is the popular grid, and it is
+still not designed.** The user has asked for the phase to exist and said the shape needs
+workshopping. One thing is known: **popular games are a grid of cover art.** Everything below is
+constraint the codebase already carries, gathered so none of it has to be rediscovered. **None of it
+is a decision.** The reason for the phase: a search box asks you to already know what you want, and
+filling a board — especially filling one *backwards*, which is what the year control now exists for
+— is mostly the other problem.
 
 **What is already true, and bears on it:**
 
-- **The popularity numbers are never stored**, so a popular grid is a live query by construction and a
-  stored "top games" table is the thing this codebase has already decided against once. **`hypes` is
-  the unreleased half** and is what an *upcoming* view runs on, since an unreleased game has no
-  ratings by definition. See **Ranking search results**.
-- **`first_release_date` is already read, in UTC, on purpose — and a calendar must not reuse that.**
-  `games.release_year` takes it in UTC because it is compared against HowLongToBeat's bare
-  `release_world` year, which belongs to no timezone. A calendar is a human question about *days*, so
-  it would be **the fourth place the journal zone is applied**. **Time** in `docs/data-model.md`
-  currently says three; that
-  sentence is a tripwire and should be updated rather than quietly falsified.
-- **The catalogue grows by search, and only by search**, so whether *browsing* writes rows at all is a
-  real decision: forty covers idly scrolled would grow `media` faster than every search ever typed.
-  The cheap answer is that browsing upserts nothing and only adding does — but that is not how the
-  search strip works today, and the two should probably agree.
+- **The popularity numbers are never stored**, so a popular grid is a live query by construction and
+  a stored "top games" table is the thing this codebase has already decided against once. `hypes` is
+  the unreleased half. See **Ranking search results**.
+- **The catalogue grows by search, and only by search**, so whether *browsing* writes rows at all is
+  a real decision: forty covers idly scrolled would grow `media` faster than every search ever
+  typed. The cheap answer is that browsing upserts nothing and only adding does — but that is not
+  how the search strip works today, and the two should probably agree.
 - **"On your board" already exists and has to be reused**, and knowing it needs the *whole* library,
-  which is why `libraryMediaIds()` pages to the end. A grid puts far more tiles on screen.
-- **`Season` finally bites here, and this is the phase that should settle it** — seasons and episodes
-  are precisely what a "coming soon" list fills with. See **Game types**, and note **Bundle** is the
-  arguable half left easy to take back.
-- **Nothing here caches, and this is where that stops being free.** A calendar spanning months is
-  several queries for data that changes daily rather than per-keystroke, so a cache is worth having
-  for the first time in this codebase. IGDB's limit is 4 requests a second.
-- **Covers compose at any size already** — `IgdbImage` builds from `cover.image_id`, so a grid can ask
-  for a larger one without a new field or a migration, and 5:7 is already the app's poster ratio.
-- **Adding while reading a past year already works**: a title added from anywhere lands in Backlog
-  with no dates, and Backlog is exempt from the year.
+  which is why `libraryMediaIds()` pages to the end. A grid puts far more tiles on screen. The
+  release calendar has already made this sharper: that list is also what the Backlog partition must
+  not narrow.
+- **`Season` finally bites here, and this is the phase that should settle it** — seasons and
+  episodes are precisely what a "coming soon" list fills with, and the calendar has not settled it.
+  See **Game types**, and note **Bundle** is the arguable half left easy to take back.
+- **Nothing here caches, and this is where that stops being free.** A grid is several queries for
+  data that changes daily rather than per-keystroke. IGDB's limit is 4 requests a second.
+- **Covers compose at any size already** — `IgdbImage` builds from `cover.image_id`, so a grid can
+  ask for a larger one without a new field or a migration, and 5:7 is already the app's poster
+  ratio.
 - **Games only, whatever it looks like.** IGDB is the only source with a client behind it.
 
 **What has to be workshopped**, phrased as the questions rather than as answers:
 
 - **A screen of its own, a strip like search, or a panel over the board?** `/search` was already
-  retired *into* the board once, and the reasoning — the column a title is about to land in should be
-  on screen while you decide — pulls against a full-page grid, though perhaps less hard for browsing.
+  retired *into* the board once, and the reasoning — the column a title is about to land in should
+  be on screen while you decide — pulls against a full-page grid, though perhaps less hard for
+  browsing. The calendar answered the same question by sitting under the board.
 - **Popular by what, over what window?** `total_rating_count` and `hypes` are what the ranking uses;
   IGDB also has a `popularity_primitives` endpoint nothing here has touched.
-- **What the calendar's unit is** — a month, a quarter, the rest of the year — and what a day carrying
-  eleven releases is supposed to look like.
-- **Whether the calendar is a way of adding at all**, or only of looking. A game that is not out yet
-  is a real Backlog entry, so it probably is.
-- **Where a title lands when added from either surface.** Backlog with no dates is the honest default
-  for something unplayed, and is what search already does.
-
+- **Where a title lands when added from it.** Backlog with no dates is the honest default for
+  something unplayed, and is what search and the calendar both already do.

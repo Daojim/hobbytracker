@@ -28,6 +28,7 @@ routes are the only anonymous ones.
 | `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date |
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
+| `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, soonest first and the undated last. **Not paged** |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours** |
 | `PUT /api/library/order` | store one column's manual ranking |
@@ -262,6 +263,43 @@ presentational, because the page has to hold that query to have anything to defa
 **One consequence worth knowing rather than fixing:** completing a game while reading a past year
 makes its card leave the board, since the completion is stamped *now*. That is the filter being honest.
 
+### A second thing that narrows a column
+
+**The Backlog column answers without the titles that are not out yet.** They are not gone: they are
+on the release calendar under the board, which is the same rows read the other way round. The whole
+of that feature is in `docs/games-igdb.md` under **The release calendar**; what belongs here is the
+three things it does to the board.
+
+**It applies only where a status is named, and only to Backlog.** `Filtered` also runs with no
+status — `ActivityYearsAsync`, `ReorderAsync`, and the un-statused `GET /api/library` that
+`libraryMediaIds()` pages through to build the search strip's *"On your board"* set. Narrow that and
+an unreleased title drops out of it, the strip offers to add a title you already have, and the second
+press writes a Backlog entry the card renders as a replay that never happened. It sits in the status
+switch beside `InYear` for exactly that reason. Every other column holds titles you have already
+started, and whether those are out is not a question worth asking — it would hide an early build
+somebody is deliberately recording.
+
+**The other three hobbies need no flag, and that is the non-obvious half.** The predicate carries no
+hobby condition at all. A film's `release_precision` is null for ever, because TMDB is not asked for
+one, so the first clause leaves the movies board exactly as it was. Whether a hobby has a calendar is
+decided by whether anything fills its columns — not by a list of slugs — which is what makes "no
+branch on the hobby slug" true on the server by construction rather than by discipline.
+`HobbyDefinition.releases` decides only whether the *section renders*. **Filling a hobby's release
+columns and setting that flag are one commit**, or its unreleased titles leave Backlog with nowhere
+to be shown.
+
+**The column and the calendar are one expression, negated.** `ReleaseWindow.NotOutOn` is the single
+definition of "not out yet" in the app, and the two halves are literally `p` and `Not(p)` rather than
+two predicates that look alike. Two hand-written ones would drift, and the drift is invisible: a
+title in both places or in neither, with nothing erroring. `A board row is on exactly one side of the
+release line` seeds one title of every shape and asserts the partition — which is the test that
+catches a three-valued-logic hole, the kind that got into `ck_media_release_window`'s first draft.
+
+**The section renders outside `data-board`**, and that is not cosmetic: `card()` in
+`e2e/support/board.ts` is scoped there precisely so a search result cannot answer to it, and a
+calendar row must not either. It also sits outside the `years !== undefined` gate, because everything
+on it is in the future and Backlog is exempt from the year anyway.
+
 ### Query keys, ordering, and the traps
 
 **`frontend/src/board/keys.ts` owns every board query key**, and its comments carry the reasoning.
@@ -274,6 +312,13 @@ What a caller has to know:
   key**, because a column has one cache entry per sort and year and the exact key only reaches
   whichever one is on screen. **A reorder keeps the exact key on purpose**: it writes `position`, and
   `manual` is the only ordering that reads it.
+- **`upcomingKey(hobby)` is `['library', hobby, 'upcoming']`, and it sits where a status sits** —
+  beside `'years'` and the search strip's `'ids'`. That placement is what makes it reachable from the
+  `['library', hobby]` prefix an add, a remove and a drawer write all settle on, and unreachable from
+  the narrower `['library', hobby, from]` a move uses. **So a move has to name it, exactly as it has
+  to name `'years'`.** The calendar is the other half of the Backlog column, and a card's menu can
+  move a title out of it and back; settle only the two column keys and the section goes on showing a
+  title that is no longer waiting, until something unrelated happens to refetch.
 - `mediaKey(hobby, mediaId)` is `['media', hobby, mediaId]` — one title's journal. The drawer reads
   it; **the board writes to it**, because a transition stamps `started_at` and can insert a whole new
   entry. It was `gameKey(mediaId)`, keyed on the id alone: media ids are unique across hobbies, so

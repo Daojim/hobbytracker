@@ -102,6 +102,9 @@ export const ANIME: HobbyDefinition = {
           // on the title being added. The romaji name is under the English one, in the order
           // the card will show them, and the cour says which of several entries this is.
           byline: [other ?? '', seasonAndYear(anime.startSeason, anime.startYear) ?? ''],
+          // No release window: MAL is not asked for one, so this hobby has no calendar for a
+          // tile to offer. See HobbyDefinition.releases.
+          release: null,
         };
       }),
   },
@@ -154,6 +157,11 @@ export const ANIME: HobbyDefinition = {
     describe: (_season, episode) =>
       episode === null ? 'Not started' : `Episode ${episode}`,
   },
+
+  // No release calendar: this hobby's provider is not asked for a release window, so
+  // nothing ever fills the columns the board would partition Backlog on. Turning it on is this
+  // block plus that provider work, in one commit — see HobbyDefinition.releases.
+  releases: null,
 };
 
 /**

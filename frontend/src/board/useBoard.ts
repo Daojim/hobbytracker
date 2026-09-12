@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
-import { columnKey, mediaKey, yearFor, yearsKey } from './keys';
+import { columnKey, mediaKey, upcomingKey, yearFor, yearsKey } from './keys';
 import { BOARD_STATUSES } from '../hobbies';
 import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
@@ -132,6 +132,12 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       // it is not offered until a reload. The column keys above cannot cover it: 'years' is not
       // a status, so no prefix of theirs reaches it.
       void queryClient.invalidateQueries({ queryKey: yearsKey(hobby) });
+
+      // And the calendar, for exactly that reason again. It is the other half of the Backlog
+      // column — the entries whose title is not out yet — so moving an unreleased title out of
+      // Backlog or back into it changes what belongs on it. `'upcoming'` sits where a status
+      // sits, so the two column keys above reach it no more than they reach `'years'`.
+      void queryClient.invalidateQueries({ queryKey: upcomingKey(hobby) });
     },
   });
 

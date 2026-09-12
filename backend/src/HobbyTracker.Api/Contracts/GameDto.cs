@@ -32,9 +32,27 @@ public sealed record GameDto(
     decimal? HltbAllStylesHours,
     decimal? HltbMainStoryHours,
     decimal? HltbMainExtraHours,
-    decimal? HltbCompletionistHours)
+    decimal? HltbCompletionistHours,
+
+    /// <summary>
+    /// Whether IGDB says this is out, and the window it announced.
+    ///
+    /// <para>
+    /// <b><see cref="Released"/> is answered here rather than left to the client, and that is
+    /// the point of it.</b> It is the same question the Backlog column is partitioned on, so a
+    /// second copy of the rule on the other side of the wire would be free to disagree — and the
+    /// visible failure is a search tile offering to add a title to the calendar that then lands
+    /// in the Backlog column, or the reverse. One rule, one place: <c>ReleaseWindow.NotOutOn</c>.
+    /// </para>
+    ///
+    /// A title nobody has asked IGDB about is <c>Released = true</c> with a null precision, which
+    /// is the same "never asked reads as out" rule the board runs on.
+    /// </summary>
+    bool Released,
+    DateOnly? ReleaseDate,
+    ReleasePrecision? ReleasePrecision)
 {
-    public static GameDto From(Game game) => new(
+    public static GameDto From(Game game, DateOnly today) => new(
         game.Id,
         game.Title,
         game.CoverUrl,
@@ -47,7 +65,14 @@ public sealed record GameDto(
         game.HltbAllStylesHours,
         game.HltbMainStoryHours,
         game.HltbMainExtraHours,
-        game.HltbCompletionistHours);
+        game.HltbCompletionistHours,
+
+        // Compiled and run in memory rather than translated, because this is one entity rather
+        // than a query. The same expression the board filters with, so the tile and the column
+        // cannot answer differently about one title.
+        ReleaseWindow.IsOut(game, today),
+        game.ReleaseDate,
+        game.ReleasePrecision);
 }
 
 /// <summary>

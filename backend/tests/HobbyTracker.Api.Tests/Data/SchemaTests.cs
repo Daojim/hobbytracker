@@ -823,6 +823,182 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         (await WithDbAsync(db => db.Media.CountAsync(Ct))).ShouldBe(2);
     }
 
+    [Fact]
+    public async Task A_title_nobody_has_asked_about_has_no_release_window()
+    {
+        // The deploy-day contract, asserted at the cheapest layer there is. A migration adds
+        // these columns as null on every row that already exists, and null has to keep meaning
+        // "never asked" for ever after — because the partition above reads that as *released*
+        // and leaves the title in Backlog. Anything else empties every existing board.
+        var mediaId = await GivenAGameAsync();
+
+        var stored = await WithDbAsync(db =>
+            db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct));
+
+        stored.ReleaseDate.ShouldBeNull();
+        stored.ReleaseEnd.ShouldBeNull();
+        stored.ReleasePrecision.ShouldBeNull();
+        stored.ReleaseStatus.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Stores_a_release_window_at_the_precision_it_was_announced_at()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var media = await db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            media.ReleaseDate = new DateOnly(2027, 1, 1);
+            media.ReleaseEnd = new DateOnly(2027, 3, 31);
+            media.ReleasePrecision = ReleasePrecision.Quarter;
+            media.ReleaseStatus = ReleaseStatus.Rumored;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await WithDbAsync(db =>
+            db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct));
+
+        stored.ReleaseDate.ShouldBe(new DateOnly(2027, 1, 1));
+        stored.ReleaseEnd.ShouldBe(new DateOnly(2027, 3, 31));
+        stored.ReleasePrecision.ShouldBe(ReleasePrecision.Quarter);
+        stored.ReleaseStatus.ShouldBe(ReleaseStatus.Rumored);
+    }
+
+    [Fact]
+    public async Task Accepts_a_release_date_nobody_has_announced_anything_about()
+    {
+        // "Asked, and IGDB said TBD" — a different claim from "never asked", and the whole
+        // reason the precision is a column of its own rather than an inference from the dates
+        // being null.
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var media = await db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            media.ReleasePrecision = ReleasePrecision.Unknown;
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await WithDbAsync(db =>
+            db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct));
+
+        stored.ReleasePrecision.ShouldBe(ReleasePrecision.Unknown);
+        stored.ReleaseDate.ShouldBeNull();
+        stored.ReleaseEnd.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Rejects_a_release_window_written_half_finished()
+    {
+        // The failure this constraint exists for is silent and permanent: a precision with no
+        // end never passes `release_end <= today`, so the title sits in the calendar for ever
+        // with nothing anywhere saying why. Unreachable beats unlikely.
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var media = await db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            media.ReleaseDate = new DateOnly(2027, 3, 1);
+            media.ReleasePrecision = ReleasePrecision.Month;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_media_release_window");
+    }
+
+    [Fact]
+    public async Task Rejects_a_release_date_with_no_precision_to_read_it_at()
+    {
+        // The other half of the same rule, and the one that would quietly re-create the
+        // ambiguity: a date with no precision is indistinguishable from a title nobody asked
+        // about, so it would read as released whatever day it carries.
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var media = await db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            media.ReleaseDate = new DateOnly(2027, 3, 12);
+            media.ReleaseEnd = new DateOnly(2027, 3, 12);
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_media_release_window");
+    }
+
+    [Fact]
+    public async Task Rejects_a_release_window_that_ends_before_it_starts()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var media = await db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            media.ReleaseDate = new DateOnly(2027, 3, 31);
+            media.ReleaseEnd = new DateOnly(2027, 3, 1);
+            media.ReleasePrecision = ReleasePrecision.Month;
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_media_release_window");
+    }
+
+    [Fact]
+    public async Task A_release_date_is_a_day_rather_than_an_instant()
+    {
+        // The column type is the enforcement, and it is worth asserting because the habit in
+        // this codebase is timestamptz. A publisher announces a calendar day belonging to no
+        // timezone; written to timestamptz it would be accepted, and the journal zone would
+        // then render 26 September as the 25th. See **Time** in docs/data-model.md.
+        var types = await WithDbAsync(async db =>
+        {
+            await db.Database.OpenConnectionAsync(Ct);
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText =
+                "select column_name, data_type from information_schema.columns "
+                + "where table_name = 'media' and column_name in ('release_date', 'release_end') "
+                + "order by column_name";
+
+            var found = new List<string>();
+            await using var reader = await command.ExecuteReaderAsync(Ct);
+            while (await reader.ReadAsync(Ct))
+            {
+                found.Add($"{reader.GetString(0)}:{reader.GetString(1)}");
+            }
+
+            return found;
+        });
+
+        types.ShouldBe(["release_date:date", "release_end:date"]);
+    }
+
+    [Fact]
+    public async Task Release_precision_is_stored_as_readable_text()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var media = await db.Media.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            media.ReleasePrecision = ReleasePrecision.Quarter;
+            media.ReleaseDate = new DateOnly(2027, 1, 1);
+            media.ReleaseEnd = new DateOnly(2027, 3, 31);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await WithDbAsync(async db =>
+        {
+            await db.Database.OpenConnectionAsync(Ct);
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "select release_precision from media limit 1";
+            return (string?)await command.ExecuteScalarAsync(Ct);
+        });
+
+        // An int ordinal here would mean reordering ReleasePrecision silently reinterprets
+        // every row — LogStatus is stored as text for this reason exactly.
+        stored.ShouldBe("Quarter");
+    }
+
     private async Task<int> GivenAnAnimeAsync(
         string externalId = "1",
         int? episodes = null,

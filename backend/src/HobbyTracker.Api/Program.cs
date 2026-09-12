@@ -161,6 +161,16 @@ builder.Services.AddHttpClient<IHltbClient, HltbClient>((serviceProvider, client
 builder.Services.AddSingleton<IHltbQueue, HltbQueue>();
 builder.Services.AddHostedService<HltbWorker>();
 
+// The release calendar's nightly sweep. The second background worker and the first driven by a
+// clock rather than by a queue — which is why it needs switching off in the end-to-end run where
+// the other does not. See ReleaseRefreshWorker.
+builder.Services.AddOptions<ReleaseRefreshOptions>()
+    .Bind(builder.Configuration.GetSection(ReleaseRefreshOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddHostedService<ReleaseRefreshWorker>();
+
 builder.Services.AddScoped<IHltbService, HltbService>();
 
 // What happens when a title first reaches a board. One per hobby, and the order they are

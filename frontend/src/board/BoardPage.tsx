@@ -7,6 +7,7 @@ import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column } from './Column';
+import { ComingSoon } from './ComingSoon';
 import { EntryDrawer } from '../journal/EntryDrawer';
 import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { useBoard } from './useBoard';
@@ -199,6 +200,24 @@ function Board({ hobby }: { hobby: Hobby }) {
             </DndContext>
           </>
         )}
+
+        {/* Under the board and outside the DndContext, because it is a view of Backlog rather
+            than a place a card can be dropped: an unreleased title is a real Backlog entry, and
+            this draws the ones that are not out yet on a time axis instead of in the well.
+
+            Outside the years gate above as well. The calendar has nothing to do with which year
+            the board is reading — everything on it is in the future, and Backlog is exempt from
+            the year anyway — so waiting on that query would hold it back for no reason.
+
+            Deliberately not inside `data-board`: the e2e card() locator is scoped there so a
+            search result cannot answer to it, and a calendar row must not either. */}
+        <ComingSoon
+          hobby={hobby}
+          onOpen={(mediaId) => {
+            openedFrom.current = mediaId;
+            openJournal(mediaId);
+          }}
+        />
       </div>
 
       {journalFor !== null && (
