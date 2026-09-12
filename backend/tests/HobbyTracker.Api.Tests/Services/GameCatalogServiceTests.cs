@@ -397,21 +397,38 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
     }
 
     [Fact]
-    public async Task A_search_result_IGDB_has_no_date_for_reads_as_out()
+    public async Task A_search_result_IGDB_has_no_date_for_reads_as_undated_rather_than_out()
     {
-        // The tile end of the measured distinction. IGDB carries a great many obscure titles
-        // with no date and no release_dates rows at all, and those are games that exist — so
-        // they get no window, offer a plain Add, and land in Backlog where they belong.
+        // The tile end of it. Stellar Blade: Blood Rain comes back from IGDB with no date and no
+        // release_dates rows at all, and the tile has to offer the calendar rather than a plain
+        // Add — because the row it creates lands on the calendar, and the two must agree.
         //
-        // A game IGDB models as announced-and-undated carries explicit TBD rows instead, and the
-        // case below is that one.
-        Igdb.SetResults("obscure", FakeIgdbClient.Game(94975, "Wubble Bubbles"));
+        // This asserted the opposite until 12 September 2026, when the shape was read as an
+        // obscure title nobody had filled in. See IgdbRelease.WindowOf for the measurement.
+        Igdb.SetResults("stellar", FakeIgdbClient.Game(347557, "Stellar Blade: Blood Rain"));
 
-        var results = await SearchAsync("obscure");
+        var results = await SearchAsync("stellar");
+
+        var found = results.ShouldHaveSingleItem();
+        found.Released.ShouldBeFalse();
+        found.ReleasePrecision.ShouldBe(ReleasePrecision.Unknown);
+        found.ReleaseDate.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_search_result_IGDB_calls_a_rumour_reads_as_out_however_undated_it_is()
+    {
+        // The one exception, and the reason the tile cannot infer this from the date. Half-Life 3
+        // is as undated as the title above and goes the other way, because the calendar is for
+        // things that were announced.
+        Igdb.SetResults("half-life",
+            FakeIgdbClient.Game(28029, "Half-Life 3", gameStatus: "Rumored"));
+
+        var results = await SearchAsync("half-life");
 
         var found = results.ShouldHaveSingleItem();
         found.Released.ShouldBeTrue();
-        found.ReleasePrecision.ShouldBeNull();
+        found.ReleasePrecision.ShouldBe(ReleasePrecision.Unknown);
     }
 
     private async Task<IReadOnlyList<Api.Contracts.GameDto>> SearchAsync(string search, int? limit = null)

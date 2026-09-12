@@ -157,6 +157,41 @@ public sealed class ComingSoonTests(PostgresFixture postgres) : DatabaseTestBase
     }
 
     [Fact]
+    public async Task A_rumoured_title_stays_in_the_backlog_rather_than_the_calendar()
+    {
+        // The mirror of the case above, and it goes the other way. Cancelled and Rumored sat in
+        // the same set until 12 September 2026, on the reading that neither is arriving on the
+        // date it names. They are different claims: a cancelled title *was* announced and the
+        // calendar is where you learn it is dead, where a rumour was never announced by anybody
+        // who would know. Half-Life 3 on a calendar of things that are coming makes the calendar
+        // mean less.
+        //
+        // Measured: IGDB marks 21 of its 53,096 undated titles Rumored, and they are exactly
+        // Half-Life 3, The Last of Us Part III, BioShock 4 and their kind.
+        var mediaId = await GivenGameAsync("Half-Life 3");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        await GivenReleaseWindowAsync(mediaId, null, ReleasePrecision.Unknown, ReleaseStatus.Rumored);
+
+        (await BacklogAsync()).Items.ShouldHaveSingleItem().MediaId.ShouldBe(mediaId);
+        (await UpcomingAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_rumour_is_out_even_when_its_announced_date_has_not_come()
+    {
+        // The clause order matters. A rumour with a future date must be filed by its status and
+        // not by its window, or the ten Rumored titles an IGDB editor happened to give a TBD row
+        // would behave differently from the twenty-one who got none.
+        var mediaId = await GivenGameAsync("Bloodborne 2");
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        await GivenReleaseWindowAsync(
+            mediaId, new DateOnly(2027, 4, 1), ReleasePrecision.Day, ReleaseStatus.Rumored);
+
+        (await BacklogAsync()).Items.ShouldHaveSingleItem().MediaId.ShouldBe(mediaId);
+        (await UpcomingAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task Narrows_the_backlog_and_leaves_the_other_three_columns_alone()
     {
         // An unreleased title in Playing is somebody recording an early build, and it belongs
@@ -257,6 +292,8 @@ public sealed class ComingSoonTests(PostgresFixture postgres) : DatabaseTestBase
                 ReleasePrecision.Day, ReleaseStatus.EarlyAccess),
             await GivenReadyToShipAsync("Never Coming", "8", new DateOnly(2016, 4, 1),
                 ReleasePrecision.Year, ReleaseStatus.Cancelled),
+            await GivenReadyToShipAsync("Only A Rumour", "9", null,
+                ReleasePrecision.Unknown, ReleaseStatus.Rumored),
         };
 
         var inColumn = (await BacklogAsync()).Items.Select(item => item.MediaId).ToList();

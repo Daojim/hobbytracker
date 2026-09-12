@@ -91,13 +91,18 @@ the column in `media` too and leaves the base table with no `id` at all.
   touches one table. The dividend shows up in `LibraryService`: unlike `Genres` and `LengthHours`,
   these need no `?? (row.Media as X)!` chain extending when a fifth hobby arrives.
 - **`release_precision` has three states and the third is `NULL`.** `Day`/`Month`/`Quarter`/`Year`
-  is a known window; `Unknown` is *the provider was asked and says it is announced but undated*;
-  and **`NULL` is *no window is known*, which reads as released.** That last one covers both a row
-  written before this feature existed and a title the provider has no date for at all — measured,
-  IGDB carries a great many of those and they are obscure games that shipped years ago, not
-  upcoming ones. Getting it backwards empties every existing board's Backlog column on deploy day
-  with no error anywhere. It is `games.hltb_checked_at`'s distinction, and it also decides what the
-  nightly sweep asks about: re-asking about titles with no window never terminates.
+  is a known window; `Unknown` is *the provider was asked and had no date*; and **`NULL` is *nobody
+  has asked a provider*, which reads as released.** Getting that backwards empties every existing
+  board's Backlog column on deploy day with no error anywhere. It is `games.hltb_checked_at`'s
+  distinction, and it also decides what the nightly sweep asks about: re-asking about titles with
+  no window never terminates.
+
+  **`NULL` covered a second case until 12 September 2026, and no longer does.** A title IGDB had no
+  date for at all was written as `NULL` too, on the measured reading that those are obscure games
+  that shipped years ago. Measured again, they are not — see **The second row of that table was two
+  rows** in `docs/games-igdb.md`. Such a title is now `Unknown` like any other undated one, so no
+  provider mapping writes `NULL`: it is only ever the state a row is created in. The two claims no
+  longer share a shape, which is what the enum's own doc comment always said they did not.
 - **`release_date` and `release_end` are both ends of the announced window, truncated to its
   unit.** `Q1 2027` is 1 January to 31 March, and the calendar sorts on the first while printing
   neither. `release_end` exists so "is it out" is one indexable comparison rather than date

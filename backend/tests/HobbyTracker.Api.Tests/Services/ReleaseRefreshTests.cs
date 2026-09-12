@@ -37,9 +37,15 @@ public sealed class ReleaseRefreshTests(PostgresFixture postgres) : DatabaseTest
         await GivenGameWithWindowAsync("Coming Soon", "300", new DateOnly(2027, 4, 1), ReleasePrecision.Day);
         await GivenGameWithWindowAsync("No Date Yet", "400", null, ReleasePrecision.Unknown);
 
+        // A rumour is undated for ever by construction, so it is the one shape that would put
+        // the non-termination above back — this time through the status rather than the nulls.
+        // It is off the calendar, so it is off the sweep, and the two follow from one expression.
+        await GivenGameWithWindowAsync(
+            "Only A Rumour", "500", null, ReleasePrecision.Unknown, ReleaseStatus.Rumored);
+
         await RefreshUnreleasedAsync();
 
-        // Both of the unreleased ones, and neither of the others.
+        // Both of the unreleased ones, and none of the other three.
         Igdb.IdLookups.ShouldHaveSingleItem().Order().ShouldBe([300, 400]);
     }
 
@@ -176,7 +182,11 @@ public sealed class ReleaseRefreshTests(PostgresFixture postgres) : DatabaseTest
     });
 
     private async Task<int> GivenGameWithWindowAsync(
-        string title, string externalId, DateOnly? day, ReleasePrecision? precision)
+        string title,
+        string externalId,
+        DateOnly? day,
+        ReleasePrecision? precision,
+        ReleaseStatus? status = null)
     {
         var mediaId = await GivenGameAsync(title, externalId: externalId);
         await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
@@ -194,6 +204,7 @@ public sealed class ReleaseRefreshTests(PostgresFixture postgres) : DatabaseTest
             media.ReleaseDate = window.Start;
             media.ReleaseEnd = window.End;
             media.ReleasePrecision = window.Precision;
+            media.ReleaseStatus = status;
             await db.SaveChangesAsync(Ct);
         });
 

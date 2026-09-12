@@ -182,6 +182,26 @@ describe('ComingSoon', () => {
     ).toBeInTheDocument();
   });
 
+  it('says only Hide, and says the rest to a screen reader', async () => {
+    // The heading is right beside it saying "Coming soon", so repeating that in the button is
+    // noise on screen. It is not noise off screen: a screen reader reaches the button without
+    // the heading in hand, and "Hide" alone would be the third such button on the page.
+    //
+    // So the visible word narrows and the accessible name does not, which is also why the
+    // e2e spec's `getByRole('button', { name: 'Hide Coming soon' })` still finds it.
+    renderCalendar([upcomingItem('Silksong II', '2026-11-03')]);
+
+    const fold = await screen.findByRole('button', { name: 'Hide Coming soon' });
+
+    expect(fold).toHaveTextContent(/^Hide$/);
+
+    await userEvent.click(fold);
+
+    expect(await screen.findByRole('button', { name: 'Show Coming soon' })).toHaveTextContent(
+      /^Show$/,
+    );
+  });
+
   it('opens a title the way a card does', async () => {
     boardServer({ upcoming: [upcomingItem('Silksong II', '2026-11-03')] });
 
