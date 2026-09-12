@@ -52,10 +52,26 @@ function Board({ hobby }: { hobby: Hobby }) {
   // Per column, not board-wide: Completed is worth reading by rating while Backlog stays in the
   // order you put it in.
   const [sorts, setSorts] = useState<Record<LogStatus, LibrarySort>>(ALL_MANUAL);
-  // Which year the board is showing. `null` is "not chosen yet", which is a different state
-  // from `{ year: undefined }` — that one is All years, an answer somebody gave. Until a choice
-  // is made the board opens on the latest year there is, because the year you are in is the one
-  // you are adding to.
+  // Which year the board is showing, when nobody has said: the latest year there is — or the
+  // last one there was, once the list has nothing in it at all.
+  //
+  // **Following it is right and the empty list is the exception.** The list is derived from
+  // timestamps a move writes *and clears*, so it moves in both directions and the board has to
+  // go with it both ways: replaying a game finished in 2024 starts a pass dated now, and
+  // deleting that pass takes the year away again — a board that would not follow either way
+  // answers the gesture by putting the card it is about off screen.
+  //
+  // An empty list is the one case where following says nothing and costs something. No year
+  // existing means nothing anywhere carries a timestamp, so every logged title is in Backlog,
+  // which is exempt from the year — the board reads identically under 2026 and under *All
+  // years*, and the only thing that changes is what the control claims. It used to flip to All
+  // years on the drag that emptied it, which moves three columns onto a different cache entry
+  // for no visible gain: that is how a card ended up mounted in two columns at once, and see
+  // `useBoard` for what that did to it. See YearPicker for the other half of this, which is
+  // that a year the board is reading stays on offer after the list has dropped it.
+  const [followed, setFollowed] = useState<number | undefined>(undefined);
+  // And what the reader said, which outranks all of that. `null` is "they have not said", a
+  // different state from `{ year: undefined }` — that one is All years, an answer somebody gave.
   const [chosen, setChosen] = useState<{ year?: number } | null>(null);
   // Dropped is a record, not a queue. It starts out of the way and opens when asked for.
   const [droppedOpen, setDroppedOpen] = useState(false);
@@ -88,7 +104,15 @@ function Board({ hobby }: { hobby: Hobby }) {
     queryFn: () => activityYears(hobby),
   });
 
-  const year = chosen !== null ? chosen.year : years?.[0];
+  // Set during render, which is React's own way of adjusting state to something that arrived
+  // from outside — an effect would paint one board with no year and refetch four columns on the
+  // way to the one it was always going to show.
+  const latest = years?.[0];
+  if (latest !== undefined && latest !== followed) {
+    setFollowed(latest);
+  }
+
+  const year = chosen !== null ? chosen.year : followed;
 
   const board = useBoard({ hobby, sorts, year });
 

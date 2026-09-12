@@ -255,6 +255,25 @@ existence — and the column keys cannot cover it, because `'years'` is not a st
 theirs reaches it. Without that line the first title finished in a new year vanishes from the board it
 was on and the year that would show it is not offered until a reload.
 
+**The board follows that list both ways, and holds only when it empties.** A move writes a
+timestamp *and clears* one, so the list moves in both directions and the board has to go with it:
+replaying a game finished in 2024 starts a pass dated now, and deleting that pass takes the year
+away again — a board that would not follow either way answers the gesture by putting the card it
+is about off screen. Both directions are pinned in `BoardPage.test.tsx`, and both were found by
+`board.spec.ts` and `journal.spec.ts` going red rather than by argument.
+
+**An empty list is the exception, and that is the bug this rule exists for.** No year at all means
+nothing anywhere carries a timestamp, so every logged title is in Backlog — which is exempt from
+the year — and the board reads identically under 2026 and under *All years*. The only thing that
+changes is what the control claims. It used to flip: drag the only title from Backlog to Completed
+and the picker went to 2026, drag it back and it went to *All years*, with nobody having asked.
+That moves three columns onto a different cache entry for no visible gain, and see **A card
+mounted twice** below for what it cost. `followed` in `BoardPage` holds the last year there was;
+**`YearPicker` keeps it on offer**, on the platform select's rule, because a `<select>` holding a
+value it has no option for renders blank — so the control would report no year at all. Put in
+its place rather than appended, and the list is not re-sorted: the API hands these over newest
+first and knows things the picker does not.
+
 **The board renders nothing until the years arrive.** Deliberate rather than a missing loading state:
 it opens on the latest year, so painting before they are known is a board showing every year — briefly
 — with four columns refetched on the way to the one it was always going to be. `YearPicker` is
@@ -324,6 +343,13 @@ What a caller has to know:
   key**, because a column has one cache entry per sort and year and the exact key only reaches
   whichever one is on screen. **A reorder keeps the exact key on purpose**: it writes `position`, and
   `manual` is the only ordering that reads it.
+- **A move also *removes* those two prefixes' inactive entries, and invalidating is not enough on
+  its own.** `invalidateQueries` refetches only the entry with an observer; the rest are marked
+  stale, and a stale entry is still **rendered** the moment something switches onto it. So
+  changing a sort or a year after a move puts the card back in the column it left while it also
+  sits in the one it went to. Dropping them is honest as well as cheap: their ordering is the
+  server's to decide and there is no knowing where the card would have landed in it. See **A card
+  mounted twice**.
 - **`upcomingKey(hobby)` is `['library', hobby, 'upcoming']`, and it sits where a status sits** —
   beside `'years'` and the search strip's `'ids'`. That placement is what makes it reachable from the
   `['library', hobby]` prefix an add, a remove and a drawer write all settle on, and unreachable from
@@ -380,3 +406,54 @@ Traps, all of which have bitten already:
 - The three timestamp traps are in **Time** in `docs/data-model.md`, and all fail quietly or as
   a 500.
 
+
+### A card mounted twice
+
+**One media id is one dnd-kit registration, and the second mount is the one that ends up in the
+map.** `useDraggable` writes `draggableNodes.set(id, { id, key, node })` in a layout effect whose
+deps are `[draggableNodes, id]` — so a second card with the same id overwrites the first, and
+neither of them ever re-registers while it stays mounted. Its cleanup is guarded on the *key*:
+
+```js
+return () => {
+  const node = draggableNodes.get(id);
+  if (node && node.key === key) {
+    draggableNodes.delete(id);
+  }
+};
+```
+
+That guard is right for a remount and wrong for a duplicate. The second card holds the entry, so
+when it unmounts the guard passes and the entry is deleted — and the entry it deletes now belongs
+to the card still on screen. `bindActivatorToSensorInstantiator` then reads
+`draggableNodes.get(active)`, finds nothing, and returns before any sensor is instantiated.
+
+**The card is visible, in the right column, and cannot be dragged. Nothing errors, nothing logs,
+and only a reload fixes it** — because only a reload remounts it.
+
+**How two of them got on screen.** Reported as: drag the only title from Backlog to Completed on a
+board with nothing else logged, drag it back, and it is stuck. The year picker went to 2026 on the
+way out and to *All years* on the way back, which moved three columns onto a different cache entry
+— and one of those entries had been left holding the card where it used to be. The board rendered
+it in two places for as long as the refetch took. **Both halves are fixed and both were worth
+fixing**: the board no longer flips to *All years* when the list of years empties, and a move now
+drops the inactive views of the two columns it touched rather than merely marking them stale. The
+second is the one that matters, because the year was only the path somebody happened to find —
+switching a column's sort back to one it had before a move reaches the same stale entry.
+
+**Two things about testing it, and the first cost an hour.**
+
+- **`renderWithProviders` sets `gcTime: 0`, which makes this class of bug unreproducible in
+  jsdom.** A query is collected the instant its last observer goes, so a board can never be handed
+  an entry it left behind. The first version of the regression test passed against the unfixed
+  code and said nothing. `keepsCache: true` is the opt-in, and it is the only test in the suite
+  that asks for it — everything else is better off without a query outliving its test.
+- **The assertion has to be the next thing after the render.** `userEvent` awaits a macrotask on
+  its way out, which is long enough for the refetch to land and tidy the evidence away; a
+  `waitFor` would happily wait out the moment the board held two of it. `fireEvent.change` on the
+  sort select, then `getAllByRole` immediately. The damage is a mount and an unmount, however
+  briefly the second card is on screen.
+
+**The e2e spec is the one that proves the symptom.** *A card dragged out of Backlog and back can be
+dragged again* in `board.spec.ts` drags it a third time, with no reload anywhere in it. Checked
+red: with both fixes reverted, that third drag leaves the card exactly where it was.

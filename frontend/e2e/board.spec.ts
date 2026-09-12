@@ -10,6 +10,7 @@ import {
   seed,
   setSort,
   titlesIn,
+  today,
 } from './support/board';
 
 /**
@@ -329,6 +330,44 @@ test('sorting is a view, and leaves the ranking alone', async ({ page }) => {
     .getByRole('combobox', { name: 'Backlog order' })
     .selectOption('manual');
   await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(before);
+});
+
+test('a card dragged out of Backlog and back can be dragged again', async ({ page }) => {
+  // The whole of this one is in a real browser or nowhere. On a board where nothing has been
+  // started or finished there is no year to read, so the picker opens on All years — and the
+  // drag into Completed stamps a completion, which brings 2026 into existence. Dragging back
+  // to Backlog clears it again, and the year the board is showing used to follow that list
+  // both ways.
+  //
+  // The card was then in the right column and could not be dragged. Three columns change cache
+  // entry when the year moves, and one of those entries still held the card where it used to
+  // be — so for a moment the board had two of it, which is one dnd-kit registration made twice
+  // and unmade once. Nothing looked wrong, and only a reload fixed it.
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  const picker = page.getByRole('combobox', { name: 'Year' });
+  await expect(picker).toHaveValue('');
+
+  await drag(page, card(page, 'Celeste'), column(page, 'Completed'));
+  await expect(column(page, 'Completed').getByText('Celeste')).toBeVisible();
+
+  // The year the completion was stamped in, read off the journal clock rather than off this
+  // machine's: a drag at 8pm on New Year's Eve belongs to the year it was evening in here.
+  const thisYear = today().slice(0, 4);
+  await expect(picker).toHaveValue(thisYear);
+
+  await drag(page, card(page, 'Celeste'), column(page, 'Backlog'));
+  await expect(column(page, 'Backlog').getByText('Celeste')).toBeVisible();
+
+  // The year holds, rather than reverting to All years because the list it came from emptied.
+  // Loosely ordered against the refetch that empties it, so BoardPage.test.tsx is what actually
+  // pins the rule — this is here because the two halves belong to one story.
+  await expect(picker).toHaveValue(thisYear);
+
+  // And the card is still a card. No reload between here and the drag that came back.
+  await drag(page, card(page, 'Celeste'), column(page, 'Completed'));
+  await expect(column(page, 'Completed').getByText('Celeste')).toBeVisible();
 });
 
 test('the board opens on the latest year there is', async ({ page }) => {

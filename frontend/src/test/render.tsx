@@ -27,6 +27,13 @@ import { useBoardSensors } from '../board/sensors';
  * BoardPage takes its hobby out of the address now. A MemoryRouter alone matches nothing, so
  * without it the params are empty and the page redirects instead of rendering, which reads as
  * the board being broken rather than as the harness not having said where it is.
+ *
+ * `keepsCache` is the one default here that hides bugs rather than merely simplifying tests.
+ * `gcTime: 0` drops a query the instant its last observer goes, so a board can never be shown
+ * an entry it left behind — which is a whole class of staleness the app really does have, and
+ * the one a card's second column comes from. A test about what the cache is left holding has to
+ * ask for the real thing; everything else is better off without it, since a query outliving its
+ * test is a test that passes because of the one before it.
  */
 export function renderWithProviders(
   ui: ReactElement,
@@ -34,11 +41,12 @@ export function renderWithProviders(
     dnd = false,
     route = '/board/games',
     path,
-  }: { dnd?: boolean; route?: string; path?: string } = {},
+    keepsCache = false,
+  }: { dnd?: boolean; route?: string; path?: string; keepsCache?: boolean } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
-      queries: { retry: false, staleTime: 0, gcTime: 0 },
+      queries: { retry: false, staleTime: 0, ...(keepsCache ? {} : { gcTime: 0 }) },
       mutations: { retry: false },
     },
   });

@@ -122,6 +122,21 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // And `['games', mediaId]`, which is what the drawer reads: a transition stamps started_at
     // and can insert an entry, so leaving it cached showed the pass as it was before the drag.
     onSettled: (_data, _error, { mediaId, from, to }) => {
+      // Stale is not enough for the views of these two columns that are not on screen.
+      // `invalidateQueries` refetches only the entry with an observer, and a stale entry is
+      // still *rendered* the moment something switches onto it — so changing a sort or a year
+      // puts the moved card back in the column it left while it also sits in the one it went
+      // to. Two cards, one media id.
+      //
+      // That is not a flicker to wait out. One media id is one dnd-kit registration: the second
+      // mount overwrites the first, and when it unmounts it deletes the entry — which by then
+      // belongs to the card still on screen. The survivor is visible, in the right column, and
+      // cannot be dragged at all until something remounts it, which in practice means reloading
+      // the page. Dropping the entries is honest as well as cheap: their ordering is the
+      // server's to decide and there is no knowing where the card would have landed in it.
+      queryClient.removeQueries({ queryKey: ['library', hobby, from], type: 'inactive' });
+      queryClient.removeQueries({ queryKey: ['library', hobby, to], type: 'inactive' });
+
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, from] });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, to] });
       void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
