@@ -23,6 +23,14 @@ for what a second hobby actually changed.
 
 Settled:
 
+- **The pass writes itself, and there is no Save button.** A pass is a handful of small
+  corrections — a rating, the date you finished, the episode you are on — and a button between
+  each of them and the record is a step nobody wants. A change arms a timer; the timer checks the
+  rules and sends every field. `AUTOSAVE_MS` is **500ms**, which has to outlast the gap between
+  two keys and must not outlast the reader's attention: a confirmation that arrives after they
+  have looked away is one they will never see, and the drawer can be shut by then. Three
+  consequences, each with its own bullet below: **a refused value stops the write**, **leaving a
+  field deliberately does not send it**, and **closing the drawer does**.
 - **No status control.** Dragging is the gesture that changes a column, and the rules about which
   entry that touches live on the server; a second way in would need its own copy of all of it.
 - **A field a hobby does not have is *absent*, not relabelled and not disabled.** A film's pass has
@@ -58,7 +66,9 @@ Settled:
 - **Everything belonging to the title sits in the header band, not the form.** The genre select, a
   film's Runtime, and the HowLongToBeat pin all describe the *title*, and `EntryForm` submits one
   `PUT` to the log-entry endpoint — putting any of them there would mean one form writing to two
-  places. The genre select saves on change; the pin does not — see **The pin**. They share a
+  places. The genre select saves on the change itself and without the pass's half-second pause,
+  because a `<select>` is one decision rather than a word being typed; the pin does not save on
+  change at all — see **The pin**. They share a
   **two-track grid** so their controls line up, `max-content` on the first track so the wider label
   sets the column without either naming a width — which would have been one magic number in two
   files agreeing by luck. **`HltbPin` therefore renders a label and a control as siblings rather
@@ -88,12 +98,35 @@ Settled:
   rules, as the header above and the notes below do, so it wears the uppercase the app already uses
   for one — the same type "Earlier passes" itself is set in. An earlier pass is a row *inside* that
   group, and matching it would nest two levels of the same shout.
-- **Delete sits on the Save row, hard right, through an `actions` slot on `EntryForm`.** It used to
-  sit under the form in the column every field label occupies, at the size every field label is set
-  in, saying one word — so it read as a heading for whatever came next rather than as a button. A
-  slot rather than a `ConfirmDelete` prop, because the form has no business knowing that deleting a
-  pass exists; what it owns is the row its own button is on. That row is `flex-wrap`, since a
-  confirm replaces one word with a sentence naming what it would take.
+- **Delete sits hard right on the row the Save button used to be on, through an `actions` slot on
+  `EntryForm`.** It used to sit under the form in the column every field label occupies, at the
+  size every field label is set in, saying one word — so it read as a heading for whatever came
+  next rather than as a button. A slot rather than a `ConfirmDelete` prop, because the form has no
+  business knowing that deleting a pass exists; what it owns is the row. That row is `flex-wrap`,
+  since a confirm replaces one word with a sentence naming what it would take. **The row survived
+  the button going**, holding *Saving…* / *Saved* at the left where it stood: the delete kept its
+  end, so the two things you can do to a pass are still at opposite ends of one line.
+- **Leaving a field does not send it; the timer decides, and closing the drawer is what cannot
+  wait.** A blur is one `focusout` per field, so flushing on it would be a write per stop while
+  tabbing across the form — and choosing a season, which clears the episode under it by rule,
+  would write *season 2, no episode* on the way to saying which episode. That one was **measured
+  rather than reasoned about**: the television spec went red on it. The unmount flush is what
+  covers the case a blur was there for, and it is the only hole a form that writes itself opens —
+  closing over an unpressed button was visibly your own doing, where closing half a second after
+  typing a rating is not, and the reader has no way of knowing which side of the delay they were
+  on.
+- **A write that fails for a reason no field owns says so where the confirmation would have
+  been.** A button that stayed a button said *not saved* on its own, and pressing it again was
+  the whole of the recovery; with nothing to press, the absence of a confirmation is the only
+  other signal and nobody reads an absence as an error. `saveError` on `EntryForm`, shown only
+  where `serverErrors` has nothing — a 400 that names its fields has already said this under each
+  of them.
+- **A value the rules refuse stops the write and leaves the form out of step with the server on
+  purpose.** That is what keeps the refused value on screen to be corrected: the re-seed below is
+  guarded on the form having nothing of its own to lose, so it would otherwise take an 8.75 away
+  and put the old rating back, half a second after it was typed and with the message still under
+  it. The `errors` state clears on the next attempt, so a corrected value sends and the message
+  goes with it.
 - **The wheel steps all three numbers, at the grain each control is for.** A notch on the rating bar
   is a whole point, on the exact-rating box a tenth, and on hours played half an hour — the same
   split the two rating controls already carry, where the bar is for finding roughly where a game
@@ -201,23 +234,45 @@ Settled:
 - **Focus goes back to the card's title button by id, not by a stored element.** Refetches remount the
   card while the drawer is open, so the node captured at open time is usually detached (`cardTitleId`
   in `src/board/Card.tsx`).
-- **The form is keyed on the values it was seeded from**, not on the entry's id — `entrySeed` in
-  `src/journal/fields.ts`. `useState` reads its initial value once, and a transition *edits the
-  current entry in place* rather than adding one, so the id holds still while the values change
-  underneath; keying on the id alone left a game just dragged to Playing showing an empty Started even
-  after the refetch had landed. The cost is that a refetch arriving mid-edit discards what was typed.
-- **A save says "Saved", and the flag cannot live in the form.** `EntryForm` is keyed on `entrySeed`,
-  so a save that changed anything remounts it — a flag set on success is destroyed by the very refetch
-  that confirms it, which is why the button appeared to snap straight back to *Save*. `saved` is held
-  in `EntryDrawer`, above the key, and is not read off `save.isSuccess` either: that stays true until
-  the next write, where this has to stop being true the moment a field is touched, so `onEdit` clears
-  it. `role="status"`, and not on a timer. One `onChange` on the `<form>` catches every field, because
-  React's synthetic events propagate through the tree.
+- **The form re-seeds from a changed pass rather than being rebuilt on a React key, and the
+  autosave is the whole reason.** It *was* keyed on the values it was seeded from — `entrySeed`,
+  now gone — because `useState` reads its initial value once and a transition *edits the current
+  entry in place* rather than adding one, so the id holds still while the values change
+  underneath; keying on the id alone left a game just dragged to Playing showing an empty Started
+  even after the refetch had landed. That is still the requirement. What changed is that a key
+  change is a **new set of DOM nodes**, and a form that writes itself is refetched half a second
+  after every keystroke — so the field being typed into would lose the keyboard on each write.
+  Assigning the same values to the inputs that already hold them costs a render and changes
+  nothing on screen. `key={current.id}` stays, because a *different* pass is a different form.
+- **`agreed` is one ref and it answers both questions.** `passValues(entry)` and the seven pieces
+  of state are each flattened to one string by `valuesKey`, and `held === agreed.current` is the
+  whole of "there is nothing here the server has not been told". It moves on exactly two
+  occasions: a write is sent, and the pass underneath is taken as the truth. The timer fires only
+  when they differ; the re-seed runs only when they agree — which is what stops a refetch
+  answering a save still in flight from putting the old rating back over what is being typed. A
+  field left out of `valuesKey` is a field a refetch cannot correct on screen, which is the bug
+  `entrySeed` was written for in its own words.
+- **The timer's handler comes out of a ref refreshed every render.** It is armed on the render
+  that changed a field and fires half a second later, by which time the pass underneath can have
+  been refetched — and `dateFieldValue` reads it to tell an untouched day from an edited one.
+  `useWheelStep` keeps the same ref for the same reason.
+- **A save says "Saved", and the flag lives in the drawer.** It went there because the form used
+  to be rebuilt by the refetch that confirmed the write, destroying a flag set on success — the
+  button appeared to snap straight back to *Save*. The form no longer remounts and the flag stays
+  there anyway, because it is the answer to a question about the write and the write is the
+  drawer's. Not read off `save.isSuccess`: that stays true until the next write, where this has to
+  stop being true the moment a field is touched, so `onEdit` clears it. One `role="status"` for
+  *Saving…* and *Saved* both, absent when there is nothing to say, and not on a timer. One
+  `onChange` on the `<form>` catches every field, because React's synthetic events propagate
+  through the tree.
 - **Its Playwright spec scopes `role="status"` to the dialog, and has to.** dnd-kit mounts a live
   region of its own to announce a drag, so the board behind carries a second `role="status"` — enough
   to fail a bare `getByRole('status')` as a strict-mode violation. The Vitest suite cannot show you
   that: it mounts the drawer without the board's `DndContext`, so the spec was green in jsdom and red
-  in a browser.
+  in a browser. `passSaved` in `e2e/support/board.ts` holds it, and every spec that corrects a
+  field now goes through it — waiting for that line is not politeness, it is the only thing
+  standing between the assertion and a request that has not been made yet. The one exception is
+  named in the spec that has it: a refusal never produces a confirmation to wait for.
 - **The Enter that accepts an IME candidate must not send the note.** An input method reports it as
   an ordinary key press, so without `event.nativeEvent.isComposing` a note typed in Japanese or
   Korean is sent halfway through its first word — and what was sent is a note rather than a draft,

@@ -5,6 +5,20 @@ import type { LogEntry } from '../api/types';
  * The two form fields whose rules are worth stating away from the markup.
  */
 
+/**
+ * How long a pass sits unsaved before it writes itself.
+ *
+ * There is no Save button: a pass is a handful of small corrections and a button between each of
+ * them and the record is a step nobody wants. The cost of that is a write per change, and this
+ * is what buys it back — "8.5" is three keystrokes and one decision, and the first of the three
+ * is a bare 8, which is a rating the server would accept and store.
+ *
+ * Half a second, because it has to outlast the gap between two keys and must not outlast the
+ * reader's attention: a confirmation that arrives after they have looked away is one they will
+ * never see, and the drawer can be closed by then.
+ */
+export const AUTOSAVE_MS = 500;
+
 /** Mirrors RatingAttribute on the server, word for word, so both sides say the same thing. */
 export const RATING_RULE = 'Rating must be between 1.0 and 10.0, with at most one decimal place.';
 
@@ -159,31 +173,59 @@ export function dateFieldValue(input: string, original: string | null): string |
   return input === '' ? null : input;
 }
 
+/** Every value the form holds, in the shape the inputs hold it — text, as an input and a select do. */
+export interface PassValues {
+  rating: string;
+  platform: string;
+  hours: string;
+  season: string;
+  episode: string;
+  started: string;
+  completed: string;
+}
+
 /**
- * What a form seeded from this entry would be holding — its id, and every value the inputs are
- * filled from.
+ * What a form seeded from this pass would be holding.
  *
- * Used as the form's React key. `useState` reads its initial value once, and a transition
- * *edits the current entry in place* rather than adding one, so keying on the id alone left a
- * game just dragged to Playing showing an empty Started when you reopened it. The id is still
- * in there so that opening a different pass with identical values is still a fresh form.
+ * The form takes these rather than being rebuilt on a React key, which is what it did while
+ * there was a Save button to press: a key change is a new set of DOM nodes, and a form that
+ * writes itself is refetched half a second after every keystroke — so the field being typed
+ * into would lose the keyboard on each write. Assigning the same values to the inputs that
+ * already hold them costs a render and changes nothing on screen.
  *
- * The cost is that a refetch landing mid-edit discards what was typed. It can only land after a
- * save of your own, or after a drag — and the drawer covers the board while it is open.
+ * A transition *edits the current entry in place* rather than adding one, so the id holds still
+ * while the values change underneath — which is why there is no shortcut through `entry.id`
+ * here. Opening a *different* pass is a different form, and the drawer's key says so.
  */
-export function entrySeed(entry: LogEntry): string {
+export function passValues(entry: LogEntry): PassValues {
+  return {
+    rating: entry.rating === null ? '' : String(entry.rating),
+    platform: entry.platform ?? '',
+    hours: entry.hoursPlayed === null ? '' : String(entry.hoursPlayed),
+    season: entry.seasonNumber === null ? '' : String(entry.seasonNumber),
+    episode: entry.episodeNumber === null ? '' : String(entry.episodeNumber),
+    started: journalDateInput(entry.startedAt),
+    completed: journalDateInput(entry.completedAt),
+  };
+}
+
+/**
+ * Those seven values as one thing to compare.
+ *
+ * Both questions the form asks about them are about all seven at once — is there anything the
+ * server has not been told, and does the pass on screen still say what the inputs say — so
+ * comparing them a field at a time is seven chances to leave one out. That is the bug the old
+ * `entrySeed` was written for in its own words: a field missing from the seed was a field a
+ * refetch could not correct on screen.
+ */
+export function valuesKey(values: PassValues): string {
   return [
-    entry.id,
-    entry.rating,
-    entry.platform,
-    entry.hoursPlayed,
-    entry.startedAt,
-    entry.completedAt,
-    // Both halves, and neither is optional here. The form is keyed on this string, so a field
-    // left out of it is a field a refetch cannot correct on screen — which is exactly the bug
-    // that made a game dragged to Playing keep showing an empty Started.
-    entry.seasonNumber,
-    entry.episodeNumber,
-  ]
-    .join('|');
+    values.rating,
+    values.platform,
+    values.hours,
+    values.season,
+    values.episode,
+    values.started,
+    values.completed,
+  ].join('|');
 }

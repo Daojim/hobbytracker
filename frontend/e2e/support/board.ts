@@ -197,6 +197,22 @@ export async function setSort(
 }
 
 /**
+ * Waits for the pass to write itself.
+ *
+ * There is no Save button: a change arms a timer, so a spec that corrected a field waits for
+ * the drawer to say the write landed rather than pressing anything. Skipping the wait is not
+ * merely slower — the assertion after it would be racing a request that has not been made yet.
+ *
+ * Scoped to the dialog, and it has to be: the board behind carries a role="status" of its own,
+ * since dnd-kit mounts a live region to announce a drag. A bare getByRole('status') matches
+ * both and fails as a strict-mode violation, which the Vitest suite cannot show you — it mounts
+ * the drawer without the board's DndContext around it.
+ */
+export async function passSaved(page: Page): Promise<void> {
+  await expect(page.getByRole('dialog').getByRole('status')).toHaveText('Saved');
+}
+
+/**
  * Writes a note on whichever pass has its compose box open — the current one, by default.
  *
  * The wait is scoped to the dialog, and has to be: a card carries the last thing you wrote

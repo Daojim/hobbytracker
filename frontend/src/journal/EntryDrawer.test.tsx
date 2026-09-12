@@ -10,11 +10,21 @@ import { animeDetail, animeJournalServer } from '../test/anime';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { mediaKey } from '../board/keys';
+import { AUTOSAVE_MS } from './fields';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Exact rating' });
 const slider = () => screen.getByRole('slider', { name: 'Rating' });
 const started = () => screen.getByLabelText('Started');
-const save = () => screen.getByRole('button', { name: 'Save' });
+
+/**
+ * How long a test waits for a write it pressed nothing to make.
+ *
+ * The pass saves itself, and holds a change for {@link AUTOSAVE_MS} before sending it so that a
+ * word being typed is one write rather than one per letter. A bare `waitFor` would be racing the
+ * interval the form is deliberately waiting out, so the allowance is derived from the constant
+ * rather than written down a second time — which is the only way the two cannot drift apart.
+ */
+const autosaves = { timeout: AUTOSAVE_MS + 1000 };
 
 function open(mediaId = 3003, onClose = vi.fn()) {
   return { onClose, ...renderWithProviders(<EntryDrawer hobby="games" mediaId={mediaId} onClose={onClose} />) };
@@ -54,9 +64,8 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
-    await userEvent.click(save());
 
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.id).toBe(7);
     expect(journal.saved[0]?.body).toEqual({
       status: 'InProgress',
@@ -70,10 +79,99 @@ describe('EntryDrawer', () => {
     });
   });
 
-  it('says it saved, and keeps saying it through the refetch that remounts the form', async () => {
-    // The form is keyed on the values it was seeded from, so a save that changed anything
-    // remounts it — which is exactly where a "Saved" held inside the form would be destroyed
-    // half a second after appearing. The drawer holds it, above the key, for that reason.
+  it('saves a change on its own, and offers no button to ask it with', async () => {
+    // A pass is a handful of small corrections — a rating, a date, the season you are on — and
+    // a button between each of them and the record is a step nobody wants. The write goes on a
+    // timer instead, so the button has nothing left to do and is gone.
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+    expect(journal.saved[0]?.body.rating).toBe(8.5);
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument();
+  });
+
+  it('holds the write while the typing is still going, rather than sending a letter at a time', async () => {
+    // "8.5" is three keystrokes and one decision. Sent per keystroke it would be three requests,
+    // two of which say things nobody meant — and the first of them, a bare 8, is a rating the
+    // server would accept and store.
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+    expect(journal.saved).toHaveLength(1);
+  });
+
+  it('sends nothing at all while a value is one the rules refuse', async () => {
+    // The button used to be what held a bad value back. Nothing is pressed now, so the rules
+    // are what the timer consults — and a refusal has to stop the write rather than colour a
+    // field the reader is about to be told was saved.
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.75');
+
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
+      'at most one decimal place',
+    );
+    expect(journal.saved).toHaveLength(0);
+  });
+
+  it('says so when a write fails, since there is no button left to notice has not worked', async () => {
+    // A button that stayed a button said "not saved" on its own, and pressing it again was the
+    // whole of the recovery. Nothing is pressed now, so silence is all a failed write would
+    // leave — and the absence of a confirmation is not something anybody reads as an error.
+    server.use(
+      http.get('/api/games/:id', () =>
+        HttpResponse.json(gameDetail({ logEntries: [logEntry({ id: 7 })] })),
+      ),
+      http.put('/api/log-entries/:id', () =>
+        HttpResponse.json({ title: 'The database is not answering.' }, { status: 500 }),
+      ),
+    );
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
+      'The database is not answering.',
+    );
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('writes what was typed when the drawer closes inside the delay', async () => {
+    // The one hole a form that writes itself opens. Closing over an unpressed Save button was
+    // visibly your own doing; closing half a second after typing a rating is not, and the
+    // reader has no way of knowing which side of the delay they were on.
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    const { unmount } = open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '7');
+
+    // Closing is what unmounts it — the × and the backdrop and Escape all end here.
+    unmount();
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    expect(journal.saved[0]?.body.rating).toBe(7);
+  });
+
+  it('leaves the keyboard where it was when a save lands', async () => {
+    // The whole cost of a form that writes itself. The save invalidates the title, the refetch
+    // hands back a pass that now carries what was just sent, and a form rebuilt from it is a set
+    // of new DOM nodes — so the field being typed into loses focus a moment after each write.
+    // The inputs take the new values instead of being replaced by them.
     let stored: number | null = null;
     server.use(
       http.get('/api/games/:id', () =>
@@ -88,12 +186,35 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
-    await userEvent.click(save());
+
+    await waitFor(() => expect(stored).toBe(8.5), autosaves);
+    await waitFor(() => expect(rating()).toHaveValue(8.5));
+    expect(rating()).toHaveFocus();
+  });
+
+  it('says it saved, and goes on saying it once the refetch has landed', async () => {
+    // "Saved" is what the button's place in the row says now, and it has to outlive the refetch
+    // that proves it: the flag is held by the drawer rather than by the form, which is above
+    // anything a re-seed touches.
+    let stored: number | null = null;
+    server.use(
+      http.get('/api/games/:id', () =>
+        HttpResponse.json(gameDetail({ logEntries: [logEntry({ id: 7, rating: stored })] })),
+      ),
+      http.put('/api/log-entries/:id', async ({ request }) => {
+        const body = (await request.json()) as { rating: number | null };
+        stored = body.rating;
+        return HttpResponse.json(logEntry({ id: 7, rating: stored }));
+      }),
+    );
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
 
     // A status rather than plain text: a confirmation nobody can see is not a confirmation.
-    expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+    expect(await screen.findByRole('status', {}, autosaves)).toHaveTextContent('Saved');
 
-    // And it is still there once the refetch has landed and the form has been rebuilt from it.
+    // And it is still there once the refetch has landed and the inputs have been re-seeded.
     await waitFor(() => expect(stored).toBe(8.5));
     expect(screen.getByRole('status')).toHaveTextContent('Saved');
   });
@@ -102,21 +223,23 @@ describe('EntryDrawer', () => {
     journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
 
     open();
-    await screen.findByRole('button', { name: 'Save' });
+    await screen.findByRole('spinbutton', { name: 'Exact rating' });
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('takes the confirmation back as soon as the form is edited again', async () => {
     // "Saved" beside a form that has changed since is a lie, and a worse one than saying
-    // nothing: it is the state the reader is trusting when they close the drawer.
+    // nothing: it is the state the reader is trusting when they close the drawer. It goes on
+    // the keystroke rather than when the write that follows it is sent, because the gap
+    // between those two is the whole of what the timer added.
     journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
 
     open();
-    await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
-    expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
+    expect(await screen.findByRole('status', {}, autosaves)).toHaveTextContent('Saved');
 
-    await userEvent.type(screen.getByRole('spinbutton', { name: 'Exact rating' }), '9');
+    await userEvent.clear(screen.getByRole('spinbutton', { name: 'Exact rating' }));
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
@@ -135,8 +258,7 @@ describe('EntryDrawer', () => {
 
     expect(rating()).toHaveValue(8.5);
 
-    await userEvent.click(save());
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.body['rating']).toBe(8.5);
   });
 
@@ -194,8 +316,7 @@ describe('EntryDrawer', () => {
     expect(rating()).toHaveValue(null);
     expect(slider()).toHaveAttribute('aria-valuetext', 'Not rated');
 
-    await userEvent.click(save());
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.body['rating']).toBeNull();
   });
 
@@ -208,9 +329,8 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
-    await userEvent.click(save());
 
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.body['startedAt']).toBe('2026-08-21T01:30:00+00:00');
   });
 
@@ -224,9 +344,8 @@ describe('EntryDrawer', () => {
     open();
     await userEvent.clear(await screen.findByLabelText('Started'));
     await userEvent.type(started(), '2026-08-19');
-    await userEvent.click(save());
 
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.body['startedAt']).toBe('2026-08-19');
   });
 
@@ -237,9 +356,8 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.75');
-    await userEvent.click(save());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/one decimal place/);
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(/one decimal place/);
     expect(journal.saved).toHaveLength(0);
   });
 
@@ -252,9 +370,8 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByLabelText('Completed'), '2026-08-01');
-    await userEvent.click(save());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/earlier than/);
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(/earlier than/);
     expect(journal.saved).toHaveLength(0);
   });
 
@@ -263,9 +380,8 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
-    await userEvent.click(save());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
       'Rating must be between 1.0 and 10.0.',
     );
   });
@@ -391,7 +507,7 @@ describe('EntryDrawer', () => {
     journalServer();
 
     open();
-    await screen.findByRole('button', { name: 'Save' });
+    await screen.findByRole('spinbutton', { name: 'Exact rating' });
     const dialog = screen.getByRole('dialog');
 
     // More presses than the panel has controls, so this exercises the wrap and not merely the
@@ -498,9 +614,8 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByLabelText('Hours played'), '31.5');
-    await userEvent.click(save());
 
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.body['hoursPlayed']).toBe(31.5);
   });
 
@@ -509,9 +624,8 @@ describe('EntryDrawer', () => {
 
     open();
     await userEvent.type(await screen.findByLabelText('Hours played'), '12.345');
-    await userEvent.click(save());
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/two decimal places/);
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(/two decimal places/);
     expect(journal.saved).toHaveLength(0);
   });
 
@@ -907,8 +1021,10 @@ describe('EntryDrawer', () => {
       journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, rating: 8 })] }) });
 
       open();
-      await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
-      expect(await screen.findByRole('status')).toHaveTextContent('Saved');
+      const box = await screen.findByRole('spinbutton', { name: 'Exact rating' });
+      await userEvent.clear(box);
+      await userEvent.type(box, '9');
+      expect(await screen.findByRole('status', {}, autosaves)).toHaveTextContent('Saved');
 
       fireEvent.wheel(slider(), up);
 
@@ -991,9 +1107,8 @@ describe('EntryDrawer', () => {
       await screen.findByRole('combobox', { name: 'Platform' }),
       'Switch',
     );
-    await userEvent.click(save());
 
-    await waitFor(() => expect(journal.saved[0]?.body['platform']).toBe('Switch'));
+    await waitFor(() => expect(journal.saved[0]?.body['platform']).toBe('Switch'), autosaves);
   });
 
   it("lists a pass's notes newest first, with the time of day", async () => {
@@ -1337,9 +1452,8 @@ describe('EntryDrawer, on a film', () => {
 
     openFilm();
     await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '9');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.body).toEqual({
       status: 'InProgress',
       rating: 9,
@@ -1478,9 +1592,8 @@ describe('EntryDrawer, on a show', () => {
 
     await userEvent.selectOptions(season(), '2');
     await userEvent.selectOptions(episode(), '4');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
     expect(journal.saved[0]?.body).toEqual({
       status: 'InProgress',
       rating: null,
@@ -1494,9 +1607,9 @@ describe('EntryDrawer, on a show', () => {
   });
 
   it('fills both dropdowns from the pass the board is showing', async () => {
-    // entrySeed's job. The form is keyed on the values it was seeded from, so a field left out
-    // of that key is one a refetch cannot correct on screen — which is the bug that made a game
-    // dragged to Playing keep showing an empty Started.
+    // passValues' job. The form re-seeds from the pass underneath it, so a field left out of
+    // that is one a refetch cannot correct on screen — which is the bug that made a game dragged
+    // to Playing keep showing an empty Started.
     tvJournalServer({
       detail: tvShowDetail({
         logEntries: [logEntry({ id: 7, seasonNumber: 2, episodeNumber: 4 })],
@@ -1550,9 +1663,14 @@ describe('EntryDrawer, on a show', () => {
 
     openShow();
     await screen.findByRole('heading', { name: 'Severance' });
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('An episode needs a season.');
+    // Correcting something else is what makes the timer look, since nothing is pressed any
+    // more — and the pass it would send is the shape the rule refuses, whatever was touched.
+    await userEvent.type(screen.getByRole('spinbutton', { name: 'Exact rating' }), '9');
+
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
+      'An episode needs a season.',
+    );
     expect(journal.saved).toHaveLength(0);
   });
 
@@ -1646,12 +1764,13 @@ describe('EntryDrawer, on an anime', () => {
     openAnime();
 
     await userEvent.selectOptions(await screen.findByLabelText('Episode'), '12');
-    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-    await waitFor(() =>
-      expect(journal.saved[0]?.body).toEqual(
-        expect.objectContaining({ seasonNumber: null, episodeNumber: 12 }),
-      ),
+    await waitFor(
+      () =>
+        expect(journal.saved[0]?.body).toEqual(
+          expect.objectContaining({ seasonNumber: null, episodeNumber: 12 }),
+        ),
+      autosaves,
     );
   });
 

@@ -181,8 +181,8 @@ before sending, beside the completed-before-started rule and for its reason: the
 rather know now, and the server states it before a check constraint can turn it into a 500.
 
 **Progress lives on the pass, not on the show.** Two nullable ints on `log_entries`, so a rewatch
-begins again — as a replay does. `entrySeed` includes both, because the form is keyed on that
-string and a field left out of it is one a refetch cannot correct on screen.
+begins again — as a replay does. `passValues` includes both, because that is what the form
+re-seeds from and a field left out of it is one a refetch cannot correct on screen.
 
 ### It shows on the card too
 

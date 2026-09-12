@@ -1,7 +1,7 @@
-import { useId, useState, type ReactNode } from 'react';
-import { journalDateInput } from '../lib/time';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { formatHours } from '../lib/hours';
 import {
+  AUTOSAVE_MS,
   HOURS_RULE,
   RATING_RULE,
   UNRATED_THUMB,
@@ -9,6 +9,8 @@ import {
   hltbTiers,
   parseHours,
   parseRating,
+  passValues,
+  valuesKey,
 } from './fields';
 import type { HltbEstimates } from './fields';
 import type { PassFields, TitleSeason } from '../hobbies';
@@ -69,15 +71,24 @@ export interface EntryFormProps {
   /**
    * Whether what is on screen is what the server has.
    *
-   * Held by the drawer rather than here, and that is not a preference: this form is keyed on the
-   * values it was seeded from, so a save that changed anything remounts it. A flag set on success
-   * would be destroyed by the refetch that proves it was true.
+   * Held by the drawer rather than here, which is where it went when the form was rebuilt on
+   * every save and has stayed for a second reason: it is the answer to a question about the
+   * write, and the write is the drawer's.
    */
   saved: boolean;
   /** Says the form has been touched since, which is what makes {@link saved} stop being true. */
   onEdit: () => void;
   /** What the API objected to, keyed by field, so it can be shown where it belongs. */
   serverErrors: Record<string, string[]>;
+  /**
+   * Why the last write failed, when it failed for a reason no field owns.
+   *
+   * There is no button, so there is nothing left that visibly stays unpressed — the absence of a
+   * confirmation is the only other signal, and nobody reads an absence as an error. Shown only
+   * where {@link serverErrors} has nothing, since a 400 that names its fields has already said
+   * this under each of them.
+   */
+  saveError: string | null;
   onSave: (update: UpdateLogEntry) => void;
   /**
    * Whatever else can be done to this pass, on the Save row and pushed to its far end.
@@ -91,6 +102,10 @@ export interface EntryFormProps {
 
 /**
  * The current pass, as something you can change.
+ *
+ * **It writes itself.** A pass is a handful of small corrections — a rating, the date you
+ * finished, the episode you are on — and a button between each of them and the record is a step
+ * nobody wants. A change arms a timer; the timer checks the rules and sends every field.
  *
  * The status is deliberately not here. Dragging is the gesture that moves a title between
  * columns, and the rules about which entry that touches and which timestamps it stamps live on
@@ -107,31 +122,42 @@ export function EntryForm({
   saving,
   saved,
   serverErrors,
+  saveError,
   onSave,
   onEdit,
   actions,
 }: EntryFormProps) {
   const ids = useId();
+  const seed = passValues(entry);
 
   // Two pieces of state for one value, on purpose. `rating` is the value — held as text, so the
   // 8.75 rule can be applied to what was typed rather than to a float that has already lost the
   // distinction. `thumb` is only where the handle sits, and it moves only when the text parses:
   // typing 8.75 passes through "8." and "8.75", both refused, and a handle derived from the text
   // would be thrown to the far left on each of them on the way past.
-  const [rating, setRating] = useState(entry.rating === null ? '' : String(entry.rating));
+  const [rating, setRating] = useState(seed.rating);
   const [thumb, setThumb] = useState(entry.rating ?? UNRATED_THUMB);
-  const [platform, setPlatform] = useState(entry.platform ?? '');
-  const [hours, setHours] = useState(entry.hoursPlayed === null ? '' : String(entry.hoursPlayed));
+  const [platform, setPlatform] = useState(seed.platform);
+  const [hours, setHours] = useState(seed.hours);
   // Held as text, because that is what a <select> reads and writes. The empty string is "not
   // recorded", which is a value somebody can choose rather than a gap — the platform select's
   // rule, on a control that has a stored value to lose in exactly the same way.
-  const [season, setSeason] = useState(entry.seasonNumber === null ? '' : String(entry.seasonNumber));
-  const [episode, setEpisode] = useState(
-    entry.episodeNumber === null ? '' : String(entry.episodeNumber),
-  );
-  const [started, setStarted] = useState(journalDateInput(entry.startedAt));
-  const [completed, setCompleted] = useState(journalDateInput(entry.completedAt));
+  const [season, setSeason] = useState(seed.season);
+  const [episode, setEpisode] = useState(seed.episode);
+  const [started, setStarted] = useState(seed.started);
+  const [completed, setCompleted] = useState(seed.completed);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // What the inputs hold, and what the pass underneath them says, as two things that can be
+  // compared in one go.
+  const held = valuesKey({ rating, platform, hours, season, episode, started, completed });
+  const fromPass = valuesKey(seed);
+
+  // What the server is believed to hold. It moves on exactly two occasions and no others: a
+  // write is sent, and the pass underneath is taken as the truth. `held === agreed.current` is
+  // therefore the whole of "there is nothing here the server has not been told", which is both
+  // the question the timer asks and the question the re-seed below asks.
+  const agreed = useRef(held);
 
 
   /** Dragging the slider. A step of 0.1 gives exactly the scale the column stores. */
@@ -300,8 +326,14 @@ export function EntryForm({
     setEpisode('');
   }
 
-  function submit(event: React.FormEvent) {
-    event.preventDefault();
+  /**
+   * Writes the pass, or says what stopped it. Answers nothing either way — nobody is waiting on
+   * it, which is the whole of what changed when the button went.
+   */
+  function sendIfValid() {
+    if (held === agreed.current) {
+      return;
+    }
 
     const parsed = parseRating(rating);
     const found: Record<string, string> = {};
@@ -338,8 +370,13 @@ export function EntryForm({
 
     setErrors(found);
     if (Object.keys(found).length > 0) {
+      // The form stays out of step with the server deliberately, which is what keeps the
+      // refused value on screen to be corrected: a re-seed would take it away and put the old
+      // one back, half a second after it was typed and with the message still underneath.
       return;
     }
+
+    agreed.current = held;
 
     // Every field, every time. The API takes PUT rather than PATCH precisely so that an absent
     // field means "cleared" — sending only what changed would wipe the rating whenever somebody
@@ -366,15 +403,83 @@ export function EntryForm({
     });
   }
 
+  // The timer is armed on the render that changed a field and fires half a second later, so the
+  // handler it runs must not be the one from that render: the pass underneath can have been
+  // refetched by then, and `dateFieldValue` reads it to tell an untouched day from an edited
+  // one. `useWheelStep` keeps the same ref for the same reason.
+  const write = useRef(sendIfValid);
+  useEffect(() => {
+    write.current = sendIfValid;
+  });
+
+  // A change, then quiet, then a write. The cleanup is what makes it one write per pause rather
+  // than one per keystroke: "8.5" re-arms the timer twice on its way past a bare 8, which is a
+  // rating the server would have accepted and stored.
+  useEffect(() => {
+    if (held === agreed.current) {
+      return;
+    }
+
+    const timer = setTimeout(() => write.current(), AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+  }, [held]);
+
+  // The one hole a form that writes itself opens, and the reason a blur does not also send:
+  // closing the drawer inside the delay would lose the change, where closing over an unpressed
+  // button was visibly your own doing. A no-op unless there is something owing, so the ordinary
+  // close costs nothing.
+  useEffect(() => () => write.current(), []);
+
+  // The pass underneath, taken as the truth — a drag that stamped a start while the drawer was
+  // shut, or the refetch that follows a write of our own and mostly says what was just sent.
+  //
+  // Guarded on there being nothing of the reader's to lose, because the two are indistinguishable
+  // from here: a save in flight is answered by a refetch carrying the old values, and re-seeding
+  // from that would put the rating back half a second after it was typed.
+  useEffect(() => {
+    if (held !== agreed.current || fromPass === held) {
+      return;
+    }
+
+    setRating(seed.rating);
+    setThumb(entry.rating ?? UNRATED_THUMB);
+    setPlatform(seed.platform);
+    setHours(seed.hours);
+    setSeason(seed.season);
+    setEpisode(seed.episode);
+    setStarted(seed.started);
+    setCompleted(seed.completed);
+    agreed.current = fromPass;
+    // `seed` is rebuilt every render and `fromPass` is the whole of it as one string, so these
+    // two are what actually say when there is anything here to do.
+  }, [held, fromPass]);
+
   return (
     // noValidate, so the rules below are the ones that speak. step="0.1" is kept for the
     // spinner and the mobile keypad, but leaving native validation on means the browser
-    // silently refuses to submit an 8.75 and shows a bubble we cannot word, style or test —
-    // and the message that matters here is *why* two decimal places are refused.
+    // silently refuses an 8.75 and shows a bubble we cannot word, style or test — and the
+    // message that matters here is *why* two decimal places are refused.
+    //
     // onChange on the form rather than on each of seven fields: React's synthetic events
     // propagate through the tree, so one handler here hears every control inside. The notes box
     // is outside this form and is its own write, so it is right that it does not reach this.
-    <form onSubmit={submit} onChange={onEdit} noValidate className="flex flex-col gap-3">
+    //
+    // Leaving a field deliberately does *not* send it. A blur is one focusout per field, so
+    // tabbing across the form would be a write per stop, and choosing a season — which clears
+    // the episode under it by rule — would write "season 2, no episode" on the way to saying
+    // which episode. The timer is what decides, and closing the drawer is what cannot wait.
+    //
+    // Still a <form> with nothing to submit it: a browser's implicit submission does nothing
+    // here, since more than one field blocks it, and preventDefault costs one line.
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        write.current();
+      }}
+      onChange={onEdit}
+      noValidate
+      className="flex flex-col gap-3"
+    >
       <Field id={`${ids}-rating`} label="Rating" message={messageFor('rating')}>
         <div className="flex items-center gap-3">
           {/* The slider carries the field's label, so it is the control a screen reader meets
@@ -589,28 +694,33 @@ export function EntryForm({
         </Field>
       </div>
 
-      {/* flex-wrap, because the slot on the end can grow: a delete that has been asked about
-          replaces one word with a sentence naming what it would take. */}
+      {/* Where the Save button stood, and it is the only thing on this row that changed. The
+          delete keeps its far end: the two things you can do to a pass are still at opposite
+          ends of one line, which is where a destructive one belongs relative to an ordinary one.
+          flex-wrap, because that slot can grow — a delete that has been asked about replaces one
+          word with a sentence naming what it would take.
+
+          One live region rather than two, absent while there is nothing to say. It is not on a
+          timer: "Saved" claims that what you are looking at is what the server has, which stops
+          being true the moment a field changes and not a few seconds after the write — so it is
+          cleared by the edit rather than by a clock, and is therefore never a stale claim. The
+          transition a fade would have given comes free from "Saving…" in between.
+
+          role="status" so it is announced politely: a confirmation only sighted readers get is
+          only half a confirmation, and this drawer is a real dialog for the same reason. */}
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded border border-line px-3 py-1 text-sm font-medium hover:bg-hover disabled:opacity-50"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
+        {(saving || saved) && (
+          <span role="status" className={`text-sm ${saving ? 'text-muted' : 'text-ok'}`}>
+            {saving ? 'Saving…' : 'Saved'}
+          </span>
+        )}
 
-        {/* Not on a timer. It says "what you are looking at is what the server has", which stops
-            being true the moment a field changes and not a few seconds after the write — so it
-            is cleared by the edit rather than by a clock, and is therefore never a stale claim.
-            The transition a fade would have given comes free from the button, which reads
-            "Saving…" in between and takes this away while it does.
-
-            role="status" so it is announced politely: a confirmation only sighted readers get is
-            only half a confirmation, and this drawer is a real dialog for the same reason. */}
-        {saved && !saving && (
-          <span role="status" className="text-sm text-ok">
-            Saved
+        {/* In the confirmation's place, because it is the answer to the same question. A
+            failure no field owns — the server is down, the session went — has nowhere else to
+            be said, and saying nothing would leave the reader with an absence to interpret. */}
+        {saveError !== null && !saving && Object.keys(serverErrors).length === 0 && (
+          <span role="alert" className="text-sm text-danger">
+            {saveError}
           </span>
         )}
 

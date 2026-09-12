@@ -1,7 +1,16 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, column, drag, entriesFor, openJournal, seed, setSort } from './support/board';
+import {
+  card,
+  column,
+  drag,
+  entriesFor,
+  openJournal,
+  passSaved,
+  seed,
+  setSort,
+} from './support/board';
 
 /**
  * The second hobby, end to end: search, add, drag, journal.
@@ -142,8 +151,7 @@ test('a rating and a note on a film reach the card behind the drawer', async ({ 
   const drawer = page.getByRole('dialog');
 
   await drawer.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
-  await drawer.getByRole('button', { name: 'Save' }).click();
-  await expect(drawer.getByRole('status')).toHaveText('Saved');
+  await passSaved(page);
 
   await drawer.getByRole('textbox', { name: 'New note' }).fill('the dinner table scene');
   await drawer.getByRole('button', { name: 'Add note' }).click();
