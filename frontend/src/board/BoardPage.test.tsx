@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { BoardPage } from './BoardPage';
+import { server } from '../test/server';
 import { boardServer, libraryItem } from '../test/library';
+import type { LibraryItem, LogStatus } from '../api/types';
 import { game, gameDetail, journalServer, logEntry, searchServer } from '../test/games';
 import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
@@ -16,6 +19,54 @@ import { BackButton, renderWithProviders } from '../test/render';
  * is App.test.tsx's business, not this file's — here it just has to be *somewhere*.
  */
 const BOARD_ROUTE = { route: '/board/games', path: '/board/:hobby' };
+
+/**
+ * The years endpoint as the server really behaves, rather than as a fixed list.
+ *
+ * A move stamps a timestamp or clears one, and these are derived from those — so the answer can
+ * gain a year between two requests and lose it again. `boardServer` serves one list whatever
+ * happens, which is right for every test that is not about this.
+ */
+function activityYears(first: number[], andThen: number[]) {
+  let asked = 0;
+
+  server.use(
+    http.get('/api/library/years', () => {
+      asked += 1;
+      return HttpResponse.json(asked === 1 ? first : andThen);
+    }),
+  );
+
+  return { asked: () => asked };
+}
+
+/**
+ * One card, on a board where a move really moves it.
+ *
+ * `boardServer`'s columns are fixtures and answer the same rows however the board is driven,
+ * which is enough until a test is about what the cache is left holding afterwards.
+ */
+function movingCard(item: LibraryItem) {
+  let status = item.currentStatus;
+
+  server.use(
+    // Before the bare /api/library below, for the reason test/library.ts states about its own
+    // pair: MSW matches in order, and the calendar must not be answered with a paged envelope.
+    http.get('/api/library/upcoming', () => HttpResponse.json([])),
+
+    http.get('/api/library', ({ request }) => {
+      const asked = new URL(request.url).searchParams.get('status');
+      const items = asked === status ? [{ ...item, currentStatus: status }] : [];
+
+      return HttpResponse.json({ items, total: items.length, page: 1, pageSize: 100 });
+    }),
+
+    http.post('/api/library/:mediaId/status', async ({ request }) => {
+      status = ((await request.json()) as { status: LogStatus }).status;
+      return HttpResponse.json({ ...item, currentStatus: status });
+    }),
+  );
+}
 
 /** The board, with something on it to press Back with. */
 function boardWithBack() {
@@ -101,6 +152,128 @@ describe('BoardPage', () => {
     );
 
     await waitFor(() => expect(board.queriesFor('Completed').at(-1)?.has('year')).toBe(false));
+  });
+
+  it('adopts the latest year the moment there is one, on a board that had none', async () => {
+    // An empty board belongs to no year, so the picker opens on All years — and the first thing
+    // finished is what brings a year into existence. Adopting it is not overriding a choice:
+    // there was nothing there to override.
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
+    activityYears([], [2026]);
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026'),
+    );
+  });
+
+  it('follows a newer year into existence, so a replay does not leave the board', async () => {
+    // The other direction, and it has to keep working. Replaying a game finished in 2024 starts
+    // a pass dated now, which is a year the board was not reading and in most cases a year that
+    // did not exist a moment ago — so a board that would not follow it answers the press by
+    // taking the card off screen.
+    boardServer({
+      columns: { Completed: [libraryItem({ mediaId: 3001, title: 'Hollow Knight' })] },
+    });
+    activityYears([2024], [2026, 2024]);
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2024'),
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Hollow Knight' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Playing' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026'),
+    );
+  });
+
+  it('follows the list back down when the year it was reading is undone', async () => {
+    // The replay above, taken back. Deleting the pass a mistaken drag added leaves 2024 as the
+    // only year again, and the card with it — so a board that would not follow downwards would
+    // be left reading a year nothing is in, with the title it is about off screen.
+    boardServer({
+      columns: { Completed: [libraryItem({ mediaId: 3001, title: 'Hollow Knight' })] },
+    });
+    activityYears([2026, 2024], [2024]);
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026'),
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Hollow Knight' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Playing' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2024'),
+    );
+  });
+
+  it('holds the year it was reading when the list of years empties underneath it', async () => {
+    // The bug this rule exists for. Dragging the only 2026 title back to Backlog clears both
+    // its timestamps, so the API stops listing 2026 — and a year re-derived from that list
+    // reverted to All years on its own, three columns switching cache entry as it went.
+    // The control moves when somebody moves it, and otherwise not at all.
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
+    const years = activityYears([2026], []);
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026'),
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Dropped' }));
+
+    await waitFor(() => expect(years.asked()).toBeGreaterThan(1));
+    expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026');
+  });
+
+  it('does not bring a moved card back in an ordering it left behind', async () => {
+    // A column has one cache entry per sort and per year, and a move invalidates every one of
+    // them while refetching only the entry on screen. Switch to one of the others and its stale
+    // copy is rendered while it refetches — so the moved card is mounted in two columns at once.
+    //
+    // That is not a flicker. One media id is one dnd-kit registration: the second mount
+    // overwrites the first, and when it unmounts it takes the survivor's registration with it.
+    // The card left behind is still on screen and can no longer be dragged at all, until
+    // something remounts it — which in practice means reloading the page.
+    boardServer();
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste' }));
+
+    // The one test that needs the cache to outlive its observer, which is what the app's client
+    // does and what the harness otherwise switches off. Without it the ordering left behind is
+    // collected the moment it leaves the screen and there is nothing stale to come back.
+    renderWithProviders(<BoardPage />, { ...BOARD_ROUTE, keepsCache: true });
+    await screen.findByRole('button', { name: 'Celeste' });
+
+    // Look at Backlog another way, so the manual ordering is left in the cache holding this card.
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Backlog order' }),
+      'title',
+    );
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Backlog 1' })).toBeVisible());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Completed 1' })).toBeVisible());
+
+    // And back to the ordering that was left behind. fireEvent rather than userEvent, and not
+    // for convenience: userEvent awaits a macrotask on its way out, which here is long enough
+    // for the refetch to land and tidy the evidence away. The damage is done by then — a mount
+    // and an unmount are all it takes, however briefly the second card is on screen — so the
+    // assertion has to be the next thing that happens after the render.
+    fireEvent.change(screen.getByRole('combobox', { name: 'Backlog order' }), {
+      target: { value: 'manual' },
+    });
+
+    expect(screen.getAllByRole('button', { name: 'Celeste' })).toHaveLength(1);
   });
 
   it('collapses Dropped until asked, and still says how much is in it', async () => {

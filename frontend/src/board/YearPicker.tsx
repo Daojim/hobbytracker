@@ -33,6 +33,14 @@ const ALL = '';
 export function YearPicker({ years, value, onChange }: YearPickerProps) {
   const id = useId();
 
+  // The years on offer, plus the one being read when the list has stopped mentioning it.
+  //
+  // The platform select's rule, on a list that moves for a different reason: these are derived
+  // from timestamps, and a move clears them. Drag the only 2026 title back to Backlog and the
+  // API stops listing 2026 while the board is still reading it — and a <select> holding a value
+  // it has no option for renders blank, so the control would be reporting no year at all.
+  const offered = value === undefined || years.includes(value) ? years : putBack(years, value);
+
   return (
     <div className="flex items-center gap-2">
       <label htmlFor={id} className="text-xs font-medium tracking-wide text-muted uppercase">
@@ -47,7 +55,7 @@ export function YearPicker({ years, value, onChange }: YearPickerProps) {
         className="rounded border border-line bg-surface px-2 py-1 text-sm text-fg"
       >
         <option value={ALL}>All years</option>
-        {years.map((year) => (
+        {offered.map((year) => (
           <option key={year} value={year}>
             {year}
           </option>
@@ -55,4 +63,17 @@ export function YearPicker({ years, value, onChange }: YearPickerProps) {
       </select>
     </div>
   );
+}
+
+/**
+ * A year put back into a newest-first list that has stopped carrying it.
+ *
+ * In its place rather than appended, and the list is not re-sorted: the API hands these over
+ * newest first and knows things this does not, so exactly one thing is inserted and everything
+ * else stays as it arrived. Appending would file 2026 under 2024, which reads as a bug.
+ */
+function putBack(years: number[], value: number): number[] {
+  const at = years.findIndex((year) => year < value);
+
+  return at === -1 ? [...years, value] : [...years.slice(0, at), value, ...years.slice(at)];
 }

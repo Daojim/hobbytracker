@@ -7,6 +7,7 @@ import {
   drag,
   entriesFor,
   openJournal,
+  passSaved,
   seed,
   setSort,
   todayOnCard,
@@ -188,8 +189,7 @@ test('where you are reaches the card as S3 E7, and survives a reload', async ({ 
 
   await drawer.getByLabel('Season').selectOption('3');
   await drawer.getByLabel('Episode').selectOption('7');
-  await drawer.getByRole('button', { name: 'Save' }).click();
-  await expect(drawer.getByRole('status')).toHaveText('Saved');
+  await passSaved(page);
 
   await drawer.getByRole('button', { name: 'Close' }).click();
   await expect(card(page, 'The Wire').getByText('S3 E7')).toBeVisible();

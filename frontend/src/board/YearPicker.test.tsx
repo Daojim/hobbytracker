@@ -43,4 +43,30 @@ describe('YearPicker', () => {
 
     expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2019');
   });
+
+  it('keeps the chosen year on offer after the last thing counted in it has left', () => {
+    // The platform select's rule, on a list that moves for a different reason. The years are
+    // derived from timestamps, and a move clears them: drag the only 2026 title back to Backlog
+    // and the API stops listing 2026 while the board is still reading it. Without this the
+    // select holds a value it has no option for, which renders as blank.
+    render(<YearPicker years={[2024]} value={2026} onChange={vi.fn()} />);
+
+    const select = screen.getByRole('combobox', { name: 'Year' });
+    expect(select).toHaveValue('2026');
+    expect([...select.querySelectorAll('option')].map((option) => option.textContent)).toEqual([
+      'All years',
+      '2026',
+      '2024',
+    ]);
+  });
+
+  it('does not offer the chosen year twice when the list still has it', () => {
+    render(<YearPicker years={[2026, 2024]} value={2026} onChange={vi.fn()} />);
+
+    expect(
+      [...screen.getByRole('combobox', { name: 'Year' }).querySelectorAll('option')].map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(['All years', '2026', '2024']);
+  });
 });

@@ -5,7 +5,6 @@ import { EntryForm } from './EntryForm';
 import { HltbPin } from './HltbPin';
 import { NoteList } from './NoteList';
 import { automaticGenre, hobbyDefinition } from '../hobbies';
-import { entrySeed } from './fields';
 import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
 import { useJournalEntry } from './useJournalEntry';
@@ -70,11 +69,10 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
 
   // Whether the form on screen matches what was last written.
   //
-  // Here rather than in EntryForm, which is keyed on the values it was seeded from and so
-  // remounts on any save that changed one — a flag set on success would be wiped by the very
-  // refetch that confirms it. Not read off save.isSuccess either: that stays true until the next
-  // write, where this has to stop being true as soon as a field is touched. The drawer unmounts
-  // when it closes, so opening another title starts with nothing claimed.
+  // Here rather than in EntryForm, because it is the answer to a question about the write and
+  // the write is this component's. Not read off save.isSuccess either: that stays true until the
+  // next write, where this has to stop being true as soon as a field is touched. The drawer
+  // unmounts when it closes, so opening another title starts with nothing claimed.
   const [saved, setSaved] = useState(false);
 
   // The keyboard follows the drawer in. Without this the focus is still on the board behind,
@@ -176,8 +174,9 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
     <>
       {/* Presentation rather than aria-hidden: `aria-modal` on the panel is already what tells
           a screen reader the board behind is inert, and this exists for the pointer. Closing
-          without prompting is safe because every sub-form has its own explicit save — the one
-          thing at risk is an unposted draft, which is cheaper to retype than to guard. */}
+          without prompting is safe because nothing here is waiting to be pressed: the pass
+          writes itself and sends whatever it still owes on the way out, and the one thing left
+          at risk is an unposted note, which is cheaper to retype than to guard. */}
       <div
         role="presentation"
         onClick={onClose}
@@ -334,10 +333,16 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
         {current !== undefined && detail !== undefined && (
           <PassSection entry={current} heading={columnLabel[current.status]} lead>
             <EntryForm
-              // Remounts when a different card is opened, so the inputs reload rather than
-              // keeping the last title's half-typed rating — and when this pass changes
-              // underneath the drawer, which a drag does without changing its id. See entrySeed.
-              key={entrySeed(current)}
+              // Remounts when a *different* pass becomes the current one, so the inputs reload
+              // rather than keeping the last title's half-typed rating — opening another card,
+              // or deleting the pass this one was about.
+              //
+              // Not on the values any more, which is what it used to be keyed on: the form
+              // writes itself now, so the pass underneath is refetched half a second after
+              // every keystroke, and a key that moved with it would hand the reader a new set
+              // of DOM nodes and take the keyboard out of the field being typed into. The form
+              // re-seeds from a changed pass instead — see passValues.
+              key={current.id}
               entry={current}
               fields={journal.fields}
               platforms={detail.platforms}
@@ -348,6 +353,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               saving={save.isPending}
               saved={saved}
               serverErrors={fieldErrors}
+              saveError={save.error === null ? null : save.error.message}
               onSave={(update) =>
                 save.mutate(
                   { entryId: current.id, update },

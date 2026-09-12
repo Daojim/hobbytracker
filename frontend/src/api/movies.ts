@@ -29,8 +29,9 @@ export function getMovie(id: number): Promise<MovieDetail> {
 /**
  * Chooses which genre stands for a film on the board, or clears the choice with a null.
  *
- * Saved on change rather than on a Save button: it belongs to the title rather than to the pass,
- * and the drawer's form submits one PUT to the log-entry endpoint.
+ * Its own route, and not part of the pass the drawer writes: it belongs to the title rather
+ * than to one pass through it, and the form submits one PUT to the log-entry endpoint. Saved on
+ * the change itself, with none of the pass's half-second pause — a select is one decision.
  */
 export function setMovieGenre(mediaId: number, genre: string | null): Promise<MovieDetail> {
   return apiJson<MovieDetail>(`/api/movies/${mediaId}/genre`, { method: 'PUT', body: { genre } });

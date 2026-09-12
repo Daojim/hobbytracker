@@ -39,8 +39,9 @@ export function getShow(id: number): Promise<TvShowDetail> {
 /**
  * Chooses which genre stands for a show on the board, or clears the choice with a null.
  *
- * Saved on change rather than on a Save button: it belongs to the title rather than to the
- * pass, and the drawer's form submits one PUT to the log-entry endpoint.
+ * Its own route, and not part of the pass the drawer writes: it belongs to the title rather
+ * than to one pass through it, and the form submits one PUT to the log-entry endpoint. Saved on
+ * the change itself, with none of the pass's half-second pause — a select is one decision.
  */
 export function setShowGenre(mediaId: number, genre: string | null): Promise<TvShowDetail> {
   return apiJson<TvShowDetail>(`/api/tv/${mediaId}/genre`, { method: 'PUT', body: { genre } });

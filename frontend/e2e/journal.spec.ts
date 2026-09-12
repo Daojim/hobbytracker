@@ -7,6 +7,7 @@ import {
   column,
   drag,
   openJournal,
+  passSaved,
   seed,
   setSort,
   titlesIn,
@@ -39,7 +40,7 @@ test('rating a game from the board puts the rating on its card', async ({ page }
 
   await openJournal(page, 'Celeste');
   await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await passSaved(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
   await expect(
@@ -56,16 +57,14 @@ test('rating a game from the board puts the rating on its card', async ({ page }
 test('saving says so, and stops saying so once you change something', async ({
   page,
 }) => {
-  // The button reads "Saving…" for a few hundred milliseconds and then goes back to "Save",
-  // which leaves nothing behind to say the write landed. This is that something — and the real
-  // API is what makes the test worth having, since a save that changes a value remounts the
-  // form underneath the message.
+  // Nothing is pressed any more, so this line is the whole of what says a write happened at
+  // all — and the real API is what makes the test worth having, since it is the refetch after
+  // the write that used to take the message away with the form it sat in.
   await seed(page.request, 'Celeste', 'InProgress');
   await page.reload();
 
   await openJournal(page, 'Celeste');
   await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
-  await page.getByRole('button', { name: 'Save' }).click();
 
   // Scoped to the dialog, because the board behind it has a role="status" of its own: dnd-kit
   // mounts a live region to announce a drag, and it is empty except while one is happening. A
@@ -88,9 +87,12 @@ test('a rating the column would round is refused before it is sent', async ({ pa
 
   await openJournal(page, 'Celeste');
   await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.75');
-  await page.getByRole('button', { name: 'Save' }).click();
 
+  // Not passSaved: the refusal is the point, so there is never going to be a confirmation to
+  // wait for. The message is what arrives instead, and it arrives when the timer looks.
   await expect(page.getByRole('alert')).toContainText('one decimal place');
+  await expect(page.getByRole('dialog').getByRole('status')).toHaveCount(0);
+
   await page.getByRole('button', { name: 'Close' }).click();
   await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toHaveCount(0);
 });
@@ -109,7 +111,7 @@ test('the rating slider answers to the keyboard, a tenth at a time', async ({ pa
   }
 
   await expect(page.getByRole('spinbutton', { name: 'Exact rating' })).toHaveValue('8.5');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await passSaved(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
   await expect(
@@ -123,7 +125,7 @@ test('clearing a rating takes it off the card', async ({ page }) => {
 
   await openJournal(page, 'Celeste');
   await page.getByRole('button', { name: 'Clear rating' }).click();
-  await page.getByRole('button', { name: 'Save' }).click();
+  await passSaved(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
   await expect(card(page, 'Celeste').getByRole('img', { name: /Rated/ })).toBeHidden();
@@ -181,7 +183,7 @@ test('a corrected start date shows on the card', async ({ page }) => {
 
   await openJournal(page, 'Celeste');
   await page.getByLabel('Started').fill('2026-08-01');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await passSaved(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
   await expect(card(page, 'Celeste')).toContainText('Aug 1, 2026');
@@ -470,7 +472,7 @@ test('how long a pass took is recorded against that pass', async ({ page }) => {
   await expect(estimate(page, 'All play styles')).toContainText('20 h');
 
   await page.getByLabel('Hours played').fill('31.5');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await passSaved(page);
 
   // Measured against the headline figure alone: four deltas is arithmetic rather than a
   // reading, and this is the one the card and the Time to beat sort both mean.
@@ -489,7 +491,7 @@ test('the platform you played on is recorded against that pass', async ({ page }
   await openJournal(page, 'Hollow Knight');
   // The choices are the game's own, which is why the stub gives it more than one.
   await page.getByLabel('Platform').selectOption('Switch');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await passSaved(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
   // Stored, not merely on screen — the column is new and the migration has to have landed.

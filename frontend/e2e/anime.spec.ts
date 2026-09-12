@@ -1,7 +1,16 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, column, drag, entriesFor, openJournal, seed, setSort } from './support/board';
+import {
+  card,
+  column,
+  drag,
+  entriesFor,
+  openJournal,
+  passSaved,
+  seed,
+  setSort,
+} from './support/board';
 
 /**
  * The fourth hobby, end to end — and the first one from a provider that is neither IGDB nor
@@ -149,8 +158,7 @@ test('a pass records which episode, with no season to name first', async ({ page
   await expect(drawer.getByLabel('Season')).toHaveCount(0);
 
   await drawer.getByLabel('Episode').selectOption('12');
-  await drawer.getByRole('button', { name: 'Save' }).click();
-  await expect(drawer.getByText('Saved')).toBeVisible();
+  await passSaved(page);
 
   // Polled rather than read once. The board's own refetch is what the drawer waits on, and a
   // direct API read can land in the gap before the write it is asking about — the pattern
