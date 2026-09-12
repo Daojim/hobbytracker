@@ -73,6 +73,50 @@ test('a title nobody has announced a date for is on the calendar, at the bottom'
   expect(groups.at(-1)).toBe('No date yet');
 });
 
+test('a title IGDB carries no dates for at all reads as TBA rather than as released', async ({
+  page,
+}) => {
+  // The bug this was reported as: Stellar Blade: Blood Rain sat in the Backlog column looking
+  // like a game you could go and play. IGDB has no first_release_date and no release_dates rows
+  // for it — the shape the stub's 3014 copies — and that used to read as *released*.
+  //
+  // End to end rather than in IgdbReleaseTests alone, because what went wrong spans the whole
+  // path: the mapping, the partition and the row's own words all have to agree that a title
+  // nobody has dated is still a title nobody has released.
+  await seed(page.request, 'Stellar Blade: Blood Rain', 'Backlog');
+  await seed(page.request, 'Celeste', 'Backlog');
+
+  await page.goto('/board/games');
+  await expect(card(page, 'Celeste')).toBeVisible();
+
+  const row = page
+    .getByRole('region', { name: /^Coming soon/ })
+    .getByRole('listitem')
+    .filter({ hasText: 'Stellar Blade: Blood Rain' });
+
+  await expect(row).toBeVisible();
+  await expect(row.getByText('TBA')).toBeVisible();
+
+  // And gone from the column, because the two are complements rather than two lists.
+  expect(await titlesIn(page, 'Backlog')).toEqual(['Celeste']);
+});
+
+test('a title IGDB calls a rumour stays in the backlog instead', async ({ page }) => {
+  // The other half, and the reason the rule above is not simply "no date means coming soon".
+  // IGDB marks Half-Life 3 Rumored, which is a claim about whether anybody announced it rather
+  // than about when — so it keeps its place in the queue and the calendar stays a list of
+  // things that are actually coming.
+  await seed(page.request, 'Half-Life 3', 'Backlog');
+
+  await page.goto('/board/games');
+  await expect(card(page, 'Half-Life 3')).toBeVisible();
+
+  expect(await titlesIn(page, 'Backlog')).toEqual(['Half-Life 3']);
+
+  const calendar = page.getByRole('region', { name: /^Coming soon/ });
+  await expect(calendar.getByText('Half-Life 3')).toHaveCount(0);
+});
+
 test('a title arrives in the backlog on its release day, with nothing having run', async ({
   page,
 }) => {
@@ -168,12 +212,18 @@ test('the calendar folds away and stays folded', async ({ page }) => {
   await expect(page.getByRole('region', { name: /^Coming soon/ }).getByText('Silksong II'))
     .toBeVisible();
 
-  await page.getByRole('button', { name: 'Hide Coming soon' }).click();
+  // Named "Hide Coming soon" and reading "Hide". The button carries the heading's words in its
+  // aria-label only, so this locator is deliberately the accessible name and the assertion
+  // beneath it is deliberately the visible one — they are two different claims about one button.
+  const fold = page.getByRole('button', { name: 'Hide Coming soon' });
+  await expect(fold).toHaveText('Hide');
+
+  await fold.click();
   await expect(page.getByText('Silksong II')).toHaveCount(0);
 
   await page.reload();
 
-  await expect(page.getByRole('button', { name: 'Show Coming soon' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show Coming soon' })).toHaveText('Show');
   await expect(page.getByText('Silksong II')).toHaveCount(0);
 });
 

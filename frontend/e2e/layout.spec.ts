@@ -201,3 +201,70 @@ test.describe('the estimates read the same in the drawer as in the modal', () =>
     expect(await tiersAcross(page)).toBe(4);
   });
 });
+
+/**
+ * The release calendar's own box.
+ *
+ * Both claims below are box-model claims about a section that has no test anywhere else able to
+ * make one, and both were wrong in the shipped version — the section ran the full width of the
+ * board, and the space above a month heading was nought.
+ */
+test.describe('the release calendar, at 1440px', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  const calendar = (page: Page): Locator => page.getByRole('region', { name: /^Coming soon/ });
+
+  test.beforeEach(async ({ page }) => {
+    // One of each shape the stub has, which is also one per group: a month, a year and no date.
+    // Two groups would do for the spacing, but the third costs nothing and the width test wants
+    // a section tall enough to be obviously a section.
+    await seed(page.request, 'Silksong II', 'Backlog');
+    await seed(page.request, 'Hades III', 'Backlog');
+    await seed(page.request, 'Celeste 64', 'Backlog');
+    await page.goto('/board/games');
+  });
+
+  test('is two board columns wide, not four', async ({ page }) => {
+    // Asserted against the Playing column's right edge rather than against a pixel count, so it
+    // stays true at every width and says the thing that actually matters: the calendar's edge
+    // lands on one of the board's grid lines instead of somewhere near it.
+    //
+    // The width is written as `50% - half a gap` in ComingSoon, which is two of four tracks plus
+    // the gap between them. Change the board's gap without changing that and nothing errors —
+    // the section just stops lining up, which is what this notices.
+    const section = await boxOf(calendar(page), 'the Coming soon section');
+    const playing = await boxOf(column(page, 'InProgress'), 'the Playing column');
+    const backlog = await boxOf(column(page, 'Backlog'), 'the Backlog column');
+
+    expect(section.x, 'starts where the board does').toBeCloseTo(backlog.x, 0);
+    expect(section.x + section.width, 'ends on the Playing column').toBeCloseTo(
+      playing.x + playing.width,
+      0,
+    );
+  });
+
+  test('leaves more air above a month heading than between two rows', async ({ page }) => {
+    // It left none. `first:mt-0` was on the heading rather than on the group it heads, and a
+    // heading is always the first child of its own group — so the class meant to clear the
+    // margin on the first heading cleared it on every one, and a month began flush against the
+    // last row of the month before.
+    //
+    // Compared against the space inside a group rather than against a number, because what was
+    // wrong is the ranking: a month break has to read as bigger than a row break.
+    const groups = calendar(page).getByRole('group');
+    await expect(groups).toHaveCount(3);
+
+    const first = await boxOf(groups.nth(0), 'the first month');
+    const second = await boxOf(groups.nth(1), 'the second month');
+
+    const heading = await boxOf(groups.nth(0).locator('p').first(), "the first month's heading");
+    const row = await boxOf(groups.nth(0).getByRole('listitem').first(), 'its first row');
+
+    const betweenGroups = second.y - (first.y + first.height);
+    const insideAGroup = row.y - (heading.y + heading.height);
+
+    expect(betweenGroups, 'a month heading sits flush against the month before it').toBeGreaterThan(
+      insideAGroup,
+    );
+  });
+});

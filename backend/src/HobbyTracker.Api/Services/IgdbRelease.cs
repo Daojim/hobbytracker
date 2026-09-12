@@ -21,34 +21,39 @@ public static class IgdbRelease
     /// <summary>
     /// The window IGDB has announced for a game.
     ///
-    /// Three answers, and the difference between the last two is the one worth holding on to.
-    /// A dated window puts a title in its month; <see cref="ReleaseWindow.Unknown"/> puts it
-    /// under <i>No date yet</i>; and <see cref="ReleaseWindow.None"/> leaves it in Backlog,
-    /// because nothing knows when it came out and guessing *soon* would be worse than admitting
-    /// that.
+    /// Two answers, not three. A dated window puts a title in its month, and
+    /// <see cref="ReleaseWindow.Unknown"/> puts it under <i>No date yet</i>.
+    /// <see cref="ReleaseWindow.None"/> is unreachable from here on purpose, which is what makes
+    /// a null precision mean the one thing it is documented to mean: <b>nobody has asked</b>.
     /// </summary>
     public static ReleaseWindow WindowOf(IgdbGame game)
     {
         if (game.FirstReleaseDate is not { } seconds)
         {
-            // No date at all — and IGDB draws a distinction here that is worth keeping, because
-            // the two shapes mean opposite things. Measured against the live API:
+            // Asked, and IGDB has no date. IGDB derives first_release_date from release_dates,
+            // so its absence already says every row is dateless — whether an editor also wrote
+            // "TBD" down in one is a fact about how completely the entry was filled in, not
+            // about the game.
             //
-            //   - A game IGDB models as *announced but undated* carries explicit TBD rows in
-            //     release_dates. That is genuinely unreleased, and belongs on the calendar.
-            //   - A game IGDB simply has no date for carries no release_dates at all. Those are
-            //     overwhelmingly obscure titles that came out years ago and nobody filled in —
-            //     "Wubble Bubbles", "Soccer Cup 2022". Calling those *coming soon* would fill
-            //     the calendar with shovelware nobody is waiting for.
+            // Those two shapes were read as opposites until 12 September 2026: a game with no
+            // rows at all answered None, to keep the calendar clear of obscure titles that came
+            // out years ago and nobody filled in — "Wubble Bubbles", "Soccer Cup 2022".
             //
-            // So the second shape answers with no window at all, which reads as released and
-            // leaves the title in Backlog. It also keeps it out of the nightly sweep, which is
-            // right for the same reason `games.hltb_checked_at` exists: re-asking for ever about
-            // a title the provider has nothing to say about never terminates.
-            var announcedUndated = (game.ReleaseDates ?? [])
-                .Any(row => row.DateFormat?.Format == TbdFormat);
-
-            return announcedUndated ? ReleaseWindow.Unknown : ReleaseWindow.None;
+            // Measured again against the live API, that premise does not hold. Of the 53,096
+            // main games with no release_dates, 250 have ever been rated by anybody and 4 by
+            // more than two people; they are not games people played, they are entries with
+            // nothing behind them. The notable ones are announcements nobody has dated — Stellar
+            // Blade: Blood Rain, Okami Sequel, Black Myth: Zhong Kui, Physint — and those were
+            // the titles being thrown away.
+            //
+            // The shovelware worry was sound and belongs to the discovery grid, which does not
+            // read these columns. This calendar is drawn from Backlog, so the person's own act
+            // of adding a title is already the filter, and nobody adds "Wubble Bubbles".
+            //
+            // The rumours in that set — Half-Life 3 and the twenty others IGDB marks Rumored —
+            // are kept off the calendar by their status, in ReleaseWindow.NotOutOn, and not
+            // here. This answers what is known about the date, and a rumour's date is unknown.
+            return ReleaseWindow.Unknown;
         }
 
         var day = DayOf(seconds);
@@ -116,7 +121,7 @@ public static class IgdbRelease
         "YYYYMM" => ReleasePrecision.Month,
         "YYYY" => ReleasePrecision.Year,
         "YYYYQ1" or "YYYYQ2" or "YYYYQ3" or "YYYYQ4" => ReleasePrecision.Quarter,
-        "TBD" => ReleasePrecision.Unknown,
+        TbdFormat => ReleasePrecision.Unknown,
         _ => ReleasePrecision.Day,
     };
 

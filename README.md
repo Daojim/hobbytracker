@@ -387,7 +387,10 @@ to prevent something, the test for it is checked by reintroducing the thing.
       announced them, so a game slated for "Q1 2027" says that rather than a day nobody named —
       IGDB states those as a real date, and taking it at face value would be a fabrication that
       looked entirely plausible. A nightly sweep re-asks about the things that have not shipped,
-      because release dates slip constantly and nothing else in the app goes stale on its own
+      because release dates slip constantly and nothing else in the app goes stale on its own.
+      A game nobody has put a date on at all says *TBA* and waits there with the rest — but a
+      game IGDB calls a *rumour* does not, because a list of what is coming stops meaning much
+      once Half-Life 3 is on it
 - [ ] A title detail page, and a year in review
 - [ ] Browsing what is popular, rather than having to know what to search for
 - [ ] Books and music — each a sibling detail table plus its source integration

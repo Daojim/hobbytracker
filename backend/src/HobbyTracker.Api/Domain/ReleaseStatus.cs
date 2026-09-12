@@ -33,7 +33,18 @@ public enum ReleaseStatus
     /// </summary>
     Cancelled,
 
-    /// <summary>Not announced by anybody who would know. Not playable.</summary>
+    /// <summary>
+    /// Not announced by anybody who would know. Not playable, and <b>not on the calendar
+    /// either</b> — which is where it parts company with <see cref="Cancelled"/> above.
+    ///
+    /// <para>
+    /// The two are easily confused, because neither is arriving on the date it names. The
+    /// difference is that a cancelled title was announced, so the calendar is where you learn
+    /// it is dead, where a rumour was never announced at all: Half-Life 3 among the things that
+    /// are coming makes the whole list mean less. A rumour stays in Backlog with the ordinary
+    /// titles. See <see cref="ReleaseWindow.NotOutOn(System.DateOnly)"/>.
+    /// </para>
+    /// </summary>
     Rumored,
 
     /// <summary>Released and since withdrawn from sale. Still a thing you can have played.</summary>

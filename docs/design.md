@@ -25,6 +25,7 @@ the header.
 | Journal | **Drawer or modal**, also a setting. Same dialog either way |
 | Width | The board stops widening at 2000px and puts the pixels into the cards |
 | Columns | **Two across from 768px, four from 1280px.** Four at 768 left each one 168px |
+| Coming soon | **Two of the board's four tracks wide**, so its right edge lands on a grid line |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
 
@@ -204,6 +205,32 @@ and the title size themselves in **`cqi` against the card**.
 
 Left alone: at around 1280 the **Completed column's header wraps** its sort select onto a second line,
 so its cards start lower than its neighbours'. Pre-existing, clears by 1440.
+
+**The release calendar is two of those four tracks wide**, and it shipped as four. A card answers
+"what is this" and wants the room; a calendar row answers "how far off is it" on one line, and at
+the board's full width the date ends up a foot from the name it belongs to.
+
+It is written on the `<section>` in `ComingSoon` as `xl:max-w-[calc(50%_-_0.5rem)]`, with the
+half-gap adjusted at `2xl` and `3xl` to follow the grid's `gap-4 2xl:gap-5 3xl:gap-6`. Two tracks
+plus the gap between them is `(100% - 3g)/4 × 2 + g`, which is `50% - g/2`. Three things about it:
+
+- **No cap below `xl`.** The grid is two across there, so two tracks and a gap already are the full
+  width, and a cap would be a number that happened to agree.
+- **Underscores, not spaces.** Tailwind turns `_` into a space; `calc(50%-0.5rem)` written the
+  obvious way is invalid CSS, because the minus binds to the number and there is no operator left.
+  It generates no class at all and the section silently renders full width — the interpolated-class
+  trap wearing a different hat.
+- **The three gap values will not follow the grid on their own**, so `layout.spec.ts` measures the
+  section's right edge against the Playing column's rather than against a pixel count. Change the
+  board's gap without changing these and a test goes red instead of the section quietly sliding off
+  the grid line.
+
+Also there and also unmeasurable in jsdom: **the space above a month heading**, which was nought.
+`first:mt-0` was on the heading rather than on the group it heads, and a heading is always the first
+child of its own group — so the class meant to spare the first heading spared every one, and a month
+began flush against the last row of the month before. The margin belongs to the group. The spec
+compares it against the space *inside* a group rather than against a number, because what was wrong
+is the ranking: a month break has to read as bigger than a row break.
 
 ### The hobby nav
 

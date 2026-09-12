@@ -300,6 +300,18 @@ catches a three-valued-logic hole, the kind that got into `ck_media_release_wind
 calendar row must not either. It also sits outside the `years !== undefined` gate, because everything
 on it is in the future and Backlog is exempt from the year anyway.
 
+**Two things stay in the column that are not out.** A title nobody has asked a provider about is the
+deploy-day clause and is the reason the predicate leads with `ReleasePrecision != null`. A title the
+provider calls a *rumour* is the second, added on 12 September 2026: it was never announced, so a
+list of what is coming is the wrong place for it, and Backlog is where an ordinary queued title
+lives. Both make the predicate answer *out* about something that is not, which is why its real
+question is "does this belong on the calendar" — `docs/games-igdb.md`, **A rumour is not an
+announcement**.
+
+**The section is two of the board's four tracks wide**, so its right edge lands on the grid line
+under Playing rather than running the whole board. It shipped full width, which put a row's date a
+foot from its title. `docs/design.md`, **The board at every width**.
+
 ### Query keys, ordering, and the traps
 
 **`frontend/src/board/keys.ts` owns every board query key**, and its comments carry the reasoning.

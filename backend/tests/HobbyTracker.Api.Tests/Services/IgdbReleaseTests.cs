@@ -81,20 +81,42 @@ public sealed class IgdbReleaseTests
     }
 
     [Fact]
-    public void A_title_IGDB_has_no_date_for_at_all_gets_no_window_rather_than_a_TBD()
+    public void A_title_IGDB_has_no_date_for_at_all_is_announced_with_no_date()
     {
-        // Measured, and it is the distinction this mapping turns on. IGDB models *announced but
-        // undated* as explicit TBD rows — the case above. A game with no date and no rows at all
-        // is a different thing: an obscure title nobody filled in, and the live API is full of
-        // them. "Wubble Bubbles", "Soccer Cup 2022" and "Flashy Maze" all came back that way.
+        // Stellar Blade: Blood Rain, verbatim — announced at a showcase, hyped by 63 people, and
+        // carrying no release_dates rows and no first_release_date whatsoever.
         //
-        // Reading those as TBD would fill the calendar with shovelware nobody is waiting for,
-        // and — worse — the nightly sweep would go on asking about them for ever, since nothing
-        // would ever give them a date. No window leaves them in Backlog and out of the sweep.
-        var game = new IgdbGame { Id = 94975, Name = "Wubble Bubbles" };
+        // This read as ReleaseWindow.None until 12 September 2026, on the argument that a game
+        // with no rows at all is an obscure old title nobody filled in rather than an
+        // announcement. Measured again against the live API, that does not hold: of the 53,096
+        // main games with no release_dates, 250 have ever been rated by anybody and 4 by more
+        // than two people. They are not games people played. The notable ones are announcements
+        // nobody has dated — this, Okami Sequel, Black Myth: Zhong Kui, Physint.
+        //
+        // The shovelware worry was real and belongs to the discovery grid, which does not read
+        // these columns. The calendar is drawn from Backlog, so the person's own act of adding a
+        // title is already the filter, and nobody adds "Wubble Bubbles".
+        var game = new IgdbGame { Id = 347557, Name = "Stellar Blade: Blood Rain" };
 
-        IgdbRelease.WindowOf(game).ShouldBe(ReleaseWindow.None);
-        IgdbRelease.WindowOf(game).Precision.ShouldBeNull();
+        IgdbRelease.WindowOf(game).ShouldBe(ReleaseWindow.Unknown);
+    }
+
+    [Fact]
+    public void A_rumour_is_still_read_as_undated_rather_than_kept_off_the_calendar_here()
+    {
+        // Half-Life 3, which IGDB marks Rumored and gives no dates. It does not reach the
+        // calendar — but that is ReleaseWindow.NotOutOn's decision, made from the status, and
+        // not this mapping's. Keeping the two apart is what lets the window stay a statement
+        // about dates alone.
+        var game = new IgdbGame
+        {
+            Id = 28029,
+            Name = "Half-Life 3",
+            GameStatus = new IgdbGameStatus { Status = "Rumored" },
+        };
+
+        IgdbRelease.WindowOf(game).ShouldBe(ReleaseWindow.Unknown);
+        IgdbRelease.StatusOf(game).ShouldBe(ReleaseStatus.Rumored);
     }
 
     [Fact]

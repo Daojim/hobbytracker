@@ -86,18 +86,31 @@ const CATALOGUE = [
   { id: 3010, released: '2025-09-04', precision: 'YYYYMMDD', gameType: 0, ratings: 502, name: 'Hollow Knight: Silksong',
     platforms: ['PC', 'Switch'], developer: 'Team Cherry', genres: ['Platform'] },
 
-  // The three that have not come out, for the release calendar. They are dated relative to the
-  // run rather than pinned, because a fixed date stops being in the future and the spec would
-  // then fail on a day nobody changed anything — the year control's specs learned this already.
+  // The five that have not come out, for the release calendar. The dated ones are dated relative
+  // to the run rather than pinned, because a fixed date stops being in the future and the spec
+  // would then fail on a day nobody changed anything — the year control's specs learned this
+  // already.
   //
-  // One of each shape the calendar has to tell apart: a day, a window vaguer than a day, and a
-  // title nobody has announced anything for at all.
+  // One of each shape the calendar has to tell apart: a day, a window vaguer than a day, a title
+  // IGDB says TBD about, a title IGDB says nothing at all about, and a rumour.
   { id: 3011, released: inMonths(3), precision: 'YYYYMMDD', gameType: 0, name: 'Silksong II',
     platforms: ['PC'], developer: 'Team Cherry', genres: ['Platform'] },
   { id: 3012, ...upcomingQuarter(18), gameType: 0, name: 'Hades III',
     platforms: ['PC'], developer: 'Supergiant Games', genres: ['Indie'] },
   { id: 3013, precision: 'TBD', gameType: 0, name: 'Celeste 64', platforms: ['PC'],
     developer: 'Extremely OK Games', genres: ['Platform'] },
+
+  // Neither key, which is the shape the live API really answers with for an announced title
+  // nobody has dated — no first_release_date and no release_dates array at all. It is the one
+  // shape a stub is most likely to get wrong by tidying it into a TBD row, and it read as
+  // *released* until 12 September 2026. Copied from IGDB id 347557.
+  { id: 3014, gameType: 0, name: 'Stellar Blade: Blood Rain', platforms: ['PC'],
+    developer: 'Shift Up', genres: ["Hack and slash/Beat 'em up", 'Adventure'] },
+
+  // The same shape and the opposite answer, which is why the two sit together: undated, and off
+  // the calendar because IGDB says nobody announced it. Copied from IGDB id 28029.
+  { id: 3015, status: 'Rumored', gameType: 0, name: 'Half-Life 3', platforms: ['PC'],
+    developer: 'Valve', genres: ['Shooter'] },
 ];
 
 /** Midnight UTC of a `YYYY-MM-DD` day, in unix seconds, which is how IGDB sends a date. */

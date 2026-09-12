@@ -271,6 +271,11 @@ excludes them, the calendar is exactly them, and the nightly sweep re-asks IGDB 
 `GameDto` asks a fourth time, in memory, so a search tile cannot disagree with the column a title
 will land in.
 
+**It answers "does this belong on the calendar", and `NotOutOn` is the name it wears** because the
+Backlog column is its exact complement. Two of the statuses it excludes are not out — a rumour, and
+a title nobody has asked a provider about — and both belong in the column anyway. See **A rumour is
+not an announcement** below.
+
 Written out three times it would drift, and **the drift is invisible** — a title in both the column
 and the calendar, or in neither, with nothing erroring. So:
 
@@ -319,7 +324,7 @@ and the two halves are one commit, or a hobby's unreleased titles leave Backlog 
 - **`game_status` is absent on most games.** Neither *Grand Theft Auto VI* nor *The Elder Scrolls VI*
   carries one, so null there is ordinary rather than a failure and the window is the fallback.
 
-### The three shapes a date arrives in, and why the third is not the second
+### The shapes a date arrives in
 
 **A vague date is sent as the *last* day of its window.** *The Witcher IV* "2028" arrives as
 2028-12-31; *007 First Light*'s "Q3 2026" row as 2026-09-30. This inverts the obvious assumption,
@@ -333,20 +338,76 @@ coin flip that often lands on a Japan-only date or a re-release — the row that
 one's `date` equals `first_release_date`. **A TBD row carries no `date` key at all**, rather than a
 null or a nought, which is what lets the matching walk over them.
 
-And the distinction that took a measurement to find:
-
 | what IGDB sends | what it means | where the title goes |
 |---|---|---|
 | a date, with a matching `date_format` row | an announced window | its month, quarter or year |
-| no date, **with** explicit `TBD` rows | announced and undated | the *No date yet* bucket |
-| no date, **and no rows at all** | IGDB has nothing to say | **Backlog** — no window at all |
+| no `first_release_date`, whatever the rows say | asked, and IGDB has no date | the *No date yet* bucket |
 | a date, with no row to explain it | rows pruned from an old entry | read as a day |
 
-The third row is the one worth knowing. A query for games with no `first_release_date` comes back
-full of *Wubble Bubbles*, *Soccer Cup 2022* and *Flashy Maze* — obscure titles that shipped and
-nobody filled in. Reading those as TBD would fill the calendar with shovelware nobody is waiting
-for, and the nightly sweep would ask about them for ever, since nothing would ever give them a
-date. So they get no window, which reads as released.
+**`ReleaseWindow.None` does not appear in that table, and after 12 September 2026 it cannot.** No
+provider mapping produces it; it is the state a row is created in and stays in until a search or a
+refresh writes over it. Null precision therefore means exactly one thing — *nobody has asked* —
+which is what its own doc comment always claimed.
+
+### The second row of that table was two rows, and the split was wrong
+
+Worth recording, because the argument for the split was good and it took a second measurement to
+see past it.
+
+Until 12 September 2026 a game with **no `release_dates` rows at all** answered `None` and stayed
+in Backlog, while one carrying explicit `TBD` rows answered `Unknown` and reached the calendar. The
+reason: a query for games with no `first_release_date` comes back full of *Wubble Bubbles*, *Soccer
+Cup 2022* and *Flashy Maze*, and filling the calendar with shovelware nobody is waiting for would
+be worse than dropping the odd announcement.
+
+**It was reported as a bug by the only test that counts — a person looking at their own board.**
+*Stellar Blade: Blood Rain* was sitting in Backlog as though it were out. Measured again against
+the live API:
+
+| among IGDB's main games with no `release_dates` | |
+|---|---|
+| how many there are | 53,096 |
+| …that **anyone** has ever rated | 250 |
+| …rated by more than two people | **4** |
+| …with a hype count, i.e. somebody is waiting | 1,578 |
+| …that IGDB marks `Rumored` | **21** |
+
+So they are not games that shipped and nobody logged; they are entries with nothing behind them.
+Sorted by hype, the top of that set is *Black Myth: Zhong Kui*, *Stellar Blade: Blood Rain*,
+*Okami Sequel*, *Physint* and the next *Mass Effect* — announcements, every one, and they were
+what the rule was throwing away. IGDB simply had not created a `TBD` row for them, which is a fact
+about an editor's afternoon rather than about the game.
+
+**And the shovelware argument does not apply to this feature at all.** The calendar is drawn from
+Backlog, so a title only reaches it if somebody put it there, and nobody puts *Wubble Bubbles* in
+their Backlog. The person's own act of adding is already the filter. That argument belongs to
+**Discovery: a grid of what is popular** below, which draws from IGDB rather than from a board and
+will need it.
+
+**The cost was measured rather than waved away**: a title that really is out but has no IGDB date
+row now moves from the Backlog column onto the calendar. That is the 250 above, of which 4 have
+more than two ratings — and it was accepted rather than guarded, because a guard means storing
+`total_rating_count` for four titles in fifty-three thousand.
+
+### A rumour is not an announcement
+
+`ReleaseStatus.Rumored` sat beside `Cancelled` in `NotOnItsDate` until the same day, on the reading
+that neither is arriving on the date it names. True, and not the question. **A cancelled title was
+announced** — the calendar is where you find out it is dead, and the alternative is Backlog, which
+claims it shipped. **A rumour was never announced by anybody who would know**, and *Half-Life 3* on
+a list of what is coming makes the whole list mean less.
+
+So `Rumored` moved into `NeverUpcoming` beside the six playable statuses, and a rumour stays in
+Backlog with the ordinary titles. Two things follow that are worth stating:
+
+- **This was already happening to ten titles**, before any of the above. IGDB marks 21 undated
+  games `Rumored`, and 10 more `Rumored` games carry a `TBD` row — *Injustice 3*, *Banjo-Threeie*,
+  *Ultra Donkey Kong* and their kind — which is how they reached the calendar unlabelled. Excluding
+  by status rather than by shape is what makes those two groups behave alike.
+- **A rumour is never swept**, because `RefreshUnreleasedAsync` draws its set from the same
+  expression. That is right rather than a gap: a rumour is undated by construction, so sweeping one
+  is exactly the non-termination the null-precision clause exists to avoid. If a rumour becomes a
+  real announcement, a fresh search or `POST /api/games/refresh` picks it up.
 
 ### The backfill is a thing you run, and the sweep is not
 
@@ -362,6 +423,13 @@ plainly rather than discovering: **on the day this ships the calendar is empty u
 `POST /api/games/refresh` is run.** Which is what `CLAUDE.md` already tells you to do after a
 migration adds a provider-owned column — this one just has a visible symptom.
 
+**Changing what a window *means* needs the same run, and that is the less obvious half.** No
+migration is involved, so nothing prompts you: the rows on the board still hold whatever the
+mapping said when they were last written. The 12 September 2026 change is the standing example —
+until the refresh runs, *Stellar Blade: Blood Rain* keeps the null precision it was stored with and
+goes on reading as released, and the fix looks as though it did not work. A **search** for the
+title fixes that one row, because a search upserts; the board's other titles need the refresh.
+
 **It is switched off in two places and the second is easy to miss.** `ApiFactory` removes it from
 the test host, through a `RemoveHostedService<T>` helper so the third worker somebody adds is one
 line rather than eight nobody copies. And `playwright.config.ts` sets `ReleaseRefresh__Enabled` to
@@ -376,15 +444,22 @@ became *announced and undated*, left Backlog, and took most of the board and jou
 it — failing with nothing anywhere naming a release date. So **every catalogue entry carries a past
 day-precision date**, and that is load-bearing rather than decoration.
 
-Three upcoming fixtures were added, one of each shape: *Silksong II* three months out to the day,
-*Hades III* a quarter eighteen months out, and *Celeste 64* with explicit TBD. They are dated
-relative to the run rather than pinned, because a fixed date stops being in the future. **The
-quarter fixture computes its date and its label from the same day** — written separately, a date
-drifting into the next quarter went on carrying the previous quarter's label, and the stub asserted
-a shape the real API never produces. It cost one round to notice.
+Five upcoming fixtures, one of each shape: *Silksong II* three months out to the day, *Hades III* a
+quarter eighteen months out, *Celeste 64* with explicit TBD, *Stellar Blade: Blood Rain* with
+**neither key at all**, and *Half-Life 3*, which is the same nothing plus `game_status: Rumored`.
+The dated ones are dated relative to the run rather than pinned, because a fixed date stops being in
+the future. **The quarter fixture computes its date and its label from the same day** — written
+separately, a date drifting into the next quarter went on carrying the previous quarter's label, and
+the stub asserted a shape the real API never produces. It cost one round to notice.
 
 One fixture is deliberately *without* a precision: IGDB prunes `release_dates` from older entries
 while keeping `first_release_date`, and that shape has to read as a day.
+
+**The last two were added on 12 September 2026 and the stub had been quietly missing their shape.**
+A game with no `first_release_date` *and* no `release_dates` array is what the live API really sends
+for an announced, undated title, and it is the shape a stub is most likely to tidy away into a TBD
+row — which is the *"a stub that mirrors only today's shape"* trap in `docs/games-hltb.md`, arriving
+from the direction of a shape the stub simply never had. Nothing was red while it was missing.
 
 **A catalogue name that prefixes another is a locator hazard.** "Celeste 64" makes a search for
 "Celeste" answer with two tiles, one of them unreleased, and Playwright's `hasText` is a substring
@@ -406,6 +481,12 @@ filling a board — especially filling one *backwards*, which is what the year c
 - **The popularity numbers are never stored**, so a popular grid is a live query by construction and
   a stored "top games" table is the thing this codebase has already decided against once. `hypes` is
   the unreleased half. See **Ranking search results**.
+- **The shovelware problem is this phase's, and it is real here.** The calendar was allowed to stop
+  worrying about it because Backlog is drawn by hand and nobody queues *Wubble Bubbles* — see **The
+  second row of that table was two rows** above. A grid drawn from IGDB has no such filter, so
+  53,096 undated main games are all candidates and 250 of them have ever been rated. `hypes` and
+  `total_rating_count` are the two numbers that separate them, and both are already in
+  `SearchFields`.
 - **The catalogue grows by search, and only by search**, so whether *browsing* writes rows at all is
   a real decision: forty covers idly scrolled would grow `media` faster than every search ever
   typed. The cheap answer is that browsing upserts nothing and only adding does — but that is not

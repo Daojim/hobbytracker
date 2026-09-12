@@ -101,12 +101,31 @@ export function ComingSoon({ hobby, onOpen }: ComingSoonProps) {
   const groups = groupOf(shown, today);
 
   return (
-    <section aria-labelledby={headingId} className="mt-6">
+    /*
+     * Two of the board's four tracks wide, plus the gap between them — `50% - g/2`, which is
+     * where `(100% - 3g)/4 * 2 + g` lands. So the right edge falls on a grid line under Playing
+     * rather than near one, and it goes on doing that as the board grows.
+     *
+     * A row here is one line about when a title arrives, and at the board's full width the date
+     * ends up a foot from the name it belongs to. No cap below `xl`: the grid is two across
+     * there, so two tracks and a gap already *are* the full width.
+     *
+     * The three gap values track `BoardPage`'s `gap-4 2xl:gap-5 3xl:gap-6` and will not follow
+     * it on their own — `layout.spec.ts` measures the alignment against the Playing column so
+     * that drift is a red test rather than a section that quietly stops lining up.
+     */
+    <section
+      aria-labelledby={headingId}
+      className="mt-6 xl:max-w-[calc(50%_-_0.5rem)] 2xl:max-w-[calc(50%_-_0.625rem)] 3xl:max-w-[calc(50%_-_0.75rem)]"
+    >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
           {words.heading} <span className="text-muted">{items.length}</span>
         </h2>
 
+        {/* The visible word is bare because the heading is right beside it; the accessible name
+            is not, because a screen reader reaches the button without the heading in hand and
+            "Hide" alone would be the third such button on the page. */}
         <button
           type="button"
           onClick={() => {
@@ -115,9 +134,10 @@ export function ComingSoon({ hobby, onOpen }: ComingSoonProps) {
               return !wasOpen;
             });
           }}
-          className="rounded px-1 text-xs text-muted hover:bg-hover"
+          aria-label={`${open ? 'Hide' : 'Show'} ${words.heading}`}
+          className="ml-auto rounded px-1 text-xs text-muted hover:bg-hover"
         >
-          {open ? `Hide ${words.heading}` : `Show ${words.heading}`}
+          {open ? 'Hide' : 'Show'}
         </button>
       </div>
 
@@ -128,8 +148,20 @@ export function ComingSoon({ hobby, onOpen }: ComingSoonProps) {
           ) : (
             <>
               {groups.map(({ key, rows }) => (
-                <div key={key} role="group" aria-label={formatGroup(key, words.noDateHeading)}>
-                  <p className="mt-3 mb-2 text-xs font-medium tracking-wide text-muted uppercase first:mt-0">
+                /*
+                 * The margin belongs to the group, not to the heading, and that is the whole of
+                 * the fix it once needed. A heading is always the first child of its own group,
+                 * so `first:mt-0` on the heading applied to every one of them and a month began
+                 * flush against the last row of the month before. On the group it selects what
+                 * it says: only the first group, whose top is the well's own padding.
+                 */
+                <div
+                  key={key}
+                  role="group"
+                  aria-label={formatGroup(key, words.noDateHeading)}
+                  className="mt-3 first:mt-0"
+                >
+                  <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">
                     {formatGroup(key, words.noDateHeading)}
                   </p>
 

@@ -25,10 +25,16 @@ public readonly record struct ReleaseWindow(
     /// <summary>
     /// No window at all, which is deliberately <b>not</b> <see cref="Unknown"/>.
     ///
-    /// It means nothing knows when this came out — either nobody has asked a provider, or one
-    /// was asked and had no opinion. Such a title reads as <i>released</i> and stays in Backlog,
-    /// which is what keeps a board that predates this feature untouched and what stops an
-    /// obscure old title the provider has no date for being filed as coming soon.
+    /// It means <b>nobody has asked a provider</b>, and nothing else — a provider that was asked
+    /// and had no date answers <see cref="Unknown"/>. Such a title reads as <i>released</i> and
+    /// stays in Backlog, which is what keeps a board that predates this feature untouched.
+    ///
+    /// <para>
+    /// No provider mapping produces this any more, only the absence of one: it is the state a
+    /// row is created in and stays in until a search or a refresh writes over it. It narrowed
+    /// to that on 12 September 2026, when <c>IgdbRelease.WindowOf</c> stopped answering with it
+    /// for a game IGDB has no dates for. See the comment there.
+    /// </para>
     /// </summary>
     public static readonly ReleaseWindow None = new(null, null, null);
 
@@ -73,25 +79,43 @@ public readonly record struct ReleaseWindow(
             new DateOnly(year, lastMonth, DateTime.DaysInMonth(year, lastMonth)),
             precision);
 
-    /// <summary>Statuses that mean a title is playable now, whatever day its window names.</summary>
-    private static readonly ReleaseStatus?[] PlayableNow =
+    /// <summary>
+    /// Statuses that keep a title off the calendar whatever day its window names, for the two
+    /// unrelated reasons below.
+    /// </summary>
+    private static readonly ReleaseStatus?[] NeverUpcoming =
     [
+        // Playable now. A game IGDB still lists only as "2026" would otherwise sit in the
+        // calendar until New Year's Eve, months after it shipped.
         ReleaseStatus.Released,
         ReleaseStatus.Alpha,
         ReleaseStatus.Beta,
         ReleaseStatus.EarlyAccess,
         ReleaseStatus.Offline,
         ReleaseStatus.Delisted,
+
+        // Never announced. Rumored sat beside Cancelled below until 12 September 2026, on the
+        // reading that neither is arriving on the date it names — true, and not the question.
+        // A cancelled title *was* announced and the calendar is where you find out it is dead;
+        // a rumour is something somebody wrote down. Half-Life 3 on a list of what is coming
+        // makes the list mean less, so a rumour stays in Backlog with the ordinary titles.
+        //
+        // It follows that a rumour is never swept, because RefreshUnreleasedAsync draws its set
+        // from this same expression — which is right: a rumour is undated by construction, so
+        // sweeping one is the non-termination the null-precision clause below exists to avoid.
+        // If a rumour becomes a real announcement, a fresh search or POST /api/games/refresh
+        // picks it up, exactly as they do for everything else.
+        ReleaseStatus.Rumored,
     ];
 
     /// <summary>
-    /// Statuses that mean it is not arriving on the date it names — or at all. A cancelled title
-    /// whose announced date has passed would otherwise read as released, which claims it shipped.
+    /// The status that means it is not arriving on the date it names — or at all. A cancelled
+    /// title whose announced date has passed would otherwise read as released, which claims it
+    /// shipped.
     /// </summary>
     private static readonly ReleaseStatus?[] NotOnItsDate =
     [
         ReleaseStatus.Cancelled,
-        ReleaseStatus.Rumored,
     ];
 
     /// <summary>
@@ -116,10 +140,18 @@ public readonly record struct ReleaseWindow(
     /// announced only for "2026" would appear in Backlog on 1 January, eleven months before
     /// anybody could play it.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Two of the statuses in <see cref="NeverUpcoming"/> make this read <i>out</i> about a
+    /// title that is not, and that is deliberate.</b> A rumour is not out and neither is a title
+    /// nobody has asked about, but both belong in the Backlog column rather than on a list of
+    /// what is coming. The question this really answers is "does this belong on the calendar";
+    /// <c>NotOutOn</c> is the name it wears because the Backlog column is its exact complement.
+    /// </para>
     /// </summary>
     public static Expression<Func<Media, bool>> NotOutOn(DateOnly today) => media =>
         media.ReleasePrecision != null
-        && !PlayableNow.Contains(media.ReleaseStatus)
+        && !NeverUpcoming.Contains(media.ReleaseStatus)
         && (NotOnItsDate.Contains(media.ReleaseStatus)
             || media.ReleaseEnd == null
             || media.ReleaseEnd > today);
@@ -142,13 +174,6 @@ public readonly record struct ReleaseWindow(
         return Expression.Lambda<Func<T, bool>>(body, mediaOf.Parameters);
     }
 
-    /// <summary>
-    /// Negates a predicate as an expression rather than restating it.
-    ///
-    /// This is what makes the Backlog column and the calendar exact complements: one of them is
-    /// literally <c>NOT</c> the other, so a title cannot fall into both or into neither however
-    /// the rule above changes.
-    /// </summary>
     /// <summary>The compiled form of <see cref="NotOutOn(DateOnly)"/>, for the day it was built on.</summary>
     private sealed record Compiled(DateOnly Day, Func<Media, bool> NotOut);
 
@@ -184,6 +209,13 @@ public readonly record struct ReleaseWindow(
         return !compiled.NotOut(media);
     }
 
+    /// <summary>
+    /// Negates a predicate as an expression rather than restating it.
+    ///
+    /// This is what makes the Backlog column and the calendar exact complements: one of them is
+    /// literally <c>NOT</c> the other, so a title cannot fall into both or into neither however
+    /// <see cref="NotOutOn(DateOnly)"/> changes.
+    /// </summary>
     public static Expression<Func<T, bool>> Not<T>(Expression<Func<T, bool>> predicate) =>
         Expression.Lambda<Func<T, bool>>(Expression.Not(predicate.Body), predicate.Parameters);
 
