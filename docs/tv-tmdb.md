@@ -122,7 +122,7 @@ TMDB's `status` is *Returning Series, Ended, Canceled, In Production, Planned, P
 verbatim because it is theirs to change.
 
 **The column is `air_status`.** `log_entries.status` is where *you* are on a title — a closed
-four-value vocabulary shared by every hobby — and this is where the *show* is. Two columns called
+five-value vocabulary shared by every hobby — and this is where the *show* is. Two columns called
 `status` on tables joined in every board query is a mistake waiting for the first person who
 types the shorter name out of habit. The client's facts band calls it **Airing** for the same
 reason.

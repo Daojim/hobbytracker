@@ -104,6 +104,7 @@ column; which entry gets touched and which dates get set is decided server-side.
 | not Completed | `Backlog` | edit in place; **clear both timestamps** |
 | not Completed | `InProgress` | edit in place; set `started_at` = now *only if null*; clear `completed_at` |
 | not Completed | `Completed` | edit in place; set `completed_at` = now |
+| not Completed | `OnHold` | edit in place; **Playing's rule exactly** — `started_at` = now *only if null*; clear `completed_at` |
 | not Completed | `Dropped` | edit in place; set `started_at` = now *only if null*; leave `completed_at` alone |
 | **Completed** | anything else | **insert a new entry** at the top of the target column |
 | same as target | — | no-op |
@@ -128,6 +129,21 @@ date and left without a beginning — and `now` over that would put the start af
 `ck_log_entries_timestamp_order` answers with a 500 on a request that had nothing wrong with it. The
 `Completed` arm carries the same guard facing the other way.
 
+**On Hold is Playing with the controller put down**, and takes Playing's rule for the dates: a
+start already there is kept, so resuming in September still says May, and a title paused straight
+out of the queue is stamped today, because you cannot pause what you never began. Clearing the
+completion is what keeps that stamp from landing after one. Season and episode are left alone, as
+every arm but Backlog's leaves them — a show paused at S2 E5 is exactly when S2 E5 is worth keeping.
+It was added on 17 September 2026 as a fifth `LogStatus`, **with no migration**: `status` is
+`varchar(20)` text with no check constraint on what it holds, which `dotnet ef migrations
+has-pending-model-changes` confirmed rather than anybody assuming.
+
+**A new status fails silently in two places, and both are now said out loud.**
+`ApplyTransitionTimestamps` is a `switch` *statement* with no default, so a status with no arm
+compiles and stamps nothing — On Hold's first red run was exactly that, three `StartedAt` nulls.
+And `InYear` is a switch *expression* whose `_` arm answers "either date", so a status left out of
+it looks almost right. `LogStatus.cs` names both for the next one.
+
 **Dropped sits last, and this board has had it both ways.** `BOARD_STATUSES` in
 `frontend/src/hobbies/index.ts` is the one list the order comes from, so a hobby can rename a
 column and cannot reorder the board out from under the drag. It ran Backlog · Playing · Completed ·
@@ -140,16 +156,24 @@ what decided it was use, which is the only evidence either of them was ever goin
 
 **Moving it is one line, and two tests are what say so.** `otherColumns` filters the same list, so
 a card's menu follows the board without a second ordering to keep in step — which is why *Move to
-Dropped* is the last of a card's three moves again, above the one item that is not a move. Nothing
-else moved either time: every e2e locator names its column rather than its position. What goes red
-is `BoardPage.test.tsx`'s exhaustive list of the four `<h2>`s, in all three hobbies, and three of
-`Card.test.tsx`'s four menu-order rows — the Dropped card's row is the one that reads the same
-whichever end the column is at.
+Dropped* is the last of a card's moves, above the one item that is not a move. Nothing else moved
+either time: every e2e locator names its column rather than its position. What goes red is
+`BoardPage.test.tsx`'s exhaustive list of the `<h2>`s, in all three hobbies it checks, and
+`Card.test.tsx`'s menu-order rows.
 
-**A card's corner is an `⋯` menu, same items from every column** — *Open journal*, the three columns
-this card is not in, then *Remove from board*. `columnsFor` in `frontend/src/hobbies/` is the one
-list of the four, per hobby; `otherColumns` gives a card its three, never its own, because
-`TransitionAsync` treats a move to the status a title already has as a silent no-op. It is called
+**On Hold sits straight after Playing**, decided on 17 September 2026: it is Playing with the
+controller put down, so pausing and resuming are a drag to the next column and left to right still
+reads as the life of a title. The alternative was beside Dropped, grouping the two stalled states at
+the right as MAL's list does. It is the same one line to move, and the same tests say so. **Its
+look is a plain column, not Dropped's muted well** — picked from rendered screenshots: it is a list
+you come back to, which is why it ignores the year, and fading it works against that.
+
+**A card's corner is an `⋯` menu, same items from every column** — *Open journal*, every other
+column the board is drawing, then *Remove from board*. `columnsFor` in `frontend/src/hobbies/` is
+the one list of a hobby's five; the board draws those less any taken off in Settings, and hands
+that list to every card's menu as `CardMenu.columns`. `otherColumns` filters it, never offering a
+card its own column, because `TransitionAsync` treats a move to the status a title already has as
+a silent no-op. It is called
 *Open journal* rather than a noun for the thing, so every hobby gets this menu unmodified, and
 **it is offered in every sort mode**, unlike the drag: a menu move writes no ranking, so there is
 none for it to promise.
@@ -228,7 +252,7 @@ the Completed column's header, which was right while `completed_at` was the only
 — **a control living inside one column while narrowing three would be claiming to be about that
 column.**
 
-**The year means a different date per column, and it has to.** One predicate for all four is
+**The year means a different date per column, and it has to.** One predicate for all five is
 unusable: Backlog and InProgress have their completion cleared by the very rules that put a title in
 them, so `completed_at` board-wide leaves three columns permanently empty and reads as a broken
 filter rather than a strict one.
@@ -237,13 +261,17 @@ filter rather than a strict one.
 |---|---|
 | Backlog | **Nothing — it is exempt.** Both timestamps are cleared by the rule that puts a title there, so it belongs to no year; and it is what you drag out of while reading a past one |
 | Playing | `started_at`. The transition into this column clears `completed_at` |
+| On Hold | **Nothing — exempt too**, for the second half of Backlog's reason alone. It carries a start, so the data could answer "paused in 2019", but it is a list you come back to — narrowed on its start, everything paused since last year would leave the board the first time anything was logged in a new one, because the board opens on the latest year there is |
 | Completed | `completed_at`, pointedly **not** `started_at`. A game begun in 2019 and finished in 2021 is a 2021 completion |
 | Dropped | **Either.** A drop stamps a start when the pass has none and leaves a completion alone, so an abandoned title carries a start, an earlier completion, or both. Only a pass written straight through `POST /api/log-entries` carries neither |
 | *no column named* | Either, for Dropped's reason: with no column named there is no one date to prefer |
 
 `LibraryService.InYear` holds the server's half and `yearFor` in `frontend/src/board/keys.ts` the
-client's, which is only the Backlog exemption. Both halves are named in each other's comments, because
-a column filtering on a date the client did not expect is invisible rather than loud.
+client's, which is only the two exemptions. Both halves are named in each other's comments, because
+a column filtering on a date the client did not expect is invisible rather than loud. **Each half is
+pinned on its own** — that no year is sent, in `BoardPage.test.tsx`; that one sent is ignored, in
+`LibraryOrderingTests` — because `board.spec.ts`'s year case passes if *either* half exempts On
+Hold, and so cannot tell you they agree.
 
 **`GET /api/library/years` answers with any activity, not completions.** It had to move with the
 filter: a year you began something in and finished nothing in is a year the Playing column handles
@@ -276,11 +304,59 @@ first and knows things the picker does not.
 
 **The board renders nothing until the years arrive.** Deliberate rather than a missing loading state:
 it opens on the latest year, so painting before they are known is a board showing every year — briefly
-— with four columns refetched on the way to the one it was always going to be. `YearPicker` is
+— with every column refetched on the way to the one it was always going to be. `YearPicker` is
 presentational, because the page has to hold that query to have anything to default to.
 
 **One consequence worth knowing rather than fixing:** completing a game while reading a past year
 makes its card leave the board, since the completion is stamped *now*. That is the filter being honest.
+
+**A second, which On Hold makes common rather than rare:** resuming a title started last year puts it
+in Playing under *last* year, off the board that opens on this one — Playing filters on `started_at`
+and resuming keeps it. Un-dropping has always done the same. It was accepted when On Hold was agreed;
+if it ever bothers anybody, the thing to change is Playing's year rule, not On Hold's.
+
+### Columns taken off in Settings
+
+**Any column but Backlog can be left off a board, from a Columns group of checkboxes in Settings** —
+built on 17 September 2026, and the answer to *Hiding the Dropped column, per board*, which had sat
+in the brief's small things since the 7th with two open questions. *Per board* turned out to mean a
+preference a browser remembers, like the theme, rather than a fact about the hobby: kept per board
+because a film is seldom put on hold and a game often is, and per browser because nothing about it
+belongs on the server.
+
+- **It is the first preference that is not CSS, so it is a store rather than an attribute.** A theme
+  is stamped on the root and nothing in React hears it change. A column taken off has to leave the
+  grid, stop fetching, stop being a drop target and leave every card's menu — all in the board, a
+  sibling of the header the menu is in. `board/hiddenColumns.ts` is a `useSyncExternalStore` store
+  both subscribe to, with no provider, so a component test still renders without a wrapper. Its
+  snapshot is the **raw stored string**, parsed after, because a fresh `Set` per read would re-render
+  forever. Another tab's change arrives through the `storage` event.
+- **A hidden column is not rendered at all** — no request, no droppable, no track. `BoardPage` reads
+  the hobby's columns less the hidden ones **once**, and that one list feeds the grid, the calendar's
+  width and `CardMenu.columns`, which is where a card's moves come from. A card worked out its moves
+  from the hobby before; left that way it would offer *Move to Dropped* on a board with no Dropped.
+- **Backlog cannot be hidden, and the menu says so in words** rather than offering a disabled box —
+  the nav's rule for unbuilt hobbies. Search adds every title there, so a board without it would
+  swallow each add; the calendar is a view of it; and it guarantees one column is always on screen.
+- **Titles in a hidden column stay exactly where they are.** Nothing is written. The one place they
+  show through is the search strip's *On your board*, which reads the unfiltered library — true, so
+  left alone.
+- **What is stored is what is hidden, not what is shown**, under `hobbytracker.hidden-columns.<hobby>`
+  beside the calendar's `hobbytracker.coming-soon.<hobby>`. A shown-list would have taken On Hold off
+  every board whose owner had ever touched the setting, on the day it arrived. Anything unrecognised
+  falls back to hiding nothing.
+- **When storage refuses a write, the page keeps the choice anyway**, in a map that empties the first
+  time a write succeeds. Without it the checkbox is a control that does nothing in exactly the
+  browsers set to block site data. Its test is worth reading before writing another like it:
+  it passed with the map deleted, the first time — see **The things that fail quietly** in
+  `docs/design.md`.
+- **The word *hide* is not used in Settings.** On the board it already means *fold*, for Dropped and
+  for the calendar, and a third meaning in the header would be one too many. Ticked means shown.
+
+**Checked by reintroducing each fault.** The menu working its moves out from the hobby again fails
+`Card.test.tsx` and `BoardPage.test.tsx`; one storage key for every board fails the store's test and
+the board's; Backlog made hideable fails four; the refusal map deleted fails one; and the calendar
+handed the unfiltered count fails `layout.spec.ts` by 141px.
 
 ### A second thing that narrows a column
 
@@ -327,9 +403,10 @@ lives. Both make the predicate answer *out* about something that is not, which i
 question is "does this belong on the calendar" — `docs/games-igdb.md`, **A rumour is not an
 announcement**.
 
-**The section is two of the board's four tracks wide**, so its right edge lands on the grid line
-under Playing rather than running the whole board. It shipped full width, which put a row's date a
-foot from its title. `docs/design.md`, **The board at every width**.
+**The section is two of the board's tracks wide**, so its right edge lands on the grid line under
+Playing rather than running the whole board. It shipped full width, which put a row's date a foot
+from its title. It is laid out on the board's own tracks rather than computed, so it follows the
+column count — five, or fewer with columns taken off. `docs/design.md`, **The board at every width**.
 
 ### Query keys, ordering, and the traps
 

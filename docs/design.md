@@ -24,8 +24,9 @@ the header.
 | Density | Comfortable / Compact, a setting rather than a decision |
 | Journal | **Drawer or modal**, also a setting. Same dialog either way |
 | Width | The board stops widening at 2000px and puts the pixels into the cards |
-| Columns | **Two across from 768px, four from 1280px.** Four at 768 left each one 168px |
-| Coming soon | **Two of the board's four tracks wide**, so its right edge lands on a grid line |
+| Columns | **Two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
+| Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
+| Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
 
@@ -109,6 +110,12 @@ Each is invisible in development and each has a test that was checked by breakin
   the name itself and the environment will not overwrite a global that already exists — so it is
   present and answers to nothing. `src/test/setup.ts` supplies one, and the condition asks whether the
   thing can *store* rather than whether it is `undefined`, which was the bug in the first attempt.
+- **So a spy on `Storage.prototype` refuses nothing.** What `setup.ts` supplies implements the
+  `Storage` interface without being a `Storage`, so `vi.spyOn(Storage.prototype, 'setItem')` patches
+  a prototype the harness never calls, and a test of storage refusing *passes without storage ever
+  refusing*. `hiddenColumns.test.ts`'s refusal case did exactly that — green with the fallback it
+  exists for deleted — until it spied on the instance instead, `vi.spyOn(localStorage, 'setItem')`,
+  which is what `theme.test.ts` had done all along.
 - **Screenshots are how a visual claim gets checked.** A throwaway spec under `e2e/` that seeds a
   board, switches theme and writes PNGs is worth writing again whenever this area changes — it is what
   caught the unreadable chip. Do not commit it. **Wait after switching theme before you shoot**:
@@ -185,8 +192,17 @@ vertical strip out of a portrait. Measured at 768px it was **40×95 for a box as
 `items-start` is the whole fix; the genre stripe is unaffected because it asks for the full height
 itself with `self-stretch`. **And the size ladder had no rung where one was needed**: everything from
 a phone to a 1279px laptop shared one 40px cover, while four columns started at 768, leaving each one
-168px and about **32px of title**. So the board turns four columns across at **1280**, and the cover
-and the title size themselves in **`cqi` against the card**.
+168px and about **32px of title**. So the board turns every column across at **1280** — four then,
+five since On Hold — and the cover and the title size themselves in **`cqi` against the card**.
+
+**Five across at 1280 was chosen by eye, from screenshots, on 17 September 2026.** Measured in the
+browser, a column is 234px at 1280 (296px with four), 266px at 1440 and 355px at 1920, and
+*Hollow Knight: Silksong* wraps to three lines, two, and one. Tight at 1280 and accepted there,
+because anybody who finds it tight can take a column off in Settings and have the four-across board
+back exactly. **The tracks follow how many columns are drawn**, not how many exist: `board/grid.ts`
+maps the count to whole class names — `xl:grid-cols-${n}` would generate nothing, the
+interpolated-class trap — and fewer than four simply fill the width, which the cover's own
+`clamp(…, 5rem)` keeps from turning into a bigger box rather than more room for the title.
 
 - **`@container` is on `CARD_CLASS`, not on `Column`.** That class is what the drag preview wears, and
   the preview renders outside every column — a container on the column would shrink a card at the
@@ -203,27 +219,28 @@ and the title size themselves in **`cqi` against the card**.
   `data-genre-stripe` exists — and the stub omits covers on purpose, so what the spec measures is the
   placeholder, which wears the same classes and had the same bug.
 
-Left alone: at around 1280 the **Completed column's header wraps** its sort select onto a second line,
-so its cards start lower than its neighbours'. Pre-existing, clears by 1440.
+Left alone: at 1280 the **Completed and Dropped headers wrap** their sort select onto a second line,
+so their cards start lower than their neighbours'. Completed did this with four columns too; by 1440
+only Dropped's does, because it carries a Show button the others do not.
 
-**The release calendar is two of those four tracks wide**, and it shipped as four. A card answers
-"what is this" and wants the room; a calendar row answers "how far off is it" on one line, and at
-the board's full width the date ends up a foot from the name it belongs to.
+**The release calendar is two of the board's tracks wide**, and it shipped as the whole board. A
+card answers "what is this" and wants the room; a calendar row answers "how far off is it" on one
+line, and at the board's full width the date ends up a foot from the name it belongs to.
 
-It is written on the `<section>` in `ComingSoon` as `xl:max-w-[calc(50%_-_0.5rem)]`, with the
-half-gap adjusted at `2xl` and `3xl` to follow the grid's `gap-4 2xl:gap-5 3xl:gap-6`. Two tracks
-plus the gap between them is `(100% - 3g)/4 × 2 + g`, which is `50% - g/2`. Three things about it:
+**It is laid out on the board's own grid rather than computed**, and that changed with On Hold. It
+used to be `xl:max-w-[calc(50%_-_0.5rem)]` on the section, with the half-gap repeated at `2xl` and
+`3xl` — two of *four* tracks, `(100% - 3g)/4 × 2 + g`, and nothing else. A fifth column made the
+arithmetic wrong, and a column taken off in Settings would have made it wrong again. Now
+`ComingSoon` is handed the count the board is drawing, sits in a grid built from the same
+`boardTracks(count)` and `BOARD_GAP` as the columns, and spans two tracks with `md:col-span-2` — so
+it lands on the grid line by construction, at every count and every width. Two things about it:
 
-- **No cap below `xl`.** The grid is two across there, so two tracks and a gap already are the full
-  width, and a cap would be a number that happened to agree.
-- **Underscores, not spaces.** Tailwind turns `_` into a space; `calc(50%-0.5rem)` written the
-  obvious way is invalid CSS, because the minus binds to the number and there is no operator left.
-  It generates no class at all and the section silently renders full width — the interpolated-class
-  trap wearing a different hat.
-- **The three gap values will not follow the grid on their own**, so `layout.spec.ts` measures the
-  section's right edge against the Playing column's rather than against a pixel count. Change the
-  board's gap without changing these and a test goes red instead of the section quietly sliding off
-  the grid line.
+- **Nothing spans below `md`**, where the grid is one track and spanning two would invent a second;
+  nor on a board showing one column, for the same reason at every width.
+- **`layout.spec.ts` still measures the right edge against the Playing column's**, with nothing
+  taken off and with On Hold taken off. Handing the calendar the unfiltered count — five tracks under
+  a four-column board — puts it 141px off the line, and that case goes red; this is what says the
+  two grids agree rather than a section quietly sliding off one.
 
 Also there and also unmeasurable in jsdom: **the space above a month heading**, which was nought.
 `first:mt-0` was on the heading rather than on the group it heads, and a heading is always the first
@@ -258,7 +275,11 @@ change. Films proved it: that flag, plus a file in `src/hobbies/`, was the whole
   exists with.
 - **Exactly one `SettingsMenu`, and it has to stay that way.** `useTheme` holds its state locally —
   themes are CSS, so there is no provider — so a second menu would read storage once on mount and then
-  keep drawing the old choice. `AppHeader.test.tsx` pins it.
+  keep drawing the old choice. `AppHeader.test.tsx` pins it. **The Columns group is the exception
+  inside it**: it is the one setting the board has to hear, so it reads a store rather than local
+  state (`board/hiddenColumns.ts`, and **Columns taken off in Settings** in `docs/board.md`). That is
+  also why the header now takes the board's `hobby` — required, because a default is how the group
+  would quietly go missing.
 
 `renderWithProviders` takes a **`route` option**, defaulting to `/board/games`. Its `MemoryRouter`
 had no `initialEntries`, so the location was always `/` and `aria-current` could not be asserted at

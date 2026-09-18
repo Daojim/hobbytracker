@@ -15,10 +15,10 @@ build are a title detail page and a year in review — see [Roadmap](#roadmap).
 
 ## What it does
 
-The board is four columns — Backlog, Playing, Completed, and Dropped kept out of the way at the
-end — and a title moves between them by drag or from the card's own options menu. Which
-entry a move touches and which timestamps it stamps are decided server-side, so no client has to
-know which pass is current.
+The board is five columns — Backlog, Playing, On Hold, Completed, and Dropped kept out of the way
+at the end — and a title moves between them by drag or from the card's own options menu. Any
+column but Backlog can be taken off a board in Settings, per board. Which entry a move touches and
+which timestamps it stamps are decided server-side, so no client has to know which pass is current.
 
 Cards carry the cover, the genre they are painted as, your rating, how long the game takes, and
 the last thing you wrote about it. Clicking the title opens the journal over the board: rating,
@@ -248,10 +248,10 @@ accumulates whatever has ever been typed into a search box. `/api/library` joins
 and returns only what you actually recorded something about. Conflating the two would make the
 home screen a list of things you never asked to keep.
 
-**One status vocabulary across every hobby.** `Backlog · InProgress · Completed · Dropped`, for
-games and books and albums alike, stored as text rather than an ordinal. Per-hobby statuses would
-make cross-hobby views impossible to write, and an int ordinal means reordering the enum silently
-reinterprets existing rows.
+**One status vocabulary across every hobby.** `Backlog · InProgress · OnHold · Completed ·
+Dropped`, for games and books and albums alike, stored as text rather than an ordinal. Per-hobby
+statuses would make cross-hobby views impossible to write, and an int ordinal means reordering the
+enum silently reinterprets existing rows. Text is also why On Hold arrived with no migration.
 
 **Leaving Completed inserts a pass rather than editing one.** Replaying a game finished in 2024
 must not overwrite that completion — several entries per title is the entire reason the schema is

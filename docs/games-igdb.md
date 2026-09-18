@@ -156,7 +156,7 @@ hundred-and-first title twice.
   body. Escape deliberately does *not* move focus: it is handled on the container and can be pressed
   from a control in the strip.
 - **The strip is only there when there is something to show**, and is `aria-label`led rather than
-  headed — `BoardPage.test.tsx` asserts the board's four `<h2>`s as an exhaustive list.
+  headed — `BoardPage.test.tsx` asserts the board's column `<h2>`s as an exhaustive list.
 - **The bar is remounted when the nav changes hobby, and the remount is the whole of what empties
   it.** `BoardPage` keys `BoardSearch` on the hobby. Without that key a term stays in the box across
   the nav and is then sent to the *other* provider, because the search is dispatched and keyed by
@@ -259,7 +259,7 @@ below the board.
 - **Backlog titles that are not out move to the calendar with no migration.** Same partition,
   applied the moment release dates exist.
 - **The status vocabulary is untouched.** A fifth `LogStatus` was never on the table — it is one
-  shared four-value enum across every hobby so cross-hobby views stay writable.
+  shared five-value enum across every hobby so cross-hobby views stay writable.
 
 The cost, accepted: the Backlog column's count is no longer a count of Backlog rows, and one
 expression has to own the word *released*.
