@@ -1,11 +1,19 @@
 import { NavLink } from 'react-router';
 import { SettingsMenu } from '../theme/SettingsMenu';
 import { SessionBadge } from './SessionBadge';
-import { HOBBIES, boardPath } from './hobbies';
+import { HOBBIES, boardPath, type Hobby } from './hobbies';
 
 export interface AppHeaderProps {
   /** What the app is. Rendered as the page's one h1. */
   title: string;
+
+  /**
+   * Whose board this header sits over, for the one setting that belongs to a board rather than
+   * to the whole app: which columns it leaves off. Required, because the header is only ever
+   * drawn over a board — and a Settings panel quietly missing its Columns group is the failure a
+   * default here would allow.
+   */
+  hobby: Hobby;
 }
 
 /**
@@ -30,7 +38,7 @@ export interface AppHeaderProps {
  * purpose — themes are CSS, so there is no provider — which means a second menu would read
  * storage once on mount and then keep drawing the old choice.
  */
-export function AppHeader({ title }: AppHeaderProps) {
+export function AppHeader({ title, hobby }: AppHeaderProps) {
   return (
     <header className="mb-6">
       <div className="flex items-baseline gap-4">
@@ -40,7 +48,7 @@ export function AppHeader({ title }: AppHeaderProps) {
             wraps on a narrow screen. */}
         <div className="ml-auto flex items-center gap-3 self-center">
           <SessionBadge />
-          <SettingsMenu />
+          <SettingsMenu hobby={hobby} />
         </div>
       </div>
 

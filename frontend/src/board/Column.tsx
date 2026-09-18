@@ -5,7 +5,7 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { listColumn } from '../api/library';
 import { Card } from './Card';
 import { SortSelect } from './SortSelect';
-import { hobbyDefinition } from '../hobbies';
+import { type BoardColumn, hobbyDefinition } from '../hobbies';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import type { LibrarySort, LogStatus } from '../api/types';
@@ -32,6 +32,8 @@ export interface ColumnMenu {
   mediaId: number | null;
   onOpen: (mediaId: number) => void;
   onClose: () => void;
+  /** The columns the board is drawing, handed on to every card's menu. See `CardMenu.columns`. */
+  columns: readonly BoardColumn[];
 }
 
 export interface ColumnProps {
@@ -192,6 +194,7 @@ export function Column({
                     open: menu.mediaId === item.mediaId,
                     onOpen: () => menu.onOpen(item.mediaId),
                     onClose: menu.onClose,
+                    columns: menu.columns,
                   }}
                   onOpen={onOpen}
                   // Every other mode is a read-only view. Offering a drag there would promise a

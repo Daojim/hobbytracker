@@ -99,7 +99,7 @@ public class Anime : Media
     /// `currently_airing`, `not_yet_aired`.
     ///
     /// <b>Named `air_status` rather than `status`</b>, for <see cref="TvShow.AirStatus"/>'s
-    /// reason: <c>log_entries.status</c> is where *you* are and is a closed four-value
+    /// reason: <c>log_entries.status</c> is where *you* are and is a closed five-value
     /// vocabulary shared by every hobby, and two columns called `status` on tables joined in
     /// every board query is a mistake waiting for the first person who types the shorter name.
     /// </summary>

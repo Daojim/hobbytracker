@@ -67,7 +67,7 @@ public sealed class LibraryService(
     /// <summary>
     /// How much of a note reaches a card.
     ///
-    /// A note may be 4000 characters and a board is up to four columns of a hundred rows, so
+    /// A note may be 4000 characters and a board is up to five columns of a hundred rows, so
     /// uncapped this would make the board response scale with how much somebody writes. It is
     /// comfortably more than two lines can hold at the widest card and the loosest density, so
     /// the cut a reader actually sees is always the client's line-clamp and never this one —
@@ -581,7 +581,7 @@ public sealed class LibraryService(
     /// The year used to mean completed_at and nothing else, because it was the Completed
     /// column's own control and no other column asked. Board-wide it cannot stay that: Backlog
     /// and InProgress have their completion cleared by the very rules that put a title in them,
-    /// so one predicate for all four would leave three columns permanently empty and read as a
+    /// so one predicate for all five would leave three columns permanently empty and read as a
     /// broken filter rather than a strict one.
     ///
     /// Every comparison is a half-open range of instants, never EXTRACT(year FROM …).
@@ -598,6 +598,18 @@ public sealed class LibraryService(
         // useful behaviour is not an empty well but the queue you drag out of while reading a
         // past year.
         LogStatus.Backlog => query,
+
+        // Exempt too, for the second half of Backlog's reason rather than the first. A title on
+        // hold does carry a start, so the data could answer "paused in 2019" — but that is not
+        // the question the column is for. It is a list you come back to, and narrowed on its
+        // start it would lose everything paused since last year the first time anything was
+        // logged in a new one, because the board opens on the latest year there is.
+        //
+        // Said out loud rather than left to the default arm below, which would answer "either
+        // date" and look almost right. yearFor in frontend/src/board/keys.ts holds the client's
+        // half of this; the two have to agree or a drag writes into a cache entry the column is
+        // not reading.
+        LogStatus.OnHold => query,
 
         // Begun in that year. The transition into this column clears completed_at, so a start
         // is the only date a title here has.
@@ -618,7 +630,7 @@ public sealed class LibraryService(
         // the timestamps alone on purpose, so an abandoned title carries a start, a completion
         // from an earlier pass, or neither depending on where it was abandoned from. With no
         // column named there is no one date to prefer, and "active in that year" is the only
-        // reading that does not quietly privilege one of the four.
+        // reading that does not quietly privilege one of the five.
         _ => query.Where(row =>
             (row.Latest.StartedAt != null
              && row.Latest.StartedAt >= span.From
@@ -717,6 +729,24 @@ public sealed class LibraryService(
             case LogStatus.InProgress:
                 // Only when absent: picking a dropped game back up must keep the day you
                 // actually started it rather than resetting to today.
+                entry.StartedAt ??= now;
+                entry.CompletedAt = null;
+                break;
+
+            case LogStatus.OnHold:
+                // Playing's rule exactly, because on hold is Playing with the controller put
+                // down: started, not finished. A start already here is kept, so resuming in
+                // September still says May; a title paused straight out of the queue has begun
+                // by the time it lands here. Clearing the completion is what keeps the start
+                // stamped beside it from landing after one, which would be a 500 from
+                // ck_log_entries_timestamp_order on a request with nothing wrong with it.
+                //
+                // Where you were is left alone, as every arm but Backlog's leaves it: a show
+                // paused at S2 E5 is exactly when S2 E5 is worth keeping.
+                //
+                // This arm has to exist. The switch has no default, so a status without one
+                // compiles and silently stamps nothing — StatusTransitionTests' on-hold cases
+                // are what say so.
                 entry.StartedAt ??= now;
                 entry.CompletedAt = null;
                 break;

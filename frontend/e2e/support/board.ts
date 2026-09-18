@@ -28,20 +28,23 @@ export const COLUMN_LABEL: Record<Hobby, Record<LogStatus, string>> = {
   games: {
     Backlog: 'Backlog',
     InProgress: 'Playing',
+    OnHold: 'On Hold',
     Completed: 'Completed',
     Dropped: 'Dropped',
   },
   movies: {
     Backlog: 'Backlog',
     InProgress: 'Watching',
+    OnHold: 'On Hold',
     Completed: 'Watched',
     Dropped: 'Dropped',
   },
-  // The same four words as films, written out again rather than shared. Two hobbies agreeing
+  // The same five words as films, written out again rather than shared. Two hobbies agreeing
   // today is a fact about today, and the copy is what would catch one of them changing.
   tv: {
     Backlog: 'Backlog',
     InProgress: 'Watching',
+    OnHold: 'On Hold',
     Completed: 'Watched',
     Dropped: 'Dropped',
   },
@@ -50,6 +53,7 @@ export const COLUMN_LABEL: Record<Hobby, Record<LogStatus, string>> = {
   anime: {
     Backlog: 'Backlog',
     InProgress: 'Watching',
+    OnHold: 'On Hold',
     Completed: 'Watched',
     Dropped: 'Dropped',
   },

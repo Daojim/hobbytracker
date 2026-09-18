@@ -62,7 +62,7 @@ public class LibraryController(ILibraryService library) : ControllerBase
     /// <see cref="LibrarySort"/> would be a value the board has to hide. A flag makes nonsense
     /// expressible — <c>?status=Completed&amp;upcoming=true</c> is a question with no meaning
     /// that the controller would then have to refuse. And the board's column cache key stays the
-    /// shape it is, rather than growing a dimension that four columns carry and none uses.
+    /// shape it is, rather than growing a dimension that five columns carry and none uses.
     /// </para>
     ///
     /// Not paged. A person's list of things they are waiting for is tens, so the client shows

@@ -13,6 +13,8 @@ import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { useBoard } from './useBoard';
 import { YearPicker } from './YearPicker';
 import { yearFor, yearsKey } from './keys';
+import { BOARD_GAP, boardTracks } from './grid';
+import { useHiddenColumns } from './hiddenColumns';
 import { columnsFor } from '../hobbies';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
@@ -21,6 +23,7 @@ import type { LibrarySort, LogStatus } from '../api/types';
 const ALL_MANUAL: Record<LogStatus, LibrarySort> = {
   Backlog: 'manual',
   InProgress: 'manual',
+  OnHold: 'manual',
   Completed: 'manual',
   Dropped: 'manual',
 };
@@ -29,7 +32,7 @@ export function BoardPage() {
   const { hobby } = useParams();
 
   // A slug that names no hobby, or one whose board is not built yet. `movies` is in hobby_lu and
-  // the API answers it, so what this prevents is not a 404 — it is four empty columns, which
+  // the API answers it, so what this prevents is not a 404 — it is a board of empty columns, which
   // reads as broken rather than as unbuilt. The same reasoning leaves the nav's five unready
   // hobbies as plain text rather than as links to somewhere disappointing.
   //
@@ -46,7 +49,7 @@ export function BoardPage() {
  * A hobby's board.
  *
  * Each column fetches itself, which is what makes a sort or a year on one of them cost nothing
- * on the other three.
+ * on the others — and what lets a column taken off in Settings cost nothing at all.
  */
 function Board({ hobby }: { hobby: Hobby }) {
   // Per column, not board-wide: Completed is worth reading by rating while Backlog stays in the
@@ -105,7 +108,7 @@ function Board({ hobby }: { hobby: Hobby }) {
   });
 
   // Set during render, which is React's own way of adjusting state to something that arrived
-  // from outside — an effect would paint one board with no year and refetch four columns on the
+  // from outside — an effect would paint one board with no year and refetch every column on the
   // way to the one it was always going to show.
   const latest = years?.[0];
   if (latest !== undefined && latest !== followed) {
@@ -115,6 +118,14 @@ function Board({ hobby }: { hobby: Hobby }) {
   const year = chosen !== null ? chosen.year : followed;
 
   const board = useBoard({ hobby, sorts, year });
+
+  // The columns this board draws, in board order: the hobby's, less any taken off in Settings.
+  // One list, read once, and handed to everything that has to agree about it — the grid, the
+  // calendar whose width is counted in the grid's tracks, and every card's menu, whose moves come
+  // from it. A column left off is not rendered at all, so it asks the API for nothing and is not
+  // a drop target; the titles in it stay exactly where they were.
+  const hidden = useHiddenColumns(hobby);
+  const columns = columnsFor(hobby).filter((column) => !hidden.has(column.status));
 
   // Focus goes back to the card the drawer was opened from — by id, not by a stored element.
   // Refetches remount the card while the drawer is open, so a reference kept from then would
@@ -131,7 +142,7 @@ function Board({ hobby }: { hobby: Hobby }) {
   return (
     <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
       <div className="mx-auto max-w-board">
-        <AppHeader title="HobbyTracker" />
+        <AppHeader title="HobbyTracker" hobby={hobby} />
 
         {/* Above the board rather than on a screen of its own, so the column a title is
             about to land in is visible while you decide.
@@ -162,16 +173,17 @@ function Board({ hobby }: { hobby: Hobby }) {
             </div>
 
             <DndContext {...board.dnd}>
-              {/* Two columns before four. Four across a 768px window left each one 168px, which after
-                  the well, the card and the cover is about 32px of title — every name a stack of
-                  broken words, and the card tall enough to stretch its own cover. data-board is
-                  what scopes the e2e card() locator to the board, so a search result cannot
-                  answer to it. */}
+              {/* Two across before all of them. Four across a 768px window left each one 168px,
+                  which after the well, the card and the cover is about 32px of title — every name
+                  a stack of broken words. The tracks follow how many columns there are, and the
+                  calendar under the board reads the same count so its edge lands on their lines;
+                  see grid.ts. data-board is what scopes the e2e card() locator to the board, so a
+                  search result cannot answer to it. */}
               <div
                 data-board=""
-                className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:gap-5 3xl:gap-6"
+                className={`grid items-start ${BOARD_GAP} ${boardTracks(columns.length)}`}
               >
-                {columnsFor(hobby).map(({ status, label }) => (
+                {columns.map(({ status, label }) => (
                   <Column
                     key={status}
                     hobby={hobby}
@@ -198,6 +210,7 @@ function Board({ hobby }: { hobby: Hobby }) {
                       mediaId: menuFor,
                       onOpen: setMenuFor,
                       onClose: () => setMenuFor(null),
+                      columns,
                     }}
                     onOpen={(mediaId) => {
                       openedFrom.current = mediaId;
@@ -237,6 +250,7 @@ function Board({ hobby }: { hobby: Hobby }) {
             search result cannot answer to it, and a calendar row must not either. */}
         <ComingSoon
           hobby={hobby}
+          columns={columns.length}
           onOpen={(mediaId) => {
             openedFrom.current = mediaId;
             openJournal(mediaId);

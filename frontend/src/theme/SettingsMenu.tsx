@@ -1,9 +1,17 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
+import { columnsFor } from '../hobbies';
+import type { Hobby } from '../shell/hobbies';
 import { DENSITIES, JOURNAL_VIEWS, THEMES } from './theme';
 import { useTheme } from './useTheme';
 
+export interface SettingsMenuProps {
+  /** The board this panel sits over, whose columns the Columns group lists. */
+  hobby: Hobby;
+}
+
 /**
- * The one control in the header, holding the appearance preferences.
+ * The one control in the header, holding the appearance preferences and the board's columns.
  *
  * One button rather than two controls side by side: the header would otherwise start collecting
  * them, and there would be nowhere obvious for the next one to go. They are usually set in the
@@ -14,9 +22,14 @@ import { useTheme } from './useTheme';
  * and place it within a group, instead of reading a row of unrelated buttons. Deliberately not
  * quoting the count here: it said "1 of 5" for a long time while there were seven themes, and a
  * number in a comment nothing checks is a number that goes quietly wrong.
+ *
+ * The Columns group is the exception on both counts: each column is on or off independently, so
+ * they are checkboxes rather than radios; and it is the one setting that is not CSS, so it is read
+ * from a store the board subscribes to as well — see `board/hiddenColumns.ts`.
  */
-export function SettingsMenu() {
+export function SettingsMenu({ hobby }: SettingsMenuProps) {
   const { theme, density, journalView, setTheme, setDensity, setJournalView } = useTheme();
+  const hidden = useHiddenColumns(hobby);
   const [open, setOpen] = useState(false);
 
   const ids = useId();
@@ -157,6 +170,66 @@ export function SettingsMenu() {
               </button>
             ))}
           </div>
+
+          <hr className="my-2 border-line-soft" />
+
+          {/* The board's columns, in its own words — Playing here, Watching on a films board —
+              and for this board only, because a film is seldom put on hold and a game often is.
+
+              Ticked means shown, and the group never says "hide": on the board that word already
+              means *fold*, for Dropped and for the calendar, and a third meaning up here would be
+              one too many. Taking a column off draws it nowhere, fetches nothing and offers no
+              move to it; every title in it stays where it was.
+
+              Backlog is left out rather than offered as a disabled box. A disabled control
+              claims it would work under some other condition — the nav's reason for rendering
+              unbuilt hobbies as plain text — and there is none: search adds every title there.
+              The line under the group says so in words. */}
+          <p
+            id={`${ids}-columns`}
+            className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
+          >
+            Columns
+          </p>
+          <div
+            role="group"
+            aria-labelledby={`${ids}-columns`}
+            aria-describedby={`${ids}-columns-note`}
+            className="flex flex-col"
+          >
+            {columnsFor(hobby)
+              .filter((column) => canHide(column.status))
+              .map((column) => {
+                const shown = !hidden.has(column.status);
+
+                // Real checkboxes, where every other group here draws its own dots, and that
+                // was chosen from screenshots rather than assumed. Squares drawn to match the
+                // dots were the first attempt: at this size a square barely differs from a
+                // dot, and an unticked one all but vanished on the dark themes. A tick says
+                // "each one on its own" before anything is pressed, which is the difference
+                // from the radios above — and `color-scheme`, set per theme in index.css,
+                // themes the box itself, with the accent as its fill.
+                return (
+                  <label
+                    key={column.status}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-hover"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={shown}
+                      onChange={(event) =>
+                        setColumnHidden(hobby, column.status, !event.target.checked)
+                      }
+                      className="accent-accent"
+                    />
+                    {column.label}
+                  </label>
+                );
+              })}
+          </div>
+          <p id={`${ids}-columns-note`} className="px-2 pt-0.5 pb-1 text-xs text-muted">
+            Backlog always shows, because search adds to it.
+          </p>
 
           <hr className="my-2 border-line-soft" />
 

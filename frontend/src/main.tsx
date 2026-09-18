@@ -9,7 +9,7 @@ import './index.css';
 /**
  * Server state lives in TanStack Query rather than in component state. The board wants a drag to
  * move a card immediately and put it back if the request fails, and hand-rolling that against
- * four columns of paged data is the kind of thing that works until it does not.
+ * five columns of paged data is the kind of thing that works until it does not.
  *
  * Its configuration is a function in api/queryClient.ts rather than a literal here, so the part
  * worth testing — what happens when the server stops recognising the browser — is reachable

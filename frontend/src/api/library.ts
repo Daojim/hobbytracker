@@ -27,7 +27,7 @@ export function listColumn(query: ColumnQuery): Promise<PagedResult<LibraryItem>
 /**
  * Years with any activity, newest first — the year picker's options.
  *
- * Any activity rather than completions alone, because the year narrows three of the four
+ * Any activity rather than completions alone, because the year narrows three of the five
  * columns now and Playing is narrowed by a start. A year you began something in and finished
  * nothing in has to be offerable, or the picker cannot ask for a board the columns would answer.
  */

@@ -15,6 +15,7 @@ export const GAMES: HobbyDefinition = {
   columnLabel: {
     Backlog: 'Backlog',
     InProgress: 'Playing',
+    OnHold: 'On Hold',
     Completed: 'Completed',
     Dropped: 'Dropped',
   },

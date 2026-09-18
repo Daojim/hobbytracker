@@ -124,7 +124,7 @@ describe('hobbyDefinition', () => {
 
   it('gives each hobby its own word for a column and a length', () => {
     // The wire vocabulary is untouched: InProgress is InProgress on both boards, because
-    // cross-hobby views depend on the four statuses being identical everywhere.
+    // cross-hobby views depend on the five statuses being identical everywhere.
     expect(hobbyDefinition('games').columnLabel.InProgress).toBe('Playing');
     expect(hobbyDefinition('movies').columnLabel.InProgress).toBe('Watching');
     expect(hobbyDefinition('movies').columnLabel.Completed).toBe('Watched');

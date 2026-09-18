@@ -5,7 +5,7 @@ import { useSession } from './useSession';
 /**
  * Keeps a screen behind a session.
  *
- * The API refuses every board route without one, so the alternative is four columns each
+ * The API refuses every board route without one, so the alternative is five columns each
  * painting their own red 401 — which is a true description of what happened and a useless one to
  * be given. Being asked to sign in is the honest reading.
  *

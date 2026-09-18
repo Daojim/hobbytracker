@@ -141,7 +141,7 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
 
       {showStrip && (
         // Labelled rather than headed. A heading here would be a second h2 on the board, and the
-        // board's four column headings are asserted as an exhaustive list — an aria-label gives
+        // board's column headings are asserted as an exhaustive list — an aria-label gives
         // the strip a landmark and a name without joining that list.
         <section
           aria-label="Search results"

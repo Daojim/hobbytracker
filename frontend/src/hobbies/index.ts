@@ -89,12 +89,22 @@ export function genreStripe(
 }
 
 /**
- * The board's columns for a hobby: what order they sit in, and what each one is called.
+ * One column as a board draws it: the status it holds, and what this hobby calls it.
  *
  * Nothing here may be sent to the API. The label is not the status: the wire says `InProgress`
  * and a games board says Playing while a movies board says Watching.
  */
-export function columnsFor(hobby: string): readonly { status: LogStatus; label: string }[] {
+export interface BoardColumn {
+  status: LogStatus;
+  label: string;
+}
+
+/**
+ * Every column a hobby has, in board order — before anything is taken off in Settings, which is
+ * the board's business rather than the hobby's. The Settings menu lists these; the board draws
+ * these less the ones it was told to leave off.
+ */
+export function columnsFor(hobby: string): readonly BoardColumn[] {
   const { columnLabel } = hobbyDefinition(hobby);
 
   return BOARD_STATUSES.map((status) => ({ status, label: columnLabel[status] }));
@@ -103,6 +113,13 @@ export function columnsFor(hobby: string): readonly { status: LogStatus; label: 
 /**
  * Left to right, as the board lays them out. The one list the order comes from, so a hobby can
  * rename a column but cannot reorder the board out from under the drag.
+ *
+ * On Hold sits straight after Playing, because it is Playing with the controller put down:
+ * pausing and resuming are a drag to the next column, and left to right still reads as the
+ * life of a title — queued, under way, paused, finished. The other place it could have gone was
+ * beside Dropped, grouping the two stalled states at the right as MAL's list does; that was
+ * weighed and passed over on 17 September 2026. Moving it is this one line, as Dropped's moves
+ * have been.
  *
  * Dropped is last, and this board has had it both ways. It sat ahead of Backlog from 29 August
  * to 7 September 2026, on the argument that a dropped title *left* the progression rather than
@@ -113,23 +130,29 @@ export function columnsFor(hobby: string): readonly { status: LogStatus; label: 
  * target while it is.
  *
  * `otherColumns` derives from this, so a card's menu follows the board without a second list
- * to keep in step — which puts *Move to Dropped* back at the bottom of the three moves, above
- * the one item that is not a move.
+ * to keep in step — which puts *Move to Dropped* at the bottom of the four moves, above the one
+ * item that is not a move.
  */
 export const BOARD_STATUSES: readonly LogStatus[] = [
   'Backlog',
   'InProgress',
+  'OnHold',
   'Completed',
   'Dropped',
 ];
 
 /**
- * Everywhere a card could go from where it is — its three, never its own, because
- * `TransitionAsync` treats a move to the status a title already has as a silent no-op.
+ * Everywhere a card could go from where it is: every column the board is drawing, never its own,
+ * because `TransitionAsync` treats a move to the status a title already has as a silent no-op.
+ *
+ * Handed the board's columns rather than working them out from the hobby, and that is the whole
+ * of what keeps the menu honest about a column taken off in Settings. Worked out here, it would
+ * go on offering *Move to Dropped* on a board with no Dropped on it — a move that sends the card
+ * somewhere off screen, which reads as the menu losing it.
  */
 export function otherColumns(
-  hobby: string,
+  columns: readonly BoardColumn[],
   status: LogStatus,
-): readonly { status: LogStatus; label: string }[] {
-  return columnsFor(hobby).filter((column) => column.status !== status);
+): readonly BoardColumn[] {
+  return columns.filter((column) => column.status !== status);
 }

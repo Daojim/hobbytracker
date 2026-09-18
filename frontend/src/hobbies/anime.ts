@@ -24,6 +24,7 @@ export const ANIME: HobbyDefinition = {
   columnLabel: {
     Backlog: 'Backlog',
     InProgress: 'Watching',
+    OnHold: 'On Hold',
     Completed: 'Watched',
     Dropped: 'Dropped',
   },

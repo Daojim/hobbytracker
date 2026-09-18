@@ -36,8 +36,10 @@ async function boxOf(locator: Locator, what: string) {
  * every width and the row breaks are the whole of what changes. Compared with a pixel of
  * tolerance because a grid track's origin is not always a whole number.
  */
-async function columnsAcross(page: Page): Promise<number> {
-  const statuses: LogStatus[] = ['Backlog', 'InProgress', 'Completed', 'Dropped'];
+async function columnsAcross(
+  page: Page,
+  statuses: LogStatus[] = ['Backlog', 'InProgress', 'OnHold', 'Completed', 'Dropped'],
+): Promise<number> {
   const boxes = await Promise.all(
     statuses.map((status) => boxOf(column(page, status), `the ${status} column`)),
   );
@@ -97,13 +99,29 @@ test.describe('at 1024px', () => {
 test.describe('at 1440px', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('all four columns are across, which is the board it was designed as', async ({
-    page,
-  }) => {
+  test('every column is across, On Hold included', async ({ page }) => {
+    // Five tracks from 1280 up, each about 266px here — narrower than the four the board was
+    // designed as, and chosen by eye from rendered screenshots on 17 September 2026 rather than
+    // assumed. Taking one column off in Settings brings the four-across board back exactly.
     await seed(page.request, 'Celeste', 'Backlog');
     await page.goto('/board');
 
-    expect(await columnsAcross(page)).toBe(4);
+    expect(await columnsAcross(page)).toBe(5);
+  });
+
+  test('a column taken off in Settings gives the four-across board back', async ({ page }) => {
+    // The escape hatch the five-column width was agreed on: anybody who finds five tight takes
+    // one off and has exactly the board that was there before On Hold. The tracks follow how
+    // many columns are drawn rather than how many exist, so the grid closes up behind it.
+    await seed(page.request, 'Celeste', 'Backlog');
+    await page.goto('/board');
+
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('checkbox', { name: 'Dropped' }).uncheck();
+    await page.keyboard.press('Escape');
+
+    await expect(column(page, 'Dropped')).toHaveCount(0);
+    expect(await columnsAcross(page, ['Backlog', 'InProgress', 'OnHold', 'Completed'])).toBe(4);
   });
 
   test('a cover keeps its shape here too', async ({ page }) => {
@@ -117,17 +135,17 @@ test.describe('at 1440px', () => {
 /**
  * The cover reads its own column, not the window.
  *
- * Held at four columns for both measurements on purpose: comparing 768 against 1440 would prove
- * nothing, because two columns at 768 are *wider* than four at 1440 and the cover is right to be
- * bigger there. Fixing the column count and moving only the board width is the one comparison
- * where "tracks its column" is the sole explanation left.
+ * Held at one column count for both measurements on purpose: comparing 768 against 1440 would
+ * prove nothing, because two columns at 768 are *wider* than five at 1440 and the cover is right
+ * to be bigger there. Fixing the column count and moving only the board width is the one
+ * comparison where "tracks its column" is the sole explanation left.
  */
 test('a cover grows with the column it is in', async ({ page }) => {
   await seed(page.request, 'Celeste', 'Backlog');
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto('/board');
-  expect(await columnsAcross(page), '1280 should already be four across').toBe(4);
+  expect(await columnsAcross(page), '1280 should already be five across').toBe(5);
   const narrow = await boxOf(cover(page, 'Celeste'), "Celeste's cover at 1280");
 
   await page.setViewportSize({ width: 1920, height: 900 });
@@ -224,19 +242,38 @@ test.describe('the release calendar, at 1440px', () => {
     await page.goto('/board/games');
   });
 
-  test('is two board columns wide, not four', async ({ page }) => {
+  test('is two board columns wide, not the whole board', async ({ page }) => {
     // Asserted against the Playing column's right edge rather than against a pixel count, so it
     // stays true at every width and says the thing that actually matters: the calendar's edge
     // lands on one of the board's grid lines instead of somewhere near it.
     //
-    // The width is written as `50% - half a gap` in ComingSoon, which is two of four tracks plus
-    // the gap between them. Change the board's gap without changing that and nothing errors —
-    // the section just stops lining up, which is what this notices.
+    // It used to be written as `50% - half a gap`, which is two of four tracks and was wrong the
+    // moment On Hold made five. The section is laid out on the board's own tracks and gap now
+    // (board/grid.ts), so it should line up by construction — and this is what says it does,
+    // rather than a section that quietly slides off the grid line when either one changes.
     const section = await boxOf(calendar(page), 'the Coming soon section');
     const playing = await boxOf(column(page, 'InProgress'), 'the Playing column');
     const backlog = await boxOf(column(page, 'Backlog'), 'the Backlog column');
 
     expect(section.x, 'starts where the board does').toBeCloseTo(backlog.x, 0);
+    expect(section.x + section.width, 'ends on the Playing column').toBeCloseTo(
+      playing.x + playing.width,
+      0,
+    );
+  });
+
+  test('still ends on a column edge when a column is taken off', async ({ page }) => {
+    // The case a width formula could not have survived: the tracks are four now rather than
+    // five, and the calendar has to follow them without being told. It reads the same count the
+    // grid does, so it is two of four here and two of five above.
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('checkbox', { name: 'On Hold' }).uncheck();
+    await page.keyboard.press('Escape');
+    await expect(column(page, 'OnHold')).toHaveCount(0);
+
+    const section = await boxOf(calendar(page), 'the Coming soon section');
+    const playing = await boxOf(column(page, 'InProgress'), 'the Playing column');
+
     expect(section.x + section.width, 'ends on the Playing column').toBeCloseTo(
       playing.x + playing.width,
       0,

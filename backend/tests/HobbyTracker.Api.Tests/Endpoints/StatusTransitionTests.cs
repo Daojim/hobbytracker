@@ -177,6 +177,112 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         entry.StartedAt.ShouldBe(started);
     }
 
+    // ------------------------------------------------------------------ on hold
+
+    // On hold is Playing with the controller put down: started, not finished, and coming back.
+    // So it takes Playing's rule for the dates exactly, and the one thing worth saying about it
+    // is that the rule has to be *there* — ApplyTransitionTimestamps is a switch statement with
+    // no default, so a status with no arm of its own compiles and silently stamps nothing.
+
+    [Fact]
+    public async Task Putting_a_game_on_hold_keeps_the_day_you_started_it()
+    {
+        var mediaId = await GivenGameAsync();
+        var started = Eastern(2026, 5, 5);
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: started);
+
+        var response = await MoveAsync(mediaId, LogStatus.OnHold);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.OnHold);
+        entry.StartedAt.ShouldBe(started);
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Putting_something_on_hold_straight_from_the_backlog_stamps_today()
+    {
+        // You cannot pause a thing you never began, so a title arriving from the queue has
+        // begun by the time it lands here — the day it arrived is the only honest start it has.
+        // It also keeps the years picker truthful: a start is what offers a year.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+
+        await MoveAsync(mediaId, LogStatus.OnHold);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.OnHold);
+        entry.StartedAt.ShouldBe(Now);
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Putting_a_pass_carrying_only_a_completion_on_hold_clears_it_rather_than_500ing()
+    {
+        // The drawer's form sends every field, so a pass being played can carry a completion and
+        // no start — the case Dropping_a_pass_carrying_only_a_completion_keeps_the_two_in_order
+        // exists for. On hold is not finished, so the completion goes, as it does on the way
+        // into Playing; and because it goes, the start stamped beside it cannot land after it
+        // and ck_log_entries_timestamp_order has nothing to refuse.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, completedAt: Eastern(2020, 4, 1));
+
+        var response = await MoveAsync(mediaId, LogStatus.OnHold);
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.StartedAt.ShouldBe(Now);
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Resuming_from_hold_keeps_the_day_you_actually_started()
+    {
+        // The move this column exists for, and Un_dropping_keeps_the_day_you_actually_started's
+        // rule: started_at is set only when it is null, so a game paused in May and picked back
+        // up in September was still started in May.
+        var mediaId = await GivenGameAsync();
+        var started = Eastern(2026, 5, 5);
+        await GivenLogEntryAsync(mediaId, LogStatus.OnHold, startedAt: started);
+
+        await MoveAsync(mediaId, LogStatus.InProgress);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.InProgress);
+        entry.StartedAt.ShouldBe(started);
+    }
+
+    [Fact]
+    public async Task Pausing_a_show_keeps_the_episode_you_stopped_at()
+    {
+        // Where you got to is most of what a paused show is worth remembering. Only the Backlog
+        // arm clears the pair — a card back in the queue reading S2 E5 is a lie, and a card on
+        // hold reading it is the point. Built by hand because GivenLogEntryAsync has no progress.
+        var mediaId = await GivenShowAsync("Severance", numberOfSeasons: 2);
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                MediaId = mediaId,
+                UserId = UserId,
+                Status = LogStatus.InProgress,
+                LoggedAt = Clock.UtcNow,
+                StartedAt = Eastern(2026, 5, 5),
+                SeasonNumber = 2,
+                EpisodeNumber = 5,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await MoveAsync(mediaId, LogStatus.OnHold);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.OnHold);
+        entry.SeasonNumber.ShouldBe(2);
+        entry.EpisodeNumber.ShouldBe(5);
+    }
+
     // --------------------------------------------------- the day it is here
 
     // The server used to ask UTC what day it was. Eastern runs four to five hours behind, so
@@ -370,6 +476,30 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         entries[0].CompletedAt.ShouldBe(Eastern(2024, 3, 2));
 
         entries[1].Status.ShouldBe(LogStatus.Dropped);
+        entries[1].StartedAt.ShouldBe(Now);
+        entries[1].CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Putting_a_finished_game_on_hold_starts_a_new_pass_today()
+    {
+        // A replay begun and then paused. Leaving Completed inserts whatever the target — the
+        // rule this file exists to protect — so the finished pass is untouched and what takes the
+        // date is a pass that did not exist a moment ago.
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2024, 1, 10), completedAt: Eastern(2024, 3, 2));
+
+        await MoveAsync(mediaId, LogStatus.OnHold);
+
+        var entries = await EntriesAsync(mediaId);
+        entries.Count.ShouldBe(2);
+
+        entries[0].Status.ShouldBe(LogStatus.Completed);
+        entries[0].CompletedAt.ShouldBe(Eastern(2024, 3, 2));
+
+        entries[1].Status.ShouldBe(LogStatus.OnHold);
         entries[1].StartedAt.ShouldBe(Now);
         entries[1].CompletedAt.ShouldBeNull();
     }
