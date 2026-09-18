@@ -12,6 +12,8 @@
  * asserts the copies still match.
  */
 
+import { readStored, writeStored } from '../lib/storage';
+
 export const THEME_ATTRIBUTE = 'data-theme';
 export const DENSITY_ATTRIBUTE = 'data-density';
 export const JOURNAL_ATTRIBUTE = 'data-journal';
@@ -77,58 +79,36 @@ const isJournalView = (value: string | null): value is JournalView =>
   JOURNAL_VIEWS.some((view) => view.value === value);
 
 /**
- * Reading and writing storage both throw rather than fail quietly in more browsers than is
- * comfortable — Safari in private browsing on write, anything set to block site data on read.
- * Losing a preference is a small thing; taking the app down for it is not, and this runs before
- * the first paint, where an exception is a blank page rather than a missing colour.
- */
-function read(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function write(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Nothing to do and nobody to tell. The choice applies to this page either way.
-  }
-}
-
-/**
  * An unrecognised stored value falls back rather than being trusted. Storage outlives the code
  * that wrote it, so a theme dropped in a later version would otherwise leave the root stamped
  * with a value no palette block answers — which renders as unstyled text on an unstyled ground,
  * the least diagnosable failure available.
  */
 export function readTheme(): Theme {
-  const stored = read(THEME_KEY);
+  const stored = readStored(THEME_KEY);
   return isTheme(stored) ? stored : DEFAULT_THEME;
 }
 
 export function readDensity(): Density {
-  const stored = read(DENSITY_KEY);
+  const stored = readStored(DENSITY_KEY);
   return isDensity(stored) ? stored : DEFAULT_DENSITY;
 }
 
 export function storeTheme(theme: Theme): void {
-  write(THEME_KEY, theme);
+  writeStored(THEME_KEY, theme);
 }
 
 export function storeDensity(density: Density): void {
-  write(DENSITY_KEY, density);
+  writeStored(DENSITY_KEY, density);
 }
 
 export function readJournalView(): JournalView {
-  const stored = read(JOURNAL_KEY);
+  const stored = readStored(JOURNAL_KEY);
   return isJournalView(stored) ? stored : DEFAULT_JOURNAL;
 }
 
 export function storeJournalView(view: JournalView): void {
-  write(JOURNAL_KEY, view);
+  writeStored(JOURNAL_KEY, view);
 }
 
 /**

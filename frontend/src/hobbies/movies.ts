@@ -6,7 +6,7 @@ import type { HobbyDefinition } from './types';
  * Films: TMDB, and the words a film wants where a game wanted different ones.
  *
  * The wire vocabulary is untouched — `InProgress` is still `InProgress`, because cross-hobby
- * views depend on the four statuses being identical everywhere. Only what a person reads moves.
+ * views depend on the five statuses being identical everywhere. Only what a person reads moves.
  */
 export const MOVIES: HobbyDefinition = {
   slug: 'movies',
@@ -14,6 +14,7 @@ export const MOVIES: HobbyDefinition = {
   columnLabel: {
     Backlog: 'Backlog',
     InProgress: 'Watching',
+    OnHold: 'On Hold',
     Completed: 'Watched',
     Dropped: 'Dropped',
   },

@@ -10,9 +10,10 @@
  * Shared by every hobby on purpose, so cross-hobby views are writable at all.
  *
  * `InProgress` is the wire value. The board column is labelled "Playing"; that is a label and
- * this is the protocol, and the two are not the same string.
+ * this is the protocol, and the two are not the same string. `OnHold` likewise travels as one
+ * word and reads as two.
  */
-export type LogStatus = 'Backlog' | 'InProgress' | 'Completed' | 'Dropped';
+export type LogStatus = 'Backlog' | 'InProgress' | 'OnHold' | 'Completed' | 'Dropped';
 
 /** `manual` is the default, and the only mode in which dragging to reorder means anything. */
 export type LibrarySort = 'manual' | 'added' | 'title' | 'rating' | 'length';

@@ -211,6 +211,25 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
+    public async Task On_hold_ignores_the_year_because_it_is_a_list_you_come_back_to()
+    {
+        // The Backlog's argument, word for word: a title you paused is waiting on you whatever
+        // year you are reading, and it is what you drag back out of. Narrowed on its start like
+        // Playing, everything paused since last year would leave the board the first time
+        // anything was logged in a new one — the board opens on the latest year there is.
+        //
+        // InYear's default arm is "either date", so this is also what notices On Hold falling
+        // into it: exempt has to be said, and yearFor in board/keys.ts says it on the client.
+        var paused = await GivenInProgressAsync("Paused", "1", startedOn: Eastern(2019, 3, 2));
+        await MoveAsync(paused, LogStatus.OnHold);
+
+        (await GetColumnAsync(LogStatus.OnHold, year: 2019)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Paused");
+        (await GetColumnAsync(LogStatus.OnHold, year: 2026)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Paused");
+    }
+
+    [Fact]
     public async Task A_dropped_title_answers_to_the_year_it_was_started_or_finished_in()
     {
         // Dropping leaves the timestamps alone, deliberately, so what an abandoned title carries

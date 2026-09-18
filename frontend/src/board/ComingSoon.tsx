@@ -10,8 +10,10 @@ import {
   releaseNote,
   releaseProgress,
 } from '../lib/release';
+import { readStored, writeStored } from '../lib/storage';
 import { todayHere } from '../lib/time';
 import { upcomingKey } from './keys';
+import { BOARD_GAP, boardTracks, calendarSpan } from './grid';
 import type { Hobby } from '../shell/hobbies';
 import type { LibraryItem } from '../api/types';
 
@@ -26,25 +28,25 @@ const SHOWN_AT_FIRST = 20;
 
 const OPEN_KEY = (hobby: string) => `hobbytracker.coming-soon.${hobby}`;
 
-/** Remembered per board, and never allowed to take the page down for it. See `theme/theme.ts`. */
+/**
+ * Remembered per board, and never allowed to take the page down for it — see `lib/storage.ts`.
+ * The choice applies to this page either way, because it is also held in state below.
+ */
 function readOpen(hobby: string): boolean {
-  try {
-    return localStorage.getItem(OPEN_KEY(hobby)) !== 'closed';
-  } catch {
-    return true;
-  }
+  return readStored(OPEN_KEY(hobby)) !== 'closed';
 }
 
 function writeOpen(hobby: string, open: boolean): void {
-  try {
-    localStorage.setItem(OPEN_KEY(hobby), open ? 'open' : 'closed');
-  } catch {
-    // Nothing to do and nobody to tell. The choice applies to this page either way.
-  }
+  writeStored(OPEN_KEY(hobby), open ? 'open' : 'closed');
 }
 
 export interface ComingSoonProps {
   hobby: Hobby;
+  /**
+   * How many columns the board above is drawing. The calendar is two of them wide, and it can
+   * only be that by being laid out on the same tracks — see `grid.ts`.
+   */
+  columns: number;
   /** Opens a title's journal, exactly as a card does. */
   onOpen: (mediaId: number) => void;
 }
@@ -60,7 +62,7 @@ export interface ComingSoonProps {
  * Rendered from `HobbyDefinition.releases` and nothing else: a hobby with none renders no
  * section, and there is no branch on the slug here.
  */
-export function ComingSoon({ hobby, onOpen }: ComingSoonProps) {
+export function ComingSoon({ hobby, columns, onOpen }: ComingSoonProps) {
   const definition = hobbyDefinition(hobby);
   const words = definition.releases;
 
@@ -102,97 +104,98 @@ export function ComingSoon({ hobby, onOpen }: ComingSoonProps) {
 
   return (
     /*
-     * Two of the board's four tracks wide, plus the gap between them — `50% - g/2`, which is
-     * where `(100% - 3g)/4 * 2 + g` lands. So the right edge falls on a grid line under Playing
-     * rather than near one, and it goes on doing that as the board grows.
+     * Two of the board's tracks wide, plus the gap between them — laid out on the board's own
+     * grid rather than computed. So the right edge falls on the grid line under the second column
+     * rather than near one, however many columns the board is drawing, and it goes on doing that
+     * as the board grows.
+     *
+     * It used to be `50% - g/2`, which is two of four tracks and nothing else, with the three gap
+     * values copied from BoardPage by hand. A fifth column made that arithmetic wrong, and a
+     * column taken off in Settings would have made it wrong again; sharing the tracks and the gap
+     * is what stops either needing a formula. `layout.spec.ts` still measures the alignment
+     * against the Playing column, so any drift is a red test rather than a quiet misalignment.
      *
      * A row here is one line about when a title arrives, and at the board's full width the date
-     * ends up a foot from the name it belongs to. No cap below `xl`: the grid is two across
-     * there, so two tracks and a gap already *are* the full width.
-     *
-     * The three gap values track `BoardPage`'s `gap-4 2xl:gap-5 3xl:gap-6` and will not follow
-     * it on their own — `layout.spec.ts` measures the alignment against the Playing column so
-     * that drift is a red test rather than a section that quietly stops lining up.
+     * ends up a foot from the name it belongs to — which is why this is not the whole width.
      */
-    <section
-      aria-labelledby={headingId}
-      className="mt-6 xl:max-w-[calc(50%_-_0.5rem)] 2xl:max-w-[calc(50%_-_0.625rem)] 3xl:max-w-[calc(50%_-_0.75rem)]"
-    >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
-          {words.heading} <span className="text-muted">{items.length}</span>
-        </h2>
+    <div className={`mt-6 grid ${BOARD_GAP} ${boardTracks(columns)}`}>
+      <section aria-labelledby={headingId} className={calendarSpan(columns)}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
+            {words.heading} <span className="text-muted">{items.length}</span>
+          </h2>
 
-        {/* The visible word is bare because the heading is right beside it; the accessible name
-            is not, because a screen reader reaches the button without the heading in hand and
-            "Hide" alone would be the third such button on the page. */}
-        <button
-          type="button"
-          onClick={() => {
-            setOpen((wasOpen) => {
-              writeOpen(hobby, !wasOpen);
-              return !wasOpen;
-            });
-          }}
-          aria-label={`${open ? 'Hide' : 'Show'} ${words.heading}`}
-          className="ml-auto rounded px-1 text-xs text-muted hover:bg-hover"
-        >
-          {open ? 'Hide' : 'Show'}
-        </button>
-      </div>
-
-      {open && (
-        <div className="rounded-xl border border-line-soft bg-well p-3">
-          {items.length === 0 ? (
-            <p className="text-sm text-muted">{words.empty}</p>
-          ) : (
-            <>
-              {groups.map(({ key, rows }) => (
-                /*
-                 * The margin belongs to the group, not to the heading, and that is the whole of
-                 * the fix it once needed. A heading is always the first child of its own group,
-                 * so `first:mt-0` on the heading applied to every one of them and a month began
-                 * flush against the last row of the month before. On the group it selects what
-                 * it says: only the first group, whose top is the well's own padding.
-                 */
-                <div
-                  key={key}
-                  role="group"
-                  aria-label={formatGroup(key, words.noDateHeading)}
-                  className="mt-3 first:mt-0"
-                >
-                  <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">
-                    {formatGroup(key, words.noDateHeading)}
-                  </p>
-
-                  <ul className="flex flex-col gap-2">
-                    {rows.map((item) => (
-                      <UpcomingRow
-                        key={item.mediaId}
-                        item={item}
-                        hobby={hobby}
-                        today={today}
-                        onOpen={onOpen}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              ))}
-
-              {hidden > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAll(true)}
-                  className="mt-3 rounded border border-line px-2 py-1 text-xs font-medium hover:bg-hover"
-                >
-                  {`Show ${hidden} more`}
-                </button>
-              )}
-            </>
-          )}
+          {/* The visible word is bare because the heading is right beside it; the accessible name
+              is not, because a screen reader reaches the button without the heading in hand and
+              "Hide" alone would be the third such button on the page. */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen((wasOpen) => {
+                writeOpen(hobby, !wasOpen);
+                return !wasOpen;
+              });
+            }}
+            aria-label={`${open ? 'Hide' : 'Show'} ${words.heading}`}
+            className="ml-auto rounded px-1 text-xs text-muted hover:bg-hover"
+          >
+            {open ? 'Hide' : 'Show'}
+          </button>
         </div>
-      )}
-    </section>
+
+        {open && (
+          <div className="rounded-xl border border-line-soft bg-well p-3">
+            {items.length === 0 ? (
+              <p className="text-sm text-muted">{words.empty}</p>
+            ) : (
+              <>
+                {groups.map(({ key, rows }) => (
+                  /*
+                   * The margin belongs to the group, not to the heading, and that is the whole of
+                   * the fix it once needed. A heading is always the first child of its own group,
+                   * so `first:mt-0` on the heading applied to every one of them and a month began
+                   * flush against the last row of the month before. On the group it selects what
+                   * it says: only the first group, whose top is the well's own padding.
+                   */
+                  <div
+                    key={key}
+                    role="group"
+                    aria-label={formatGroup(key, words.noDateHeading)}
+                    className="mt-3 first:mt-0"
+                  >
+                    <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">
+                      {formatGroup(key, words.noDateHeading)}
+                    </p>
+
+                    <ul className="flex flex-col gap-2">
+                      {rows.map((item) => (
+                        <UpcomingRow
+                          key={item.mediaId}
+                          item={item}
+                          hobby={hobby}
+                          today={today}
+                          onOpen={onOpen}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+
+                {hidden > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAll(true)}
+                    className="mt-3 rounded border border-line px-2 py-1 text-xs font-medium hover:bg-hover"
+                  >
+                    {`Show ${hidden} more`}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </section>
+    </div>
   );
 }
 

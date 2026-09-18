@@ -112,7 +112,7 @@ puts the two maintenance refresh routes behind a session, accepted rather than w
 ### The frontend
 
 - **The gate is a route wrapper**, `RequireSession`, not a check inside `BoardPage` — without one the
-  board answers 401 for each of its four columns and paints four red messages.
+  board answers 401 for each of its columns and paints a red message in every one.
 - **It renders nothing while the session is in flight rather than guessing.** Guessing "signed out"
   flashes the sign-in screen at a signed-in person on every reload; removing the guard fails three
   tests, not one.

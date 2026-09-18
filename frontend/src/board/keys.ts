@@ -19,18 +19,26 @@ export const columnKey = (
 ) => ['library', hobby, status, { sort, year }] as const;
 
 /**
- * The year applies to every column except Backlog.
+ * The year applies to every column except Backlog and On Hold.
  *
  * Kept in one place because the column's request and the drag's cache key must agree about it:
  * if they drift, a drag writes into a cache entry the column is not reading.
  *
  * Backlog is exempt rather than filtered. Both of its timestamps are cleared by the rule that
  * puts a title there, so it belongs to no year and a year would empty it on every choice — and
- * the queue is what you drag out of while reading a past year. The server holds the other half
- * of this rule, deciding which date each column answers with; see `LibraryService.InYear`.
+ * the queue is what you drag out of while reading a past year.
+ *
+ * On Hold is exempt for the second half of that reason alone. A paused title does carry a start,
+ * so the data could answer "paused in 2019" — but the column is a list you come back to, and
+ * narrowed on its start it would lose everything paused since last year the first time anything
+ * was logged in a new one, because the board opens on the latest year there is.
+ *
+ * The server holds the other half of this rule, deciding which date each column answers with;
+ * see `LibraryService.InYear`, whose default arm would answer "either date" for a status left
+ * out of it.
  */
 export const yearFor = (status: LogStatus, year: number | undefined) =>
-  status === 'Backlog' ? undefined : year;
+  status === 'Backlog' || status === 'OnHold' ? undefined : year;
 
 /**
  * The years the picker offers.

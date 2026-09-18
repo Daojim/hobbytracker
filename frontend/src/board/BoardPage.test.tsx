@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { BoardPage } from './BoardPage';
+import { hiddenColumnsKey } from './hiddenColumns';
 import { server } from '../test/server';
 import { boardServer, libraryItem } from '../test/library';
 import type { LibraryItem, LogStatus } from '../api/types';
@@ -68,6 +69,10 @@ function movingCard(item: LibraryItem) {
   );
 }
 
+// A column taken off in Settings is remembered in storage, and so is the calendar folded shut:
+// neither may follow one test into the next.
+afterEach(() => localStorage.clear());
+
 /** The board, with something on it to press Back with. */
 function boardWithBack() {
   return renderWithProviders(
@@ -80,22 +85,30 @@ function boardWithBack() {
 }
 
 describe('BoardPage', () => {
-  it('opens with the three columns a title moves through, then Dropped', async () => {
-    // Dropped last, at the far right — where it sat for most of this board's life. It spent
-    // nine days ahead of Backlog on the argument that a title in it *left* the progression
-    // rather than finished it: sound on paper, and answered by using it. Still collapsed,
-    // still muted; only the place has changed back.
+  it('opens with the columns a title moves through, On Hold beside Playing, then Dropped', async () => {
+    // On Hold sits straight after Playing, because it is Playing with the controller put down:
+    // pausing and resuming are a drag to the next column, and left to right still reads as the
+    // life of a title. Dropped stays last, at the far right — where it sat for most of this
+    // board's life. It spent nine days ahead of Backlog on the argument that a title in it
+    // *left* the progression rather than finished it: sound on paper, and answered by using it.
     boardServer();
 
     renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await screen.findByRole('heading', { name: 'Backlog 0' });
 
     // Exhaustive on purpose, so a section arriving on this page has to come here and say so.
-    // The fifth heading is the release calendar, which is *not* a fifth column: it sits under
+    // The last heading is the release calendar, which is *not* a sixth column: it sits under
     // the grid and holds the Backlog entries that are not out yet.
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Backlog 0', 'Playing 0', 'Completed 0', 'Dropped 0', 'Coming soon 0']);
+    ).toEqual([
+      'Backlog 0',
+      'Playing 0',
+      'On Hold 0',
+      'Completed 0',
+      'Dropped 0',
+      'Coming soon 0',
+    ]);
   });
 
   it('puts one year control above the board rather than one in a column', async () => {
@@ -127,10 +140,15 @@ describe('BoardPage', () => {
     await waitFor(() => expect(board.queriesFor('Completed')[0]?.get('year')).toBe('2026'));
   });
 
-  it('narrows three columns by the year and leaves the backlog out of it', async () => {
+  it('narrows three columns by the year and leaves Backlog and On Hold out of it', async () => {
     // A Backlog entry has both timestamps cleared by the rule that puts it there, so it belongs
     // to no year at all — and a Backlog narrowed by one would be an empty well on every year
     // rather than the queue you drag out of while reading a past one.
+    //
+    // On Hold does carry a start, and is exempt anyway: it is a list you come back to, and
+    // narrowed on its start it would lose everything paused since last year the first time
+    // anything was logged in a new one. The server holds the other half — LibraryService.InYear
+    // — and the two must agree, or a drag writes into a cache entry the column is not reading.
     const board = boardServer({ years: [2026] });
 
     renderWithProviders(<BoardPage />, BOARD_ROUTE);
@@ -140,6 +158,7 @@ describe('BoardPage', () => {
     expect(board.queriesFor('InProgress')[0]?.get('year')).toBe('2026');
     expect(board.queriesFor('Dropped')[0]?.get('year')).toBe('2026');
     expect(board.queriesFor('Backlog')[0]?.has('year')).toBe(false);
+    expect(board.queriesFor('OnHold')[0]?.has('year')).toBe(false);
   });
 
   it('takes the year off every request when All years is chosen', async () => {
@@ -274,6 +293,65 @@ describe('BoardPage', () => {
     });
 
     expect(screen.getAllByRole('button', { name: 'Celeste' })).toHaveLength(1);
+  });
+
+  it('leaves a column taken off in Settings off the board, and never asks for it', async () => {
+    // Not drawn, and not fetched either: a column nobody can see answering four requests per
+    // year and sort would be a cost with nothing on screen to show for it. The grid closes up
+    // behind it, which is layout.spec.ts's to measure.
+    localStorage.setItem(hiddenColumnsKey('games'), JSON.stringify(['Dropped']));
+    const board = boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByRole('heading', { name: 'Backlog 0' });
+
+    expect(
+      screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
+    ).toEqual(['Backlog 0', 'Playing 0', 'On Hold 0', 'Completed 0', 'Coming soon 0']);
+    await waitFor(() => expect(board.queriesFor('Completed')).not.toHaveLength(0));
+    expect(board.queriesFor('Dropped')).toHaveLength(0);
+  });
+
+  it('takes a column off the board the moment it is unticked in Settings', async () => {
+    // The reason this is a store rather than an attribute on the root, the way a theme is: the
+    // header and the board are siblings, and a hidden column has to leave the grid, the drop
+    // targets and the card menus at once — none of which CSS can do.
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByRole('heading', { name: 'Dropped 0' });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'On Hold' }));
+
+    expect(screen.queryByRole('heading', { name: 'On Hold 0' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dropped 0' })).toBeInTheDocument();
+  });
+
+  it('offers no move to a column the board is not drawing', async () => {
+    // Otherwise *Move to Dropped* sends the card somewhere off screen, which reads as the menu
+    // losing it. The menu's moves come from the same list the board draws, so the two cannot
+    // disagree about which columns there are.
+    localStorage.setItem(hiddenColumnsKey('games'), JSON.stringify(['Dropped']));
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
+
+    const options = screen.getByRole('group', { name: 'Options for Celeste' });
+    expect(within(options).getByRole('button', { name: 'Move to Completed' })).toBeInTheDocument();
+    expect(within(options).queryByRole('button', { name: 'Move to Dropped' })).not.toBeInTheDocument();
+  });
+
+  it('hides a column on one board without touching another', async () => {
+    // Per board, because the boards are for different things: a film is seldom put on hold and
+    // a game often is.
+    localStorage.setItem(hiddenColumnsKey('movies'), JSON.stringify(['OnHold']));
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    expect(await screen.findByRole('heading', { name: 'On Hold 0' })).toBeInTheDocument();
   });
 
   it('collapses Dropped until asked, and still says how much is in it', async () => {
@@ -467,7 +545,7 @@ describe('BoardPage, on films', () => {
 
   it('calls the columns what a film in them is called', async () => {
     // The wire is unchanged — InProgress is still InProgress — and only the label moves. Three
-    // of the four columns keep their word, which is what makes the fourth easy to miss.
+    // of the five columns keep their word, which is what makes the other two easy to miss.
     boardServer({ hobby: 'movies' });
 
     renderWithProviders(<BoardPage />, FILMS);
@@ -475,7 +553,7 @@ describe('BoardPage, on films', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Backlog 0', 'Watching 0', 'Watched 0', 'Dropped 0']);
+    ).toEqual(['Backlog 0', 'Watching 0', 'On Hold 0', 'Watched 0', 'Dropped 0']);
   });
 
   it('asks the API for the hobby in the address', async () => {
@@ -547,7 +625,7 @@ describe('BoardPage, on TV', () => {
 
     expect(
       screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent),
-    ).toEqual(['Backlog 0', 'Watching 0', 'Watched 0', 'Dropped 0']);
+    ).toEqual(['Backlog 0', 'Watching 0', 'On Hold 0', 'Watched 0', 'Dropped 0']);
   });
 
   it('asks the API for the hobby in the address', async () => {

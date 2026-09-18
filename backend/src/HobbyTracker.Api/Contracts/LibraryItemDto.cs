@@ -120,7 +120,7 @@ public sealed record LibraryItemDto(
     /// because a field called <c>LatestNote</c> that is not the note would be a lie.
     ///
     /// Cut at <c>LibraryService.NotePreviewLength</c> characters. A note may be 4000, and
-    /// a board is up to four columns of a hundred rows — uncapped, this field would make the
+    /// a board is up to five columns of a hundred rows — uncapped, this field would make the
     /// board response scale with how much somebody writes. The cap is comfortably more than two
     /// lines can show at the widest card, so what a reader sees cut is always the client's
     /// line-clamp and never this.

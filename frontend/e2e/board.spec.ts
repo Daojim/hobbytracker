@@ -162,6 +162,81 @@ test('the options menu drops a game, and dragging it out picks it back up', asyn
 });
 
 
+test('a game dragged onto On Hold keeps the day it was started, and resumes the same way', async ({
+  page,
+}) => {
+  // The pause and the resume, which are what the column is for. The dates are the backend
+  // suite's to settle; what only a browser can say is that On Hold is a drop target at all —
+  // a fifth droppable the drag has never had to find — and that the menu reaches it too.
+  const mediaId = await seed(page.request, 'Hollow Knight', 'InProgress', {
+    startedAt: '2026-05-01T16:00:00Z',
+  });
+  const started = (await entriesFor(page.request, mediaId))[0]?.startedAt;
+  await page.reload();
+
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'OnHold'));
+
+  await expect(column(page, 'OnHold').getByText('Hollow Knight')).toBeVisible();
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0])
+    .toMatchObject({ status: 'OnHold', startedAt: started, completedAt: null });
+
+  await chooseOption(page, 'Hollow Knight', 'Move to Playing');
+
+  await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0])
+    .toMatchObject({ status: 'InProgress', startedAt: started });
+
+  // One pass throughout: pausing and resuming edit the pass you are on rather than adding one.
+  expect(await entriesFor(page.request, mediaId)).toHaveLength(1);
+});
+
+test('a column taken off in Settings stays off, moves nothing, and comes back with its titles', async ({
+  page,
+}) => {
+  const mediaId = await seed(page.request, 'Anthem', 'Dropped', {
+    startedAt: '2026-05-01T16:00:00Z',
+  });
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('checkbox', { name: 'Dropped' }).uncheck();
+  await page.keyboard.press('Escape');
+
+  await expect(column(page, 'Dropped')).toHaveCount(0);
+
+  // Not offered as a move either, or the menu would send a card somewhere off screen.
+  await card(page, 'Celeste').getByRole('button', { name: 'Options for Celeste' }).click();
+  const options = card(page, 'Celeste').getByRole('group', { name: 'Options for Celeste' });
+  await expect(options.getByRole('button', { name: 'Move to Completed' })).toBeVisible();
+  await expect(options.getByRole('button', { name: 'Move to Dropped' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // Remembered by this browser, so a reload is still a board without it.
+  await page.reload();
+  await expect(column(page, 'Backlog').getByText('Celeste')).toBeVisible();
+  await expect(column(page, 'Dropped')).toHaveCount(0);
+
+  // And nothing was written: a column taken off is a way of looking at the board.
+  expect((await entriesFor(page.request, mediaId))[0]?.status).toBe('Dropped');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('checkbox', { name: 'Dropped' }).check();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  await expect(column(page, 'Dropped').getByText('Anthem')).toBeVisible();
+
+  // Dragged out again after the column came back. A column put back is mounted against whatever
+  // the cache is holding, and a card mounted twice is a card that cannot be dragged — see
+  // "A card mounted twice" in docs/board.md. This drag is what says that did not happen.
+  await drag(page, card(page, 'Anthem'), column(page, 'InProgress'));
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0]?.status)
+    .toBe('InProgress');
+});
+
 test('a card can be dragged into Dropped while Dropped is still collapsed', async ({ page }) => {
   // Dropped starts out of the way, and used to stop being a drop target entirely while it was:
   // the droppable ref hung off the card list, which is not rendered when the column is closed.
@@ -230,7 +305,7 @@ test('removing a replayed title takes every pass, not one press per playthrough'
   // Gone from every column, in one press.
   await expect(card(page, 'Hollow Knight')).toBeHidden();
   await page.getByRole('button', { name: 'Show Dropped' }).click();
-  for (const status of ['Backlog', 'InProgress', 'Completed', 'Dropped'] as const) {
+  for (const status of ['Backlog', 'InProgress', 'OnHold', 'Completed', 'Dropped'] as const) {
     expect(await titlesIn(page, status)).not.toContain('Hollow Knight');
   }
   await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(0);
@@ -381,11 +456,12 @@ test('the board opens on the latest year there is', async ({ page }) => {
   await expect.poll(() => titlesIn(page, 'Completed')).toEqual(['Outer Wilds']);
 });
 
-test('the year narrows three columns and leaves the backlog alone', async ({ page }) => {
+test('the year narrows three columns and leaves Backlog and On Hold alone', async ({ page }) => {
   await seed(page.request, 'Celeste', 'Backlog');
   await seed(page.request, 'Hades', 'Completed', { completedAt: '2024-11-02' });
   await seed(page.request, 'Anthem', 'InProgress', { startedAt: '2024-05-06' });
   await seed(page.request, 'Outer Wilds', 'Completed', { completedAt: '2026-03-03' });
+  await seed(page.request, 'Hollow Knight', 'OnHold', { startedAt: '2026-02-01' });
   await page.reload();
 
   await page.getByRole('combobox', { name: 'Year' }).selectOption('2024');
@@ -400,6 +476,12 @@ test('the year narrows three columns and leaves the backlog alone', async ({ pag
   // that puts a title there, so it belongs to no year — and it is what you drag out of while
   // you read a past one.
   await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(['Celeste']);
+
+  // On Hold is exempt too, though it carries a start: a 2026 pause is still waiting on you
+  // while you read 2024. This passes if either half of the rule holds — the client sending no
+  // year, or the server ignoring one — so each half is pinned on its own as well: that no year
+  // is sent in BoardPage.test.tsx, and that one sent is ignored in LibraryOrderingTests.
+  await expect.poll(() => titlesIn(page, 'OnHold')).toEqual(['Hollow Knight']);
 
   await page.getByRole('combobox', { name: 'Year' }).selectOption('All years');
   await expect.poll(() => titlesIn(page, 'Completed')).toHaveLength(2);

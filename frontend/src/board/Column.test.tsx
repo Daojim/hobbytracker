@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { Column } from './Column';
+import { columnsFor } from '../hobbies';
 import { server } from '../test/server';
 import { boardServer, libraryItem } from '../test/library';
 
@@ -34,7 +35,7 @@ function renderColumn(
       onSortChange={vi.fn()}
       onMove={vi.fn()}
       removal={{ mediaId: null, onAsk: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn() }}
-      menu={{ mediaId: null, onOpen: vi.fn(), onClose: vi.fn() }}
+      menu={{ mediaId: null, onOpen: vi.fn(), onClose: vi.fn(), columns: columnsFor('games') }}
       onOpen={vi.fn()}
       {...props}
     />,
@@ -182,7 +183,7 @@ describe('Column', () => {
   });
 
   it('has no year control of its own, because the board owns the one there is', async () => {
-    // One control over four columns, so it cannot live inside one of them. What a column still
+    // One control over every column, so it cannot live inside one of them. What a column still
     // owns is its sort, which genuinely is per column.
     boardServer({ years: [2026] });
 

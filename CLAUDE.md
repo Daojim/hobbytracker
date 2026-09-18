@@ -62,7 +62,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 
 | | | |
 |---|---|---|
-| **The board** | Four columns, drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board | `docs/board.md` |
+| **The board** | Five columns, On Hold among them, and any but Backlog taken off in Settings. Drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board | `docs/board.md` |
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
@@ -220,10 +220,12 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       │                 into journal/
 │       ├── lib/useWheelStep.ts  a non-passive wheel listener; React's onWheel cannot cancel
 │       ├── lib/useOverlayHistory.ts  the drawer's openness as a history entry, so Back closes it
+│       ├── lib/storage.ts  localStorage that may refuse, read and written without throwing
 │       ├── hobbies/      ONE FILE PER HOBBY — every word a person reads, the genre list,
 │       │                 search dispatch, and which fields a pass of that kind has
 │       ├── board/        keys.ts owns every query key, sensors.ts the drag's activation
-│       │                 distance, useBoard the writes
+│       │                 distance, useBoard the writes, grid.ts the tracks the columns and the
+│       │                 calendar share, hiddenColumns.ts what Settings takes off a board
 │       ├── journal/      the drawer over the board
 │       ├── search/       the bar and result strip above the board
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
@@ -433,17 +435,19 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
 | Scope | **`/board/:hobby`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
-| Columns | Backlog · Playing · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list, and the card's menu and the drawer both read it |
+| Columns | Backlog · Playing · **On Hold** · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list; the board draws it less anything taken off in Settings, and hands *that* list to every card's menu. **No columns a person names themselves** — `LogStatus` is one shared vocabulary, and the year rules and the transitions depend on what each value means |
+| On Hold | **After Playing, a plain column, and exempt from the year like Backlog** — Playing with the controller put down, so it takes Playing's rule for the dates and keeps where you were in a show. A fifth `LogStatus` with **no migration**, because `status` is unconstrained text. Position, look and width were each picked from rendered screenshots on 17 September 2026. `docs/board.md` |
+| Hiding a column | **Any but Backlog, per board, per browser, from a Columns group of checkboxes in Settings.** Not rendered, not fetched, not a drop target, not offered in a card's menu — and nothing written, so its titles are there when it comes back. Backlog stays because search adds to it. `docs/board.md` |
 | A hobby's words | **`frontend/src/hobbies/`, one file per hobby.** Column labels, the length label and its format, the pass noun, the genre list, search dispatch, which fields a pass has, and how it says where you are in one. Never a branch on the slug |
 | Anime | **Its own hobby, from MAL, and one card per cour** — Frieren and Frieren 2nd Season are two cards because they are two MAL ids. Anime does not appear in a TV search; **the Movies board is deliberately left alone**, and that asymmetry is intended. A film reads fine on two boards; a series with episode progress on two boards is the confusing case. `docs/anime-mal.md` |
 | An anime's name | **The English title leads and the romaji one sits under it** — card, drawer and search tile alike, and `sort=title` files it under the name on screen. It shipped the other way round and was reversed the same day, so the code-shaped argument for romaji-first is a temptation rather than a finding: `media.title` still holds the romaji, because that is what a MAL search matches on. Presentation only, and nothing is stored twice. `docs/anime-mal.md` |
 | Where you are | The season-and-episode pair is **television's**; anime has the episode alone, because the cour *is* the entry. `PassFields.progress` is `false \| 'episode' \| 'season-episode'`, and **the database no longer holds the rule** — `ck_log_entries_episode_needs_season` is gone, and each hobby's form holds it instead |
 | Dropped | A muted well **at the far right**, after the progression, collapsed by default. It spent 29 August to 7 September 2026 ahead of Backlog and came back; the argument on both sides is in `docs/board.md`. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
-| Card corner | An **`⋯` options menu on all four columns**: the three columns it is not in, then *Remove from board* |
+| Card corner | An **`⋯` options menu on every column**: every other column the board is drawing, then *Remove from board* |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
 | Saving a pass | **The pass writes itself and there is no Save button.** A change arms a 500ms timer; the timer checks the rules and sends every field. Leaving a field deliberately does *not* send it — that would be a write per stop while tabbing, and would write "season 2, no episode" on the way to naming one — but **closing the drawer does**, which is the one hole a form like this opens. A refused value stops the write and stays on screen to be corrected. `docs/journal.md` |
-| Year | **One control above the whole board**, defaulting to the latest year there is. Backlog is exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
-| Coming soon | **A view of Backlog, under the board — not a fifth status and not a fifth column.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's four tracks wide** rather than the whole of it. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
+| Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
+| Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
 | What counts as coming | **Asked a provider and got no date at all is *TBA* on the calendar**, whatever shape the nothing arrived in — that is *Stellar Blade: Blood Rain*, and it read as released until 12 September 2026. **A title the provider calls a rumour is not**, because it was never announced, and it stays in the Backlog column. Measured both ways round in `docs/games-igdb.md` |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
@@ -493,6 +497,7 @@ here**.
 | **TMDB numbers films and shows separately, so one shared `tmdb` source row makes film 1396 and show 1396 the same row.** In production that would not even error: `UpsertAsync`'s `23505` recovery re-reads and hands back the film, and a show is silently a film. `tmdb-tv` is a **fourth source row**, `mal` a **fifth**, and a second provider for an existing hobby needs one too | `docs/tv-tmdb.md` |
 | **A MAL node carries `id`, `title` and `main_picture` whatever `fields` asks for, and nothing else.** A column added to `anime` without a word added to `MalClient.Fields` fills with nulls for ever — and a null there is **indistinguishable from a title MAL has nothing to say about**. `MalClientTests` asserts the list rather than trusting it | `docs/anime-mal.md` |
 | **MAL answers `0`, not null, for a figure nobody has filled in** — an unaired cour's episode count and duration, an unrated title's mean. Nought is not merely a lie a card would print: `ck_anime_counts_positive` and `ck_anime_mean_score_range` **refuse the write**, so an ordinary search becomes a 500 | `docs/anime-mal.md` |
+| **A spy on `Storage.prototype` refuses nothing in the frontend suite.** `src/test/setup.ts` supplies a `localStorage` that implements `Storage` without being one, so a test of storage refusing passes without storage ever refusing — green over the very fallback it names, which is how the hidden-columns store's first version of that test went. Spy on the instance: `vi.spyOn(localStorage, 'setItem')` | `docs/design.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
 | **A null `media.release_precision` means *nobody has asked a provider* and must read as *released*.** Every row that existed before the release calendar carries it. Get it backwards and the migration empties every user's Backlog column on deploy day — no error, no log line, just a board with its queue gone. It is `games.hltb_checked_at`'s distinction, and `Unknown` is the *different* claim that a provider was asked and had no date. **No provider mapping writes null any more**, only the absence of one, so the two states no longer share a shape | `docs/data-model.md` |
 | **A release date is a day and must never go through the journal zone.** `new Date('2026-09-26')` is midnight *UTC*, so rendering one the way every other date in this app is rendered shows the 25th — the `System.Text.Json` trap above, arriving from the other side of the wire. Days live in `lib/release.ts`; `lib/time.ts` is instants | `docs/data-model.md` |
@@ -558,6 +563,10 @@ shuffled.
       Four `media.release_*` columns rather than `games.*`, because the board filters on them;
       one expression owning the word *released*, negated for the other half; and IGDB's
       `date_format` and `game_status`, which are the deprecated-twin trap a second time.
+- [x] **On Hold, and columns you can take off** — a fifth `LogStatus` with no migration, after
+      Playing and exempt from the year; any column but Backlog left off a board from Settings,
+      per board and per browser, through a store the header and the board share. Look, width and
+      the Settings checkboxes were each picked from rendered screenshots before any value was written.
 - [ ] **Filling the board without searching — half done.** The calendar shipped; the grid of what
       is popular has not. See **Discovery: a grid of what is popular** in `docs/games-igdb.md`.
 - [ ] **The hobbies after it.** Books and music — each a sibling detail table deriving from
@@ -615,14 +624,6 @@ being wrong. Both rows are marked below.
 
 ### Small things, named so they are not rediscovered
 
-- **Hiding the Dropped column, per board.** Asked for on 7 September 2026, in the same breath as
-  moving it back to the far right, and deliberately not designed yet. The open question is what
-  *per board* means: a fact about the hobby, like `columnLabel` — a films board that simply never
-  has one — or a preference somebody sets and the browser remembers, like the theme and the
-  journal's box. The second is the likelier reading and the more expensive one. `BOARD_STATUSES`
-  is what the grid, the drop targets and `otherColumns` all derive from, so a hidden column has to
-  leave a card's menu with it, or *Move to Dropped* offers a move to somewhere that is not on
-  screen — and a title already sitting in a hidden column needs an answer before, not after.
 - **Sweep up titles with no headline figure when the worker starts.** The first thing to pick up. See
   **The backfill is a thing you run** in `docs/games-hltb.md`, including the reason it was not
   simply done.

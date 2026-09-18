@@ -17,13 +17,13 @@ beforeEach(() => authServer());
  */
 describe('AppHeader', () => {
   it('names the app once, as the page heading', () => {
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('HobbyTracker');
   });
 
   it('lists every hobby, in the order they are planned', () => {
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     expect(within(nav()).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
       'Games',
@@ -36,7 +36,7 @@ describe('AppHeader', () => {
   });
 
   it('offers a hobby that exists as a link, and says you are on it', () => {
-    renderWithProviders(<AppHeader title="HobbyTracker" />, { route: '/board/games' });
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />, { route: '/board/games' });
 
     const games = within(nav()).getByRole('link', { name: 'Games' });
 
@@ -49,7 +49,7 @@ describe('AppHeader', () => {
   it('leaves the hobbies that do not exist yet unclickable rather than disabled', () => {
     // Not a disabled link and not a disabled button: there is nothing behind them to operate,
     // so the honest markup is text. A disabled control implies it works under some condition.
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     // Counted from the list rather than pinned at a number, so building a hobby is one flag in
     // hobbies.ts rather than that flag and an arithmetic edit here.
@@ -62,7 +62,7 @@ describe('AppHeader', () => {
   it('says Soon in words, not only in colour', () => {
     // The same rule the destructive controls follow: nothing in this app is signalled by colour
     // alone, because dimming is invisible to anyone who cannot see the difference.
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     const unbuilt = HOBBIES.filter((hobby) => !hobby.ready);
     expect(unbuilt.length).toBeGreaterThan(0);
@@ -75,7 +75,7 @@ describe('AppHeader', () => {
   it('keeps exactly one settings menu, because useTheme holds its state locally', () => {
     // Two would drift: each instance reads storage once on mount and draws its own checked dot,
     // so the second would keep showing the old choice until something remounted it.
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
   });
@@ -83,7 +83,7 @@ describe('AppHeader', () => {
   it('says who is signed in', async () => {
     authServer({ id: 3, displayName: 'Jimmy Dao' });
 
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     expect(await screen.findByText('Jimmy Dao')).toBeInTheDocument();
   });
@@ -91,7 +91,7 @@ describe('AppHeader', () => {
   it('offers a way out', async () => {
     authServer();
 
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     expect(await screen.findByRole('button', { name: /sign out/i })).toBeInTheDocument();
   });
@@ -101,7 +101,7 @@ describe('AppHeader', () => {
     // arrives: a name-shaped gap is better than a flash of somebody else's.
     authServer(null);
 
-    renderWithProviders(<AppHeader title="HobbyTracker" />);
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
     expect(screen.queryByRole('button', { name: /sign out/i })).not.toBeInTheDocument();
   });

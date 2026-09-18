@@ -39,7 +39,7 @@ public class TvShow : Media
     ///
     /// **Named `air_status` rather than `status`, one word away from a column that already
     /// exists.** <c>log_entries.status</c> is where *you* are on a title, and it is a closed
-    /// four-value vocabulary shared by every hobby; this is where the *show* is, it is TMDB's
+    /// five-value vocabulary shared by every hobby; this is where the *show* is, it is TMDB's
     /// vocabulary rather than ours, and it is free text because it is theirs to change. Two
     /// columns called `status` on tables joined in every board query is a mistake waiting for
     /// the first person who types the shorter name out of habit.

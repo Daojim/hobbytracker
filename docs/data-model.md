@@ -34,10 +34,14 @@ the column in `media` too and leaves the base table with no `id` at all.
 - **Unique index on `(source_id, external_id) WHERE external_id IS NOT NULL`.** This is the
   natural key the IGDB upsert dedupes on — without it, searching "halo" twice inserts every
   result twice. Filtered because `manual` rows carry a null `external_id` and many must coexist.
-- **`status` is one shared four-value enum for every hobby** (`Backlog`, `InProgress`,
-  `Completed`, `Dropped`) and is stored **as text**. Do not add per-hobby status tables or
-  values — cross-hobby views depend on the vocabulary being identical. Text rather than an int
-  ordinal so reordering `LogStatus` can never silently reinterpret existing rows.
+- **`status` is one shared five-value enum for every hobby** (`Backlog`, `InProgress`,
+  `OnHold`, `Completed`, `Dropped`) and is stored **as text**. Do not add per-hobby status tables
+  or values — cross-hobby views depend on the vocabulary being identical, which is also why
+  columns a person names themselves were ruled out when On Hold was added. Text rather than an
+  int ordinal so reordering `LogStatus` can never silently reinterpret existing rows — and so a
+  new value needs **no migration**: the column is `varchar(20)` with no check constraint on what
+  it holds. What a new value *does* need is two switch arms, both of which fail silently when
+  missing; see **Board semantics** in `docs/board.md`.
 - **`platforms` and `developers` are Postgres `text[]`.** IGDB returns arrays for both; a single
   column would drop data. Npgsql maps `List<string>` natively — no join tables, no converter.
 - **`log_entries.platform` is free text, not a foreign key to that array.** It is what you played

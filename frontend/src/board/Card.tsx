@@ -5,7 +5,13 @@ import { formatJournalDate } from '../lib/time';
 import { isRecentRelease } from '../lib/release';
 
 import { ratingTone } from '../lib/rating';
-import { genreStripe, hobbyDefinition, otherColumns, resolveGenre } from '../hobbies';
+import {
+  type BoardColumn,
+  genreStripe,
+  hobbyDefinition,
+  otherColumns,
+  resolveGenre,
+} from '../hobbies';
 import type { LibraryItem, LogStatus } from '../api/types';
 
 /**
@@ -54,6 +60,14 @@ export interface CardMenu {
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+
+  /**
+   * The columns the board is drawing, which the moves are taken from — so a column taken off in
+   * Settings leaves the menu at the same moment it leaves the board. Required rather than
+   * defaulted to the hobby's full list, because a default is exactly how a card would quietly go
+   * on offering a move to somewhere that is not on screen.
+   */
+  columns: readonly BoardColumn[];
 }
 
 export interface CardFaceProps {
@@ -408,7 +422,7 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
                 </>
               )}
 
-              {otherColumns(item.hobby, item.currentStatus).map((column) => (
+              {otherColumns(menu.columns, item.currentStatus).map((column) => (
                 <button
                   key={column.status}
                   type="button"

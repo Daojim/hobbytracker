@@ -33,7 +33,9 @@ function upcomingItem(
 function renderCalendar(upcoming: LibraryItem[], hobby = 'games') {
   boardServer({ upcoming, hobby });
 
-  return renderWithProviders(<ComingSoon hobby={hobby as 'games'} onOpen={vi.fn()} />, {
+  // Five, as the board draws with nothing taken off. The count only decides how many tracks the
+  // section is laid out on, which jsdom cannot measure; layout.spec.ts is where that is checked.
+  return renderWithProviders(<ComingSoon hobby={hobby as 'games'} columns={5} onOpen={vi.fn()} />, {
     route: `/board/${hobby}`,
     path: '/board/:hobby',
   });
@@ -206,7 +208,7 @@ describe('ComingSoon', () => {
     boardServer({ upcoming: [upcomingItem('Silksong II', '2026-11-03')] });
 
     const onOpen = vi.fn();
-    renderWithProviders(<ComingSoon hobby="games" onOpen={onOpen} />, {
+    renderWithProviders(<ComingSoon hobby="games" columns={5} onOpen={onOpen} />, {
       route: '/board/games',
       path: '/board/:hobby',
     });

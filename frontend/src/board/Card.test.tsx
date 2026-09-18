@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Card, type CardMenu, type CardRemoval } from './Card';
+import { columnsFor, type BoardColumn } from '../hobbies';
 import { libraryItem } from '../test/library';
 import { renderWithProviders } from '../test/render';
 import type { LogStatus } from '../api/types';
@@ -18,6 +19,8 @@ function renderCard(
   onMove = vi.fn(),
   onOpen = vi.fn(),
   menuOpen = false,
+  // Every column the hobby has, which is the board with nothing taken off in Settings.
+  columns: readonly BoardColumn[] = columnsFor(item.hobby),
 ) {
   const removal: CardRemoval = {
     confirming,
@@ -26,7 +29,12 @@ function renderCard(
     onConfirm: vi.fn(),
   };
 
-  const menu: CardMenu = { open: menuOpen, onOpen: vi.fn(), onClose: vi.fn() };
+  const menu: CardMenu = {
+    open: menuOpen,
+    onOpen: vi.fn(),
+    onClose: vi.fn(),
+    columns,
+  };
 
   const view = renderWithProviders(
     <Card
@@ -73,7 +81,7 @@ function renderPressed() {
         item={libraryItem({ title: 'Celeste', currentStatus: 'Backlog' })}
         onMove={vi.fn()}
         removal={removal}
-        menu={{ open: false, onOpen: vi.fn(), onClose: vi.fn() }}
+        menu={{ open: false, onOpen: vi.fn(), onClose: vi.fn(), columns: columnsFor('games') }}
         onOpen={vi.fn()}
         draggable
       />
@@ -303,10 +311,11 @@ describe('Card', () => {
   });
 
   it.each<[LogStatus, string[]]>([
-    ['Backlog', ['Move to Playing', 'Move to Completed', 'Move to Dropped']],
-    ['InProgress', ['Move to Backlog', 'Move to Completed', 'Move to Dropped']],
-    ['Completed', ['Move to Backlog', 'Move to Playing', 'Move to Dropped']],
-    ['Dropped', ['Move to Backlog', 'Move to Playing', 'Move to Completed']],
+    ['Backlog', ['Move to Playing', 'Move to On Hold', 'Move to Completed', 'Move to Dropped']],
+    ['InProgress', ['Move to Backlog', 'Move to On Hold', 'Move to Completed', 'Move to Dropped']],
+    ['OnHold', ['Move to Backlog', 'Move to Playing', 'Move to Completed', 'Move to Dropped']],
+    ['Completed', ['Move to Backlog', 'Move to Playing', 'Move to On Hold', 'Move to Dropped']],
+    ['Dropped', ['Move to Backlog', 'Move to Playing', 'Move to On Hold', 'Move to Completed']],
   ])('offers every column but its own, from %s, in board order', (currentStatus, expected) => {
     // The whole point of the menu: a move without a drag, from every column rather than the two
     // that used to have a corner control at all. Dragging a card from the bottom of a forty-title
@@ -316,9 +325,9 @@ describe('Card', () => {
     // silent no-op — an item that costs a request and changes nothing is worse than none.
     //
     // In board order, so the menu and the columns behind it do not disagree about the order of
-    // the same four things: otherColumns filters BOARD_STATUSES rather than carrying a list of
-    // its own. Dropped moving back to the far right moves it to the bottom of the three here,
-    // above the one item that is not a move.
+    // the same five things: otherColumns filters BOARD_STATUSES rather than carrying a list of
+    // its own. Dropped at the far right puts it at the bottom of the four here, above the one
+    // item that is not a move; On Hold beside Playing puts the pause next to the resume.
     renderOpen(libraryItem({ title: 'Celeste', currentStatus }));
 
     const options = screen.getByRole('group', { name: 'Options for Celeste' });
@@ -329,6 +338,23 @@ describe('Card', () => {
         .map((button) => button.textContent)
         .filter((label) => label?.startsWith('Move')),
     ).toEqual(expected);
+  });
+
+  it('offers moves only to the columns the board is drawing', () => {
+    // The board hands the menu the columns it drew, with anything taken off in Settings already
+    // gone — so a card cannot offer to move somewhere that is not on screen, and the menu has no
+    // second opinion about which columns exist.
+    const drawn = columnsFor('games').filter((column) => column.status !== 'Dropped');
+    renderCard(libraryItem({ title: 'Celeste' }), false, vi.fn(), vi.fn(), true, drawn);
+
+    const options = screen.getByRole('group', { name: 'Options for Celeste' });
+
+    expect(
+      within(options)
+        .getAllByRole('button')
+        .map((button) => button.textContent)
+        .filter((label) => label?.startsWith('Move')),
+    ).toEqual(['Move to Playing', 'Move to On Hold', 'Move to Completed']);
   });
 
   it('opens the journal from the menu as well as from the title', async () => {
@@ -356,7 +382,7 @@ describe('Card', () => {
     expect(onMove).toHaveBeenCalledExactlyOnceWith(42, 'Completed');
   });
 
-  it.each<LogStatus>(['Backlog', 'InProgress', 'Completed', 'Dropped'])(
+  it.each<LogStatus>(['Backlog', 'InProgress', 'OnHold', 'Completed', 'Dropped'])(
     'offers both endings from %s, rather than one decided by the column',
     (currentStatus) => {
       // The corner used to mean *drop* on Playing and *remove* on Backlog, and be absent on the
