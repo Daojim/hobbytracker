@@ -524,8 +524,8 @@ switching a column's sort back to one it had before a move reaches the same stal
 - **`renderWithProviders` sets `gcTime: 0`, which makes this class of bug unreproducible in
   jsdom.** A query is collected the instant its last observer goes, so a board can never be handed
   an entry it left behind. The first version of the regression test passed against the unfixed
-  code and said nothing. `keepsCache: true` is the opt-in, and it is the only test in the suite
-  that asks for it — everything else is better off without a query outliving its test.
+  code and said nothing. `keepsCache: true` is the opt-in, and the two tests about this card are
+  the only ones that ask for it — everything else is better off without a query outliving its test.
 - **The assertion has to be the next thing after the render.** `userEvent` awaits a macrotask on
   its way out, which is long enough for the refetch to land and tidy the evidence away; a
   `waitFor` would happily wait out the moment the board held two of it. `fireEvent.change` on the

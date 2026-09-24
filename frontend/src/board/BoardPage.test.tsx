@@ -48,7 +48,8 @@ function activityYears(first: number[], andThen: number[]) {
  * which is enough until a test is about what the cache is left holding afterwards.
  */
 function movingCard(item: LibraryItem) {
-  let status = item.currentStatus;
+  // Null once it has been taken off the board, until something puts it back.
+  let status: LogStatus | null = item.currentStatus;
 
   server.use(
     // Before the bare /api/library below, for the reason test/library.ts states about its own
@@ -59,14 +60,30 @@ function movingCard(item: LibraryItem) {
       // Asked for a column, the card is there if it is in that column. Asked for none — the
       // search strip learning what is on the board, and where — it is there wherever it is.
       const asked = new URL(request.url).searchParams.get('status');
-      const items = asked === null || asked === status ? [{ ...item, currentStatus: status }] : [];
+      const now = status;
+      const items =
+        now !== null && (asked === null || asked === now) ? [{ ...item, currentStatus: now }] : [];
 
       return HttpResponse.json({ items, total: items.length, page: 1, pageSize: 100 });
     }),
 
     http.post('/api/library/:mediaId/status', async ({ request }) => {
-      status = ((await request.json()) as { status: LogStatus }).status;
-      return HttpResponse.json({ ...item, currentStatus: status });
+      const moved = ((await request.json()) as { status: LogStatus }).status;
+      status = moved;
+      return HttpResponse.json({ ...item, currentStatus: moved });
+    }),
+
+    // Taken off the board and put back on — the other way a card can end up where an ordering
+    // left behind still has it.
+    http.delete('/api/library/:mediaId', () => {
+      status = null;
+      return new HttpResponse(null, { status: 204 });
+    }),
+
+    http.post('/api/library/:mediaId', async ({ request }) => {
+      const added = ((await request.json()) as { status: LogStatus }).status;
+      status = added;
+      return HttpResponse.json({ ...item, currentStatus: added }, { status: 201 });
     }),
   );
 }
@@ -291,6 +308,45 @@ describe('BoardPage', () => {
     // and an unmount are all it takes, however briefly the second card is on screen — so the
     // assertion has to be the next thing that happens after the render.
     fireEvent.change(screen.getByRole('combobox', { name: 'Backlog order' }), {
+      target: { value: 'manual' },
+    });
+
+    expect(screen.getAllByRole('button', { name: 'Celeste' })).toHaveLength(1);
+  });
+
+  it('does not bring a removed card back in an ordering it left behind, once it is added again', async () => {
+    // The test above, for the one gesture its fix did not cover. Remove from board invalidates
+    // every column but used to leave their views that are not on screen in the cache, still
+    // holding the card. Put it back from the strip into another column, switch one of those
+    // views on, and the card is mounted twice — where it is now, and where it was. Adding
+    // straight to any column makes that gesture ordinary rather than rare.
+    searchServer({ results: [game({ id: 3001, title: 'Celeste' })] });
+    boardServer();
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste', currentStatus: 'Completed' }));
+
+    renderWithProviders(<BoardPage />, { ...BOARD_ROUTE, keepsCache: true });
+    await screen.findByRole('button', { name: 'Celeste' });
+
+    // Look at Completed another way, so its manual ordering is left in the cache holding the card.
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'Completed order' }),
+      'title',
+    );
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Completed 1' })).toBeVisible());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove from board' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really remove?' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Completed 0' })).toBeVisible());
+
+    // Back on, from the strip, into Backlog.
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search games' }), 'celeste');
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Celeste to backlog' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Backlog 1' })).toBeVisible());
+
+    // And back to the ordering left behind — asserted as the very next thing after the render,
+    // for the reason the test above gives.
+    fireEvent.change(screen.getByRole('combobox', { name: 'Completed order' }), {
       target: { value: 'manual' },
     });
 

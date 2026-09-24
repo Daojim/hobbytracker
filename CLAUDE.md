@@ -335,8 +335,8 @@ otherwise have to state four column requests and the year list before it could a
 **`renderWithProviders` sets `gcTime: 0`, and that default hides a whole class of bug.** A query is
 collected the instant its last observer goes, so a board can never be handed a cache entry it left
 behind — which is exactly how a card ends up rendered in two columns at once. Pass
-`keepsCache: true` for a test about what the cache is left holding; one test asks for it, and
-everything else is better off without a query outliving its test. See **A card mounted twice** in
+`keepsCache: true` for a test about what the cache is left holding; two tests ask for it, both about
+that card, and everything else is better off without a query outliving its test. See **A card mounted twice** in
 `docs/board.md`.
 
 **The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit assertion

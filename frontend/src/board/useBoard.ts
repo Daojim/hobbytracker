@@ -211,7 +211,15 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // The whole hobby, not the column prefix a move settles with. A move names both columns it
     // touches; this one names none — every pass of yours goes, and they can be spread across all
     // four, so the columns that change are only knowable from what was there.
+    //
+    // And dropped, not only made stale, for the move's reason: a view of a column that is not on
+    // screen still *renders* its stale copy the moment something switches onto it. That used to
+    // be harmless here, a removed card flashing back until the refetch landed. Adding straight to
+    // any column made it not harmless — take a title off, put it back from the strip, switch to
+    // an ordering left behind, and the card is mounted in two columns and cannot be dragged. See
+    // "A card mounted twice" in docs/board.md.
     onSettled: (_data, _error, mediaId) => {
+      queryClient.removeQueries({ queryKey: ['library', hobby], type: 'inactive' });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
       void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
     },
