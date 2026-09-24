@@ -155,6 +155,45 @@ describe('BoardSearch', () => {
     await waitFor(() => expect(strip()).not.toBeInTheDocument());
   });
 
+  it('offers the Discover page while the box is empty, and takes the offer away once there is typing', async () => {
+    // For somebody who does not know what to search for, which is exactly when the box is empty.
+    // Once there is typing, the strip is the answer and the offer would only be in its way.
+    searchServer();
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+
+    const offer = await screen.findByRole('link', { name: 'Browse popular games' });
+    expect(offer).toHaveAttribute('href', '/board/games/discover');
+    expect(offer.closest('p')).toHaveTextContent('Not sure what to add? Browse popular games');
+
+    await userEvent.type(box(), 'hollow');
+
+    expect(screen.queryByRole('link', { name: 'Browse popular games' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the box named for what it is, with the offer beside the label rather than in it', async () => {
+    // A wrapping label takes all of its text as the input's name, so a link inside it would make
+    // the box announce itself as "Search games Not sure what to add? Browse popular games" — and
+    // every spec that finds the box by name would stop finding it. The clear button's rule.
+    searchServer();
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await screen.findByRole('link', { name: 'Browse popular games' });
+
+    expect(box()).toHaveAccessibleName('Search games');
+  });
+
+  it('offers nothing on a board whose hobby has no Discover page', async () => {
+    searchServer();
+
+    renderWithProviders(<BoardSearch hobby="movies" />, { route: '/board/movies' });
+    await waitFor(() =>
+      expect(screen.getByRole('searchbox', { name: 'Search movies' })).toBeInTheDocument(),
+    );
+
+    expect(screen.queryByRole('link', { name: /^Browse popular/ })).not.toBeInTheDocument();
+  });
+
   it('takes the results away on Escape without leaving the board', async () => {
     // Escape is handled on the search itself rather than on the document: the journal drawer
     // already owns a document-level Escape, and two listeners for one key is how they start

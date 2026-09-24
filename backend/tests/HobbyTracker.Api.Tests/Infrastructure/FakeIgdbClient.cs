@@ -65,6 +65,57 @@ public sealed class FakeIgdbClient : IIgdbClient
             [.. wanted.Where(ById.ContainsKey).Select(id => ById[id])]);
     }
 
+    // ------------------------------------------------------------------------------ discovery
+
+    /// <summary>What each of the Discover page's four questions answers with, in IGDB's order.</summary>
+    public List<IgdbGame> NewReleases { get; set; } = [];
+
+    public List<IgdbGame> Anticipated { get; set; } = [];
+
+    public List<IgdbGame> MostRated { get; set; } = [];
+
+    public List<IgdbGame> PlayingNow { get; set; } = [];
+
+    /// <summary>
+    /// Every discovery question asked, in order: which list, how many titles, and the window for
+    /// the one list that has a window. Kept apart from <see cref="Calls"/> so a test about the
+    /// once-a-day cache can count these without a search in the same test counting too.
+    /// </summary>
+    public List<(string List, int Limit, DateTimeOffset? Since, DateTimeOffset? Until)> DiscoverCalls { get; } = [];
+
+    public Task<IReadOnlyList<IgdbGame>> GetNewReleasesAsync(
+        DateTimeOffset since, DateTimeOffset until, int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(NewReleases), NewReleases, limit, since, until);
+
+    public Task<IReadOnlyList<IgdbGame>> GetAnticipatedAsync(
+        DateTimeOffset now, int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(Anticipated), Anticipated, limit);
+
+    public Task<IReadOnlyList<IgdbGame>> GetMostRatedAsync(int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(MostRated), MostRated, limit);
+
+    public Task<IReadOnlyList<IgdbGame>> GetPlayingNowAsync(int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(PlayingNow), PlayingNow, limit);
+
+    private Task<IReadOnlyList<IgdbGame>> Discover(
+        string list,
+        List<IgdbGame> games,
+        int limit,
+        DateTimeOffset? since = null,
+        DateTimeOffset? until = null)
+    {
+        DiscoverCalls.Add((list, limit, since, until));
+
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        // Honour limit the way IGDB would, as a search here does.
+        return Task.FromResult<IReadOnlyList<IgdbGame>>([.. games.Take(limit)]);
+    }
+
     public void SetResults(string search, params IgdbGame[] games) =>
         Results[search] = [.. games];
 

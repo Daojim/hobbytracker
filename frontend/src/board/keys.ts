@@ -81,3 +81,21 @@ export const mediaKey = (hobby: string, mediaId: number) => ['media', hobby, med
  * the same lack of a shared prefix.
  */
 export const upcomingKey = (hobby: string) => ['library', hobby, 'upcoming'] as const;
+
+/**
+ * Every media id on a hobby's board, which is how a tile knows whether to offer *Add*.
+ *
+ * Under `['library', hobby]`, so an add, a remove and a drawer write — which all invalidate that
+ * prefix — keep it true. Spelled here now that two surfaces read it, the search strip and the
+ * Discover page: two hooks holding the same key by hand is how one of them quietly stops matching.
+ */
+export const libraryIdsKey = (hobby: string) => ['library', hobby, 'ids'] as const;
+
+/**
+ * One of the Discover page's lists.
+ *
+ * Not under `['library', ...]`, because it is the provider's catalogue rather than anybody's
+ * board: adding a title changes nothing in the list itself. Whether a tile says *On your board*
+ * comes from {@link libraryIdsKey}.
+ */
+export const discoverKey = (hobby: string, list: string) => ['discover', hobby, list] as const;

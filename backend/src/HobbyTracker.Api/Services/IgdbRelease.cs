@@ -46,9 +46,10 @@ public static class IgdbRelease
             // Blade: Blood Rain, Okami Sequel, Black Myth: Zhong Kui, Physint — and those were
             // the titles being thrown away.
             //
-            // The shovelware worry was sound and belongs to the discovery grid, which does not
-            // read these columns. This calendar is drawn from Backlog, so the person's own act
-            // of adding a title is already the filter, and nobody adds "Wubble Bubbles".
+            // The shovelware worry was sound, and the Discover page is where it applied: its lists
+            // are sorted by hype, ratings or PopScore's ranking, so this undated tail never reaches
+            // them. This calendar is drawn from Backlog, so the person's own act of adding a title
+            // is already the filter, and nobody adds "Wubble Bubbles".
             //
             // The rumours in that set — Half-Life 3 and the twenty others IGDB marks Rumored —
             // are kept off the calendar by their status, in ReleaseWindow.NotOutOn, and not

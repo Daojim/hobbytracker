@@ -305,3 +305,57 @@ test.describe('the release calendar, at 1440px', () => {
     );
   });
 });
+
+/**
+ * How many tracks the Discover page's wall is laid out in, as the browser computed them.
+ *
+ * Counted from the grid rather than from tiles sharing a row, because the stub's lists are a
+ * handful of titles long and a row of eight would need eight of them.
+ */
+const wallTracks = (page: Page) =>
+  page
+    .getByRole('list', { name: 'New releases' })
+    .evaluate((wall) => getComputedStyle(wall).gridTemplateColumns.split(' ').length);
+
+/**
+ * The Discover page's wall, whose widths were picked from rendered comparisons on 23 September
+ * 2026: eight across from 1280px rather than six, two on a phone, and list tabs that wrap rather
+ * than scroll one of themselves off the screen.
+ */
+test.describe('the Discover wall', () => {
+  test('is eight across at 1440px', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/board/games/discover/new-releases');
+    await expect(page.getByRole('list', { name: 'New releases' })).toBeVisible();
+
+    expect(await wallTracks(page)).toBe(8);
+  });
+
+  test('is two across on a phone, with every list tab still on the screen', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/board/games/discover/new-releases');
+    await expect(page.getByRole('list', { name: 'New releases' })).toBeVisible();
+
+    expect(await wallTracks(page)).toBe(2);
+
+    const tabs = page.getByRole('navigation', { name: 'Lists' }).getByRole('link');
+    await expect(tabs).toHaveCount(4);
+
+    // What a tab measures with its words on one line: the line, its padding and its border. A
+    // row that neither wraps nor scrolls keeps every tab on the screen by squeezing each one until
+    // its words break — every tab alike, so comparing them with each other would prove nothing.
+    const oneLine = await tabs.first().evaluate((tab) => {
+      const style = getComputedStyle(tab);
+      return ['line-height', 'padding-top', 'padding-bottom', 'border-top-width', 'border-bottom-width']
+        .map((property) => parseFloat(style.getPropertyValue(property)))
+        .reduce((sum, value) => sum + value, 0);
+    });
+
+    for (const tab of await tabs.all()) {
+      const box = await boxOf(tab, 'a list tab');
+
+      expect(box.x + box.width, 'a list tab runs off the right of the screen').toBeLessThanOrEqual(390);
+      expect(box.height, 'a list tab has broken onto two lines').toBeLessThanOrEqual(oneLine + 1);
+    }
+  });
+});

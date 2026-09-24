@@ -41,6 +41,16 @@ const upcomingQuarter = (months) => {
   return { released: lastDay.toISOString().slice(0, 10), precision: `YYYYQ${quarter}` };
 };
 
+/** A day this many days before today, as `YYYY-MM-DD` — inside the Discover page's New releases. */
+const daysAgo = (days) => {
+  const day = new Date();
+  day.setUTCDate(day.getUTCDate() - days);
+  return day.toISOString().slice(0, 10);
+};
+
+/** IGDB's Erotic theme, which the Discover page's queries exclude. */
+const EROTIC = 42;
+
 /**
  * Ids are fixed, because a second search for the same title must upsert, not insert.
  *
@@ -93,9 +103,14 @@ const CATALOGUE = [
   //
   // One of each shape the calendar has to tell apart: a day, a window vaguer than a day, a title
   // IGDB says TBD about, a title IGDB says nothing at all about, and a rumour.
-  { id: 3011, released: inMonths(3), precision: 'YYYYMMDD', gameType: 0, name: 'Silksong II',
+  //
+  // `hypes` is what puts four of them on the Discover page's Most anticipated, which asks only
+  // about titles somebody is waiting for. Celeste 64 has none on purpose: it is what shows that
+  // clause being honoured, and a search for "celeste" is typed in three specs, where any hype
+  // would move it above Celeste — IgdbRelevance ranks on ratings plus hype.
+  { id: 3011, released: inMonths(3), precision: 'YYYYMMDD', gameType: 0, hypes: 120, name: 'Silksong II',
     platforms: ['PC'], developer: 'Team Cherry', genres: ['Platform'] },
-  { id: 3012, ...upcomingQuarter(18), gameType: 0, name: 'Hades III',
+  { id: 3012, ...upcomingQuarter(18), gameType: 0, hypes: 80, name: 'Hades III',
     platforms: ['PC'], developer: 'Supergiant Games', genres: ['Indie'] },
   { id: 3013, precision: 'TBD', gameType: 0, name: 'Celeste 64', platforms: ['PC'],
     developer: 'Extremely OK Games', genres: ['Platform'] },
@@ -104,14 +119,35 @@ const CATALOGUE = [
   // nobody has dated — no first_release_date and no release_dates array at all. It is the one
   // shape a stub is most likely to get wrong by tidying it into a TBD row, and it read as
   // *released* until 12 September 2026. Copied from IGDB id 347557.
-  { id: 3014, gameType: 0, name: 'Stellar Blade: Blood Rain', platforms: ['PC'],
+  { id: 3014, gameType: 0, hypes: 90, name: 'Stellar Blade: Blood Rain', platforms: ['PC'],
     developer: 'Shift Up', genres: ["Hack and slash/Beat 'em up", 'Adventure'] },
 
   // The same shape and the opposite answer, which is why the two sit together: undated, and off
   // the calendar because IGDB says nobody announced it. Copied from IGDB id 28029.
-  { id: 3015, status: 'Rumored', gameType: 0, name: 'Half-Life 3', platforms: ['PC'],
+  //
+  // With hype, because the live one has it — 94, and 32nd on the list of what is not out — so it
+  // is IGDB's idea of "not out" and not the calendar's, and only the API's rule keeps it off
+  // Most anticipated.
+  { id: 3015, status: 'Rumored', gameType: 0, hypes: 94, name: 'Half-Life 3', platforms: ['PC'],
     developer: 'Valve', genres: ['Shooter'] },
+
+  // The Discover page's New releases: out inside the last sixty days.
+  { id: 3016, released: daysAgo(10), precision: 'YYYYMMDD', gameType: 0, hypes: 60, name: 'Tunic II',
+    platforms: ['PC', 'Switch'], developer: 'Isometricorp Games', genres: ['Adventure'] },
+
+  // Tagged Erotic, and given more hype than anything else here and first place in PopScore's
+  // Playing list, so that the day the filter goes missing it is the first tile on two lists
+  // rather than something a spec could miss. Eleven of the live Visits list's top 60 were like it.
+  { id: 3017, released: daysAgo(5), precision: 'YYYYMMDD', gameType: 0, hypes: 999, themes: [EROTIC],
+    name: 'Velvet Lounge', platforms: ['PC'], developer: 'Nobody In Particular', genres: ['Simulator'] },
 ];
+
+/**
+ * PopScore's Playing list — `/v4/popularity_primitives`, `popularity_type = 3` — as game ids,
+ * highest first. A ranking row carries nothing but an id, which is why the client asks `/games`
+ * about them next, and why the Erotic decoy at the top has to be removed by that second question.
+ */
+const PLAYING = [3017, 3002, 3006, 3001, 3003];
 
 /** Midnight UTC of a `YYYY-MM-DD` day, in unix seconds, which is how IGDB sends a date. */
 const unixDay = (day) => Date.parse(`${day}T00:00:00Z`) / 1000;
@@ -138,6 +174,7 @@ const asIgdbGame = (game) => ({
   // What IgdbRelevance ranks on. Absent rather than zero for most of the catalogue, because
   // IGDB omits a field it has no value for rather than sending a null.
   ...(game.ratings === undefined ? {} : { total_rating_count: game.ratings }),
+  ...(game.hypes === undefined ? {} : { hypes: game.hypes }),
   // A list, because IGDB returns one — a single-platform stub cannot show that the drawer's
   // choices come from the game rather than from somewhere else.
   platforms: game.platforms.map((name, index) => ({ id: 6 + index, name })),
@@ -215,6 +252,53 @@ const withoutExcludedTypes = (games, query) => {
   return games.filter((game) => !ids.includes(String(game.gameType)));
 };
 
+/**
+ * `themes != (42)` — the Discover page's filter, honoured for the reason the game-type one is:
+ * drop it from IgdbClient and the decoy comes back and the spec goes red, rather than a stub
+ * that never had the clause letting it pass. A search never carries it, so this changes nothing
+ * a search sees.
+ */
+const withoutExcludedThemes = (games, query) => {
+  const excluded = /themes\s*!=\s*\(([^)]*)\)/.exec(query)?.[1];
+  if (excluded === undefined) {
+    return games;
+  }
+
+  const ids = excluded.split(',').map((id) => Number(id.trim()));
+  return games.filter((game) => !(game.themes ?? []).some((theme) => ids.includes(theme)));
+};
+
+/**
+ * The Discover page's three `/games` questions, which carry no `search`, no slug and no ids:
+ *
+ *   - New releases: `first_release_date >= A & first_release_date <= B`, by hype;
+ *   - Most anticipated: `hypes != null & (first_release_date > A | first_release_date = null)`;
+ *   - Most played: `total_rating_count != null`, by ratings.
+ *
+ * Each clause is parsed and honoured rather than pattern-matched on the question as a whole, so
+ * a clause the client stops sending shows up as the wrong titles on the wall.
+ */
+const matchesDiscovery = (query) => {
+  const since = /first_release_date\s*>=\s*(\d+)/.exec(query)?.[1];
+  const until = /first_release_date\s*<=\s*(\d+)/.exec(query)?.[1];
+  const after = /first_release_date\s*>\s*(\d+)\s*\|\s*first_release_date\s*=\s*null/.exec(query)?.[1];
+  const sortBy = /sort\s+(\w+)\s+desc/.exec(query)?.[1];
+
+  const releasedAt = (game) => (game.released === undefined ? undefined : unixDay(game.released));
+  const scoreOf = (game) =>
+    sortBy === 'hypes' ? (game.hypes ?? 0) : sortBy === 'total_rating_count' ? (game.ratings ?? 0) : 0;
+
+  return CATALOGUE.filter((game) => since === undefined || (releasedAt(game) ?? -1) >= Number(since))
+    .filter((game) => until === undefined || (releasedAt(game) ?? Infinity) <= Number(until))
+    .filter((game) => after === undefined || releasedAt(game) === undefined || releasedAt(game) > Number(after))
+    .filter((game) => !/hypes\s*!=\s*null/.test(query) || game.hypes !== undefined)
+    .filter((game) => !/total_rating_count\s*!=\s*null/.test(query) || game.ratings !== undefined)
+    .sort((a, b) => scoreOf(b) - scoreOf(a));
+};
+
+/** `limit N;`, honoured on the Discover page's questions and on PopScore's. */
+const limitOf = (query) => Number(/limit\s+(\d+)/.exec(query)?.[1] ?? 500);
+
 const readBody = (request) =>
   new Promise((resolve) => {
     let body = '';
@@ -247,18 +331,40 @@ const server = createServer(async (request, response) => {
     // for an empty term.
     const ids = /where\s+id\s*=\s*\(([^)]*)\)/.exec(query)?.[1];
     const slug = /slug\s*~\s*\*"([^"]*)"\*/.exec(query)?.[1];
+    const term = /search\s+"([^"]*)"/.exec(query)?.[1];
 
     let matches;
+    // Unlimited for the three shapes search and refresh send, which is how the stub has always
+    // answered them; the Discover page's questions are the ones whose limit is the point.
+    let limit = Infinity;
     if (ids !== undefined) {
       matches = CATALOGUE.filter((game) => ids.split(',').includes(String(game.id)));
     } else if (slug !== undefined) {
       matches = matchesSlug(slug);
+    } else if (term !== undefined) {
+      matches = matchesTerm(term);
     } else {
-      matches = matchesTerm(/search\s+"([^"]*)"/.exec(query)?.[1] ?? '');
+      matches = matchesDiscovery(query);
+      limit = limitOf(query);
     }
 
+    // Both filters before the limit, as IGDB applies `where` before `limit`.
+    const answer = withoutExcludedThemes(withoutExcludedTypes(matches, query), query).slice(0, limit);
+
     response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(withoutExcludedTypes(matches, query).map(asIgdbGame)));
+    response.end(JSON.stringify(answer.map(asIgdbGame)));
+    return;
+  }
+
+  if (url.pathname === '/v4/popularity_primitives') {
+    const query = await readBody(request);
+
+    // Only the Playing list has anything in it, because it is the only one the API asks about.
+    const type = /popularity_type\s*=\s*(\d+)/.exec(query)?.[1];
+    const ranking = type === '3' ? PLAYING.slice(0, limitOf(query)) : [];
+
+    response.writeHead(200, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify(ranking.map((id) => ({ id: 90000 + id, game_id: id }))));
     return;
   }
 

@@ -163,6 +163,10 @@ export const ANIME: HobbyDefinition = {
   // nothing ever fills the columns the board would partition Backlog on. Turning it on is this
   // block plus that provider work, in one commit — see HobbyDefinition.releases.
   releases: null,
+
+  // No Discover page, for the same kind of reason: MAL has rankings of its own, and nothing asks
+  // it for them yet. See HobbyDefinition.discover.
+  discover: null,
 };
 
 /**

@@ -115,6 +115,46 @@ export interface HobbyDefinition {
     /** The badge a card wears for a title that came out in the last few weeks. */
     newBadge: string;
   } | null;
+
+  /**
+   * The Discover page: lists of what the provider would show somebody who has not typed
+   * anything, offered from under an empty search box. Null for a hobby with no such page.
+   *
+   * **Only games sets it, and that is a fact about providers rather than about hobbies** — the
+   * {@link releases} rule again. TMDB has trending and popular lists and MAL has rankings; nothing
+   * asks them yet. The page names no hobby, so turning one on is this block plus the provider
+   * method behind `GET /api/<hobby>/discover/<slug>`.
+   */
+  discover: {
+    /** The page's heading, under the app's own. */
+    heading: string;
+
+    /** The line under an empty search box, and the words of the link inside it. */
+    invitation: { prompt: string; link: string };
+
+    /** The lists, in tab order. The page opens on the first. */
+    lists: readonly DiscoverList[];
+  } | null;
+}
+
+/**
+ * One list on the Discover page.
+ *
+ * `slug` is the list's address and the API's name for it at once —
+ * `/board/games/discover/new-releases` and `GET /api/games/discover/new-releases` — so a tab is a
+ * link, and cannot ask for a different list from the one it names.
+ */
+export interface DiscoverList {
+  slug: string;
+
+  /** The tab. */
+  label: string;
+
+  /** One line under the tabs, saying what the list holds and in what order. */
+  blurb: string;
+
+  /** The titles, in the provider's order, read as the search strip reads a result. */
+  run(): Promise<SearchHit[]>;
 }
 
 /**

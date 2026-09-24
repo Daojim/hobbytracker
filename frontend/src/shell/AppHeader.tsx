@@ -61,9 +61,9 @@ export function AppHeader({ title, hobby }: AppHeaderProps) {
               {hobby.ready ? (
                 <NavLink
                   to={boardPath(hobby.slug)}
-                  end
-                  // aria-current comes free, which is the whole reason this is a NavLink while
-                  // there is only one of them to be current.
+                  // aria-current comes free, which is the whole reason this is a NavLink. Not
+                  // `end`: a hobby's Discover page lives under its board's address and is still
+                  // that hobby, so the nav has to say so there too.
                   className={({ isActive }) =>
                     `inline-block border-b-2 px-3 py-2 text-sm font-medium ${
                       isActive

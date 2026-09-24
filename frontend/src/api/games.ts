@@ -12,6 +12,16 @@ export function searchGames(search: string, limit?: number): Promise<Game[]> {
   return apiJson<Game[]>('/api/games', { query: { search, limit } });
 }
 
+/**
+ * One of the Discover page's lists: what IGDB would show somebody who has not typed anything.
+ *
+ * Like a search, every title comes back already in the catalogue, so its id is one a log entry
+ * can point at — and like a search, the order is IGDB's and must not be re-sorted.
+ */
+export function discoverGames(list: string): Promise<Game[]> {
+  return apiJson<Game[]>(`/api/games/discover/${encodeURIComponent(list)}`);
+}
+
 /** One stored game plus everything logged against it, in a single request. */
 export function getGame(id: number): Promise<GameDetail> {
   return apiJson<GameDetail>(`/api/games/${id}`);

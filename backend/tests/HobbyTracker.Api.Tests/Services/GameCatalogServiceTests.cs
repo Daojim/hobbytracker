@@ -5,6 +5,7 @@ using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Services;
 using HobbyTracker.Api.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -443,7 +444,8 @@ public sealed class GameCatalogServiceTests(PostgresFixture postgres) : Database
         Options.Create(new IgdbOptions { ClientId = "id", ClientSecret = "secret" }),
         NullLogger<GameCatalogService>.Instance,
         new FakeCurrentUser(UserId),
-        new JournalClock(Clock, Options.Create(new JournalOptions())));
+        new JournalClock(Clock, Options.Create(new JournalOptions())),
+        new MemoryCache(new MemoryCacheOptions()));
 
     private Task<int> CountMediaAsync() => WithDbAsync(db => db.Media.CountAsync(Ct));
 }

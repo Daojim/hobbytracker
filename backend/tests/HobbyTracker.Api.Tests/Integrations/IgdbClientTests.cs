@@ -1,5 +1,6 @@
 using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Integrations.Igdb;
+using HobbyTracker.Api.Integrations.Igdb.Models;
 using HobbyTracker.Api.Services;
 using HobbyTracker.Api.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -434,6 +435,194 @@ public sealed class IgdbClientTests
 
         // A raw JsonException escaping here would surface as a 500; IgdbException makes it a 502.
         await Should.ThrowAsync<IgdbException>(() => client.SearchGamesAsync("halo", 10, Ct));
+    }
+
+    // ------------------------------------------------------------------------------ discovery
+    //
+    // The four lists the Discover page draws: what IGDB would show somebody who has not typed
+    // anything. Every query shape below was measured against the live API on 23 September 2026
+    // before it was written down here.
+
+    private static readonly DateTimeOffset Now = new(2026, 9, 23, 16, 0, 0, TimeSpan.Zero);
+
+    /// <summary>Answers PopScore's question with a ranking, and /games with a list of games.</summary>
+    private static StubHttpMessageHandler PopScoreAnswering(string ranking, string games = "[]") =>
+        new((request, _) => StubHttpMessageHandler.Respond(
+            HttpStatusCode.OK,
+            request.Uri!.AbsolutePath == "/v4/popularity_primitives" ? ranking : games));
+
+    /// <summary>One discovery question by the name a theory can carry.</summary>
+    private static Task<IReadOnlyList<IgdbGame>> DiscoverAsync(IgdbClient client, string list) =>
+        list switch
+        {
+            "new" => client.GetNewReleasesAsync(Now.AddDays(-60), Now, 48, Ct),
+            "anticipated" => client.GetAnticipatedAsync(Now, 96, Ct),
+            "most" => client.GetMostRatedAsync(48, Ct),
+            "popular" => client.GetPlayingNowAsync(96, Ct),
+            _ => throw new ArgumentOutOfRangeException(nameof(list), list, null),
+        };
+
+    [Fact]
+    public async Task Asks_for_new_releases_the_most_anticipated_first()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetNewReleasesAsync(Now.AddDays(-60), Now, 48, Ct);
+
+        var request = stub.Requests.ShouldHaveSingleItem();
+        request.Uri!.AbsolutePath.ShouldBe("/v4/games");
+
+        var body = request.Body.ShouldNotBeNull();
+        body.ShouldContain(
+            $"first_release_date >= {Now.AddDays(-60).ToUnixTimeSeconds()} " +
+            $"& first_release_date <= {Now.ToUnixTimeSeconds()}");
+
+        // Hype rather than ratings, because a game out for a fortnight has hardly been rated.
+        // Sorted by ratings, Valheim's 1.0 came first on 301 carried over from early access,
+        // and nothing after it had more than 36.
+        body.ShouldContain("sort hypes desc;");
+        body.ShouldContain("limit 48;");
+
+        // The same fields a search asks for, because the rows go through the same upsert.
+        body.ShouldContain("cover.image_id");
+        body.ShouldContain("release_dates.date_format.format");
+    }
+
+    [Fact]
+    public async Task Asks_for_what_is_not_out_yet_the_most_anticipated_first()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetAnticipatedAsync(Now, 96, Ct);
+
+        var body = stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull();
+
+        // Undated counts as not out. The Elder Scrolls VI, second on the list, has no
+        // first_release_date at all.
+        body.ShouldContain($"(first_release_date > {Now.ToUnixTimeSeconds()} | first_release_date = null)");
+
+        // Somebody has to be waiting for it. Without this, "not out" is the 53,096 undated main
+        // games docs/games-igdb.md counted, which is mostly nothing.
+        body.ShouldContain("hypes != null");
+        body.ShouldContain("sort hypes desc;");
+        body.ShouldContain("limit 96;");
+    }
+
+    [Fact]
+    public async Task Asks_for_the_games_the_most_people_have_rated()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetMostRatedAsync(48, Ct);
+
+        var body = stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull();
+
+        // PopScore has a Played list, and it holds the same games as this in 14 of its top 15.
+        // This is one request with the filter inside it; that is two with the filter after.
+        body.ShouldContain("total_rating_count != null");
+        body.ShouldContain("sort total_rating_count desc;");
+        body.ShouldContain("limit 48;");
+    }
+
+    [Fact]
+    public async Task Asks_popscore_what_people_are_playing_and_then_asks_for_those_games()
+    {
+        var stub = PopScoreAnswering("""[{ "game_id": 11, "value": 0.009 }, { "game_id": 22, "value": 0.007 }]""");
+
+        await CreateClient(stub).GetPlayingNowAsync(96, Ct);
+
+        stub.Requests.Count.ShouldBe(2);
+
+        var ranking = stub.Requests[0];
+        ranking.Uri!.AbsolutePath.ShouldBe("/v4/popularity_primitives");
+
+        // 3 is Playing, read off /v4/popularity_types; IGDB's own documentation lists the same
+        // ids. A ranking row carries nothing but a game id, which is why a second question follows.
+        var body = ranking.Body.ShouldNotBeNull();
+        body.ShouldContain("where popularity_type = 3;");
+        body.ShouldContain("sort value desc;");
+        body.ShouldContain("limit 96;");
+
+        var games = stub.Requests[1];
+        games.Uri!.AbsolutePath.ShouldBe("/v4/games");
+        games.Body.ShouldNotBeNull().ShouldContain("where id = (11,22)");
+    }
+
+    [Fact]
+    public async Task Reads_a_popscore_list_in_its_own_order()
+    {
+        // PopScore ranks, and /games answers in whatever order it likes — here, id order. The
+        // ranking is the whole point of the list, so it is PopScore's order that comes back.
+        var stub = PopScoreAnswering(
+            """[{ "game_id": 30, "value": 0.9 }, { "game_id": 10, "value": 0.5 }, { "game_id": 20, "value": 0.1 }]""",
+            """[{ "id": 10, "name": "Ten" }, { "id": 20, "name": "Twenty" }, { "id": 30, "name": "Thirty" }]""");
+
+        var games = await CreateClient(stub).GetPlayingNowAsync(96, Ct);
+
+        games.Select(game => game.Id).ShouldBe([30, 10, 20]);
+    }
+
+    [Fact]
+    public async Task Asks_nothing_more_when_popscore_has_nothing()
+    {
+        var stub = PopScoreAnswering("[]");
+
+        (await CreateClient(stub).GetPlayingNowAsync(96, Ct)).ShouldBeEmpty();
+
+        // `where id = ()` is an APIcalypse syntax error, found by sending one, so an empty
+        // ranking has to end here rather than ask the second question.
+        stub.Requests.ShouldHaveSingleItem().Uri!.AbsolutePath.ShouldBe("/v4/popularity_primitives");
+    }
+
+    [Theory]
+    [InlineData("new")]
+    [InlineData("anticipated")]
+    [InlineData("most")]
+    [InlineData("popular")]
+    public async Task Keeps_erotic_titles_off_every_discover_list(string list)
+    {
+        var stub = PopScoreAnswering("""[{ "game_id": 11, "value": 0.5 }]""");
+
+        await DiscoverAsync(CreateClient(stub), list);
+
+        var body = stub.Requests
+            .Single(request => request.Uri!.AbsolutePath == "/v4/games")
+            .Body.ShouldNotBeNull();
+
+        // 42 is Erotic on /v4/themes. 11 of PopScore's top 60 Visits carried it, and one sat in
+        // the top 40 of the most-hyped titles not yet out: a page nobody typed into cannot show
+        // what it finds. A game with no themes at all still passes — one was measured doing so.
+        body.ShouldContain("themes != (42)");
+
+        // And the search's own filter, because a wall of mods is no better than a strip of them.
+        body.ShouldContain("game_type != (3,5)");
+    }
+
+    [Fact]
+    public async Task Leaves_a_search_to_find_whatever_was_asked_for()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).SearchGamesAsync("hollow knight", 10, Ct);
+
+        // The erotic filter is discovery's alone. Somebody who typed a title asked for it; the
+        // Discover page shows what nobody asked for, and that is the whole difference.
+        stub.Requests.Count.ShouldBe(2);
+        stub.Requests.ShouldAllBe(request => !request.Body!.Contains("themes"));
+    }
+
+    [Fact]
+    public async Task Names_the_endpoint_that_failed()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.BadRequest, "Invalid field name: popularity_typ");
+
+        var exception = await Should.ThrowAsync<IgdbException>(
+            () => CreateClient(stub).GetPlayingNowAsync(96, Ct));
+
+        // There are two endpoints now, and a parse error is only useful if it says which query
+        // it came from.
+        exception.Message.ShouldContain("/popularity_primitives");
+        exception.Message.ShouldContain("Invalid field name");
     }
 
     private static IgdbClient CreateClient(StubHttpMessageHandler stub) =>

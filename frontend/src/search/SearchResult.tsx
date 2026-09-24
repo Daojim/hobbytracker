@@ -1,4 +1,5 @@
 import { formatRelease } from '../lib/release';
+import { addWords } from './addWords';
 import type { HobbyDefinition, SearchHit } from '../hobbies';
 
 export interface SearchResultProps {
@@ -36,13 +37,9 @@ export function SearchResult({
   onAdd,
   definition,
 }: SearchResultProps) {
-  // Both halves have to be true, and they are different questions. The hobby decides whether
-  // there is a calendar to add to at all; the server decides whether this particular title is
-  // out. `released` is taken as given rather than re-derived from the date — the board is
-  // partitioned on the server's answer, and a second copy of that rule here would be free to
-  // disagree, offering the calendar for something that then lands in Backlog.
-  const calendar = definition.releases;
-  const upcoming = calendar !== null && hit.release !== null && !hit.release.released;
+  // Add, or Add to calendar — decided in one place for this tile and the Discover page's, so the
+  // two cannot disagree about the same title. See addWords.
+  const words = addWords(hit, definition);
 
   return (
     <li className="flex w-36 shrink-0 flex-col gap-2 rounded-lg border border-card-line bg-surface p-2 shadow-card">
@@ -87,7 +84,7 @@ export function SearchResult({
       {/* When it is due, for a title that is not out. The one thing a search result can say that
           a board card cannot, and worth saying before adding rather than after: whether to
           commit to something is partly a question of how long the wait is. */}
-      {upcoming && hit.release !== null && (
+      {words.upcoming && hit.release !== null && (
         <p className="text-center text-xs text-muted">
           {formatRelease(hit.release.day, hit.release.precision)}
         </p>
@@ -99,15 +96,11 @@ export function SearchResult({
         <button
           type="button"
           disabled={adding}
-          aria-label={
-            upcoming && calendar !== null
-              ? calendar.describeAdd(hit.title)
-              : `Add ${hit.title} to backlog`
-          }
+          aria-label={words.label}
           onClick={() => onAdd(hit.id)}
           className="h-7 rounded border border-line px-2 text-xs font-medium hover:bg-hover disabled:opacity-50"
         >
-          {adding ? 'Adding…' : upcoming && calendar !== null ? calendar.addAction : 'Add'}
+          {adding ? 'Adding…' : words.text}
         </button>
       )}
     </li>

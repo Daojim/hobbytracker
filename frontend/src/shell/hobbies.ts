@@ -36,6 +36,16 @@ export type Hobby = (typeof HOBBIES)[number]['slug'];
  */
 export const boardPath = (slug: Hobby): string => `/board/${slug}`;
 
+/**
+ * Where a hobby's Discover page lives, and which of its lists; the page opens on the first when
+ * none is named.
+ *
+ * Under the board's own address, because it is a page *of* that board: the nav keeps the hobby
+ * current there, and the way back is to the board it came from.
+ */
+export const discoverPath = (slug: Hobby, list?: string): string =>
+  list === undefined ? `${boardPath(slug)}/discover` : `${boardPath(slug)}/discover/${list}`;
+
 /** Where an unknown or unbuilt slug is sent. Games is the board that exists. */
 export const DEFAULT_HOBBY: Hobby = 'games';
 

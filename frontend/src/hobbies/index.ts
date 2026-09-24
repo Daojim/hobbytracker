@@ -7,6 +7,7 @@ import { TV } from './tv';
 import type { Genre, HobbyDefinition } from './types';
 
 export type {
+  DiscoverList,
   Genre,
   HobbyDefinition,
   JournalSection,
