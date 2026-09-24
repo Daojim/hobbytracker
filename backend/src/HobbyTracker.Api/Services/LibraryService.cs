@@ -7,6 +7,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HobbyTracker.Api.Services;
 
+/// <summary>What happened when a title was put on the board from a tile.</summary>
+public enum AddToBoardOutcome
+{
+    /// <summary>No title with that media id.</summary>
+    NoSuchTitle,
+
+    /// <summary>
+    /// You have a pass against it already, in some column. Nothing is written: a second pass
+    /// here would be a replay nobody made.
+    /// </summary>
+    AlreadyOnBoard,
+
+    Added,
+}
+
 public interface ILibraryService
 {
     Task<PagedResult<LibraryItemDto>> ListAsync(
@@ -41,6 +56,16 @@ public interface ILibraryService
         int mediaId, LogStatus target, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Puts a title on your board, in a column — what a tile's +, ▶ and ✓ do. The card comes
+    /// back with <see cref="AddToBoardOutcome.Added"/> and is null otherwise.
+    ///
+    /// A move from nowhere: the first pass is built exactly as a drag out of Completed builds a
+    /// replay, so it lands on top of its column with the dates a drag into it would have given.
+    /// </summary>
+    Task<(AddToBoardOutcome Outcome, LibraryItemDto? Item)> AddToBoardAsync(
+        int mediaId, LogStatus status, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Takes a title off your board by deleting every pass of yours against it — what
     /// <em>Remove from board</em> does. False when you have never logged it.
     ///
@@ -62,7 +87,11 @@ public interface ILibraryService
 /// to log_entries is what separates the catalog from the collection.
 /// </summary>
 public sealed class LibraryService(
-    HobbyTrackerDbContext db, IJournalClock clock, ICurrentUser user) : ILibraryService
+    HobbyTrackerDbContext db,
+    IJournalClock clock,
+    ICurrentUser user,
+    IEnumerable<IMediaAdded> mediaAdded,
+    ILogger<LibraryService> logger) : ILibraryService
 {
     /// <summary>
     /// How much of a note reaches a card.
@@ -318,22 +347,10 @@ public sealed class LibraryService(
                 // one. This is what protects a 2024 playthrough when the same game is replayed
                 // in 2026, and it is the entire reason the schema allows several entries per
                 // title. Editing in place here would silently destroy the completion record.
-                var replay = new LogEntry
-                {
-                    MediaId = mediaId,
-
-                    // Yours, like the pass it replaces. LatestEntryFor above already refused
-                    // anybody else's, so this can only ever be a replay of your own.
-                    UserId = user.Id,
-
-                    Status = target,
-                    LoggedAt = now,
-                    Position = await BoardPositions.TopOfColumnAsync(
-                        db, target, user.Id, cancellationToken),
-                };
-
-                ApplyTransitionTimestamps(replay, target, now);
-                db.LogEntries.Add(replay);
+                //
+                // Yours, like the pass it replaces: LatestEntryFor above already refused
+                // anybody else's, so this can only ever be a replay of your own.
+                db.LogEntries.Add(await NewPassAsync(mediaId, target, now, cancellationToken));
             }
             else
             {
@@ -345,6 +362,39 @@ public sealed class LibraryService(
         }
 
         return await ItemAsync(mediaId, cancellationToken);
+    }
+
+    public async Task<(AddToBoardOutcome Outcome, LibraryItemDto? Item)> AddToBoardAsync(
+        int mediaId, LogStatus status, CancellationToken cancellationToken)
+    {
+        // The catalogue is everyone's, so this is asked of nobody in particular.
+        var media = await db.Media.FirstOrDefaultAsync(m => m.Id == mediaId, cancellationToken);
+        if (media is null)
+        {
+            return (AddToBoardOutcome.NoSuchTitle, null);
+        }
+
+        // "On your board" is having a pass at all, in any column: the question a move asks
+        // before it touches anything, scoped to you by the same query. Asked of the media row
+        // alone, the first person to add a game would lock everybody else out of it.
+        //
+        // Refused rather than written. Only a stale tile gets here — another tab, or a list
+        // loaded before the title went on — and a second pass would be a replay nobody made,
+        // which on top of a 2024 completion reads as the game being started again.
+        if (await LatestEntryFor(mediaId).AnyAsync(cancellationToken))
+        {
+            return (AddToBoardOutcome.AlreadyOnBoard, null);
+        }
+
+        db.LogEntries.Add(await NewPassAsync(mediaId, status, clock.Now, cancellationToken));
+        await db.SaveChangesAsync(cancellationToken);
+
+        // Reaching a board is what fetches a title's metadata, whichever column it lands in:
+        // HowLongToBeat for a game, TMDB's detail for a film. After the write, so a provider
+        // having a bad day cannot cost anybody the pass. See IMediaAdded.
+        await mediaAdded.AnnounceAsync(media, logger, cancellationToken);
+
+        return (AddToBoardOutcome.Added, await ItemAsync(mediaId, cancellationToken));
     }
 
     public async Task<bool> RemoveFromBoardAsync(int mediaId, CancellationToken cancellationToken)
@@ -707,6 +757,30 @@ public sealed class LibraryService(
         // Position untouched, which is why dragging is only offered in this one.
         _ => query.OrderBy(row => row.Latest.Position).ThenByDescending(row => row.Latest.Id),
     };
+
+    /// <summary>
+    /// A fresh pass on top of a column, carrying the dates a move into that column gives — what
+    /// a replay out of Completed is, and what an add is.
+    ///
+    /// One builder for both, so the only difference between adding straight to Playing and
+    /// adding to Backlog then dragging is which request did it. Always yours: whose pass this is
+    /// comes from the session and never from the caller.
+    /// </summary>
+    private async Task<LogEntry> NewPassAsync(
+        int mediaId, LogStatus status, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var pass = new LogEntry
+        {
+            MediaId = mediaId,
+            UserId = user.Id,
+            Status = status,
+            LoggedAt = now,
+            Position = await BoardPositions.TopOfColumnAsync(db, status, user.Id, cancellationToken),
+        };
+
+        ApplyTransitionTimestamps(pass, status, now);
+        return pass;
+    }
 
     private static void ApplyTransitionTimestamps(LogEntry entry, LogStatus target, DateTimeOffset now)
     {

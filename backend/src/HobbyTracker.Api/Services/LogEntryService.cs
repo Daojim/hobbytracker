@@ -134,12 +134,13 @@ public sealed class LogEntryService(
         await db.SaveChangesAsync(cancellationToken);
 
         // Adding a title to the board is the one gesture that should fetch its metadata without
-        // anybody running a maintenance route — and only here, because the entries a drag out of
-        // Completed inserts are for a title that has already been asked about.
+        // anybody running a maintenance route — here and in LibraryService.AddToBoardAsync, and
+        // not on a move, because the entries a drag out of Completed inserts are for a title that
+        // has already been asked about.
         //
         // Announced rather than acted on: what there is to fetch differs per hobby, and this
         // service has no business knowing which. See IMediaAdded.
-        await AnnounceAsync(media, cancellationToken);
+        await mediaAdded.AnnounceAsync(media, logger, cancellationToken);
 
         return LogEntryDto.From(entry);
     }
@@ -193,36 +194,5 @@ public sealed class LogEntryService(
         await db.SaveChangesAsync(cancellationToken);
 
         return true;
-    }
-
-    /// <summary>
-    /// Tells every handler, and lets none of them fail the write.
-    ///
-    /// The pass is saved by the time this runs, and it is the user's; the metadata belongs to
-    /// somebody else's website. So a provider having a bad day must not surface as a failed POST
-    /// — the title is left for that hobby's backfill, which is what HltbWorker already does with
-    /// the same failure one layer further out.
-    ///
-    /// Each handler gets its own try, so one throwing does not quietly rob the ones registered
-    /// behind it of the announcement.
-    /// </summary>
-    private async Task AnnounceAsync(Media media, CancellationToken cancellationToken)
-    {
-        foreach (var handler in mediaAdded)
-        {
-            try
-            {
-                await handler.OnAddedAsync(media, cancellationToken);
-            }
-            catch (Exception exception)
-            {
-                logger.LogError(
-                    exception,
-                    "{Handler} failed on media {MediaId}; the pass is written and the title keeps "
-                    + "whatever metadata was last known.",
-                    handler.GetType().Name,
-                    media.Id);
-            }
-        }
     }
 }
