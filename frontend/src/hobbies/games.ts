@@ -1,6 +1,37 @@
-import { getGame, searchGames, setGameGenre, setGameHltbId } from '../api/games';
+import { discoverGames, getGame, searchGames, setGameGenre, setGameHltbId } from '../api/games';
 import { formatHours } from '../lib/hours';
-import type { HobbyDefinition } from './types';
+import type { Game } from '../api/types';
+import type { DiscoverList, HobbyDefinition, SearchHit } from './types';
+
+/**
+ * A game as a tile reads it, however it was found — typed into the search box, or on the
+ * Discover page's wall.
+ *
+ * One mapping for both, because both tiles decide between *Add* and *Add to calendar* from
+ * `release`, and two copies would be free to disagree about the same title.
+ */
+const asHit = (game: Game): SearchHit => ({
+  id: game.id,
+  title: game.title,
+  coverUrl: game.coverUrl,
+  byline: [game.platforms.join(', '), game.developers.join(', ')],
+  // Passed through rather than re-decided here. `released` is the server's answer to the
+  // same question the Backlog column is partitioned on, and deriving a second one on the
+  // client is how a tile ends up offering the calendar for a title that lands in Backlog.
+  release: {
+    released: game.released,
+    day: game.releaseDate,
+    precision: game.releasePrecision,
+  },
+});
+
+/** One Discover list, asked for by the slug that is also its address. */
+const discoverList = (slug: string, label: string, blurb: string): DiscoverList => ({
+  slug,
+  label,
+  blurb,
+  run: async () => (await discoverGames(slug)).map(asHit),
+});
 
 /**
  * Games: IGDB, HowLongToBeat, and the words the board has always used.
@@ -65,21 +96,7 @@ export const GAMES: HobbyDefinition = {
   search: {
     label: 'Search games',
     placeholder: 'Search to add a game — Hollow Knight, Celeste, Outer Wilds…',
-    run: async (term) =>
-      (await searchGames(term)).map((game) => ({
-        id: game.id,
-        title: game.title,
-        coverUrl: game.coverUrl,
-        byline: [game.platforms.join(', '), game.developers.join(', ')],
-        // Passed through rather than re-decided here. `released` is the server's answer to the
-        // same question the Backlog column is partitioned on, and deriving a second one on the
-        // client is how a tile ends up offering the calendar for a title that lands in Backlog.
-        release: {
-          released: game.released,
-          day: game.releaseDate,
-          precision: game.releasePrecision,
-        },
-      })),
+    run: async (term) => (await searchGames(term)).map(asHit),
   },
 
   journal: {
@@ -135,5 +152,36 @@ export const GAMES: HobbyDefinition = {
     noDateHeading: 'No date yet',
     empty: 'Nothing on your board is waiting to come out.',
     newBadge: 'New',
+  },
+
+  // The one hobby with a Discover page, and only because IGDB is the only provider asked for
+  // lists. Each list and the query behind it was measured against the live API before it was
+  // chosen — see **Discovery** in docs/games-igdb.md, which also says why ten of PopScore's
+  // eleven lists were not.
+  discover: {
+    heading: 'Discover games',
+    invitation: { prompt: 'Not sure what to add?', link: 'Browse popular games' },
+    lists: [
+      discoverList(
+        'new-releases',
+        'New releases',
+        'Out in the last two months, the most anticipated first.',
+      ),
+      discoverList(
+        'popular-now',
+        'Popular now',
+        'What people on IGDB say they are playing, recalculated daily.',
+      ),
+      discoverList(
+        'most-anticipated',
+        'Most anticipated',
+        'Not out yet, the most anticipated first. Adding one puts it on your release calendar.',
+      ),
+      discoverList(
+        'most-played',
+        'Most played',
+        'The games the most people have rated, of all time.',
+      ),
+    ],
   },
 };

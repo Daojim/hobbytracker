@@ -46,6 +46,17 @@ describe('AppHeader', () => {
     expect(games).toHaveAttribute('aria-current', 'page');
   });
 
+  it('keeps the hobby current on its Discover page, which is still that hobby', () => {
+    // /board/games/discover/new-releases is a page of the games board. Matching the board's
+    // address exactly would leave the nav saying you are on no hobby at all.
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />, {
+      route: '/board/games/discover/new-releases',
+    });
+
+    expect(within(nav()).getByRole('link', { name: 'Games' })).toHaveAttribute('aria-current', 'page');
+    expect(within(nav()).getByRole('link', { name: 'Movies' })).not.toHaveAttribute('aria-current');
+  });
+
   it('leaves the hobbies that do not exist yet unclickable rather than disabled', () => {
     // Not a disabled link and not a disabled button: there is nothing behind them to operate,
     // so the honest markup is text. A disabled control implies it works under some condition.

@@ -71,6 +71,11 @@ builder.Services.AddHttpClient<IIgdbClient, IgdbClient>((serviceProvider, client
     // Auth is a pipeline concern, so the client itself never mentions tokens.
     .AddHttpMessageHandler<IgdbAuthHandler>();
 
+// The Discover page's lists, which change daily, are the first thing here asked of a provider
+// often enough to be worth keeping. What is kept is IGDB's answer and never a row; see
+// GameCatalogService.DiscoverAsync.
+builder.Services.AddMemoryCache();
+
 // ----------------------------------------------------------- TMDB integration
 builder.Services.AddOptions<TmdbOptions>()
     .Bind(builder.Configuration.GetSection(TmdbOptions.SectionName))

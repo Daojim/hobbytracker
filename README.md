@@ -298,6 +298,15 @@ by how many people have played the game before how well the title matches. Two o
 tried against the live API and are worse; both are pinned by tests named after what they got
 wrong.
 
+**The obvious list of what is popular is the one not to show.** The Discover page fills a board
+without a search box, from IGDB's popularity data: eleven lists, every one measured before
+anything was built on it. The obvious one, what people are looking at, had eleven titles tagged
+Erotic in its top sixty; Steam's lean on PC live-service games, and its top sellers are whatever is
+on sale.
+So the wall shows what is newly out, what people are playing, what is most anticipated and what
+the most people have played — and every list carries a filter a search does not, because somebody
+who typed a title asked for it and a wall shows what nobody asked for.
+
 **Ratings reject two decimal places.** The column is `numeric(3,1)`, and Postgres *rounds* rather
 than refusing: an accepted `8.75` is stored as `8.8`, and the response would report a rating the
 database does not hold. A 400 is the honest answer.
@@ -391,8 +400,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       A game nobody has put a date on at all says *TBA* and waits there with the rest — but a
       game IGDB calls a *rumour* does not, because a list of what is coming stops meaning much
       once Half-Life 3 is on it
+- [x] Browsing what is popular, rather than having to know what to search for. A wall of covers,
+      offered from under the empty search box, with four lists of what IGDB knows — newly out,
+      being played, most anticipated and most played — and the same one-click add search has. A
+      game not out yet goes on the release calendar, as it would from search
 - [ ] A title detail page, and a year in review
-- [ ] Browsing what is popular, rather than having to know what to search for
 - [ ] Books and music — each a sibling detail table plus its source integration
 
 Architecture and schema notes for anyone (or anything) working in the repo live in

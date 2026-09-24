@@ -93,9 +93,10 @@ public sealed class IgdbReleaseTests
         // than two people. They are not games people played. The notable ones are announcements
         // nobody has dated — this, Okami Sequel, Black Myth: Zhong Kui, Physint.
         //
-        // The shovelware worry was real and belongs to the discovery grid, which does not read
-        // these columns. The calendar is drawn from Backlog, so the person's own act of adding a
-        // title is already the filter, and nobody adds "Wubble Bubbles".
+        // The shovelware worry was real, and the Discover page is where it applied: its lists are
+        // sorted by hype, ratings or PopScore's ranking, so this undated tail never reaches them.
+        // The calendar is drawn from Backlog, so the person's own act of adding a title is
+        // already the filter, and nobody adds "Wubble Bubbles".
         var game = new IgdbGame { Id = 347557, Name = "Stellar Blade: Blood Rain" };
 
         IgdbRelease.WindowOf(game).ShouldBe(ReleaseWindow.Unknown);

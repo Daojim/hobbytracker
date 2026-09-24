@@ -17,6 +17,20 @@ public interface IIgdbClient
     /// </summary>
     Task<IReadOnlyList<IgdbGame>> GetGamesAsync(
         IEnumerable<int> ids, CancellationToken cancellationToken);
+
+    /// <summary>Games first released between two instants, the most hyped first.</summary>
+    Task<IReadOnlyList<IgdbGame>> GetNewReleasesAsync(
+        DateTimeOffset since, DateTimeOffset until, int limit, CancellationToken cancellationToken);
+
+    /// <summary>Games not out yet that somebody is waiting for, the most hyped first.</summary>
+    Task<IReadOnlyList<IgdbGame>> GetAnticipatedAsync(
+        DateTimeOffset now, int limit, CancellationToken cancellationToken);
+
+    /// <summary>The games the most people have rated.</summary>
+    Task<IReadOnlyList<IgdbGame>> GetMostRatedAsync(int limit, CancellationToken cancellationToken);
+
+    /// <summary>PopScore's Playing list, in PopScore's order.</summary>
+    Task<IReadOnlyList<IgdbGame>> GetPlayingNowAsync(int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -102,6 +116,35 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     private static readonly string NotABundleOrMod =
         $"game_type != ({BundleType},{ModType})";
 
+    /// <summary>IGDB's Erotic theme, read off <c>/v4/themes</c>. See <see cref="Discoverable"/>.</summary>
+    private const int EroticTheme = 42;
+
+    /// <summary>
+    /// PopScore's Playing list: what IGDB's members say they are playing. Read off
+    /// <c>/v4/popularity_types</c>, and the same id IGDB's own documentation lists.
+    /// </summary>
+    private const int PlayingPopularityType = 3;
+
+    /// <summary>
+    /// What every discovery query asks of a game, over and above whatever list it is.
+    ///
+    /// <para>
+    /// <b>No title tagged Erotic</b>, because these lists are shown to somebody who typed nothing.
+    /// Measured on 23 September 2026: 11 of PopScore's top 60 Visits carried the theme, and one sat
+    /// in the top 40 of the most-hyped titles not yet out. <c>themes != (42)</c> keeps a game with
+    /// no themes at all rather than dropping it — measured on one that has none. A search
+    /// deliberately does not carry this: somebody who typed a title asked for it.
+    /// </para>
+    ///
+    /// <para>
+    /// And the search's own filter, because a wall of mods is no better than a strip of them. No
+    /// stricter list of game types, because nothing measured needed one: DLC, seasons and editions
+    /// did not appear in the top 40 to 60 of any list this client asks for.
+    /// </para>
+    /// </summary>
+    private static readonly string Discoverable =
+        $"{NotABundleOrMod} & themes != ({EroticTheme})";
+
     /// <summary>
     /// The shortest slug pattern worth asking about.
     ///
@@ -143,7 +186,8 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     {
         // The type filter goes in the query rather than over the results, because IGDB applies
         // where before limit: filtering afterwards would ask for ten and hand back six.
-        var byRelevance = QueryAsync(
+        var byRelevance = QueryAsync<IgdbGame>(
+            GamesEndpoint,
             $"""
             search "{SanitizeSearchTerm(search)}";
             {SearchFields}
@@ -159,7 +203,8 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
         // ten of the hundreds of slug matches come back would be arbitrary.
         var byPrefix = pattern.Length < ShortestSlugPattern
             ? Task.FromResult<IReadOnlyList<IgdbGame>>([])
-            : QueryAsync(
+            : QueryAsync<IgdbGame>(
+                GamesEndpoint,
                 $"""
                 {SearchFields}
                 where slug ~ *"{pattern}"* & {NotABundleOrMod};
@@ -205,20 +250,140 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
             limit {wanted.Count};
             """;
 
-        return QueryAsync(query, cancellationToken);
+        return QueryAsync<IgdbGame>(GamesEndpoint, query, cancellationToken);
     }
 
-    private async Task<IReadOnlyList<IgdbGame>> QueryAsync(
-        string query, CancellationToken cancellationToken)
+    /// <summary>
+    /// The Discover page's New releases: games first released inside a window, the most hyped
+    /// first.
+    ///
+    /// Hype rather than ratings, because a game out for a fortnight has hardly been rated. Sorted
+    /// by ratings on 23 September 2026, Valheim's 1.0 came first on 301 carried over from early
+    /// access and nothing after it had more than 36.
+    /// </summary>
+    public Task<IReadOnlyList<IgdbGame>> GetNewReleasesAsync(
+        DateTimeOffset since, DateTimeOffset until, int limit, CancellationToken cancellationToken) =>
+        QueryAsync<IgdbGame>(
+            GamesEndpoint,
+            $"""
+            {SearchFields}
+            where first_release_date >= {since.ToUnixTimeSeconds()} & first_release_date <= {until.ToUnixTimeSeconds()} & {Discoverable};
+            sort hypes desc;
+            limit {limit};
+            """,
+            cancellationToken);
+
+    /// <summary>
+    /// The Discover page's Most anticipated: games not out yet, the most hyped first.
+    ///
+    /// <para>
+    /// Undated counts as not out — The Elder Scrolls VI, second on the list, has no
+    /// <c>first_release_date</c> at all. <c>hypes != null</c> is what keeps that from being every
+    /// one of the 53,096 undated main games IGDB holds, which are mostly nothing.
+    /// </para>
+    ///
+    /// <para>
+    /// This is IGDB's idea of "not out", and it is not the app's: a game in alpha or early access
+    /// has no release date and people are playing it. The caller holds the answer to that, with
+    /// the same expression the calendar is drawn by.
+    /// </para>
+    /// </summary>
+    public Task<IReadOnlyList<IgdbGame>> GetAnticipatedAsync(
+        DateTimeOffset now, int limit, CancellationToken cancellationToken) =>
+        QueryAsync<IgdbGame>(
+            GamesEndpoint,
+            $"""
+            {SearchFields}
+            where hypes != null & (first_release_date > {now.ToUnixTimeSeconds()} | first_release_date = null) & {Discoverable};
+            sort hypes desc;
+            limit {limit};
+            """,
+            cancellationToken);
+
+    /// <summary>
+    /// The Discover page's Most played: the games the most people have rated, which is the list
+    /// for filling a board backwards.
+    ///
+    /// PopScore has a Played list, and on 23 September 2026 it held the same games as this in 14
+    /// of its top 15. This is one request with the filter inside it, where that is two with the
+    /// filter after.
+    /// </summary>
+    public Task<IReadOnlyList<IgdbGame>> GetMostRatedAsync(int limit, CancellationToken cancellationToken) =>
+        QueryAsync<IgdbGame>(
+            GamesEndpoint,
+            $"""
+            {SearchFields}
+            where total_rating_count != null & {Discoverable};
+            sort total_rating_count desc;
+            limit {limit};
+            """,
+            cancellationToken);
+
+    /// <summary>
+    /// The Discover page's Popular now: PopScore's Playing list, recalculated by IGDB once a day.
+    ///
+    /// <para>
+    /// <b>Two questions, because a ranking row carries nothing but a game id.</b> PopScore ranks;
+    /// <c>/games</c> then describes, and answers in an order of its own, so the ranking is put back
+    /// afterwards. The filter can only go on the second question, which means it runs after the
+    /// limit: ask for more than the wall holds and let the caller trim.
+    /// </para>
+    ///
+    /// <para>
+    /// Playing rather than any of PopScore's other ten lists, all of them measured. Visits carried
+    /// 11 erotic titles in its top 60; Steam's lists lean on PC live-service games, and its top
+    /// sellers are sales, bundles and DLC; Twitch's had not been recalculated for a week.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<IgdbGame>> GetPlayingNowAsync(
+        int limit, CancellationToken cancellationToken)
     {
-        logger.LogDebug("IGDB query: {Query}", query);
+        var ranking = await QueryAsync<IgdbPopularityPrimitive>(
+            PopScoreEndpoint,
+            $"""
+            fields game_id;
+            where popularity_type = {PlayingPopularityType};
+            sort value desc;
+            limit {limit};
+            """,
+            cancellationToken);
+
+        // `where id = ();` is a parse error — found by sending one — and there is nothing to ask.
+        if (ranking.Count == 0)
+        {
+            return [];
+        }
+
+        var ids = ranking.Select(row => row.GameId).Distinct().ToList();
+
+        var games = await QueryAsync<IgdbGame>(
+            GamesEndpoint,
+            $"""
+            {SearchFields}
+            where id = ({string.Join(',', ids)}) & {Discoverable};
+            limit {ids.Count};
+            """,
+            cancellationToken);
+
+        var byId = games.DistinctBy(game => game.Id).ToDictionary(game => game.Id);
+
+        return [.. ids.Where(byId.ContainsKey).Select(id => byId[id])];
+    }
+
+    private const string GamesEndpoint = "games";
+    private const string PopScoreEndpoint = "popularity_primitives";
+
+    private async Task<IReadOnlyList<T>> QueryAsync<T>(
+        string endpoint, string query, CancellationToken cancellationToken)
+    {
+        logger.LogDebug("IGDB query to /{Endpoint}: {Query}", endpoint, query);
 
         using var content = new StringContent(query, Encoding.UTF8, "text/plain");
 
         HttpResponseMessage response;
         try
         {
-            response = await httpClient.PostAsync("games", content, cancellationToken);
+            response = await httpClient.PostAsync(endpoint, content, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
@@ -244,15 +409,15 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
                 // IGDB reports malformed APIcalypse as a 400 with the parse error in the
                 // body, which is by far the most useful thing to log while iterating.
                 var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                throw new IgdbException($"IGDB /games returned {(int)response.StatusCode}: {body}");
+                throw new IgdbException($"IGDB /{endpoint} returned {(int)response.StatusCode}: {body}");
             }
 
             try
             {
-                var games = await response.Content.ReadFromJsonAsync<List<IgdbGame>>(
+                var rows = await response.Content.ReadFromJsonAsync<List<T>>(
                     JsonOptions, cancellationToken);
 
-                return games ?? [];
+                return rows ?? [];
             }
             catch (JsonException ex)
             {

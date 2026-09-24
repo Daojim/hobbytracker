@@ -31,4 +31,21 @@ public class IgdbOptions
 
     [Range(1, 120)]
     public int RequestTimeoutSeconds { get; set; } = 15;
+
+    /// <summary>
+    /// How many titles a Discover list shows. 48 fills every row of the wall at 2, 3, 4, 6, 8 and
+    /// 12 across, and the tail of every list still held up at #48 when measured.
+    ///
+    /// At most 250, because two of the lists ask IGDB for twice this and IGDB caps a response at 500.
+    /// </summary>
+    [Range(1, 250)]
+    public int DiscoverListSize { get; set; } = 48;
+
+    /// <summary>
+    /// How long IGDB's answer to a Discover list is kept, in hours. PopScore is recalculated once
+    /// a day and hype moves about as slowly, so asking on every view would spend the four requests
+    /// a second on an answer already in hand. The day changing asks again regardless.
+    /// </summary>
+    [Range(1, 24)]
+    public int DiscoverCacheHours { get; set; } = 6;
 }

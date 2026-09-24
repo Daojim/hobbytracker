@@ -40,6 +40,29 @@ public class GamesController(IGameCatalogService catalog, IHltbService hltb) : C
     }
 
     /// <summary>
+    /// One of the Discover page's lists: what IGDB would show somebody who has not typed anything,
+    /// in IGDB's order. Stored exactly as search results are, so every title carries a media id a
+    /// log entry can point at — and asked of IGDB once a day for each list rather than per view.
+    /// </summary>
+    /// <param name="list">new-releases, popular-now, most-anticipated or most-played.</param>
+    [HttpGet("discover/{list}")]
+    [ProducesResponseType<IReadOnlyList<GameDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<ActionResult<IReadOnlyList<GameDto>>> Discover(
+        string list, CancellationToken cancellationToken)
+    {
+        // A path that names no list names nothing, so a 404 rather than the 400 a bad parameter
+        // gets — and IGDB is not asked about it.
+        if (!DiscoverLists.TryParse(list, out var which))
+        {
+            return NotFound();
+        }
+
+        return Ok(await catalog.DiscoverAsync(which, cancellationToken));
+    }
+
+    /// <summary>
     /// Returns one stored game together with everything logged against it, so a detail page
     /// needs a single request rather than one per entry.
     /// </summary>

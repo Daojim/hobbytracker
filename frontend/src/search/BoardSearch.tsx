@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router';
+import { useQuery } from '@tanstack/react-query';
 import { hobbyDefinition } from '../hobbies';
-import { libraryMediaIds } from '../api/library';
-import { addToBacklog } from '../api/logEntries';
 import { useDebounced } from '../lib/useDebounced';
+import { discoverPath } from '../shell/hobbies';
 import { SearchResult } from './SearchResult';
+import { useAddToBoard } from './useAddToBoard';
 
 /**
  * Finding a game and putting it on the board, from the board.
@@ -40,7 +41,6 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
   const [term, setTerm] = useState('');
   const boxRef = useRef<HTMLInputElement>(null);
   const settled = useDebounced(term.trim(), SEARCH_DEBOUNCE_MS);
-  const queryClient = useQueryClient();
 
   const results = useQuery({
     // Keyed on the hobby, and dispatched by it too: `hobbies/` decides which endpoint a term
@@ -53,26 +53,9 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
     enabled: settled !== '',
   });
 
-  const library = useQuery({
-    queryKey: ['library', hobby, 'ids'],
-    queryFn: () => libraryMediaIds(hobby),
-  });
-
-  // Held locally as well as in the library query, so the answer changes the moment the entry is
-  // written rather than a refetch later — otherwise the button stays live long enough to be
-  // clicked twice, and the second click is a second Backlog entry the board renders as a replay.
-  const [justAdded, setJustAdded] = useState<number[]>([]);
-
-  const add = useMutation({
-    mutationFn: (mediaId: number) => addToBacklog(mediaId),
-    onSuccess: (_entry, mediaId) => {
-      setJustAdded((ids) => [...ids, mediaId]);
-      // This hobby's, not every hobby's: adding a film cannot move a card on the games board.
-      void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
-    },
-  });
-
-  const onBoard = new Set([...(library.data ?? []), ...justAdded]);
+  // What is on the board already, and the add itself — shared with the Discover page's wall, so
+  // a title cannot read as on the board in one place and addable in the other.
+  const board = useAddToBoard(hobby);
 
   // Pressing the button unmounts it — there is nothing left to clear — so it has to say where
   // the keyboard goes next, or focus falls to the document body. Escape deliberately does not do
@@ -139,6 +122,23 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
         )}
       </div>
 
+      {term === '' && definition.discover !== null && (
+        // Only while the box is empty, which is exactly when somebody might not know what to
+        // search for; once there is typing, the strip is the answer. A sibling of the label
+        // rather than inside it, for the clear button's reason: a wrapping label would take this
+        // sentence into the box's name. Picked from rendered comparisons over a link beside the
+        // box, which saved the board 28px and read as something to miss.
+        <p className="mt-2 text-sm text-muted">
+          {definition.discover.invitation.prompt}{' '}
+          <Link
+            to={discoverPath(definition.slug)}
+            className="font-medium text-accent hover:underline"
+          >
+            {definition.discover.invitation.link}
+          </Link>
+        </p>
+      )}
+
       {showStrip && (
         // Labelled rather than headed. A heading here would be a second h2 on the board, and the
         // board's column headings are asserted as an exhaustive list — an aria-label gives
@@ -158,9 +158,9 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
             </p>
           )}
 
-          {add.error !== null && (
+          {board.error !== null && (
             <p role="alert" className="text-sm text-danger">
-              {add.error.message}
+              {board.error.message}
             </p>
           )}
 
@@ -177,9 +177,9 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
                 <SearchResult
                   key={hit.id}
                   hit={hit}
-                  onBoard={onBoard.has(hit.id)}
-                  adding={add.isPending && add.variables === hit.id}
-                  onAdd={(mediaId) => add.mutate(mediaId)}
+                  onBoard={board.onBoard.has(hit.id)}
+                  adding={board.isAdding(hit.id)}
+                  onAdd={board.add}
                   definition={definition}
                 />
               ))}

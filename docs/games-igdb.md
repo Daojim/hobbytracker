@@ -58,7 +58,7 @@ half of the client test and the e2e spec that name a bundle. **Do not treat this
 
 `Season` is untouched, which is a live annoyance rather than a decision: "Mario Kart" returns ten
 *Mario Kart Tour: … Tour* seasons and none of the actual games. One id would fix it and has not been
-asked for. See **Discovery**, where it bites much harder.
+asked for. See **Discovery**, where it was expected to bite much harder and was measured not to.
 
 ### Two questions, not one
 
@@ -240,8 +240,8 @@ count of what was queued.
 ## The release calendar
 
 **A "Coming soon" agenda under the board, holding the Backlog entries whose title is not out yet.**
-Built September 2026, and it is half of what **Discovery** below was written to describe: the
-calendar is done, the popular grid is not.
+Built September 2026, and it is half of what **Discovery** below was written to describe; the
+Discover page is the other half, built the same month.
 
 ### It is a view of Backlog, not a fifth column
 
@@ -381,8 +381,8 @@ about an editor's afternoon rather than about the game.
 **And the shovelware argument does not apply to this feature at all.** The calendar is drawn from
 Backlog, so a title only reaches it if somebody put it there, and nobody puts *Wubble Bubbles* in
 their Backlog. The person's own act of adding is already the filter. That argument belongs to
-**Discovery: a grid of what is popular** below, which draws from IGDB rather than from a board and
-will need it.
+**Discovery** below, which draws from IGDB rather than from a board — and was answered there by
+what each list is sorted by.
 
 **The cost was measured rather than waved away**: a title that really is out but has no IGDB date
 row now moves from the Backlog column onto the calendar. That is the 250 above, of which 4 have
@@ -466,52 +466,159 @@ from the direction of a shape the stub simply never had. Nothing was red while i
 match — so a spec filtering on a title that is also a prefix will silently pick the wrong tile.
 Name the tile by its heading, or search something unambiguous.
 
-## Discovery: a grid of what is popular
+## Discovery: a wall of what is popular
 
-**Half of this shipped as the release calendar above; what is left is the popular grid, and it is
-still not designed.** The user has asked for the phase to exist and said the shape needs
-workshopping. One thing is known: **popular games are a grid of cover art.** Everything below is
-constraint the codebase already carries, gathered so none of it has to be rediscovered. **None of it
-is a decision.** The reason for the phase: a search box asks you to already know what you want, and
-filling a board — especially filling one *backwards*, which is what the year control now exists for
-— is mostly the other problem.
+**Built 23 September 2026**, because a friend using the app asked for a wall of games to add from
+without having to know what to search for. It is the second half of *filling the board without
+searching*; the release calendar above was the first. A search box asks you to already know what
+you want, and filling a board — especially filling one backwards — is mostly the other problem.
 
-**What is already true, and bears on it:**
+A page of its own at `/board/:hobby/discover/:list`, offered by a line under the search box while
+the box is empty: *Not sure what to add? Browse popular games*. Four lists as tabs, one list at a
+time, 48 covers each. **The page names no hobby**: `HobbyDefinition.discover` holds the lists,
+their words and their slugs, and is null for films, TV and anime. TMDB and MAL both have lists of
+their own and nothing asks them yet, which is the `releases` rule again — a fact about providers.
 
-- **The popularity numbers are never stored**, so a popular grid is a live query by construction and
-  a stored "top games" table is the thing this codebase has already decided against once. `hypes` is
-  the unreleased half. See **Ranking search results**.
-- **The shovelware problem is this phase's, and it is real here.** The calendar was allowed to stop
-  worrying about it because Backlog is drawn by hand and nobody queues *Wubble Bubbles* — see **The
-  second row of that table was two rows** above. A grid drawn from IGDB has no such filter, so
-  53,096 undated main games are all candidates and 250 of them have ever been rated. `hypes` and
-  `total_rating_count` are the two numbers that separate them, and both are already in
-  `SearchFields`.
-- **The catalogue grows by search, and only by search**, so whether *browsing* writes rows at all is
-  a real decision: forty covers idly scrolled would grow `media` faster than every search ever
-  typed. The cheap answer is that browsing upserts nothing and only adding does — but that is not
-  how the search strip works today, and the two should probably agree.
-- **"On your board" already exists and has to be reused**, and knowing it needs the *whole* library,
-  which is why `libraryMediaIds()` pages to the end. A grid puts far more tiles on screen. The
-  release calendar has already made this sharper: that list is also what the Backlog partition must
-  not narrow.
-- **`Season` finally bites here, and this is the phase that should settle it** — seasons and
-  episodes are precisely what a "coming soon" list fills with, and the calendar has not settled it.
-  See **Game types**, and note **Bundle** is the arguable half left easy to take back.
-- **Nothing here caches, and this is where that stops being free.** A grid is several queries for
-  data that changes daily rather than per-keystroke. IGDB's limit is 4 requests a second.
-- **Covers compose at any size already** — `IgdbImage` builds from `cover.image_id`, so a grid can
-  ask for a larger one without a new field or a migration, and 5:7 is already the app's poster
-  ratio.
-- **Games only, whatever it looks like.** IGDB is the only source with a client behind it.
+### What IGDB has, measured
 
-**What has to be workshopped**, phrased as the questions rather than as answers:
+IGDB's **PopScore** is `/v4/popularity_primitives`: one row per game per kind of popularity,
+carrying a game id and a score and nothing about the game. It is recalculated daily — the Playing
+list changed between two queries on the evening it was measured. Eleven kinds, read off
+`/v4/popularity_types`, and every one was measured against the live API on 23 September 2026
+before anything was chosen:
 
-- **A screen of its own, a strip like search, or a panel over the board?** `/search` was already
-  retired *into* the board once, and the reasoning — the column a title is about to land in should
-  be on screen while you decide — pulls against a full-page grid, though perhaps less hard for
-  browsing. The calendar answered the same question by sitting under the board.
-- **Popular by what, over what window?** `total_rating_count` and `hypes` are what the ranking uses;
-  IGDB also has a `popularity_primitives` endpoint nothing here has touched.
-- **Where a title lands when added from it.** Backlog with no dates is the honest default for
-  something unplayed, and is what search and the calendar both already do.
+| id | list | source | verdict |
+|---|---|---|---|
+| 1 | Visits | IGDB | ✗ **11 of its top 60 tagged Erotic**, and noise like *Dream League Soccer 2019* |
+| 2 | Want to Play | IGDB | clean — *Cyberpunk 2077, GTA VI, RDR2, Elden Ring* — and not picked |
+| 3 | Playing | IGDB | **Popular now.** Perennials — *Roblox, Minecraft, RDR2, Genshin Impact* — and all of its top 60 pass the filters |
+| 4 | Played | IGDB | the same games as `sort total_rating_count desc` in 14 of the top 15, which is one request rather than two |
+| 5–8 | 24hr Peak Players; Positive, Negative, Total Reviews | Steam | ✗ PC live-service games — *CS2, PUBG, Rust, Apex* |
+| 9 | Global Top Sellers | Steam | ✗ sales: bundles, DLC packs and remasters at the top |
+| 10 | Most Wishlisted Upcoming | Steam | clean but Steam-only; hype says the same across every platform in one request |
+| 34 | 24hr Hours Watched | Twitch | ✗ last calculated 16 September, a week stale, and odd — *Warcraft III*, *Tibia* |
+
+So three of the four tabs are plain `/games` questions rather than PopScore's:
+
+| tab | slug | what IGDB is asked |
+|---|---|---|
+| New releases | `new-releases` | out in the last 60 days, `sort hypes desc`. Hype because a game out for a fortnight has hardly been rated: by ratings, Valheim's 1.0 led on 301 carried over from early access and nothing after it passed 36 |
+| Popular now | `popular-now` | PopScore's Playing ranking, then `/games where id = (…)`, put back in PopScore's order |
+| Most anticipated | `most-anticipated` | `hypes != null & (first_release_date > now \| first_release_date = null)`, `sort hypes desc` |
+| Most played | `most-played` | `total_rating_count != null`, `sort total_rating_count desc` — the list for filling a board backwards |
+
+### The filter every list carries, and search does not
+
+**`themes != (42)`** — Erotic, on `/v4/themes` — beside search's own `game_type != (3,5)`, in the
+`Discoverable` clause every discovery query ends with. 11 of Visits' top 60 carried it, and **one
+sat in the top 40 of the plain most-hyped-not-out query**, so it is not a PopScore problem and
+cannot live only on the PopScore list. It **keeps a game with no themes at all** rather than
+dropping it — measured on *Graveyard Keeper II*, which has none. Across all four walls, measured
+with the client's own query bodies, no Erotic-tagged title was left.
+
+**Search deliberately does not carry it**, and `Leaves_a_search_to_find_whatever_was_asked_for`
+pins that. Somebody who typed a title asked for it; a wall shows what nobody asked for, and that is
+the whole difference.
+
+**No stricter list of game types.** This section used to predict that `Season` would bite hard
+here, since seasons are what a coming-soon list fills with. Measured, it did not: no DLC, season,
+episode or edition appeared in the top 40 to 60 of any of the four lists, with or without a strict
+allowlist. A rule for it would be speculative, and **Game types** above still describes search.
+
+**The shovelware worry is answered by the sorts rather than by a filter.** Every list is ordered by
+hype, ratings or PopScore's ranking, so the 53,096 undated main games from **The second row of
+that table was two rows** — 250 of them ever rated — never reach the top 48 of anything.
+
+### IGDB's "not out" is not the calendar's
+
+*Most anticipated* asks IGDB for what is not out: no release date yet, or a future one. The app's
+word for that is `ReleaseWindow.NotOutOn`, and the two disagree in both directions that matter:
+
+- **A game in alpha, beta or early access** has no release date, and people are playing it. The
+  board calls it out.
+- **A rumour** has hype and no date — *Half-Life 3* was 32nd, on 94 — and the calendar keeps it off,
+  because nobody announced it.
+
+**9 of the live top 60 were one or the other**, and 12 of 96 when measured again. Left alone, those
+tiles would say *Add to calendar* and land in Backlog. So the service keeps only what
+`ReleaseWindow.IsOut` says is not out, judged before the upsert on the window and status
+`IgdbRelease` maps — put on a `Game` that is never stored — and asks IGDB for twice the wall so what
+is left still fills it. `Most_anticipated_holds_only_what_the_calendar_would_call_upcoming` pins it,
+and dropping the filter fails it and nothing else. Popular now asks for twice as well, because its
+filter can only go on the second question, after PopScore's limit.
+
+### Browsing upserts, and the cache holds IGDB's answer
+
+**A list upserts exactly as a search does**, which is the answer this section's first version asked
+for — "the two should probably agree". A tile is a `GameDto` with a media id, adding is the existing
+`POST /api/log-entries`, and *On your board* is the existing `libraryMediaIds()` set. Trimmed before
+the upsert, so the catalogue grows by one row per title a person could have seen and never by views.
+
+**The app's first `IMemoryCache`**, because the lists change daily and every view would otherwise
+re-ask IGDB and rewrite 48 rows. Keyed on the list and the journal day, and expiring after
+`Igdb:DiscoverCacheHours` (6). **What it holds is IGDB's answer and never the rows**: the upsert runs
+on every view, idempotent and almost always writing nothing. **That is the load-bearing half.** The
+e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API process lives on, so
+a cached media id would name a row that is gone — or, once the sequence came round, a different
+title, and the wrong game would be added with no error. `A_cached_list_still_hands_out_media_ids_that_exist`
+truncates mid-test; caching the DTOs instead fails it and nothing else. A failed fetch is not kept.
+
+- **No rate limiter.** Tabs load one list at a time, so a view costs at most two IGDB requests. A
+  page loading several lists at once — shelves, which were rendered and not picked — would burst
+  past IGDB's 4 requests a second on a cold cache, and would need one in the IGDB pipeline.
+- **`where id = ()` is an APIcalypse syntax error**, hit while measuring, so an empty PopScore
+  ranking returns before the second question. `GetGamesAsync` already guarded the same thing.
+- **Each query body was sent to the live API as the client builds it**, fields and all, because the
+  stub parses loosely and a syntax error would reach production as a 502 on the page. All four
+  filled their 48.
+
+### The page, picked from renders
+
+One private Artifact of rendered comparisons: the app's real `index.css` through Tailwind's own
+compiler, the markup copied class for class from the components it borrows from, the real covers
+IGDB answered with that evening, light and dark at 1440, 768 and 390px, measured in the browser.
+
+| choice | picked | against |
+|---|---|---|
+| layout | a wall with tabs, one list at a time | shelves: every list at once, in sideways rows that are clumsy with a mouse |
+| tile | cover-first — the cover, the name, one button | the search strip's tile, whose platforms-and-developers line was cut off on 20 of 48 lines at wall width |
+| across at 1440 | 8: sixteen covers above the fold, each 160 × 224 | 6: one row of six |
+| tabs | pills | underline, as the hobby nav has it: read as a second level of that menu, and at 390px scrolled *Most played* off the screen |
+| tab words | *New releases, Popular now, Most anticipated, Most played* | *Coming soon* for the third, which is already the calendar's heading |
+| the way in | a sentence under the empty box, its link in the accent colour | a link beside the box, which saved 28px and read as something to miss |
+| on your board | a ✓ chip on the cover | the strip's text where the button was. Picked knowing those tiles lose their bottom row |
+
+- **Under the board's own address**, because it is a page of that board. `AppHeader`'s `NavLink`
+  lost its `end` so Games stays current there — `end` came in with the nav while `/board` was the
+  games address and nothing lived under it. An unready hobby goes to the default board, a hobby with
+  no `discover` to its own board, and a missing or unknown list to the first — replaced rather than
+  pushed, so Back never returns to an address whose only job is to leave.
+- **The tabs are links**, so each list is an address and `aria-current` comes free.
+- **`useAddToBoard` is the search strip's add, moved out of `BoardSearch` unchanged**, and
+  `addWords` its *Add* or *Add to calendar*: one of each for both surfaces, so a title cannot read
+  differently on the wall and in the strip. Adding straight to a column other than Backlog — the
+  other half of the same friend's feedback — will land in that hook, once.
+- **The invitation is a sibling of the `<label>`**, the clear button's rule. Inside it, the box's
+  accessible name becomes the whole sentence and every test finding the box by name stops finding
+  it — reintroduced, that failed fourteen.
+- **48 a list fills the last row at 2, 3, 4, 8 and 12 across alike.** `e2e/layout.spec.ts` counts the
+  grid's tracks at 1440 and 390, and checks every tab stays whole and on the screen at 390 against
+  one line computed from the tab's own style — a row that neither wraps nor scrolls squeezes every
+  tab alike, so comparing tabs with each other would prove nothing, and the first version of that
+  check did exactly that.
+
+### The stub
+
+`igdb-stub.mjs` answers `/v4/popularity_primitives` for the Playing list and the three new `/games`
+shapes, **parsing each clause** — the date bounds, `hypes != null`, `total_rating_count != null`,
+`themes != (…)`, the sort and the limit — rather than recognising the question as a whole. Filters
+run before the limit, as IGDB applies them.
+
+- **A decoy, *Velvet Lounge***, tagged Erotic, with more hype than anything else and first place in
+  the PopScore ranking — the first tile on two lists the day the filter goes missing.
+- **Hype on four upcoming fixtures, and not on *Celeste 64*.** Hype feeds `IgdbRelevance`, and
+  "celeste" is typed in three specs, where any would move *Celeste 64* above *Celeste*. Its absence
+  also shows `hypes != null` being honoured. The whole e2e suite was run afterwards, not only the
+  new spec.
+- ***Half-Life 3* has hype**, as the live one does, so it is IGDB's "not out" and only the API's
+  rule keeps it off Most anticipated.

@@ -1,13 +1,15 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { BoardPage } from './board/BoardPage';
+import { DiscoverPage } from './discover/DiscoverPage';
 import { RequireSession } from './shell/RequireSession';
 import { SignInPage } from './shell/SignInPage';
 import { DEFAULT_HOBBY, boardPath } from './shell/hobbies';
 
 /**
  * One screen per hobby, and one in front of them all. The board is the app, and the search that
- * fills it sits on top of it rather than beside it. A detail page and a year-in-review page come
- * with detail and review.
+ * fills it sits on top of it rather than beside it. A hobby's Discover page lives under its
+ * board's address, because it is a page of that board. A detail page and a year-in-review page
+ * come with detail and review.
  *
  * The hobby is a path parameter rather than something the board decides for itself, so a board is
  * a thing you can link to and come back to. `BoardPage` is what turns a slug nobody has built
@@ -28,6 +30,15 @@ export function App() {
         element={
           <RequireSession>
             <BoardPage />
+          </RequireSession>
+        }
+      />
+      {/* The list is optional so the bare address works: the page sends it to its first list. */}
+      <Route
+        path="/board/:hobby/discover/:list?"
+        element={
+          <RequireSession>
+            <DiscoverPage />
           </RequireSession>
         }
       />

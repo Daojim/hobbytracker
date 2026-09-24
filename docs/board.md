@@ -16,6 +16,7 @@ routes are the only anonymous ones.
 | `GET /api/auth/me` | who is signed in, or **200 and a literal `null`**. Never 401 |
 | `POST /api/auth/logout` | ends the session. POST, so an `<img>` cannot sign you out |
 | `GET /api/games?search=&limit=` | search IGDB, upsert, return |
+| `GET /api/games/discover/{list}` | one of the Discover page's lists — `new-releases`, `popular-now`, `most-anticipated`, `most-played` — upserted as a search is. IGDB is asked once a day per list. **404** for a list that names nothing |
 | `GET /api/games/{id}` | one stored game plus its log entries |
 | `POST /api/games/refresh` | re-fetch every IGDB title on the board. Maintenance; no UI |
 | `POST /api/games/hltb/refresh` | queue the board for HowLongToBeat. **202 with a count of what was queued**, not of what changed |

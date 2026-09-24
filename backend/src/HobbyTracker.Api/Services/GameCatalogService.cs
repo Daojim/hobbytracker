@@ -6,6 +6,7 @@ using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Integrations.Igdb.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -15,6 +16,13 @@ public interface IGameCatalogService
 {
     Task<IReadOnlyList<GameDto>> SearchAsync(
         string search, int? limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One of the Discover page's lists, in the provider's order. Upserted exactly as a search is,
+    /// so every title carries a media id a log entry can point at.
+    /// </summary>
+    Task<IReadOnlyList<GameDto>> DiscoverAsync(
+        DiscoverList list, CancellationToken cancellationToken);
 
     /// <summary>Returns null when no game with that media id exists.</summary>
     Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken);
@@ -65,7 +73,8 @@ public sealed class GameCatalogService(
     IOptions<IgdbOptions> options,
     ILogger<GameCatalogService> logger,
     ICurrentUser user,
-    IJournalClock clock) : IGameCatalogService
+    IJournalClock clock,
+    IMemoryCache cache) : IGameCatalogService
 {
     public async Task<IReadOnlyList<GameDto>> SearchAsync(
         string search, int? limit, CancellationToken cancellationToken)
@@ -100,6 +109,104 @@ public sealed class GameCatalogService(
                 .Where(game => game is not null)
                 .Select(game => GameDto.From(game!, clock.Today))
         ];
+    }
+
+    /// <summary>How far back the Discover page's New releases reaches.</summary>
+    private static readonly TimeSpan NewReleaseWindow = TimeSpan.FromDays(60);
+
+    public async Task<IReadOnlyList<GameDto>> DiscoverAsync(
+        DiscoverList list, CancellationToken cancellationToken)
+    {
+        var today = clock.Today;
+        var size = options.Value.DiscoverListSize;
+
+        // IGDB's answer is what is kept, never the rows it turns into. The rows are upserted on
+        // every view instead, which is idempotent and almost always writes nothing — and it is what
+        // keeps a tile's media id true. The end-to-end suite truncates `media` with RESTART
+        // IDENTITY between specs while the API process lives on, so a cached id would go on
+        // naming a row that is gone, or a different title once the sequence came round again.
+        //
+        // Keyed on the day as well as expiring, because New releases is a window that moves with
+        // the date and whether a title is out changes at midnight. A failure is not kept: the
+        // entry is only written once IGDB has answered.
+        var found = await cache.GetOrCreateAsync(
+            (nameof(DiscoverAsync), list, today),
+            entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow =
+                    TimeSpan.FromHours(options.Value.DiscoverCacheHours);
+
+                return AskIgdbAsync(list, size, cancellationToken);
+            }) ?? [];
+
+        // Filtered and trimmed before the upsert, as a search is, so the catalogue grows by one
+        // row per title a person could have seen and no more.
+        //
+        // Most anticipated keeps only what the calendar would call upcoming. IGDB's "no release
+        // date" includes games in alpha or early access, which the board calls out, and rumours,
+        // which it keeps off the calendar — so without this a tile there would say "Add to
+        // calendar" and land in Backlog. The same expression the calendar is drawn by decides.
+        List<IgdbGame> shown =
+        [
+            .. found
+                .Where(game => list != DiscoverList.MostAnticipated || !IsOut(game, today))
+                .Take(size)
+        ];
+
+        var stored = await UpsertAsync(shown, cancellationToken);
+
+        return
+        [
+            .. shown
+                .Select(result => stored.GetValueOrDefault(ExternalIdOf(result)))
+                .Where(game => game is not null)
+                .Select(game => GameDto.From(game!, today))
+        ];
+    }
+
+    private Task<IReadOnlyList<IgdbGame>> AskIgdbAsync(
+        DiscoverList list, int size, CancellationToken cancellationToken)
+    {
+        var now = clock.Now;
+
+        return list switch
+        {
+            DiscoverList.NewReleases =>
+                igdb.GetNewReleasesAsync(now - NewReleaseWindow, now, size, cancellationToken),
+
+            // Twice the wall where titles are dropped after IGDB has answered — PopScore's filter
+            // can only run after its limit, and the calendar's rule after the anticipated list —
+            // so what is left still fills it. The other two filter inside the query, before the limit.
+            DiscoverList.PopularNow => igdb.GetPlayingNowAsync(size * 2, cancellationToken),
+            DiscoverList.MostAnticipated => igdb.GetAnticipatedAsync(now, size * 2, cancellationToken),
+
+            DiscoverList.MostPlayed => igdb.GetMostRatedAsync(size, cancellationToken),
+
+            _ => throw new ArgumentOutOfRangeException(nameof(list), list, null),
+        };
+    }
+
+    /// <summary>
+    /// Whether the board would call this title out, decided before anything is written.
+    ///
+    /// <see cref="ReleaseWindow.IsOut"/> reads a row, so the window and status IGDB's answer maps
+    /// to are put on one that is never stored — the same mapping <see cref="ApplyMetadata"/> uses,
+    /// judged by the same expression the calendar is drawn by.
+    /// </summary>
+    private static bool IsOut(IgdbGame game, DateOnly today)
+    {
+        var window = IgdbRelease.WindowOf(game);
+
+        return ReleaseWindow.IsOut(
+            new Game
+            {
+                Title = game.Name ?? string.Empty,
+                ReleaseDate = window.Start,
+                ReleaseEnd = window.End,
+                ReleasePrecision = window.Precision,
+                ReleaseStatus = IgdbRelease.StatusOf(game),
+            },
+            today);
     }
 
     public async Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken)
