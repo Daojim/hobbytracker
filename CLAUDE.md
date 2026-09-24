@@ -40,7 +40,7 @@ thing always known before an edit:
 | `frontend/src/index.css`, `src/theme/`, anything about colour, contrast or width | `docs/design.md` |
 | `AuthService`, `AuthController`, `Program.cs`'s auth block, `frontend/src/shell/` | `docs/auth.md` |
 | `Dockerfile`, `deploy/`, `PublicOriginMiddleware` | `docs/deploy.md` |
-| `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `hobbies/games.ts` | `docs/games-igdb.md` |
+| `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
 | `Integrations/Hltb/`, `Services/Hltb*`, `Infrastructure/Hltb*`, `board/estimates.ts`, `journal/HltbPin.tsx` | `docs/games-hltb.md` |
 | `Integrations/Tmdb/`, `MovieCatalogService`, `TmdbOnMediaAdded`, `MoviesController`, `hobbies/movies.ts` | `docs/movies-tmdb.md` |
 | `TvCatalogService`, `TvOnMediaAdded`, `TvController`, `Domain/TvShow.cs`, `hobbies/tv.ts` | `docs/tv-tmdb.md` |
@@ -67,6 +67,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
 | **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
+| **Discover** | A wall of covers for filling a board without searching, offered from under an empty search box: New releases, Popular now, Most anticipated, Most played, one list at a time. Every list was measured against IGDB before it was chosen, and every one carries a filter a search deliberately lacks | `docs/games-igdb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
@@ -227,7 +228,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       │                 distance, useBoard the writes, grid.ts the tracks the columns and the
 │       │                 calendar share, hiddenColumns.ts what Settings takes off a board
 │       ├── journal/      the drawer over the board
-│       ├── search/       the bar and result strip above the board
+│       ├── search/       the bar and result strip above the board, and the add both surfaces share
+│       ├── discover/     the Discover page: a wall of what is popular, one list at a time
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
 │       ├── theme/        the eight themes, two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
@@ -434,7 +436,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | | |
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
-| Scope | **`/board/:hobby`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
+| Scope | **`/board/:hobby` and `/board/:hobby/discover/:list`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
 | Columns | Backlog · Playing · **On Hold** · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list; the board draws it less anything taken off in Settings, and hands *that* list to every card's menu. **No columns a person names themselves** — `LogStatus` is one shared vocabulary, and the year rules and the transitions depend on what each value means |
 | On Hold | **After Playing, a plain column, and exempt from the year like Backlog** — Playing with the controller put down, so it takes Playing's rule for the dates and keeps where you were in a show. A fifth `LogStatus` with **no migration**, because `status` is unconstrained text. Position, look and width were each picked from rendered screenshots on 17 September 2026. `docs/board.md` |
 | Hiding a column | **Any but Backlog, per board, per browser, from a Columns group of checkboxes in Settings.** Not rendered, not fetched, not a drop target, not offered in a card's menu — and nothing written, so its titles are there when it comes back. Backlog stays because search adds to it. `docs/board.md` |
@@ -449,6 +451,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
 | What counts as coming | **Asked a provider and got no date at all is *TBA* on the calendar**, whatever shape the nothing arrived in — that is *Stellar Blade: Blood Rain*, and it read as released until 12 September 2026. **A title the provider calls a rumour is not**, because it was never announced, and it stays in the Backlog column. Measured both ways round in `docs/games-igdb.md` |
+| Discover | **A page of its own, a wall with tabs, one list at a time**, offered by a sentence under the empty search box — for finding what to add, where search is for adding what you have in mind. Four lists, 48 covers each; tile, density, tabs, words and the on-board chip were each picked from rendered comparisons on 23 September 2026. **Browsing upserts, as search does**, and **every list carries `themes != (42)`, which search deliberately does not.** Games only, and that is a fact about providers. `docs/games-igdb.md` |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
@@ -492,6 +495,7 @@ here**.
 | **Data Protection falls back to keys held only in memory when its directory is not writable**, and says so in a log line nobody is reading at the time — so every redeploy signs everybody out | `docs/deploy.md` |
 | **A new *required* variable in `deploy/compose.yml` does not reach a deployment that already exists.** `.env` lives on the server and is gitignored, so `${NEW_THING:?…}` fails at interpolation — before compose picks a profile or looks at a service — and nothing starts. Loud, and it leaves the running site up; the quiet version is the same variable without `:?` | `docs/deploy.md` |
 | **Overriding `BaseOutputPath` un-excludes every *other* output directory from the source globs**, so the build copies its siblings into itself and compounds every run. It reached 289,490 files and 1.68 GB, nesting twenty-five deep, and presented only as a build that got slower — `git status` stays clean, because `bin/` is ignored. `backend/Directory.Build.props` holds it; delete those two lines and one build reproduces it | **Tests**, above |
+| **A cache must hold a provider's answer, never the rows it became.** The e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API lives on, so a cached media id names a row that is gone — or, once the sequence comes round, a different title, and the wrong game is added with no error. The Discover lists upsert on every view for exactly this reason | `docs/games-igdb.md` |
 | **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice** | `docs/games-hltb.md` |
 | **A `TitleDetail` field a hobby leaves empty and one it has no idea of look identical**, which is why `journal.fields` is stated rather than inferred: an unenriched game has no platforms either, and it still wants the select. Inferring it hides the control on a title that was merely not fetched yet | `docs/movies-tmdb.md` |
 | **TMDB numbers films and shows separately, so one shared `tmdb` source row makes film 1396 and show 1396 the same row.** In production that would not even error: `UpsertAsync`'s `23505` recovery re-reads and hands back the film, and a show is silently a film. `tmdb-tv` is a **fourth source row**, `mal` a **fifth**, and a second provider for an existing hobby needs one too | `docs/tv-tmdb.md` |
@@ -567,8 +571,8 @@ shuffled.
       Playing and exempt from the year; any column but Backlog left off a board from Settings,
       per board and per browser, through a store the header and the board share. Look, width and
       the Settings checkboxes were each picked from rendered screenshots before any value was written.
-- [ ] **Filling the board without searching — half done.** The calendar shipped; the grid of what
-      is popular has not. See **Discovery: a grid of what is popular** in `docs/games-igdb.md`.
+- [x] **Filling the board without searching** — the calendar, then the Discover page: four of
+      IGDB's lists as a wall of covers, one click to add, each list measured before it was chosen.
 - [ ] **The hobbies after it.** Books and music — each a sibling detail table deriving from
       `Media`, plus its source integration. Add the `source_lu` row with the client, and a file
       in `frontend/src/hobbies/`.
