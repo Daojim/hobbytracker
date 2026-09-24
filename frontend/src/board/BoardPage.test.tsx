@@ -56,8 +56,10 @@ function movingCard(item: LibraryItem) {
     http.get('/api/library/upcoming', () => HttpResponse.json([])),
 
     http.get('/api/library', ({ request }) => {
+      // Asked for a column, the card is there if it is in that column. Asked for none — the
+      // search strip learning what is on the board, and where — it is there wherever it is.
       const asked = new URL(request.url).searchParams.get('status');
-      const items = asked === status ? [{ ...item, currentStatus: status }] : [];
+      const items = asked === null || asked === status ? [{ ...item, currentStatus: status }] : [];
 
       return HttpResponse.json({ items, total: items.length, page: 1, pageSize: 100 });
     }),
@@ -472,6 +474,25 @@ describe('BoardPage', () => {
     await waitFor(() =>
       expect(board.transitions).toContainEqual({ mediaId: 3001, status: 'Completed' }),
     );
+  });
+
+  it('keeps the search strip saying where a title is when its card moves under it', async () => {
+    // The strip names the column a title is in, and a move changes that column — so a move has
+    // to refresh what the strip read, as it refreshes the years and the calendar. The strip's
+    // list sits where a status sits, beside those two, and neither column's key reaches it.
+    searchServer({ results: [game({ id: 3001, title: 'Celeste' })] });
+    boardServer();
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste' }));
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.type(await screen.findByRole('searchbox', { name: 'Search games' }), 'celeste');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    await waitFor(() => expect(results).toHaveTextContent('On your board: Backlog'));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
+
+    await waitFor(() => expect(results).toHaveTextContent('On your board: Completed'));
   });
 
   it('closes the options on Escape and hands the keyboard back to the corner', async () => {

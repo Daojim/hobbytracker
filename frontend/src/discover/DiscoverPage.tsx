@@ -71,8 +71,9 @@ interface DiscoverProps {
 function Discover({ hobby, heading, lists, list }: DiscoverProps) {
   const definition = hobbyDefinition(hobby);
 
-  // The search strip's own add, and its idea of what is on the board already, so one title cannot
-  // read as addable here and on the board there.
+  // The search strip's own add, its idea of what is on the board already and where, and the
+  // columns this board will take a title into, so one title cannot read as addable here and on
+  // the board there.
   const board = useAddToBoard(hobby);
 
   // A page at a time. Where the next one starts is the server's to say — two of the lists drop
@@ -214,9 +215,10 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
               <WallTile
                 key={hit.id}
                 hit={hit}
-                onBoard={board.onBoard.has(hit.id)}
+                onBoard={board.statusOf(hit.id)}
                 adding={board.isAdding(hit.id)}
                 onAdd={board.add}
+                columns={board.columns}
                 definition={definition}
               />
             ))}

@@ -157,3 +157,39 @@ export function otherColumns(
 ): readonly BoardColumn[] {
   return columns.filter((column) => column.status !== status);
 }
+
+/**
+ * The columns a title can arrive in from a tile, in board order: queued, under way, finished.
+ *
+ * On Hold and Dropped are places a title goes *after* it has been started — a pause and an
+ * abandonment are things that happen to a game you have, not ways of getting one — so neither is
+ * on offer. The API takes any of the five and dates each by the drag's rule; which three a tile
+ * offers is decided here, once, and chosen on 24 September 2026.
+ *
+ * Its own type, so a fourth added here is a compile error in `AddControl` until it has a symbol
+ * drawn for it, rather than a button with nothing on it.
+ */
+export const ADD_STATUSES = ['Backlog', 'InProgress', 'Completed'] as const;
+
+export type AddStatus = (typeof ADD_STATUSES)[number];
+
+/** A column a tile can add to — a board column whose status is one of {@link ADD_STATUSES}. */
+export interface AddColumn extends BoardColumn {
+  status: AddStatus;
+}
+
+const isAddColumn = (column: BoardColumn): column is AddColumn =>
+  (ADD_STATUSES as readonly LogStatus[]).includes(column.status);
+
+/**
+ * Where a tile can put a title: the columns the board is drawing, narrowed to
+ * {@link ADD_STATUSES}.
+ *
+ * Handed the board's columns rather than the hobby's, for `otherColumns`' reason: a tile offering
+ * Completed on a board with Completed taken off in Settings would send the title somewhere off
+ * screen, which reads as the add having lost it. Backlog can never be taken off, so there is
+ * always somewhere to add to.
+ */
+export function addColumns(columns: readonly BoardColumn[]): readonly AddColumn[] {
+  return columns.filter(isAddColumn);
+}

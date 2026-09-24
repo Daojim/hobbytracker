@@ -65,6 +65,19 @@ export function transition(mediaId: number, status: LogStatus): Promise<LibraryI
 }
 
 /**
+ * Puts a title on your board, in a column — what a tile's +, ▶ and ✓ call.
+ *
+ * The column is the whole request, as it is for `transition`. The first pass carries the dates a
+ * drag into that column would give it — Playing starts today, Completed finishes today — and the
+ * server works those out by the drag's own rule, so they cannot drift from what a drag does.
+ * Answers with the card as the board will draw it; a title already on your board is a 409, since
+ * a second pass would be a replay nobody made.
+ */
+export function addToBoard(mediaId: number, status: LogStatus): Promise<LibraryItem> {
+  return apiJson<LibraryItem>(`/api/library/${mediaId}`, { method: 'POST', body: { status } });
+}
+
+/**
  * Takes a title off your board — every pass of yours against it, notes and all.
  *
  * Every pass rather than the newest one, which is what this used to do: a title replayed five
@@ -81,17 +94,25 @@ export function reorderColumn(order: ReorderColumn): Promise<void> {
   return apiVoid('/api/library/order', { method: 'PUT', body: order });
 }
 
+/** A title on your board, and the column it is in. */
+export interface OnBoard {
+  mediaId: number;
+  status: LogStatus;
+}
+
 /**
- * Every media id you have logged something against, regardless of column.
+ * Every title you have logged something against, and which column each is in.
  *
- * The search page needs to know what is already on your board, and there is no endpoint that
- * answers "is this one title in my library" — so it asks for the whole thing once and keeps the
- * answer in the query cache. Paged through to the end rather than capped at the API's maximum
- * page: a library of 101 titles would otherwise offer to add the hundred-and-first a second
- * time, and a second Backlog entry reads on the board as a replay that never happened.
+ * A tile needs to know whether a title is on your board already, and where — it says
+ * *Completed* rather than offering to add it again — and there is no endpoint that answers that
+ * for one title. So it asks for the whole library once and keeps the answer in the query cache.
+ * The column costs nothing: every row it reads carries it.
+ *
+ * Paged through to the end rather than capped at the API's maximum page: a library of 101 titles
+ * would otherwise offer to add the hundred-and-first a second time.
  */
-export async function libraryMediaIds(hobby: string): Promise<number[]> {
-  const ids: number[] = [];
+export async function libraryStatuses(hobby: string): Promise<OnBoard[]> {
+  const titles: OnBoard[] = [];
 
   // A page is at most 100 (Paging.MaxPageSize), so this bounds the walk at 5,000 titles — far
   // past personal-catalogue scale, and a stop if the server ever disagrees with itself about
@@ -101,12 +122,14 @@ export async function libraryMediaIds(hobby: string): Promise<number[]> {
       query: { hobby, page, pageSize: 100 },
     });
 
-    ids.push(...result.items.map((item) => item.mediaId));
+    titles.push(
+      ...result.items.map((item) => ({ mediaId: item.mediaId, status: item.currentStatus })),
+    );
 
-    if (result.items.length === 0 || ids.length >= result.total) {
+    if (result.items.length === 0 || titles.length >= result.total) {
       break;
     }
   }
 
-  return ids;
+  return titles;
 }

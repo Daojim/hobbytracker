@@ -2,7 +2,8 @@ import { http, HttpResponse } from 'msw';
 import { server } from './server';
 import { libraryItem } from './library';
 import { logEntry, passServer, type PassCalls, type PassFixture } from './passes';
-import type { Game, GameDetail, LogEntry, PagedResult } from '../api/types';
+import type { OnBoard } from '../api/library';
+import type { Game, GameDetail, LogStatus, PagedResult } from '../api/types';
 
 // Re-exported because a pass is a pass whichever hobby it is through, and the specs that were
 // written when games were the only hobby import them from here. See `passes.ts`.
@@ -36,15 +37,24 @@ export function game(overrides: Partial<Game> = {}): Game {
 
 export interface SearchFixture {
   results?: Game[];
-  /** Media ids already logged, which is what makes a result show as already on the board. */
-  library?: number[];
+  /** Titles already logged, which is what makes a result say where it is instead of offering to add it. */
+  library?: OnBoard[];
   /** Answers the search with this status instead, for the unhappy paths. */
   searchStatus?: number;
 }
 
+/**
+ * The search, the library the strip reads, and the add — as the API behaves, adds included.
+ *
+ * An add joins the library, so a refetch after it finds the title where the add put it. A stub
+ * that forgot would have the tile go back to offering an add the moment the refetch landed,
+ * which is a bug the real board does not have; and a second add of the same title is refused
+ * with the API's 409 rather than recorded twice.
+ */
 export function searchServer({ results = [], library = [], searchStatus }: SearchFixture = {}) {
   const searches: string[] = [];
-  const added: number[] = [];
+  const added: OnBoard[] = [];
+  const onBoard = [...library];
 
   server.use(
     http.get('/api/games', ({ request }) => {
@@ -62,32 +72,32 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
 
     http.get('/api/library', () =>
       HttpResponse.json({
-        items: library.map((mediaId) => libraryItem({ mediaId })),
-        total: library.length,
+        items: onBoard.map(({ mediaId, status }) => libraryItem({ mediaId, currentStatus: status })),
+        total: onBoard.length,
         page: 1,
         pageSize: 100,
       } satisfies PagedResult<ReturnType<typeof libraryItem>>),
     ),
 
-    http.post('/api/log-entries', async ({ request }) => {
-      const body = (await request.json()) as { mediaId: number };
-      added.push(body.mediaId);
+    http.post('/api/library/:mediaId', async ({ params, request }) => {
+      const mediaId = Number(params['mediaId']);
+      const { status } = (await request.json()) as { status: LogStatus };
 
-      return HttpResponse.json({
-        id: 1,
-        mediaId: body.mediaId,
-        mediaTitle: 'Hollow Knight',
-        status: 'Backlog',
-        rating: null,
-        notes: [],
-        platform: null,
-        hoursPlayed: null,
-        startedAt: null,
-        completedAt: null,
-        seasonNumber: null,
-        episodeNumber: null,
-        loggedAt: '2026-08-21T15:00:00+00:00',
-      } satisfies LogEntry);
+      if (onBoard.some((title) => title.mediaId === mediaId)) {
+        return HttpResponse.json(
+          {
+            title: 'Already on your board',
+            detail: 'That title is already on your board.',
+            status: 409,
+          },
+          { status: 409 },
+        );
+      }
+
+      added.push({ mediaId, status });
+      onBoard.push({ mediaId, status });
+
+      return HttpResponse.json(libraryItem({ mediaId, currentStatus: status }), { status: 201 });
     }),
   );
 

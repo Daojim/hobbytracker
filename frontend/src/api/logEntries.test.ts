@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
-import { addToBacklog, createLogEntry, deleteLogEntry, listLogEntries, updateLogEntry } from './logEntries';
+import { createLogEntry, deleteLogEntry, listLogEntries, updateLogEntry } from './logEntries';
 import type { LogEntry } from './types';
 
 const entry: LogEntry = {
@@ -71,24 +71,6 @@ describe('createLogEntry', () => {
     } as Parameters<typeof createLogEntry>[0]);
 
     expect(body).not.toHaveProperty('loggedAt');
-  });
-});
-
-describe('addToBacklog', () => {
-  it('is a plain Backlog entry, needing no endpoint of its own', async () => {
-    // Search already upserts a result into the catalog, so putting a game on the board is just
-    // the first entry logged against the id it came back with.
-    let body: unknown;
-    server.use(
-      http.post('/api/log-entries', async ({ request }) => {
-        body = await request.json();
-        return HttpResponse.json({ ...entry, status: 'Backlog' }, { status: 201 });
-      }),
-    );
-
-    await addToBacklog(14);
-
-    expect(body).toEqual({ mediaId: 14, status: 'Backlog' });
   });
 });
 

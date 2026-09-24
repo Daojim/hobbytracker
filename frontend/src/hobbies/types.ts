@@ -100,7 +100,10 @@ export interface HobbyDefinition {
     /** The section's heading, under the grid. */
     heading: string;
 
-    /** What the search strip's add button says for a title that is not out yet. */
+    /**
+     * What a tile's add says for a title that is not out yet — the one add still written in
+     * words, because it is the one whose destination is not a column.
+     */
     addAction: string;
 
     /** How that button reads aloud, which two words on their own cannot. */
@@ -381,7 +384,7 @@ export interface Genre {
  * That keeps `SearchResult` from growing a branch per hobby for the sake of two lines of text.
  */
 export interface SearchHit {
-  /** The media id, which is what `POST /api/log-entries` points at. */
+  /** The media id, which is what `POST /api/library/{mediaId}` puts on your board. */
   id: number;
   title: string;
   coverUrl: string | null;

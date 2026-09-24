@@ -1,13 +1,20 @@
-import { describe, expect, it } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http } from 'msw';
 import { BoardSearch } from './BoardSearch';
+import { hiddenColumnsKey } from '../board/hiddenColumns';
 import { game, searchServer } from '../test/games';
 import { renderWithProviders } from '../test/render';
+import { server } from '../test/server';
 
 const box = () => screen.getByRole('searchbox', { name: 'Search games' });
 const strip = () => screen.queryByRole('region', { name: 'Search results' });
 const clearButton = () => screen.queryByRole('button', { name: 'Clear search' });
+
+// A column taken off in Settings is remembered in storage, and must not follow one test into the
+// next.
+afterEach(() => localStorage.clear());
 
 /**
  * Rendered on its own rather than through BoardPage, and not only for speed.
@@ -97,18 +104,70 @@ describe('BoardSearch', () => {
       await screen.findByRole('button', { name: 'Add Hollow Knight to backlog' }),
     );
 
-    await waitFor(() => expect(search.added).toEqual([3003]));
+    await waitFor(() => expect(search.added).toEqual([{ mediaId: 3003, status: 'Backlog' }]));
   });
 
-  it('marks a title already in your library instead of offering it again', async () => {
-    searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })], library: [3003] });
+  it('puts a result straight into Playing, naming the column and nothing else', async () => {
+    // The dates are the server's: a start is stamped by the rule a drag into Playing follows,
+    // so nothing here sends one.
+    const search = searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await userEvent.type(box(), 'hollow');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add Hollow Knight to playing' }),
+    );
+
+    await waitFor(() => expect(search.added).toEqual([{ mediaId: 3003, status: 'InProgress' }]));
+  });
+
+  it('says where the title went the moment the add is written, not a refetch later', async () => {
+    // Otherwise the buttons stay live long enough to be pressed twice. From here on the library
+    // never answers again, so the tile can only change on the add's own write.
+    searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await userEvent.type(box(), 'hollow');
+    const add = await screen.findByRole('button', { name: 'Add Hollow Knight to completed' });
+
+    server.use(http.get('/api/library', () => new Promise<never>(() => {})));
+    await userEvent.click(add);
+
+    const tile = (await screen.findByRole('heading', { name: 'Hollow Knight' })).closest('li')!;
+    await waitFor(() => expect(tile).toHaveTextContent('On your board: Completed'));
+    expect(within(tile).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('says which column a title in your library is in, instead of offering it again', async () => {
+    searchServer({
+      results: [game({ id: 3003, title: 'Hollow Knight' })],
+      library: [{ mediaId: 3003, status: 'Completed' }],
+    });
 
     renderWithProviders(<BoardSearch hobby="games" />);
     await userEvent.type(box(), 'hollow');
 
-    expect(await screen.findByText('On your board')).toBeInTheDocument();
+    const tile = (await screen.findByRole('heading', { name: 'Hollow Knight' })).closest('li')!;
+    await waitFor(() => expect(tile).toHaveTextContent('On your board: Completed'));
     expect(
       screen.queryByRole('button', { name: 'Add Hollow Knight to backlog' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers no column the board has taken off in Settings', async () => {
+    // The card menu's rule: a column the board is not drawing is nowhere a title can be sent,
+    // because it would land somewhere nobody can see it.
+    localStorage.setItem(hiddenColumnsKey('games'), JSON.stringify(['Completed']));
+    searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await userEvent.type(box(), 'hollow');
+
+    expect(
+      await screen.findByRole('button', { name: 'Add Hollow Knight to playing' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Add Hollow Knight to completed' }),
     ).not.toBeInTheDocument();
   });
 

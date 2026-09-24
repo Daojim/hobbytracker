@@ -1,18 +1,26 @@
 import { formatRelease } from '../lib/release';
-import { addWords } from './addWords';
-import type { HobbyDefinition, SearchHit } from '../hobbies';
+import { AddControl } from './AddControl';
+import { awaitsRelease, boardWords } from './addWords';
+import type { AddColumn, HobbyDefinition, SearchHit } from '../hobbies';
+import type { LogStatus } from '../api/types';
 
 export interface SearchResultProps {
   hit: SearchHit;
-  /** Already logged, so adding again would record a replay that never happened. */
-  onBoard: boolean;
+  /**
+   * The column this title is in on your board, or null when it is not on it. Already logged
+   * means adding again would record a replay that never happened, so the tile says where it is
+   * instead.
+   */
+  onBoard: LogStatus | null;
   adding: boolean;
-  onAdd: (mediaId: number) => void;
+  onAdd: (mediaId: number, status: LogStatus) => void;
+  /** Where this board can take a title — see `addColumns`. */
+  columns: readonly AddColumn[];
 
   /**
-   * The hobby whose strip this is, for the words on the add button.
+   * The hobby whose strip this is, for every word the tile says.
    *
-   * Passed in rather than read off the hit, and passed as the definition rather than as two
+   * Passed in rather than read off the hit, and passed as the definition rather than as
    * pre-computed strings: which words a tile uses is a fact about the hobby, and building them
    * above would put a hobby's vocabulary somewhere that is not `src/hobbies/`.
    */
@@ -35,11 +43,12 @@ export function SearchResult({
   onBoard,
   adding,
   onAdd,
+  columns,
   definition,
 }: SearchResultProps) {
-  // Add, or Add to calendar — decided in one place for this tile and the Discover page's, so the
-  // two cannot disagree about the same title. See addWords.
-  const words = addWords(hit, definition);
+  // Whether the title is waiting on the calendar — decided in one place for this tile and the
+  // Discover page's, so the two cannot disagree about the same title. See addWords.
+  const upcoming = awaitsRelease(hit, definition);
 
   return (
     <li className="flex w-36 shrink-0 flex-col gap-2 rounded-lg border border-card-line bg-surface p-2 shadow-card">
@@ -84,24 +93,30 @@ export function SearchResult({
       {/* When it is due, for a title that is not out. The one thing a search result can say that
           a board card cannot, and worth saying before adding rather than after: whether to
           commit to something is partly a question of how long the wait is. */}
-      {words.upcoming && hit.release !== null && (
+      {upcoming && hit.release !== null && (
         <p className="text-center text-xs text-muted">
           {formatRelease(hit.release.day, hit.release.precision)}
         </p>
       )}
 
-      {onBoard ? (
-        <span className="text-center text-xs text-muted">On your board</span>
+      {onBoard !== null ? (
+        // Where it is rather than only that it is there: with three ways onto the board, "On your
+        // board" no longer said which one a title took. Picked from the renders over keeping
+        // those words. The tick is decoration and the column is the claim; a screen reader hears
+        // the whole of it, because "Completed" alone under a game's name could mean the game.
+        <span className="text-center text-xs text-muted">
+          <span aria-hidden="true">✓ </span>
+          <span className="sr-only">On your board: </span>
+          {boardWords(hit, definition, onBoard)}
+        </span>
       ) : (
-        <button
-          type="button"
-          disabled={adding}
-          aria-label={words.label}
-          onClick={() => onAdd(hit.id)}
-          className="h-7 rounded border border-line px-2 text-xs font-medium hover:bg-hover disabled:opacity-50"
-        >
-          {adding ? 'Adding…' : words.text}
-        </button>
+        <AddControl
+          hit={hit}
+          definition={definition}
+          columns={columns}
+          adding={adding}
+          onAdd={onAdd}
+        />
       )}
     </li>
   );
