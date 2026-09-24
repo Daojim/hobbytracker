@@ -67,44 +67,54 @@ public sealed class FakeIgdbClient : IIgdbClient
 
     // ------------------------------------------------------------------------------ discovery
 
-    /// <summary>What each of the Discover page's four questions answers with, in IGDB's order.</summary>
-    public List<IgdbGame> NewReleases { get; set; } = [];
+    /// <summary>
+    /// What each of the Discover page's four questions answers with: the whole ordering, in IGDB's
+    /// order, which the fake slices the way IGDB does.
+    ///
+    /// <para>
+    /// A null is a place IGDB ranked and then would not describe — PopScore's second question
+    /// declining a game its ranking holds. Only <see cref="PlayingNow"/> can really have one,
+    /// because the other three filter inside a single question, before IGDB counts places.
+    /// </para>
+    /// </summary>
+    public List<IgdbGame?> NewReleases { get; set; } = [];
 
-    public List<IgdbGame> Anticipated { get; set; } = [];
+    public List<IgdbGame?> Anticipated { get; set; } = [];
 
-    public List<IgdbGame> MostRated { get; set; } = [];
+    public List<IgdbGame?> MostRated { get; set; } = [];
 
-    public List<IgdbGame> PlayingNow { get; set; } = [];
+    public List<IgdbGame?> PlayingNow { get; set; } = [];
 
     /// <summary>
-    /// Every discovery question asked, in order: which list, how many titles, and the window for
-    /// the one list that has a window. Kept apart from <see cref="Calls"/> so a test about the
-    /// once-a-day cache can count these without a search in the same test counting too.
+    /// Every discovery question asked, in order: which list, from which place, how many places,
+    /// and the window for the one list that has a window. Kept apart from <see cref="Calls"/> so a
+    /// test about the once-a-day cache can count these without a search in the same test counting too.
     /// </summary>
-    public List<(string List, int Limit, DateTimeOffset? Since, DateTimeOffset? Until)> DiscoverCalls { get; } = [];
+    public List<(string List, int Offset, int Limit, DateTimeOffset? Since, DateTimeOffset? Until)> DiscoverCalls { get; } = [];
 
-    public Task<IReadOnlyList<IgdbGame>> GetNewReleasesAsync(
-        DateTimeOffset since, DateTimeOffset until, int limit, CancellationToken cancellationToken) =>
-        Discover(nameof(NewReleases), NewReleases, limit, since, until);
+    public Task<IgdbSlice> GetNewReleasesAsync(
+        DateTimeOffset since, DateTimeOffset until, int offset, int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(NewReleases), NewReleases, offset, limit, since, until);
 
-    public Task<IReadOnlyList<IgdbGame>> GetAnticipatedAsync(
-        DateTimeOffset now, int limit, CancellationToken cancellationToken) =>
-        Discover(nameof(Anticipated), Anticipated, limit);
+    public Task<IgdbSlice> GetAnticipatedAsync(
+        DateTimeOffset now, int offset, int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(Anticipated), Anticipated, offset, limit);
 
-    public Task<IReadOnlyList<IgdbGame>> GetMostRatedAsync(int limit, CancellationToken cancellationToken) =>
-        Discover(nameof(MostRated), MostRated, limit);
+    public Task<IgdbSlice> GetMostRatedAsync(int offset, int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(MostRated), MostRated, offset, limit);
 
-    public Task<IReadOnlyList<IgdbGame>> GetPlayingNowAsync(int limit, CancellationToken cancellationToken) =>
-        Discover(nameof(PlayingNow), PlayingNow, limit);
+    public Task<IgdbSlice> GetPlayingNowAsync(int offset, int limit, CancellationToken cancellationToken) =>
+        Discover(nameof(PlayingNow), PlayingNow, offset, limit);
 
-    private Task<IReadOnlyList<IgdbGame>> Discover(
+    private Task<IgdbSlice> Discover(
         string list,
-        List<IgdbGame> games,
+        List<IgdbGame?> ordering,
+        int offset,
         int limit,
         DateTimeOffset? since = null,
         DateTimeOffset? until = null)
     {
-        DiscoverCalls.Add((list, limit, since, until));
+        DiscoverCalls.Add((list, offset, limit, since, until));
 
         if (ThrowOnNextCall is { } exception)
         {
@@ -112,8 +122,17 @@ public sealed class FakeIgdbClient : IIgdbClient
             throw exception;
         }
 
-        // Honour limit the way IGDB would, as a search here does.
-        return Task.FromResult<IReadOnlyList<IgdbGame>>([.. games.Take(limit)]);
+        // Offset and limit the way IGDB applies them, counting the places a null stands in.
+        var places = ordering.Skip(offset).Take(limit).ToList();
+
+        return Task.FromResult(new IgdbSlice(
+            [
+                .. places
+                    .Select((game, index) => (Game: game, Place: offset + index))
+                    .Where(ranked => ranked.Game is not null)
+                    .Select(ranked => new IgdbRanked(ranked.Place, ranked.Game!)),
+            ],
+            Ended: places.Count < limit));
     }
 
     public void SetResults(string search, params IgdbGame[] games) =>

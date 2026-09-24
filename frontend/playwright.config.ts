@@ -127,6 +127,12 @@ export default defineConfig({
         Igdb__BaseUrl: `http://localhost:${STUB_PORT}/v4/`,
         Igdb__TokenUrl: `http://localhost:${STUB_PORT}/oauth2/token`,
 
+        // A page of a Discover list is 48 in production and 2 here, because the stub's lists
+        // are a handful of titles long: at 48 every list would be one page, and Load more would
+        // never be offered. Two is also what puts Most anticipated's rumour and cancellation
+        // inside page one's slice, so where page two starts is decided by the API's rules.
+        Igdb__DiscoverListSize: '2',
+
         // HowLongToBeat needs only its base URL pointed elsewhere: everything else about
         // reaching it — the endpoint's name, the handshake — is rediscovered at runtime rather
         // than configured, which is exactly why the stub has to serve all of it.

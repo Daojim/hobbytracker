@@ -58,8 +58,13 @@ export function WallTile({ hit, onBoard, adding, onAdd, definition }: WallTilePr
 
       {/* Two lines, as in the strip, so "Hollow Knight" and "Hollow Knight: Silksong" stay two
           different titles. Measured at 8 across and 1440px: 8 of 24 names took the second line
-          and none needed a third. */}
-      <h3 className="line-clamp-2 text-sm leading-snug font-medium break-words">{hit.title}</h3>
+          and none needed a third.
+
+          Focusable from script and nowhere else, because Load more moves focus to the first
+          title a page added, and Tab goes from there to that title's own button. */}
+      <h3 tabIndex={-1} className="line-clamp-2 text-sm leading-snug font-medium break-words">
+        {hit.title}
+      </h3>
 
       {/* When it is due, for a title that is not out — worth knowing before committing to the
           wait. The same rule as the strip's tile decides it. */}

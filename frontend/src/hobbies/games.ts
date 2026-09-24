@@ -30,7 +30,10 @@ const discoverList = (slug: string, label: string, blurb: string): DiscoverList 
   slug,
   label,
   blurb,
-  run: async () => (await discoverGames(slug)).map(asHit),
+  run: async (from) => {
+    const page = await discoverGames(slug, from);
+    return { titles: page.titles.map(asHit), next: page.next };
+  },
 });
 
 /**

@@ -1,4 +1,4 @@
-import type { LogEntry, LogStatus, ReleasePrecision } from '../api/types';
+import type { DiscoverListPage, LogEntry, LogStatus, ReleasePrecision } from '../api/types';
 import type { HltbEstimates } from '../journal/fields';
 import type { Hobby } from '../shell/hobbies';
 
@@ -153,8 +153,11 @@ export interface DiscoverList {
   /** One line under the tabs, saying what the list holds and in what order. */
   blurb: string;
 
-  /** The titles, in the provider's order, read as the search strip reads a result. */
-  run(): Promise<SearchHit[]>;
+  /**
+   * A page of the titles from a place in the list — `0` for the first, then whatever `next` the
+   * page before said — in the provider's order, read as the search strip reads a result.
+   */
+  run(from: number): Promise<DiscoverListPage<SearchHit>>;
 }
 
 /**

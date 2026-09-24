@@ -29,15 +29,34 @@ describe('discover, on games', () => {
     server.use(
       http.get('/api/games/discover/:list', ({ params }) => {
         asked.push(String(params.list));
-        return HttpResponse.json([]);
+        return HttpResponse.json({ titles: [], next: null });
       }),
     );
 
     for (const list of hobbyDefinition('games').discover!.lists) {
-      await list.run();
+      await list.run(0);
     }
 
     expect(asked).toEqual(['new-releases', 'popular-now', 'most-anticipated', 'most-played']);
+  });
+
+  it('asks for a page from the place it is given, and passes on where the next one starts', async () => {
+    // The server decides where a page starts. This side sends back what it was told and works
+    // nothing out for itself, so a `next` of 53 is asked for as 53 — not as page two.
+    const asked: (string | null)[] = [];
+    server.use(
+      http.get('/api/games/discover/:list', ({ request }) => {
+        asked.push(new URL(request.url).searchParams.get('from'));
+        return HttpResponse.json({ titles: [game({ id: 9 })], next: 101 });
+      }),
+    );
+
+    const [list] = hobbyDefinition('games').discover!.lists;
+    const page = await list!.run(53);
+
+    expect(asked).toEqual(['53']);
+    expect(page.next).toBe(101);
+    expect(page.titles.map((hit) => hit.id)).toEqual([9]);
   });
 
   it('reads a title the way the search strip does, release date and all', async () => {
@@ -53,12 +72,14 @@ describe('discover, on games', () => {
     });
 
     server.use(
-      http.get('/api/games/discover/:list', () => HttpResponse.json([upcoming])),
+      http.get('/api/games/discover/:list', () =>
+        HttpResponse.json({ titles: [upcoming], next: null }),
+      ),
       http.get('/api/games', () => HttpResponse.json([upcoming])),
     );
 
     const [list] = hobbyDefinition('games').discover!.lists;
-    const fromTheWall = await list!.run();
+    const fromTheWall = (await list!.run(0)).titles;
 
     expect(fromTheWall).toEqual(await hobbyDefinition('games').search.run('silksong'));
     expect(fromTheWall).toEqual([

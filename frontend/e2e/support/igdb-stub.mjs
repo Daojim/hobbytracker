@@ -140,6 +140,13 @@ const CATALOGUE = [
   // rather than something a spec could miss. Eleven of the live Visits list's top 60 were like it.
   { id: 3017, released: daysAgo(5), precision: 'YYYYMMDD', gameType: 0, hypes: 999, themes: [EROTIC],
     name: 'Velvet Lounge', platforms: ['PC'], developer: 'Nobody In Particular', genres: ['Simulator'] },
+
+  // Announced, hyped and dead: IGDB's "not out", and the calendar's too, because the calendar
+  // keeps a cancelled title somebody already tracks. Only Most anticipated's own rule keeps it off
+  // that list, where nobody is waiting for it. The live list carried one or two a page from page
+  // two on; this one ranks second, so the rule has to hold on the very first page.
+  { id: 3018, status: 'Cancelled', gameType: 0, hypes: 100, name: 'Scalebound', platforms: ['Xbox'],
+    developer: 'PlatinumGames', genres: ['Role-playing (RPG)'] },
 ];
 
 /**
@@ -299,6 +306,13 @@ const matchesDiscovery = (query) => {
 /** `limit N;`, honoured on the Discover page's questions and on PopScore's. */
 const limitOf = (query) => Number(/limit\s+(\d+)/.exec(query)?.[1] ?? 500);
 
+/**
+ * `offset N;`, honoured where `limit` is. It is what Load more sends: the place in a list the page
+ * before said to start at. Applied after the filters, as IGDB applies it — `where`, then `sort`,
+ * then `offset` and `limit` — so a place counts only what passed.
+ */
+const offsetOf = (query) => Number(/offset\s+(\d+)/.exec(query)?.[1] ?? 0);
+
 const readBody = (request) =>
   new Promise((resolve) => {
     let body = '';
@@ -335,7 +349,8 @@ const server = createServer(async (request, response) => {
 
     let matches;
     // Unlimited for the three shapes search and refresh send, which is how the stub has always
-    // answered them; the Discover page's questions are the ones whose limit is the point.
+    // answered them; the Discover page's questions are the ones whose limit and offset are the point.
+    let offset = 0;
     let limit = Infinity;
     if (ids !== undefined) {
       matches = CATALOGUE.filter((game) => ids.split(',').includes(String(game.id)));
@@ -345,11 +360,15 @@ const server = createServer(async (request, response) => {
       matches = matchesTerm(term);
     } else {
       matches = matchesDiscovery(query);
+      offset = offsetOf(query);
       limit = limitOf(query);
     }
 
-    // Both filters before the limit, as IGDB applies `where` before `limit`.
-    const answer = withoutExcludedThemes(withoutExcludedTypes(matches, query), query).slice(0, limit);
+    // Both filters before the offset and limit, as IGDB applies `where` before either.
+    const answer = withoutExcludedThemes(withoutExcludedTypes(matches, query), query).slice(
+      offset,
+      offset + limit,
+    );
 
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(answer.map(asIgdbGame)));
@@ -359,9 +378,11 @@ const server = createServer(async (request, response) => {
   if (url.pathname === '/v4/popularity_primitives') {
     const query = await readBody(request);
 
-    // Only the Playing list has anything in it, because it is the only one the API asks about.
+    // Only the Playing list has anything in it, because it is the only one the API asks about. A
+    // page of it is a stretch of the ranking, which is where Load more's offset goes.
     const type = /popularity_type\s*=\s*(\d+)/.exec(query)?.[1];
-    const ranking = type === '3' ? PLAYING.slice(0, limitOf(query)) : [];
+    const offset = offsetOf(query);
+    const ranking = type === '3' ? PLAYING.slice(offset, offset + limitOf(query)) : [];
 
     response.writeHead(200, { 'Content-Type': 'application/json' });
     response.end(JSON.stringify(ranking.map((id) => ({ id: 90000 + id, game_id: id }))));

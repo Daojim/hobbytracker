@@ -451,14 +451,14 @@ public sealed class IgdbClientTests
             HttpStatusCode.OK,
             request.Uri!.AbsolutePath == "/v4/popularity_primitives" ? ranking : games));
 
-    /// <summary>One discovery question by the name a theory can carry.</summary>
-    private static Task<IReadOnlyList<IgdbGame>> DiscoverAsync(IgdbClient client, string list) =>
+    /// <summary>One discovery question by the name a theory can carry, from a place a page might start.</summary>
+    private static Task<IgdbSlice> DiscoverAsync(IgdbClient client, string list, int offset = 0) =>
         list switch
         {
-            "new" => client.GetNewReleasesAsync(Now.AddDays(-60), Now, 48, Ct),
-            "anticipated" => client.GetAnticipatedAsync(Now, 96, Ct),
-            "most" => client.GetMostRatedAsync(48, Ct),
-            "popular" => client.GetPlayingNowAsync(96, Ct),
+            "new" => client.GetNewReleasesAsync(Now.AddDays(-60), Now, offset, 49, Ct),
+            "anticipated" => client.GetAnticipatedAsync(Now, offset, 96, Ct),
+            "most" => client.GetMostRatedAsync(offset, 49, Ct),
+            "popular" => client.GetPlayingNowAsync(offset, 96, Ct),
             _ => throw new ArgumentOutOfRangeException(nameof(list), list, null),
         };
 
@@ -467,7 +467,7 @@ public sealed class IgdbClientTests
     {
         var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
 
-        await CreateClient(stub).GetNewReleasesAsync(Now.AddDays(-60), Now, 48, Ct);
+        await CreateClient(stub).GetNewReleasesAsync(Now.AddDays(-60), Now, 0, 49, Ct);
 
         var request = stub.Requests.ShouldHaveSingleItem();
         request.Uri!.AbsolutePath.ShouldBe("/v4/games");
@@ -481,7 +481,7 @@ public sealed class IgdbClientTests
         // Sorted by ratings, Valheim's 1.0 came first on 301 carried over from early access,
         // and nothing after it had more than 36.
         body.ShouldContain("sort hypes desc;");
-        body.ShouldContain("limit 48;");
+        body.ShouldContain("limit 49;");
 
         // The same fields a search asks for, because the rows go through the same upsert.
         body.ShouldContain("cover.image_id");
@@ -489,11 +489,67 @@ public sealed class IgdbClientTests
     }
 
     [Fact]
+    public async Task Ends_new_releases_where_the_hype_does()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetNewReleasesAsync(Now.AddDays(-60), Now, 0, 49, Ct);
+
+        // Measured on 24 September 2026: 3,344 games came out in the window and 552 had any hype.
+        // The list is sorted by hype, so past the 552nd it is sorting nothing — 2,800 titles tied
+        // at none, in whatever order IGDB keeps them, and a Load more there would page through an
+        // arbitrary slice of everything released in two months. Page one's lowest hype was 11, so
+        // this changes where the list ends and nothing about how it starts.
+        stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull().ShouldContain("hypes != null");
+    }
+
+    [Theory]
+    [InlineData("new")]
+    [InlineData("anticipated")]
+    [InlineData("most")]
+    public async Task Asks_a_list_from_the_place_its_page_starts(string list)
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await DiscoverAsync(CreateClient(stub), list, offset: 53);
+
+        // APIcalypse applies where, then sort, then offset and limit — so this is place 53 of the
+        // filtered ordering, which is exactly the place the page before this one said to start at.
+        stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull().ShouldContain("offset 53;");
+    }
+
+    [Fact]
+    public async Task Numbers_each_game_by_its_place_in_the_ordering()
+    {
+        var stub = StubHttpMessageHandler.Always(
+            HttpStatusCode.OK, """[{ "id": 7, "name": "Seven" }, { "id": 3, "name": "Three" }]""");
+
+        var slice = await CreateClient(stub).GetMostRatedAsync(96, 49, Ct);
+
+        // The filter is inside the question, so what comes back is consecutive places from the offset.
+        slice.Games.Select(ranked => (ranked.Place, ranked.Game.Id)).ShouldBe([(96, 7), (97, 3)]);
+
+        // Two places of the 49 asked about, so the ordering ends here and there is no page after it.
+        slice.Ended.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Says_the_ordering_goes_on_when_every_place_asked_about_was_filled()
+    {
+        var stub = StubHttpMessageHandler.Always(
+            HttpStatusCode.OK, """[{ "id": 1, "name": "One" }, { "id": 2, "name": "Two" }]""");
+
+        var slice = await CreateClient(stub).GetMostRatedAsync(0, 2, Ct);
+
+        slice.Ended.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Asks_for_what_is_not_out_yet_the_most_anticipated_first()
     {
         var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
 
-        await CreateClient(stub).GetAnticipatedAsync(Now, 96, Ct);
+        await CreateClient(stub).GetAnticipatedAsync(Now, 0, 96, Ct);
 
         var body = stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull();
 
@@ -513,7 +569,7 @@ public sealed class IgdbClientTests
     {
         var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
 
-        await CreateClient(stub).GetMostRatedAsync(48, Ct);
+        await CreateClient(stub).GetMostRatedAsync(0, 49, Ct);
 
         var body = stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull();
 
@@ -521,7 +577,7 @@ public sealed class IgdbClientTests
         // This is one request with the filter inside it; that is two with the filter after.
         body.ShouldContain("total_rating_count != null");
         body.ShouldContain("sort total_rating_count desc;");
-        body.ShouldContain("limit 48;");
+        body.ShouldContain("limit 49;");
     }
 
     [Fact]
@@ -529,7 +585,7 @@ public sealed class IgdbClientTests
     {
         var stub = PopScoreAnswering("""[{ "game_id": 11, "value": 0.009 }, { "game_id": 22, "value": 0.007 }]""");
 
-        await CreateClient(stub).GetPlayingNowAsync(96, Ct);
+        await CreateClient(stub).GetPlayingNowAsync(96, 96, Ct);
 
         stub.Requests.Count.ShouldBe(2);
 
@@ -538,14 +594,19 @@ public sealed class IgdbClientTests
 
         // 3 is Playing, read off /v4/popularity_types; IGDB's own documentation lists the same
         // ids. A ranking row carries nothing but a game id, which is why a second question follows.
+        //
+        // The page's place goes on the ranking, because that is the ordering being paged. The
+        // second question names its games by id and has nothing to skip.
         var body = ranking.Body.ShouldNotBeNull();
         body.ShouldContain("where popularity_type = 3;");
         body.ShouldContain("sort value desc;");
         body.ShouldContain("limit 96;");
+        body.ShouldContain("offset 96;");
 
         var games = stub.Requests[1];
         games.Uri!.AbsolutePath.ShouldBe("/v4/games");
         games.Body.ShouldNotBeNull().ShouldContain("where id = (11,22)");
+        games.Body.ShouldNotContain("offset");
     }
 
     [Fact]
@@ -557,9 +618,27 @@ public sealed class IgdbClientTests
             """[{ "game_id": 30, "value": 0.9 }, { "game_id": 10, "value": 0.5 }, { "game_id": 20, "value": 0.1 }]""",
             """[{ "id": 10, "name": "Ten" }, { "id": 20, "name": "Twenty" }, { "id": 30, "name": "Thirty" }]""");
 
-        var games = await CreateClient(stub).GetPlayingNowAsync(96, Ct);
+        var slice = await CreateClient(stub).GetPlayingNowAsync(0, 96, Ct);
 
-        games.Select(game => game.Id).ShouldBe([30, 10, 20]);
+        slice.Games.Select(ranked => ranked.Game.Id).ShouldBe([30, 10, 20]);
+    }
+
+    [Fact]
+    public async Task Keeps_a_popscore_place_when_the_second_question_declines_its_game()
+    {
+        // Ranked 49th, 50th and 51st; /games will not describe 10 — a bundle, say, or a title the
+        // Discover filter keeps off. The game after it is still 51st. Numbered by what came back
+        // instead, it would be 50th, and the next page would start a place too early and show it twice.
+        var stub = PopScoreAnswering(
+            """[{ "game_id": 30, "value": 0.9 }, { "game_id": 10, "value": 0.5 }, { "game_id": 20, "value": 0.1 }]""",
+            """[{ "id": 20, "name": "Twenty" }, { "id": 30, "name": "Thirty" }]""");
+
+        var slice = await CreateClient(stub).GetPlayingNowAsync(48, 3, Ct);
+
+        slice.Games.Select(ranked => (ranked.Place, ranked.Game.Id)).ShouldBe([(48, 30), (50, 20)]);
+
+        // Every place asked about was ranked, so PopScore may well go on past them.
+        slice.Ended.ShouldBeFalse();
     }
 
     [Fact]
@@ -567,7 +646,9 @@ public sealed class IgdbClientTests
     {
         var stub = PopScoreAnswering("[]");
 
-        (await CreateClient(stub).GetPlayingNowAsync(96, Ct)).ShouldBeEmpty();
+        var slice = await CreateClient(stub).GetPlayingNowAsync(0, 96, Ct);
+        slice.Games.ShouldBeEmpty();
+        slice.Ended.ShouldBeTrue();
 
         // `where id = ()` is an APIcalypse syntax error, found by sending one, so an empty
         // ranking has to end here rather than ask the second question.
@@ -593,9 +674,29 @@ public sealed class IgdbClientTests
         // the top 40 of the most-hyped titles not yet out: a page nobody typed into cannot show
         // what it finds. A game with no themes at all still passes — one was measured doing so.
         body.ShouldContain("themes != (42)");
+    }
 
-        // And the search's own filter, because a wall of mods is no better than a strip of them.
-        body.ShouldContain("game_type != (3,5)");
+    [Theory]
+    [InlineData("new")]
+    [InlineData("anticipated")]
+    [InlineData("most")]
+    [InlineData("popular")]
+    public async Task Keeps_add_ons_off_every_discover_list(string list)
+    {
+        var stub = PopScoreAnswering("""[{ "game_id": 11, "value": 0.5 }]""");
+
+        await DiscoverAsync(CreateClient(stub), list);
+
+        var body = stub.Requests
+            .Single(request => request.Uri!.AbsolutePath == "/v4/games")
+            .Body.ShouldNotBeNull();
+
+        // Search's bundles and mods, and then DLC (1), Season (7) and Update (14), read off
+        // /v4/game_types on 24 September 2026. None appeared in the top 60 of any list, which is as
+        // far as the first measurement went; Load more goes further, and 8 of New releases' first
+        // 500 were one of the three — Medieval Dynasty: Hunting Pack, Core Keeper: Riders of the
+        // Underground — from page three on. A wall is for finding games to play.
+        body.ShouldContain("game_type != (1,3,5,7,14)");
     }
 
     [Fact]
@@ -605,10 +706,13 @@ public sealed class IgdbClientTests
 
         await CreateClient(stub).SearchGamesAsync("hollow knight", 10, Ct);
 
-        // The erotic filter is discovery's alone. Somebody who typed a title asked for it; the
-        // Discover page shows what nobody asked for, and that is the whole difference.
+        // The erotic filter is discovery's alone, and so is leaving off DLC, seasons and updates.
+        // Somebody who typed a title asked for it — a person searching for Shadow of the Erdtree
+        // wants the DLC — and the Discover page shows what nobody asked for. That is the whole
+        // difference.
         stub.Requests.Count.ShouldBe(2);
         stub.Requests.ShouldAllBe(request => !request.Body!.Contains("themes"));
+        stub.Requests.ShouldAllBe(request => request.Body!.Contains("game_type != (3,5)"));
     }
 
     [Fact]
@@ -617,7 +721,7 @@ public sealed class IgdbClientTests
         var stub = StubHttpMessageHandler.Always(HttpStatusCode.BadRequest, "Invalid field name: popularity_typ");
 
         var exception = await Should.ThrowAsync<IgdbException>(
-            () => CreateClient(stub).GetPlayingNowAsync(96, Ct));
+            () => CreateClient(stub).GetPlayingNowAsync(0, 96, Ct));
 
         // There are two endpoints now, and a parse error is only useful if it says which query
         // it came from.

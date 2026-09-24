@@ -33,10 +33,12 @@ public class IgdbOptions
     public int RequestTimeoutSeconds { get; set; } = 15;
 
     /// <summary>
-    /// How many titles a Discover list shows. 48 fills every row of the wall at 2, 3, 4, 6, 8 and
-    /// 12 across, and the tail of every list still held up at #48 when measured.
+    /// How many titles a page of a Discover list shows — the first page, and each Load more after
+    /// it. 48 fills every row of the wall at 2, 3, 4, 6, 8 and 12 across, and so does every multiple
+    /// of it, so the wall's last row stays full however many pages are loaded.
     ///
     /// At most 250, because two of the lists ask IGDB for twice this and IGDB caps a response at 500.
+    /// The end-to-end suite runs at 2, because the stub's lists are a handful of titles long.
     /// </summary>
     [Range(1, 250)]
     public int DiscoverListSize { get; set; } = 48;

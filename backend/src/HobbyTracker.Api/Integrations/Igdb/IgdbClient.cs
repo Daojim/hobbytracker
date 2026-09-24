@@ -18,19 +18,22 @@ public interface IIgdbClient
     Task<IReadOnlyList<IgdbGame>> GetGamesAsync(
         IEnumerable<int> ids, CancellationToken cancellationToken);
 
+    // The Discover page's four lists. Each answers with the <limit> places from <offset> on, so a
+    // page can start wherever the page before it stopped.
+
     /// <summary>Games first released between two instants, the most hyped first.</summary>
-    Task<IReadOnlyList<IgdbGame>> GetNewReleasesAsync(
-        DateTimeOffset since, DateTimeOffset until, int limit, CancellationToken cancellationToken);
+    Task<IgdbSlice> GetNewReleasesAsync(
+        DateTimeOffset since, DateTimeOffset until, int offset, int limit, CancellationToken cancellationToken);
 
     /// <summary>Games not out yet that somebody is waiting for, the most hyped first.</summary>
-    Task<IReadOnlyList<IgdbGame>> GetAnticipatedAsync(
-        DateTimeOffset now, int limit, CancellationToken cancellationToken);
+    Task<IgdbSlice> GetAnticipatedAsync(
+        DateTimeOffset now, int offset, int limit, CancellationToken cancellationToken);
 
     /// <summary>The games the most people have rated.</summary>
-    Task<IReadOnlyList<IgdbGame>> GetMostRatedAsync(int limit, CancellationToken cancellationToken);
+    Task<IgdbSlice> GetMostRatedAsync(int offset, int limit, CancellationToken cancellationToken);
 
     /// <summary>PopScore's Playing list, in PopScore's order.</summary>
-    Task<IReadOnlyList<IgdbGame>> GetPlayingNowAsync(int limit, CancellationToken cancellationToken);
+    Task<IgdbSlice> GetPlayingNowAsync(int offset, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -78,10 +81,15 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
         "involved_companies.developer, involved_companies.company.name;";
 
     // IGDB game_type ids, read off /v4/game_types rather than assumed from the deprecated
-    // `category` enum they used to share numbering with. Only the two that are excluded are
-    // named; the rest are in CLAUDE.md under Game types.
+    // `category` enum they used to share numbering with — most recently on 24 September 2026.
+    // Only the excluded ones are named; the rest are in docs/games-igdb.md under Game types.
     private const int BundleType = 3;
     private const int ModType = 5;
+
+    // Excluded from the Discover lists only. See Discoverable.
+    private const int DlcType = 1;
+    private const int SeasonType = 7;
+    private const int UpdateType = 14;
 
     /// <summary>
     /// The game types a search should never offer.
@@ -137,13 +145,16 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     /// </para>
     ///
     /// <para>
-    /// And the search's own filter, because a wall of mods is no better than a strip of them. No
-    /// stricter list of game types, because nothing measured needed one: DLC, seasons and editions
-    /// did not appear in the top 40 to 60 of any list this client asks for.
+    /// <b>No add-ons</b>: search's bundles and mods, and DLC, seasons and updates besides. None of
+    /// the three appeared in the top 60 of any list, which is as far as the first measurement
+    /// went. Load more goes further, and on 24 September 2026 eight of New releases' first 500 were
+    /// one — <i>Medieval Dynasty: Hunting Pack</i>, <i>Core Keeper: Riders of the Underground</i> —
+    /// from page three on. A search keeps them, because a person searching for <i>Shadow of the
+    /// Erdtree</i> wants the DLC; a wall is for finding games to play.
     /// </para>
     /// </summary>
     private static readonly string Discoverable =
-        $"{NotABundleOrMod} & themes != ({EroticTheme})";
+        $"game_type != ({DlcType},{BundleType},{ModType},{SeasonType},{UpdateType}) & themes != ({EroticTheme})";
 
     /// <summary>
     /// The shortest slug pattern worth asking about.
@@ -257,20 +268,33 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     /// The Discover page's New releases: games first released inside a window, the most hyped
     /// first.
     ///
+    /// <para>
     /// Hype rather than ratings, because a game out for a fortnight has hardly been rated. Sorted
     /// by ratings on 23 September 2026, Valheim's 1.0 came first on 301 carried over from early
     /// access and nothing after it had more than 36.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>And only what has any hype, so the list ends where its order stops meaning anything.</b>
+    /// On 24 September 2026, 3,344 games came out in the window and 552 of them had hype. Past the
+    /// 552nd the sort is sorting nothing — 2,800 titles tied at none, in whatever order IGDB keeps
+    /// them — and a Load more there would page through an arbitrary slice of two months of
+    /// releases. Page one's lowest hype was 11, so this moves where the list ends and nothing
+    /// about how it starts.
+    /// </para>
     /// </summary>
-    public Task<IReadOnlyList<IgdbGame>> GetNewReleasesAsync(
-        DateTimeOffset since, DateTimeOffset until, int limit, CancellationToken cancellationToken) =>
-        QueryAsync<IgdbGame>(
-            GamesEndpoint,
+    public Task<IgdbSlice> GetNewReleasesAsync(
+        DateTimeOffset since, DateTimeOffset until, int offset, int limit, CancellationToken cancellationToken) =>
+        SliceAsync(
             $"""
             {SearchFields}
-            where first_release_date >= {since.ToUnixTimeSeconds()} & first_release_date <= {until.ToUnixTimeSeconds()} & {Discoverable};
+            where first_release_date >= {since.ToUnixTimeSeconds()} & first_release_date <= {until.ToUnixTimeSeconds()} & hypes != null & {Discoverable};
             sort hypes desc;
             limit {limit};
+            offset {offset};
             """,
+            offset,
+            limit,
             cancellationToken);
 
     /// <summary>
@@ -288,16 +312,18 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     /// the same expression the calendar is drawn by.
     /// </para>
     /// </summary>
-    public Task<IReadOnlyList<IgdbGame>> GetAnticipatedAsync(
-        DateTimeOffset now, int limit, CancellationToken cancellationToken) =>
-        QueryAsync<IgdbGame>(
-            GamesEndpoint,
+    public Task<IgdbSlice> GetAnticipatedAsync(
+        DateTimeOffset now, int offset, int limit, CancellationToken cancellationToken) =>
+        SliceAsync(
             $"""
             {SearchFields}
             where hypes != null & (first_release_date > {now.ToUnixTimeSeconds()} | first_release_date = null) & {Discoverable};
             sort hypes desc;
             limit {limit};
+            offset {offset};
             """,
+            offset,
+            limit,
             cancellationToken);
 
     /// <summary>
@@ -308,15 +334,17 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     /// of its top 15. This is one request with the filter inside it, where that is two with the
     /// filter after.
     /// </summary>
-    public Task<IReadOnlyList<IgdbGame>> GetMostRatedAsync(int limit, CancellationToken cancellationToken) =>
-        QueryAsync<IgdbGame>(
-            GamesEndpoint,
+    public Task<IgdbSlice> GetMostRatedAsync(int offset, int limit, CancellationToken cancellationToken) =>
+        SliceAsync(
             $"""
             {SearchFields}
             where total_rating_count != null & {Discoverable};
             sort total_rating_count desc;
             limit {limit};
+            offset {offset};
             """,
+            offset,
+            limit,
             cancellationToken);
 
     /// <summary>
@@ -330,13 +358,19 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
     /// </para>
     ///
     /// <para>
+    /// <b>The page is a stretch of the ranking</b>, so the offset goes on the first question and
+    /// each game keeps the place PopScore gave it — including when the second question declines
+    /// the game before it, which is what leaves a hole in the slice. See <see cref="IgdbSlice"/>.
+    /// </para>
+    ///
+    /// <para>
     /// Playing rather than any of PopScore's other ten lists, all of them measured. Visits carried
     /// 11 erotic titles in its top 60; Steam's lists lean on PC live-service games, and its top
     /// sellers are sales, bundles and DLC; Twitch's had not been recalculated for a week.
     /// </para>
     /// </summary>
-    public async Task<IReadOnlyList<IgdbGame>> GetPlayingNowAsync(
-        int limit, CancellationToken cancellationToken)
+    public async Task<IgdbSlice> GetPlayingNowAsync(
+        int offset, int limit, CancellationToken cancellationToken)
     {
         var ranking = await QueryAsync<IgdbPopularityPrimitive>(
             PopScoreEndpoint,
@@ -345,29 +379,54 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
             where popularity_type = {PlayingPopularityType};
             sort value desc;
             limit {limit};
+            offset {offset};
             """,
             cancellationToken);
+
+        var ended = ranking.Count < limit;
 
         // `where id = ();` is a parse error — found by sending one — and there is nothing to ask.
         if (ranking.Count == 0)
         {
-            return [];
+            return new IgdbSlice([], ended);
         }
 
-        var ids = ranking.Select(row => row.GameId).Distinct().ToList();
+        // A game ranked twice keeps its better place, and is asked about once.
+        var ranked = ranking
+            .Select((row, index) => (Id: row.GameId, Place: offset + index))
+            .DistinctBy(row => row.Id)
+            .ToList();
 
         var games = await QueryAsync<IgdbGame>(
             GamesEndpoint,
             $"""
             {SearchFields}
-            where id = ({string.Join(',', ids)}) & {Discoverable};
-            limit {ids.Count};
+            where id = ({string.Join(',', ranked.Select(row => row.Id))}) & {Discoverable};
+            limit {ranked.Count};
             """,
             cancellationToken);
 
         var byId = games.DistinctBy(game => game.Id).ToDictionary(game => game.Id);
 
-        return [.. ids.Where(byId.ContainsKey).Select(id => byId[id])];
+        return new IgdbSlice(
+            [.. ranked.Where(row => byId.ContainsKey(row.Id)).Select(row => new IgdbRanked(row.Place, byId[row.Id]))],
+            ended);
+    }
+
+    /// <summary>
+    /// A Discover list's question to <c>/games</c>, answered as a slice of its ordering.
+    ///
+    /// IGDB applies <c>where</c>, then <c>sort</c>, then <c>offset</c> and <c>limit</c>, so what comes
+    /// back is consecutive places from the offset — this list's own filter never leaves a hole.
+    /// </summary>
+    private async Task<IgdbSlice> SliceAsync(
+        string query, int offset, int limit, CancellationToken cancellationToken)
+    {
+        var games = await QueryAsync<IgdbGame>(GamesEndpoint, query, cancellationToken);
+
+        return new IgdbSlice(
+            [.. games.Select((game, index) => new IgdbRanked(offset + index, game))],
+            Ended: games.Count < limit);
     }
 
     private const string GamesEndpoint = "games";
