@@ -213,11 +213,11 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // four, so the columns that change are only knowable from what was there.
     //
     // And dropped, not only made stale, for the move's reason: a view of a column that is not on
-    // screen still *renders* its stale copy the moment something switches onto it. That used to
-    // be harmless here, a removed card flashing back until the refetch landed. Adding straight to
-    // any column made it not harmless — take a title off, put it back from the strip, switch to
-    // an ordering left behind, and the card is mounted in two columns and cannot be dragged. See
-    // "A card mounted twice" in docs/board.md.
+    // screen still *renders* its stale copy the moment something switches onto it. Take a title
+    // off, put it back from the strip, switch to an ordering left behind, and the card is mounted
+    // in two columns and cannot be dragged. Re-adding into Backlog was always enough to do it;
+    // adding straight into any column made it ordinary. See "A card mounted twice" in
+    // docs/board.md.
     onSettled: (_data, _error, mediaId) => {
       queryClient.removeQueries({ queryKey: ['library', hobby], type: 'inactive' });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby] });

@@ -62,7 +62,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 
 | | | |
 |---|---|---|
-| **The board** | Five columns, On Hold among them, and any but Backlog taken off in Settings. Drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board | `docs/board.md` |
+| **The board** | Five columns, On Hold among them, and any but Backlog taken off in Settings. Drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board. **Every search result and Discover tile adds straight to Backlog, Playing or Completed**, dated as a drag would date it | `docs/board.md` |
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
@@ -335,9 +335,9 @@ otherwise have to state four column requests and the year list before it could a
 **`renderWithProviders` sets `gcTime: 0`, and that default hides a whole class of bug.** A query is
 collected the instant its last observer goes, so a board can never be handed a cache entry it left
 behind — which is exactly how a card ends up rendered in two columns at once. Pass
-`keepsCache: true` for a test about what the cache is left holding; two tests ask for it, both about
-that card, and everything else is better off without a query outliving its test. See **A card mounted twice** in
-`docs/board.md`.
+`keepsCache: true` for a test about what the cache is left holding; two tests ask for it, both
+about that card, and everything else is better off without a query outliving its test. See **A card
+mounted twice** in `docs/board.md`.
 
 **The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit assertion
 there passes or fails for reasons unrelated to whether dragging a card works. `npm run test:e2e`
@@ -446,6 +446,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Where you are | The season-and-episode pair is **television's**; anime has the episode alone, because the cour *is* the entry. `PassFields.progress` is `false \| 'episode' \| 'season-episode'`, and **the database no longer holds the rule** — `ck_log_entries_episode_needs_season` is gone, and each hobby's form holds it instead |
 | Dropped | A muted well **at the far right**, after the progression, collapsed by default. It spent 29 August to 7 September 2026 ahead of Backlog and came back; the argument on both sides is in `docs/board.md`. *Move to Dropped* in a card's menu, or a drag — **collapsed or not**; drag out to un-drop |
 | Card corner | An **`⋯` options menu on every column**: every other column the board is drawing, then *Remove from board* |
+| Adding from a tile | **+ ▶ ✓, one control in equal thirds, on every search result and Discover tile** — Backlog, Playing, Completed, and never On Hold or Dropped, less any column taken off in Settings; a title not out offers *Add to calendar* alone. **`POST /api/library/{mediaId}` names the column and the server dates the first pass by the drag's own rule**, so an add and a drag cannot disagree, and a title already on your board is a 409. A tile then names the column the title is in. Picked from rendered comparisons on 24 September 2026; what it says mid-add is still to be designed. `docs/board.md`, `docs/games-igdb.md` |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
 | Saving a pass | **The pass writes itself and there is no Save button.** A change arms a 500ms timer; the timer checks the rules and sends every field. Leaving a field deliberately does *not* send it — that would be a write per stop while tabbing, and would write "season 2, no episode" on the way to naming one — but **closing the drawer does**, which is the one hole a form like this opens. A refused value stops the write and stays on screen to be corrected. `docs/journal.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
@@ -631,11 +632,9 @@ being wrong. Both rows are marked below.
 - **Sweep up titles with no headline figure when the worker starts.** The first thing to pick up. See
   **The backfill is a thing you run** in `docs/games-hltb.md`, including the reason it was not
   simply done.
-- **Adding straight to a column other than Backlog**, from search or the Discover page — the other
-  half of the feedback the Discover page answered. Asked for on 23 September 2026 and deliberately
-  not designed yet, so its shape is still to be workshopped. Both surfaces add through
-  `search/useAddToBoard.ts`, so it lands there once. Most played is where it matters most: somebody
-  filling a board backwards is adding games they have already finished, one Backlog drag at a time.
+- **What a tile says while an add is on its way.** *Adding…* went with the word *Add* on 24
+  September 2026, when the add became three symbols, and the control only dims until something
+  replaces it — deliberately left to be workshopped. `search/AddControl.tsx`.
 - **Linking a second provider to an existing account.** The schema has been ready since the first
   migration — `auth_identities` is unique on `(provider, provider_user_id)` and many rows may point at
   one user — and a test pins that two identities give one board. What does not exist is the deliberate

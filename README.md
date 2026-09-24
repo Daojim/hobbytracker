@@ -26,7 +26,10 @@ platform, dates, your hours beside HowLongToBeat's three estimates, dated notes,
 earlier pass with its own notes below it.
 
 Search sits above the board rather than on a screen of its own, so the column a title will land
-in is visible while you decide.
+in is visible while you decide. Every result — and every cover on the Discover wall — adds
+straight to Backlog, Playing or Completed, and arrives with the dates a drag into that column would
+have given it: the server works them out with the drag's own code, so an add and a drag cannot
+disagree.
 
 Metadata comes from [IGDB](https://api-docs.igdb.com/) for games,
 [TMDB](https://developer.themoviedb.org/) for films and television, and
@@ -413,6 +416,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       being played, most anticipated and most played — 48 at a time with a Load more, and the same
       one-click add search has. A game not out yet goes on the release calendar, as it would from
       search
+- [x] Adding straight into a column. Every search result and every cover on the wall carries three
+      drawn buttons — + for the backlog, ▶ for playing, ✓ for finished — so a game finished years
+      ago goes to Completed in one press rather than a press and a drag. The dates it arrives with
+      are the ones a drag would have stamped, by the same code on the server, and the tile then
+      says which column the title is in rather than only that it is on the board
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

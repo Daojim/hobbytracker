@@ -138,11 +138,12 @@ the slug query writes `& game_type`, so mods sailed through the second question.
 ### Search on the board
 
 `BoardSearch` is a bar above the board, with results as a **horizontal strip** over it, so the column
-a title will land in is on screen while you decide. A result already in your library shows *"On your
-board"* rather than an add button, because a second Backlog entry is not a replay but the card would
-render it as one — and knowing that needs the *whole* library, which is why `libraryMediaIds()` pages
-to the end rather than stopping at the API's maximum page size. Capping it would offer to add your
-hundred-and-first title twice.
+a title will land in is on screen while you decide. A result already in your library says which
+column it is in rather than offering the add, because a second pass is not a replay but the card
+would render it as one — and knowing that needs the *whole* library, which is why
+`libraryStatuses()` pages to the end rather than stopping at the API's maximum page size. Capping it
+would offer to add your hundred-and-first title twice. How a title is added is **Adding straight to
+a column**, below.
 
 - **Escape is handled on the search, not on `document`** — the journal drawer already listens there,
   and two listeners for one key is how they start disagreeing about which of them a press was for.
@@ -164,9 +165,9 @@ hundred-and-first title twice.
   hobby — measured, not argued: typing "hollow" on games and clicking Movies asks TMDB about Hollow
   Knight. **Clearing the term from inside would not have been enough.** `useDebounced` has already
   settled by the time the prop changes, so the first render under the new hobby is away to the new
-  provider with the old word before any effect could run. Remounting starts the term, its debounced
-  copy and the ids added since it opened empty together, which is the honest description of what a
-  hobby change means to this component.
+  provider with the old word before any effect could run. Remounting starts the term and its
+  debounced copy empty together, which is the honest description of what a hobby change means to
+  this component.
 - **`BoardSearch` is tested on its own, never through `BoardPage`**, because a result's title and a
   card's title are both an `<h3>`. **One case is the exception and has to be**: the box emptying on
   a hobby change is the bar outliving the board it belongs to, which only the page can produce — it
@@ -176,6 +177,58 @@ hundred-and-first title twice.
 
 `/search` redirects to the games board rather than being dropped — the address outlived the page, and
 so did the bare `/board` it used to redirect to, which now redirects in turn.
+
+### Adding straight to a column
+
+**Built 24 September 2026**, the other half of the feedback the Discover page answered: a friend
+filling a board wanted a game to go somewhere other than Backlog. Every tile — the strip's and the
+wall's, and every hobby's — carries one control in three equal thirds: **+** for Backlog, **▶** for
+Playing, **✓** for Completed. What the server does with the press, and why it is a route of its
+own, is **Adding straight to a column** in `docs/board.md`; this is the tile.
+
+- **Three columns, and never On Hold or Dropped.** Those are places a title goes *after* it has
+  been started. `ADD_STATUSES` in `hobbies/index.ts` is the list, typed so a fourth is a compile
+  error in `AddControl` until it has a symbol. The API would take any of the five.
+- **A column taken off in Settings is not offered**, by the card menu's rule: `useAddToBoard` reads
+  the same store the board does, which needs no provider, so the Discover page — which draws no
+  board — offers exactly what the board would accept.
+- **A title that is not out offers *Add to calendar* alone**, in words. There is nothing to be
+  playing or to have finished, and it is the one add whose destination is not a column.
+- **The words are the buttons' names.** `Add Hollow Knight to playing` aloud, and *Add to Playing*
+  as a title under a resting pointer, in the hobby's own labels — a film is Watching and Watched.
+  The Backlog button kept the exact name the old one had, `Add … to backlog`, lower case and all,
+  which is why every spec that ever added a title still finds it.
+
+**Picked from rendered comparisons**, on one private Artifact made the way the Discover page's was:
+the app's real `index.css` through Tailwind's compiler, the tiles copied class for class, real
+covers from the dev catalogue, light and dark at 1440, 1280 and 390, plus Ember and Blood Red for
+the hover.
+
+| choice | picked | against |
+|---|---|---|
+| shape | one bordered control, split by hairlines | three bordered buttons with a gap, which read as three buttons — the thing this was asked not to be |
+| symbols | drawn, as inline SVG in `currentColor` | the font's ▶ and ✓, which Windows draws from a fallback font as a heavy triangle and a thin √ that do not match |
+| the Backlog third | a drawn **+**, the user's own change | the word *Add*, which was the recommendation |
+| widths | equal thirds: 42px on the strip, 46 to 54px on the wall | *Add* wide with 28px or 36px symbols — at 36px the strip's *Add* was 52px and cut *Adding…* off |
+| ink | muted at rest, the theme's accent on hover | muted then body text (the recommendation, and what the ⋯ corner does); body text throughout |
+| on your board | the column, *✓ Completed* | *On your board*, which with three ways on no longer said which one a title took |
+
+**The chip names the column**, on the wall's cover and in the strip where the control was. A
+screen reader hears *On your board: Completed*, because *Completed* alone under a game's name could
+mean the game. A title waiting on the calendar says the calendar's heading, **Coming soon**, not
+Backlog — it is in Backlog by status and not in the Backlog column — decided by the server's
+`released`, as the calendar's own partition is. The column costs no request: `libraryStatuses()`
+reads every row of the library anyway and used to throw the column away.
+
+- **An add writes the new column into that list's cache at once**, then invalidates. It used to
+  keep a `justAdded` list of its own laid over the library's, so the button went dead before the
+  refetch; nothing ever emptied it, and a title added and then removed went on saying *On your
+  board* until the strip or the wall was remounted. In the cache, the next refetch corrects it.
+- **Mid-add, the control dims and says nothing.** *Adding…* went with the word *Add*, and what
+  replaces it is still to be designed.
+- **No `overflow-hidden`**, the usual way to round the end thirds' hover fill. It clips a focused
+  button's outline at the control's edge, leaving the keyboard two short bars; the end thirds round
+  their own inner corners instead, the border's 4px less its 1px width.
 
 ## Genres and colour
 
@@ -246,10 +299,10 @@ Discover page is the other half, built the same month.
 
 ### It is a view of Backlog, not a fifth column
 
-An unreleased title is a real Backlog entry. *Add to calendar* and *Add to Backlog* write the
-identical row through the identical endpoint; only the button's wording differs, because the game
-is not out. The calendar is those entries pulled out of the Backlog column and drawn on a time axis
-below the board.
+An unreleased title is a real Backlog entry. *Add to calendar* and a released title's **+** write
+the identical row through the identical endpoint, `POST /api/library/{mediaId}`; only the button
+differs, because the game is not out. The calendar is those entries pulled out of the Backlog
+column and drawn on a time axis below the board.
 
 **Three things follow for free, and every one of them would otherwise be machinery:**
 
@@ -292,10 +345,11 @@ and the calendar, or in neither, with nothing erroring. So:
 
 **The partition applies only where a status is named**, and that is load-bearing rather than tidy.
 `Filtered` also runs with no status — `ActivityYearsAsync`, `ReorderAsync`, and the un-statused
-`GET /api/library` that `libraryMediaIds()` pages through. Narrow that last one and an unreleased
-title drops out of the search strip's *"On your board"* set, the strip offers to add a title you
-already have, and the second press writes a Backlog entry the card renders as a replay that never
-happened. Nobody would trace that back to a release date.
+`GET /api/library` that `libraryStatuses()` pages through. Narrow that last one and an unreleased
+title drops out of what the tiles know is on your board, and the strip offers to add a title you
+already have. The press is refused now, as a title already on the board — before that route
+existed it wrote a Backlog entry the card rendered as a replay that never happened. Nobody would
+trace that back to a release date.
 
 **And it carries no hobby condition.** A film's `release_precision` is null for ever, so the first
 clause leaves the movies board exactly as it was. That is what makes "no branch on the hobby slug"
@@ -569,9 +623,10 @@ holds both rules, and `Most_anticipated_leaves_off_what_was_cancelled` pins the 
 ### Browsing upserts, and the cache holds IGDB's answer
 
 **A list upserts exactly as a search does**, which is the answer this section's first version asked
-for — "the two should probably agree". A tile is a `GameDto` with a media id, adding is the existing
-`POST /api/log-entries`, and *On your board* is the existing `libraryMediaIds()` set. Trimmed before
-the upsert, so the catalogue grows by one row per title a person could have seen and never by views.
+for — "the two should probably agree". A tile is a `GameDto` with a media id, adding is the same
+`POST /api/library/{mediaId}` search uses, and what a tile knows is on your board is the same
+`libraryStatuses()` set. Trimmed before the upsert, so the catalogue grows by one row per title a
+person could have seen and never by views.
 
 **The app's first `IMemoryCache`**, because the lists change daily and every view would otherwise
 re-ask IGDB and rewrite 48 rows. Keyed on the list, the journal day and the place the page starts
@@ -691,8 +746,8 @@ IGDB answered with that evening, light and dark at 1440, 768 and 390px, measured
 The last two were picked on 24 September 2026 from a second Artifact made the same way, laid out
 by width rather than by option so four forms of one control could be compared at one scale.
 Loading and a failed page were decided by what the app already does rather than rendered as
-choices — *Loading…* as a tile says *Adding…*, and the page's own red line — and were shown on the
-same page so the pick was made seeing them.
+choices — *Loading…* as a tile's add then said *Adding…*, and the page's own red line — and were
+shown on the same page so the pick was made seeing them.
 
 - **Under the board's own address**, because it is a page of that board. `AppHeader`'s `NavLink`
   lost its `end` so Games stays current there — `end` came in with the nav while `/board` was the
@@ -700,10 +755,10 @@ same page so the pick was made seeing them.
   no `discover` to its own board, and a missing or unknown list to the first — replaced rather than
   pushed, so Back never returns to an address whose only job is to leave.
 - **The tabs are links**, so each list is an address and `aria-current` comes free.
-- **`useAddToBoard` is the search strip's add, moved out of `BoardSearch` unchanged**, and
-  `addWords` its *Add* or *Add to calendar*: one of each for both surfaces, so a title cannot read
-  differently on the wall and in the strip. Adding straight to a column other than Backlog — the
-  other half of the same friend's feedback — will land in that hook, once.
+- **`useAddToBoard` is the search strip's add, moved out of `BoardSearch`**, and `addWords` its
+  words: one of each for both surfaces, so a title cannot read differently on the wall and in the
+  strip. Adding straight to a column other than Backlog — the other half of the same friend's
+  feedback — landed in that hook the next day, once; see **Adding straight to a column**.
 - **The invitation is a sibling of the `<label>`**, the clear button's rule. Inside it, the box's
   accessible name becomes the whole sentence and every test finding the box by name stops finding
   it — reintroduced, that failed fourteen.
