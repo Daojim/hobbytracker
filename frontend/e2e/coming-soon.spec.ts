@@ -169,7 +169,7 @@ test('the search strip offers the calendar for a game that is not out', async ({
   expect(items.map((entry) => entry.status)).toEqual(['Backlog']);
 });
 
-test('the search strip still offers a plain add for a game that is out', async ({ page }) => {
+test('the search strip still offers the three columns for a game that is out', async ({ page }) => {
   // Outer Wilds rather than Celeste, and the reason is worth writing down: the stub's undated
   // fixture is called "Celeste 64", so a search for "Celeste" answers with two tiles and one of
   // them is unreleased. `hasText` is a substring match, so the tile this wants has to be named
@@ -183,7 +183,10 @@ test('the search strip still offers a plain add for a game that is out', async (
     .getByRole('listitem')
     .filter({ has: page.getByRole('heading', { name: 'Outer Wilds', exact: true }) });
 
-  await expect(tile.getByRole('button', { name: /to backlog$/ })).toHaveText('Add');
+  await expect(tile.getByRole('button')).toHaveCount(3);
+  await expect(tile.getByRole('button', { name: /to backlog$/ })).toBeVisible();
+  await expect(tile.getByRole('button', { name: /to playing$/ })).toBeVisible();
+  await expect(tile.getByRole('button', { name: /to completed$/ })).toBeVisible();
 });
 
 test('an unreleased title still counts as being on your board', async ({ page }) => {
@@ -201,7 +204,8 @@ test('an unreleased title still counts as being on your board', async ({ page })
     .getByRole('listitem')
     .filter({ hasText: 'Silksong II' });
 
-  await expect(tile.getByText('On your board')).toBeVisible();
+  // And says where: on the calendar, which is where the board shows it, rather than "Backlog".
+  await expect(tile).toContainText('On your board: Coming soon');
   await expect(tile.getByRole('button', { name: /release calendar/ })).toHaveCount(0);
 });
 

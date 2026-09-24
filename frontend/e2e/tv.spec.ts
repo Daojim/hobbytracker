@@ -40,7 +40,10 @@ test('finding a show puts it on the board, complete, without leaving it', async 
   await page.getByRole('searchbox', { name: 'Search TV shows' }).fill('severance');
   await page.getByRole('button', { name: 'Add Severance to backlog' }).click();
 
-  await expect(page.getByText('On your board')).toBeVisible();
+  // Where it went, in the hobby's words, rather than only that it went somewhere.
+  await expect(page.getByRole('region', { name: 'Search results' })).toContainText(
+    'On your board: Backlog',
+  );
 
   // Search carries no counts and no runtime, so this figure exists only because `/tv/{id}` was
   // called on add. 19 episodes at 47 minutes, multiplied by Postgres in a generated column and

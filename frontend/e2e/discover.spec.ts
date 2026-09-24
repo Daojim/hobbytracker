@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, seed, titlesIn } from './support/board';
+import { card, seed, titlesIn, todayOnCard } from './support/board';
 
 /**
  * The Discover page, end to end: a wall of what IGDB would show somebody who has not typed
@@ -62,7 +62,7 @@ test('the wall opens on new releases, and adding from it puts the game on the bo
   ).toHaveAttribute('aria-current', 'page');
 
   await tile(page, 'Tunic II').getByRole('button', { name: 'Add Tunic II to backlog' }).click();
-  await expect(tile(page, 'Tunic II').getByText('On your board')).toBeVisible();
+  await expect(tile(page, 'Tunic II')).toContainText('On your board: Backlog');
 
   await page.getByRole('link', { name: 'Back to your board' }).click();
 
@@ -90,7 +90,8 @@ test('most anticipated offers the calendar, and leaves the rumour and the cancel
   await tile(page, 'Silksong II')
     .getByRole('button', { name: 'Add Silksong II to your release calendar' })
     .click();
-  await expect(tile(page, 'Silksong II').getByText('On your board')).toBeVisible();
+  // On the calendar rather than in the column, and the chip says so rather than "Backlog".
+  await expect(tile(page, 'Silksong II')).toContainText('On your board: Coming soon');
 
   await expect(tile(page, 'Stellar Blade: Blood Rain')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Half-Life 3' })).toHaveCount(0);
@@ -158,8 +159,28 @@ test('a title already on your board says so on its cover and offers nothing to p
 
   await page.goto('/board/games/discover/most-played');
 
-  await expect(tile(page, 'Hollow Knight: Silksong').getByText('On your board')).toBeVisible();
+  await expect(tile(page, 'Hollow Knight: Silksong')).toContainText('On your board: Completed');
   await expect(tile(page, 'Hollow Knight: Silksong').getByRole('button')).toHaveCount(0);
+});
+
+test('most played fills a board backwards: one press puts a game straight into Completed', async ({
+  page,
+}) => {
+  // The feedback the whole of this answered: a list of games people have finished, added one
+  // at a time to Backlog and then dragged across. Now it is one press, finished today — the
+  // date a drag would have stamped — for the journal to correct if it was years ago.
+  await page.goto('/board/games/discover/most-played');
+
+  await tile(page, 'Hollow Knight: Silksong')
+    .getByRole('button', { name: 'Add Hollow Knight: Silksong to completed' })
+    .click();
+  await expect(tile(page, 'Hollow Knight: Silksong')).toContainText('On your board: Completed');
+
+  await page.getByRole('link', { name: 'Back to your board' }).click();
+
+  await expect(card(page, 'Hollow Knight: Silksong')).toBeVisible();
+  expect(await titlesIn(page, 'Completed')).toEqual(['Hollow Knight: Silksong']);
+  await expect(card(page, 'Hollow Knight: Silksong')).toContainText(todayOnCard());
 });
 
 test('a board with no wall offers no way to one', async ({ page }) => {
