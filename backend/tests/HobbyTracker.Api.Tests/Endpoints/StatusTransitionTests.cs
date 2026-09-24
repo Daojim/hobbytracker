@@ -403,11 +403,18 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
     [Fact]
     public async Task A_replay_lands_at_the_top_of_its_new_column()
     {
-        // Two games already sitting in the backlog.
+        // Two games already sitting in the backlog, put there the way a tile puts them — each on
+        // top of the last, so they hold real positions below zero.
+        //
+        // This used to *move* them there, and a move answers 404 for a title that has never been
+        // logged: the column held the replay alone, and the assertion passed whatever position
+        // the replay was given. GivenLogEntryAsync would not rescue it either — every position
+        // there is 0, and the id tie-break puts the newest pass on top regardless. Checked by
+        // giving the replay a position of 0, which this passed before and fails now.
         foreach (var index in new[] { 1, 2 })
         {
             var existing = await GivenGameAsync($"Game {index}", externalId: index.ToString());
-            await MoveAsync(existing, LogStatus.Backlog);
+            (await AddAsync(existing, LogStatus.Backlog)).StatusCode.ShouldBe(HttpStatusCode.Created);
         }
 
         var replayed = await GivenGameAsync("Replayed", externalId: "3");
@@ -415,8 +422,10 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
 
         await MoveAsync(replayed, LogStatus.Backlog);
 
+        // The whole column, so a setup that quietly failed to put the other two there fails
+        // here rather than passing on a column of one.
         var backlog = await GetColumnAsync(LogStatus.Backlog);
-        backlog.Items[0].Title.ShouldBe("Replayed");
+        backlog.Items.Select(item => item.Title).ShouldBe(["Replayed", "Game 2", "Game 1"]);
     }
 
     [Fact]
@@ -665,6 +674,10 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync(
             $"/api/library/{mediaId}/status", new StatusTransitionRequest(status), Json, Ct);
+
+    /// <summary>A title put on the board the way a tile puts it there. See AddingToBoardTests.</summary>
+    private Task<HttpResponseMessage> AddAsync(int mediaId, LogStatus status) =>
+        Client.PostAsJsonAsync($"/api/library/{mediaId}", new AddToBoardRequest(status), Json, Ct);
 
     private Task<List<LogEntry>> EntriesAsync(int mediaId) => WithDbAsync(db => db.LogEntries
         .Where(entry => entry.MediaId == mediaId)
