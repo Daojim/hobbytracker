@@ -1,5 +1,6 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { Link, NavLink, Navigate, useParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { AppHeader } from '../shell/AppHeader';
 import { hobbyDefinition, type DiscoverList } from '../hobbies';
 import { discoverKey } from '../board/keys';
@@ -9,10 +10,16 @@ import type { Hobby } from '../shell/hobbies';
 import { WallTile } from './WallTile';
 
 /**
- * How long a list stays fresh here. The server asks IGDB once a day for each list, so a person
- * going back and forth between tabs over an evening has nothing new to be told.
+ * A loaded wall is never refreshed behind somebody's back — it stays as it was loaded for as long
+ * as it is open, and a fresh visit starts again from page one.
+ *
+ * It was an hour, when a list was one page. Refreshing a list with Load more behind it asks for
+ * every page again, one after another: ten pages of Popular now would be twenty IGDB requests in a
+ * few seconds, against a limit of four a second, set off by nothing more than the window coming
+ * back into focus. And there is little to gain, because the server keeps each page's answer for
+ * the day anyway.
  */
-const LIST_FRESH_MS = 60 * 60 * 1000;
+const LIST_FRESH_MS = Infinity;
 
 /**
  * The Discover page: a wall of what the provider would show somebody who has not typed
@@ -68,11 +75,64 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
   // read as addable here and on the board there.
   const board = useAddToBoard(hobby);
 
-  const titles = useQuery({
+  // A page at a time. Where the next one starts is the server's to say — two of the lists drop
+  // titles after the provider has answered, so page two does not begin a page's worth of places
+  // on — and this side only ever hands back what it was told.
+  const titles = useInfiniteQuery({
     queryKey: discoverKey(hobby, list.slug),
-    queryFn: () => list.run(),
+    queryFn: ({ pageParam }) => list.run(pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.next ?? undefined,
     staleTime: LIST_FRESH_MS,
   });
+
+  // Every page so far, as one wall. A title already on it is dropped rather than drawn twice:
+  // the server keeps the provider's answer for hours and asks again at midnight, so a page loaded
+  // either side of that can carry a title the page before it already showed.
+  const hits = useMemo(() => {
+    const seen = new Set<number>();
+
+    return (titles.data?.pages ?? [])
+      .flatMap((page) => page.titles)
+      .filter((hit) => {
+        if (seen.has(hit.id)) {
+          return false;
+        }
+
+        seen.add(hit.id);
+        return true;
+      });
+  }, [titles.data]);
+
+  // Focus goes to the first title a page added, where reading carries on. The new tiles arrive
+  // above the button, so left there, somebody on a keyboard would have to go back through all of
+  // them to reach the first. Moved once the tiles are drawn, which is after the page arrives.
+  const wall = useRef<HTMLUListElement>(null);
+  const firstNew = useRef<number | null>(null);
+
+  // Forgotten when the tabs move on. This component outlives a tab — each list is the same page
+  // with a different prop — so a page asked for on one list and found in the cache on the way
+  // back would otherwise take focus when nobody had pressed anything. Declared first, because
+  // effects run in order and on a tab change this one has to win.
+  useEffect(() => {
+    firstNew.current = null;
+  }, [list.slug]);
+
+  useEffect(() => {
+    const index = firstNew.current;
+
+    if (index === null || hits.length <= index) {
+      return;
+    }
+
+    firstNew.current = null;
+    wall.current?.children[index]?.querySelector('h3')?.focus();
+  }, [hits.length]);
+
+  const loadMore = () => {
+    firstNew.current = hits.length;
+    void titles.fetchNextPage();
+  };
 
   return (
     <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
@@ -118,9 +178,10 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
 
         {titles.isPending && <p className="text-sm text-muted">Loading…</p>}
 
-        {titles.error !== null && (
+        {titles.error !== null && !titles.isFetchNextPageError && (
           // The API keeps "IGDB is unhappy" (502) apart from "this app is broken" (500), so this
-          // passes on what it said rather than flattening it into "something went wrong".
+          // passes on what it said rather than flattening it into "something went wrong". A later
+          // page failing says so by the button instead, under the titles it leaves in place.
           <p role="alert" className="text-sm text-danger">
             {titles.error.message}
           </p>
@@ -132,22 +193,24 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
           </p>
         )}
 
-        {titles.data?.length === 0 && (
+        {titles.isSuccess && hits.length === 0 && !titles.hasNextPage && (
           <p className="text-sm text-muted">Nothing on this list right now.</p>
         )}
 
-        {titles.data !== undefined && titles.data.length > 0 && (
+        {hits.length > 0 && (
           // Eight across from 1280px, picked from rendered comparisons over six: sixteen games
           // before any scrolling rather than six, with each cover still wider than the strip's.
-          // A list is 48 long, which fills the last row at 2, 3, 4, 8 and 12 across alike.
+          // A page is 48 long, which fills the last row at 2, 3, 4, 8 and 12 across alike — and
+          // so does every page after it.
           //
           // Labelled rather than headed, as the strip is: the list's name is already on the tab
           // above it, and the heading levels below the page's are the tiles' own.
           <ul
+            ref={wall}
             aria-label={list.label}
             className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 3xl:grid-cols-12"
           >
-            {titles.data.map((hit) => (
+            {hits.map((hit) => (
               <WallTile
                 key={hit.id}
                 hit={hit}
@@ -158,6 +221,41 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
               />
             ))}
           </ul>
+        )}
+
+        {titles.hasNextPage ? (
+          // Picked from rendered comparisons on 24 September 2026 over a full-width bar, the
+          // same button on a rule, and an accent link: the tile's own Add button at its own
+          // width, so there is nothing new to learn, and at 119px nothing that reads as part of
+          // the wall. Twice the gap between rows above it, so it never reads as another row.
+          <div className="mt-8">
+            {titles.isFetchNextPageError && (
+              // Pressing the button again is the retry, so it stays where it is, under this.
+              <p role="alert" className="mb-3 text-center text-sm text-danger">
+                {titles.error?.message}
+              </p>
+            )}
+
+            <div className="flex justify-center">
+              <button
+                type="button"
+                disabled={titles.isFetchingNextPage}
+                onClick={loadMore}
+                className="h-9 rounded border border-line bg-surface px-6 text-sm font-medium hover:bg-hover disabled:opacity-50"
+              >
+                {titles.isFetchingNextPage ? 'Loading…' : 'Load more'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          hits.length > 0 && (
+            // Also picked from the renders, over saying nothing: without it the end of a list
+            // looks the same as a page that stopped loading. Worded as the sibling of the empty
+            // list's line above.
+            <p className="mt-8 text-center text-sm text-muted">
+              That's everything on this list right now.
+            </p>
+          )
         )}
       </div>
     </main>

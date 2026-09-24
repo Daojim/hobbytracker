@@ -18,11 +18,11 @@ public interface IGameCatalogService
         string search, int? limit, CancellationToken cancellationToken);
 
     /// <summary>
-    /// One of the Discover page's lists, in the provider's order. Upserted exactly as a search is,
-    /// so every title carries a media id a log entry can point at.
+    /// One page of a Discover list, in the provider's order, starting at a place in it. Upserted
+    /// exactly as a search is, so every title carries a media id a log entry can point at.
     /// </summary>
-    Task<IReadOnlyList<GameDto>> DiscoverAsync(
-        DiscoverList list, CancellationToken cancellationToken);
+    Task<DiscoverListPage<GameDto>> DiscoverAsync(
+        DiscoverList list, int from, CancellationToken cancellationToken);
 
     /// <summary>Returns null when no game with that media id exists.</summary>
     Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken);
@@ -114,11 +114,12 @@ public sealed class GameCatalogService(
     /// <summary>How far back the Discover page's New releases reaches.</summary>
     private static readonly TimeSpan NewReleaseWindow = TimeSpan.FromDays(60);
 
-    public async Task<IReadOnlyList<GameDto>> DiscoverAsync(
-        DiscoverList list, CancellationToken cancellationToken)
+    public async Task<DiscoverListPage<GameDto>> DiscoverAsync(
+        DiscoverList list, int from, CancellationToken cancellationToken)
     {
         var today = clock.Today;
         var size = options.Value.DiscoverListSize;
+        var asked = PlacesToAskAbout(list, size);
 
         // IGDB's answer is what is kept, never the rows it turns into. The rows are upserted on
         // every view instead, which is idempotent and almost always writes nothing — and it is what
@@ -129,62 +130,129 @@ public sealed class GameCatalogService(
         // Keyed on the day as well as expiring, because New releases is a window that moves with
         // the date and whether a title is out changes at midnight. A failure is not kept: the
         // entry is only written once IGDB has answered.
-        var found = await cache.GetOrCreateAsync(
-            (nameof(DiscoverAsync), list, today),
+        //
+        // And on the place the page starts at, because each page is its own question. Keyed on
+        // the list alone, page two would be answered with page one — and the wall drops a title it
+        // already shows, so on screen that is a Load more that does nothing, with no error anywhere.
+        var slice = await cache.GetOrCreateAsync(
+            (nameof(DiscoverAsync), list, today, from),
             entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow =
                     TimeSpan.FromHours(options.Value.DiscoverCacheHours);
 
-                return AskIgdbAsync(list, size, cancellationToken);
-            }) ?? [];
+                return AskIgdbAsync(list, from, asked, cancellationToken);
+            }) ?? new IgdbSlice([], Ended: true);
 
         // Filtered and trimmed before the upsert, as a search is, so the catalogue grows by one
         // row per title a person could have seen and no more.
-        //
-        // Most anticipated keeps only what the calendar would call upcoming. IGDB's "no release
-        // date" includes games in alpha or early access, which the board calls out, and rumours,
-        // which it keeps off the calendar — so without this a tile there would say "Add to
-        // calendar" and land in Backlog. The same expression the calendar is drawn by decides.
-        List<IgdbGame> shown =
-        [
-            .. found
-                .Where(game => list != DiscoverList.MostAnticipated || !IsOut(game, today))
-                .Take(size)
-        ];
+        var (shown, next) = Page(slice, game => Keeps(list, game, today), size, from + asked);
 
         var stored = await UpsertAsync(shown, cancellationToken);
 
-        return
-        [
-            .. shown
-                .Select(result => stored.GetValueOrDefault(ExternalIdOf(result)))
-                .Where(game => game is not null)
-                .Select(game => GameDto.From(game!, today))
-        ];
+        return new DiscoverListPage<GameDto>(
+            [
+                .. shown
+                    .Select(result => stored.GetValueOrDefault(ExternalIdOf(result)))
+                    .Where(game => game is not null)
+                    .Select(game => GameDto.From(game!, today))
+            ],
+            next);
     }
 
-    private Task<IReadOnlyList<IgdbGame>> AskIgdbAsync(
-        DiscoverList list, int size, CancellationToken cancellationToken)
+    /// <summary>
+    /// How many of IGDB's places to ask about for one page.
+    ///
+    /// Twice the wall where titles are dropped after IGDB has answered — PopScore's filter can
+    /// only run on its second question, and the calendar's rule after the anticipated list — so
+    /// what is left still fills it. The other two filter inside the query, before the limit, so
+    /// one place past the wall is enough to know whether there is a next page, rather than
+    /// offering one that brings nothing.
+    /// </summary>
+    private static int PlacesToAskAbout(DiscoverList list, int size) => list switch
+    {
+        DiscoverList.PopularNow or DiscoverList.MostAnticipated => size * 2,
+        _ => size + 1,
+    };
+
+    private Task<IgdbSlice> AskIgdbAsync(
+        DiscoverList list, int from, int asked, CancellationToken cancellationToken)
     {
         var now = clock.Now;
 
         return list switch
         {
             DiscoverList.NewReleases =>
-                igdb.GetNewReleasesAsync(now - NewReleaseWindow, now, size, cancellationToken),
-
-            // Twice the wall where titles are dropped after IGDB has answered — PopScore's filter
-            // can only run after its limit, and the calendar's rule after the anticipated list —
-            // so what is left still fills it. The other two filter inside the query, before the limit.
-            DiscoverList.PopularNow => igdb.GetPlayingNowAsync(size * 2, cancellationToken),
-            DiscoverList.MostAnticipated => igdb.GetAnticipatedAsync(now, size * 2, cancellationToken),
-
-            DiscoverList.MostPlayed => igdb.GetMostRatedAsync(size, cancellationToken),
+                igdb.GetNewReleasesAsync(now - NewReleaseWindow, now, from, asked, cancellationToken),
+            DiscoverList.PopularNow => igdb.GetPlayingNowAsync(from, asked, cancellationToken),
+            DiscoverList.MostAnticipated => igdb.GetAnticipatedAsync(now, from, asked, cancellationToken),
+            DiscoverList.MostPlayed => igdb.GetMostRatedAsync(from, asked, cancellationToken),
 
             _ => throw new ArgumentOutOfRangeException(nameof(list), list, null),
         };
     }
+
+    /// <summary>
+    /// What one page shows of IGDB's slice, and the place the next page starts at.
+    ///
+    /// <para>
+    /// <b>The next page starts at the first title this one kept back</b> — at its place in IGDB's
+    /// ordering, never at its position in the slice or a page's worth of places on. Two lists drop
+    /// titles after IGDB has answered, so page one of Most anticipated already reaches past the
+    /// 48th place to fill itself; and PopScore's slice has holes where its second question
+    /// declined a game. Either way a page two starting at 48 would show titles twice.
+    /// </para>
+    ///
+    /// <para>
+    /// With nothing kept back, the next page starts where the slice ends — unless the ordering
+    /// ended inside it, and then there is no next page at all.
+    /// </para>
+    /// </summary>
+    private static (List<IgdbGame> Shown, int? Next) Page(
+        IgdbSlice slice, Func<IgdbGame, bool> keeps, int size, int end)
+    {
+        List<IgdbGame> shown = [];
+
+        foreach (var (place, game) in slice.Games)
+        {
+            if (!keeps(game))
+            {
+                continue;
+            }
+
+            if (shown.Count == size)
+            {
+                return (shown, place);
+            }
+
+            shown.Add(game);
+        }
+
+        return (shown, slice.Ended ? null : end);
+    }
+
+    /// <summary>
+    /// Whether a title belongs on the list IGDB put it on, where that is the app's call rather than
+    /// IGDB's. Only Most anticipated has one.
+    ///
+    /// <para>
+    /// It keeps only what the calendar would call upcoming. IGDB's "no release date" includes games
+    /// in alpha or early access, which the board calls out, and rumours, which it keeps off the
+    /// calendar — so without this a tile there would say "Add to calendar" and land in Backlog.
+    /// The same expression the calendar is drawn by decides.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>And nothing cancelled</b>, which is where the list and the calendar part company. The
+    /// calendar keeps a cancelled title somebody already tracks, because that is where they find
+    /// out it is dead. A list of what people are waiting for has no business offering one: on 24
+    /// September 2026 the live list carried one or two a page from page two on — Perfect Dark,
+    /// Everwild, Scalebound, and five on page nine, Silent Hills among them.
+    /// </para>
+    /// </summary>
+    private static bool Keeps(DiscoverList list, IgdbGame game, DateOnly today) =>
+        list != DiscoverList.MostAnticipated
+        || (!IsOut(game, today) && IgdbRelease.StatusOf(game) != ReleaseStatus.Cancelled);
 
     /// <summary>
     /// Whether the board would call this title out, decided before anything is written.

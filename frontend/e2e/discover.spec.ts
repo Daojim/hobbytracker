@@ -15,8 +15,12 @@ import { card, seed, titlesIn } from './support/board';
  *   - **Popular now** is PopScore's Playing list, with the same decoy ranked first.
  *   - **Most anticipated** is everything not out that somebody is waiting for, and that includes
  *     *Half-Life 3*: hype and no date is IGDB's "not out". It is a rumour, which the calendar does
- *     not hold, so only the API's rule keeps it off.
+ *     not hold, so only the API's rule keeps it off. So is *Scalebound*, cancelled, which the
+ *     calendar would hold and this list's own rule does not.
  *   - **Most played** is the one title with ratings, *Hollow Knight: Silksong*.
+ *
+ * The API here pages a list two titles at a time rather than 48 — see `playwright.config.ts` — so
+ * Popular now and Most anticipated each take a Load more to finish.
  */
 
 test.beforeEach(async ({ page }) => {
@@ -78,7 +82,9 @@ test('nothing IGDB tags erotic reaches the wall', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Velvet Lounge' })).toHaveCount(0);
 });
 
-test('most anticipated offers the calendar, and leaves the rumour off', async ({ page }) => {
+test('most anticipated offers the calendar, and leaves the rumour and the cancellation off', async ({
+  page,
+}) => {
   await page.goto('/board/games/discover/most-anticipated');
 
   await tile(page, 'Silksong II')
@@ -88,11 +94,61 @@ test('most anticipated offers the calendar, and leaves the rumour off', async ({
 
   await expect(tile(page, 'Stellar Blade: Blood Rain')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Half-Life 3' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Scalebound' })).toHaveCount(0);
 
   // It lands where the button said it would: on the calendar, not in the Backlog column.
   await page.goto('/board/games');
   await expect(page.getByRole('region', { name: /^Coming soon/ }).getByText('Silksong II')).toBeVisible();
   await expect(card(page, 'Silksong II')).toHaveCount(0);
+});
+
+test('load more carries a list on past what it kept off, and says when it has run out', async ({
+  page,
+}) => {
+  await page.goto('/board/games/discover/most-anticipated');
+
+  // Page one asked IGDB about four places — Silksong II, Scalebound, Half-Life 3, Stellar Blade —
+  // and kept two. Page two starts after all four, which only the API could know.
+  const wall = page.getByRole('list', { name: 'Most anticipated' });
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText([
+    'Silksong II',
+    'Stellar Blade: Blood Rain',
+  ]);
+
+  await page.getByRole('button', { name: 'Load more' }).click();
+
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText([
+    'Silksong II',
+    'Stellar Blade: Blood Rain',
+    'Hades III',
+  ]);
+  await expect(page.getByText("That's everything on this list right now.")).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+
+  // Kept off the second page as well as the first.
+  await expect(page.getByRole('heading', { name: 'Half-Life 3' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Scalebound' })).toHaveCount(0);
+});
+
+test('popular now carries on through PopScore in its own order', async ({ page }) => {
+  await page.goto('/board/games/discover/popular-now');
+
+  // PopScore ranks the Erotic decoy first and the question describing the ranking declines it,
+  // so page one is places two and three, and page two starts at the fourth.
+  const wall = page.getByRole('list', { name: 'Popular now' });
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText(['Hades', 'Stardew Valley']);
+
+  // From the keyboard, which is where focus moving to the first new title matters.
+  await page.getByRole('button', { name: 'Load more' }).focus();
+  await page.keyboard.press('Enter');
+
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText([
+    'Hades',
+    'Stardew Valley',
+    'Celeste',
+    'Hollow Knight',
+  ]);
+  await expect(wall.getByRole('heading', { level: 3, name: 'Celeste' })).toBeFocused();
 });
 
 test('a title already on your board says so on its cover and offers nothing to press', async ({

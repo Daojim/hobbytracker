@@ -1,5 +1,5 @@
 import { apiJson } from './client';
-import type { Game, GameDetail } from './types';
+import type { DiscoverListPage, Game, GameDetail } from './types';
 
 /**
  * Searching hits IGDB on every call by design — the debounce lives here, in the client, not in a
@@ -13,13 +13,16 @@ export function searchGames(search: string, limit?: number): Promise<Game[]> {
 }
 
 /**
- * One of the Discover page's lists: what IGDB would show somebody who has not typed anything.
+ * A page of one of the Discover page's lists: what IGDB would show somebody who has not typed
+ * anything, from a place in it — `0`, then whatever `next` the page before said.
  *
  * Like a search, every title comes back already in the catalogue, so its id is one a log entry
  * can point at — and like a search, the order is IGDB's and must not be re-sorted.
  */
-export function discoverGames(list: string): Promise<Game[]> {
-  return apiJson<Game[]>(`/api/games/discover/${encodeURIComponent(list)}`);
+export function discoverGames(list: string, from: number): Promise<DiscoverListPage<Game>> {
+  return apiJson<DiscoverListPage<Game>>(`/api/games/discover/${encodeURIComponent(list)}`, {
+    query: { from },
+  });
 }
 
 /** One stored game plus everything logged against it, in a single request. */

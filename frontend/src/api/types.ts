@@ -53,6 +53,20 @@ export interface PagedResult<T> {
 }
 
 /**
+ * One page of a Discover list, and where the next one starts.
+ *
+ * Not a `PagedResult`: a page number can only find its page by multiplying, and two of the lists
+ * drop titles after the provider has answered, so page two does not start at the 49th place. The
+ * server says where it stopped, and that is all this side ever sends back. See
+ * `Contracts/DiscoverListPage.cs`.
+ */
+export interface DiscoverListPage<T> {
+  titles: T[];
+  /** The place the next page starts at, sent back as `from`; null when the list has run out. */
+  next: number | null;
+}
+
+/**
  * One title in the collection — a title something has been logged against, which is not the same
  * as a title in the catalog. Searching IGDB stores every result, so most of `media` is metadata
  * for games nobody ever recorded anything about.
