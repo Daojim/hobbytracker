@@ -96,6 +96,9 @@ describe('contrast', () => {
         ['rating-high', 'surface'],
         ['muted', 'well'],
         ['muted', 'sunken'],
+        // A tile's + ▶ ✓ under the cursor: the symbol turns the accent, on the hover fill. Held
+        // to text's bar rather than the 3:1 a symbol needs, because every theme clears it.
+        ['accent', 'hover'],
       ])('%s reads on %s', (token, ground) => {
         expect(on(token, ground)).toBeGreaterThanOrEqual(4.5);
       });

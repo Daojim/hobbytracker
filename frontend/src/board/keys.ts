@@ -69,7 +69,7 @@ export const mediaKey = (hobby: string, mediaId: number) => ['media', hobby, med
 /**
  * The release calendar under the board — the Backlog entries whose title is not out yet.
  *
- * `'upcoming'` sits where a `LogStatus` sits, beside `'years'` and the search strip's `'ids'`.
+ * `'upcoming'` sits where a `LogStatus` sits, beside `'years'` and the tiles' `'statuses'`.
  * That placement is what makes it reachable from the `['library', hobby]` prefix, which is the
  * invalidation an add, a remove and a drawer write all use — and unreachable from
  * `['library', hobby, from]`, the narrower one a move settles with.
@@ -83,19 +83,26 @@ export const mediaKey = (hobby: string, mediaId: number) => ['media', hobby, med
 export const upcomingKey = (hobby: string) => ['library', hobby, 'upcoming'] as const;
 
 /**
- * Every media id on a hobby's board, which is how a tile knows whether to offer *Add*.
+ * Every title on a hobby's board and the column each is in — how a tile knows whether to offer
+ * its add, and what to say instead: *Completed*, *Playing*, *Coming soon*.
  *
  * Under `['library', hobby]`, so an add, a remove and a drawer write — which all invalidate that
- * prefix — keep it true. Spelled here now that two surfaces read it, the search strip and the
+ * prefix — keep it true. Spelled here because two surfaces read it, the search strip and the
  * Discover page: two hooks holding the same key by hand is how one of them quietly stops matching.
+ *
+ * **A move has to name it**, and it did not have to while this held ids alone: a move never
+ * changes whether a title is on the board, and it does change which column it is in. It sits
+ * where a status sits, beside `'years'` and `'upcoming'`, so the two column prefixes a move
+ * settles with do not reach it — and the strip above the board would go on naming the column a
+ * card had just left.
  */
-export const libraryIdsKey = (hobby: string) => ['library', hobby, 'ids'] as const;
+export const libraryStatusesKey = (hobby: string) => ['library', hobby, 'statuses'] as const;
 
 /**
  * One of the Discover page's lists.
  *
  * Not under `['library', ...]`, because it is the provider's catalogue rather than anybody's
- * board: adding a title changes nothing in the list itself. Whether a tile says *On your board*
- * comes from {@link libraryIdsKey}.
+ * board: adding a title changes nothing in the list itself. Whether a tile says it is on your
+ * board, and where, comes from {@link libraryStatusesKey}.
  */
 export const discoverKey = (hobby: string, list: string) => ['discover', hobby, list] as const;

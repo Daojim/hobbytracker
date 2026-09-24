@@ -11,6 +11,15 @@ namespace HobbyTracker.Api.Contracts;
 public sealed record StatusTransitionRequest(LogStatus Status);
 
 /// <summary>
+/// Putting a title on your board, in a column. The caller names the column and nothing else,
+/// exactly as a move does: the dates the first pass carries are worked out by the rule a drag
+/// into that column follows, so a client cannot add something to Playing with no start.
+///
+/// Any of the five columns. Which ones a tile offers is the client's decision, not the API's.
+/// </summary>
+public sealed record AddToBoardRequest(LogStatus Status);
+
+/// <summary>
 /// The full desired order of one board column, top first.
 ///
 /// Sending the whole column rather than a move-plus-index is idempotent and immune to

@@ -179,7 +179,8 @@ builder.Services.AddHostedService<ReleaseRefreshWorker>();
 builder.Services.AddScoped<IHltbService, HltbService>();
 
 // What happens when a title first reaches a board. One per hobby, and the order they are
-// registered in is not meaningful: LogEntryService calls every one of them. See IMediaAdded.
+// registered in is not meaningful: both places a title is added call every one of them —
+// LibraryService.AddToBoardAsync and LogEntryService.CreateAsync. See IMediaAdded.
 builder.Services.AddScoped<IMediaAdded, HltbOnMediaAdded>();
 builder.Services.AddScoped<IMediaAdded, TmdbOnMediaAdded>();
 builder.Services.AddScoped<IMediaAdded, TvOnMediaAdded>();

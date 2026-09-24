@@ -114,6 +114,49 @@ public class LibraryController(ILibraryService library) : ControllerBase
     }
 
     /// <summary>
+    /// Puts a title on your board, in a column — what a tile's +, ▶ and ✓ do.
+    ///
+    /// The counterpart of <see cref="RemoveFromBoard"/>, at the same address. The caller names
+    /// the column and nothing else, as a move does: the first pass carries the dates a drag into
+    /// that column would give it, built by the same code, so an add straight to Playing starts
+    /// today and one straight to Completed finishes today with no start made up.
+    ///
+    /// <para>
+    /// <b>201</b> with the card, and no <c>Location</c> — RFC 9110 reads its absence as the target
+    /// URI, which is this title's place on your board. <b>409</b> for a title already on it, where
+    /// a second pass would be a replay nobody made; moving one that is there is a transition's
+    /// job. <b>404</b> for a title the catalogue does not hold, because here it is the resource
+    /// addressed, where <c>POST /api/log-entries</c> takes it in the body and answers 400.
+    /// </para>
+    /// </summary>
+    [HttpPost("{mediaId:int}")]
+    [ProducesResponseType<LibraryItemDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<LibraryItemDto>> AddToBoard(
+        int mediaId, AddToBoardRequest request, CancellationToken cancellationToken)
+    {
+        var (outcome, item) = await library.AddToBoardAsync(
+            mediaId, request.Status, cancellationToken);
+
+        switch (outcome)
+        {
+            case AddToBoardOutcome.NoSuchTitle:
+                return NotFound();
+
+            case AddToBoardOutcome.AlreadyOnBoard:
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "Already on your board",
+                    detail: "That title is already on your board.");
+
+            default:
+                return StatusCode(StatusCodes.Status201Created, item);
+        }
+    }
+
+    /// <summary>
     /// Takes a title off your board — what <em>Remove from board</em> in a card's menu does.
     ///
     /// Every pass of yours against it, notes and all. Removing is not dropping: Dropped records

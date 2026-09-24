@@ -37,7 +37,10 @@ test('finding a film puts it on the board, complete, without leaving it', async 
   await page.getByRole('searchbox', { name: 'Search movies' }).fill('arrival');
   await page.getByRole('button', { name: 'Add Arrival to backlog' }).click();
 
-  await expect(page.getByText('On your board')).toBeVisible();
+  // Where it went, in the hobby's words, rather than only that it went somewhere.
+  await expect(page.getByRole('region', { name: 'Search results' })).toContainText(
+    'On your board: Backlog',
+  );
 
   // The half that search could not answer, on the card immediately. No poll, no refresh route:
   // if enrichment were queued the way HowLongToBeat's is, this runtime would not be here yet.

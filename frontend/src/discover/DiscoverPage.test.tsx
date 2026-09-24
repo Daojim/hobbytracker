@@ -158,26 +158,27 @@ describe('DiscoverPage', () => {
     expect(discover.asked).toEqual(['new-releases', 'most-played']);
   });
 
-  it('puts a title on the backlog, and then says it is there', async () => {
-    // The same request adding from search sends: the list upserted the title, so a tile already
-    // has the media id a log entry points at.
+  it('puts a title straight into Completed, and then says so on its cover', async () => {
+    // Filling a board backwards — Most played is a list of games people have finished — one
+    // press a game rather than one press and a drag. The same request adding from search sends:
+    // the list upserted the title, so a tile already has the media id the add points at.
     const search = searchServer();
     discoverServer({ 'new-releases': [game({ id: 7, title: 'Tunic II' })] });
 
     renderDiscover();
-    await userEvent.click(await screen.findByRole('button', { name: 'Add Tunic II to backlog' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add Tunic II to completed' }),
+    );
 
-    await waitFor(() => expect(search.added).toEqual([7]));
+    await waitFor(() => expect(search.added).toEqual([{ mediaId: 7, status: 'Completed' }]));
 
-    // At once, rather than a refetch later — or the button is live long enough to be pressed
-    // twice, and a second Backlog entry reads on the board as a replay that never happened.
     const added = await tile('Tunic II');
-    expect(await within(added).findByText('On your board')).toBeInTheDocument();
+    await waitFor(() => expect(added).toHaveTextContent('On your board: Completed'));
     expect(within(added).queryByRole('button')).not.toBeInTheDocument();
   });
 
-  it('says on the cover when a title is already on your board, and offers nothing to press', async () => {
-    searchServer({ library: [7] });
+  it('says on the cover which column a title is in, and offers nothing to press', async () => {
+    searchServer({ library: [{ mediaId: 7, status: 'InProgress' }] });
     discoverServer({
       'new-releases': [game({ id: 7, title: 'Tunic II' }), game({ id: 8, title: 'Blue Prince' })],
     });
@@ -185,11 +186,15 @@ describe('DiscoverPage', () => {
     renderDiscover();
 
     const onBoard = await tile('Tunic II');
-    expect(await within(onBoard).findByText('On your board')).toBeInTheDocument();
+    await waitFor(() => expect(onBoard).toHaveTextContent('On your board: Playing'));
     expect(within(onBoard).queryByRole('button')).not.toBeInTheDocument();
 
     const notYet = await tile('Blue Prince');
-    expect(within(notYet).getByRole('button', { name: 'Add Blue Prince to backlog' })).toHaveTextContent('Add');
+    expect(within(notYet).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Add Blue Prince to backlog',
+      'Add Blue Prince to playing',
+      'Add Blue Prince to completed',
+    ]);
   });
 
   it('offers the calendar for a title that is not out, and says when it is due', async () => {
@@ -328,7 +333,7 @@ describe('Load more', () => {
     renderDiscover('/board/games/discover/most-played');
     await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
 
-    // The tile's own "Adding…", for the wall.
+    // In the words the tile's add used to say "Adding…" in, before it became three symbols.
     const loading = await screen.findByRole('button', { name: 'Loading…' });
     expect(loading).toBeDisabled();
 

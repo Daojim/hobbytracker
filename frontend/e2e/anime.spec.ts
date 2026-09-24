@@ -48,7 +48,10 @@ test('finding an anime puts it on the board, complete, without leaving it', asyn
   // what MAL matched `frieren` against, two lines that both have to be right at once.
   await page.getByRole('button', { name: "Add Frieren: Beyond Journey's End to backlog" }).click();
 
-  await expect(page.getByText('On your board')).toBeVisible();
+  // Where it went, in the hobby's words, rather than only that it went somewhere.
+  await expect(page.getByRole('region', { name: 'Search results' })).toContainText(
+    'On your board: Backlog',
+  );
 
   const frieren = card(page, 'Sousou no Frieren');
   await expect(frieren).toBeVisible();

@@ -1,7 +1,14 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
-import { activityYears, libraryMediaIds, listColumn, reorderColumn, transition } from './library';
+import {
+  activityYears,
+  addToBoard,
+  libraryStatuses,
+  listColumn,
+  reorderColumn,
+  transition,
+} from './library';
 import type { LibraryItem, PagedResult } from './types';
 
 const item: LibraryItem = {
@@ -101,6 +108,28 @@ describe('transition', () => {
   });
 });
 
+describe('addToBoard', () => {
+  it('names the column and nothing else', async () => {
+    // A move's rule, for the same reason: which dates the first pass carries is the server's to
+    // decide, and a client that sent a start would be guessing at a rule it does not own.
+    const seen: { url?: string; body?: unknown } = {};
+    server.use(
+      http.post('/api/library/:mediaId', async ({ request }) => {
+        seen.url = new URL(request.url).pathname;
+        seen.body = await request.json();
+        return HttpResponse.json({ ...item, currentStatus: 'Completed' }, { status: 201 });
+      }),
+    );
+
+    await expect(addToBoard(14, 'Completed')).resolves.toEqual({
+      ...item,
+      currentStatus: 'Completed',
+    });
+    expect(seen.url).toBe('/api/library/14');
+    expect(seen.body).toEqual({ status: 'Completed' });
+  });
+});
+
 describe('reorderColumn', () => {
   it('sends the whole column, top first', async () => {
     // Not a move-and-index: sending the full order is idempotent and has no off-by-one to get
@@ -115,7 +144,7 @@ describe('reorderColumn', () => {
   });
 });
 
-describe('libraryMediaIds', () => {
+describe('libraryStatuses', () => {
   it('walks every page, because a capped answer would offer to add a title twice', async () => {
     const pages: URLSearchParams[] = [];
     server.use(
@@ -132,14 +161,39 @@ describe('libraryMediaIds', () => {
       }),
     );
 
-    await expect(libraryMediaIds('games')).resolves.toHaveLength(101);
+    await expect(libraryStatuses('games')).resolves.toHaveLength(101);
     expect(pages.map((query) => query.get('page'))).toEqual(['1', '2']);
   });
 
   it('stops as soon as it has them all', async () => {
     const seen = capture('get', '/api/library', page);
 
-    await expect(libraryMediaIds('games')).resolves.toEqual([14]);
+    await expect(libraryStatuses('games')).resolves.toEqual([
+      { mediaId: 14, status: 'InProgress' },
+    ]);
     expect(new URLSearchParams(seen.url).get('hobby')).toBe('games');
+  });
+
+  it('keeps which column each title is in, which the rows carry anyway', async () => {
+    // What lets a tile say "Completed" rather than "On your board". No request of its own:
+    // every row the walk already reads has its column on it.
+    server.use(
+      http.get('/api/library', () =>
+        HttpResponse.json({
+          items: [
+            { ...item, mediaId: 1, currentStatus: 'Backlog' },
+            { ...item, mediaId: 2, currentStatus: 'Dropped' },
+          ],
+          total: 2,
+          page: 1,
+          pageSize: 100,
+        }),
+      ),
+    );
+
+    await expect(libraryStatuses('games')).resolves.toEqual([
+      { mediaId: 1, status: 'Backlog' },
+      { mediaId: 2, status: 'Dropped' },
+    ]);
   });
 });

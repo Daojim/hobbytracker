@@ -3,7 +3,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
-import { columnKey, mediaKey, upcomingKey, yearFor, yearsKey } from './keys';
+import {
+  columnKey,
+  libraryStatusesKey,
+  mediaKey,
+  upcomingKey,
+  yearFor,
+  yearsKey,
+} from './keys';
 import { BOARD_STATUSES } from '../hobbies';
 import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
@@ -153,6 +160,11 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       // Backlog or back into it changes what belongs on it. `'upcoming'` sits where a status
       // sits, so the two column keys above reach it no more than they reach `'years'`.
       void queryClient.invalidateQueries({ queryKey: upcomingKey(hobby) });
+
+      // And what the search strip says about where each title is, for the same want of a
+      // shared prefix. The strip sits above this board and names the column a title is in, so
+      // left alone it would go on naming the one a card had just been dragged out of.
+      void queryClient.invalidateQueries({ queryKey: libraryStatusesKey(hobby) });
     },
   });
 
@@ -199,7 +211,15 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // The whole hobby, not the column prefix a move settles with. A move names both columns it
     // touches; this one names none — every pass of yours goes, and they can be spread across all
     // four, so the columns that change are only knowable from what was there.
+    //
+    // And dropped, not only made stale, for the move's reason: a view of a column that is not on
+    // screen still *renders* its stale copy the moment something switches onto it. Take a title
+    // off, put it back from the strip, switch to an ordering left behind, and the card is mounted
+    // in two columns and cannot be dragged. Re-adding into Backlog was always enough to do it;
+    // adding straight into any column made it ordinary. See "A card mounted twice" in
+    // docs/board.md.
     onSettled: (_data, _error, mediaId) => {
+      queryClient.removeQueries({ queryKey: ['library', hobby], type: 'inactive' });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
       void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
     },

@@ -31,6 +31,7 @@ routes are the only anonymous ones.
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
 | `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, soonest first and the undated last. **Not paged** |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
+| `POST /api/library/{mediaId}` | put a title on your board, in a column — what a tile's +, ▶ and ✓ call. **201** with the card; **409** when it is already on your board |
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours** |
 | `PUT /api/library/order` | store one column's manual ranking |
 
@@ -244,6 +245,53 @@ where the card is going to land. Pinned by two e2e cases, one dropping onto the 
 one asserting the tint mid-gesture with the button still down; the second was red and the first was
 green before the change, which is what said the defect was the answer rather than the drop.
 
+### Adding straight to a column
+
+**An add is a move from nowhere.** `POST /api/library/{mediaId}` takes a column and nothing else,
+as a move does, and builds the first pass with `NewPassAsync` — the code a drag out of Completed
+uses to build a replay: on top of its column, with the dates `ApplyTransitionTimestamps` gives a
+move into it. So adding straight to a column and adding to Backlog then dragging leave the same
+record:
+
+| Added to | `started_at` | `completed_at` |
+|---|---|---|
+| Backlog | — | — |
+| Playing | now | — |
+| Completed | — | now — **no start is made up**, as a drag out of Backlog makes none |
+
+`AddingToBoardTests.An_add_leaves_exactly_what_adding_to_the_backlog_and_moving_would` states that
+as an equivalence over **all five** columns, so a rule that changes cannot leave the two behind
+each other. Leaving the dates out of the add fails four of its five cases — Backlog has no dates to
+lose — and the three other tests that name a date, and nothing else. The API takes all five and a
+tile offers three: which three is the client's decision, written up with the tile in
+`docs/games-igdb.md`.
+
+**It is a route of its own because each of the three nearer ones breaks something.**
+
+- **`POST /api/log-entries` with another status** writes exactly the fields it is sent — no dates
+  unless given some — which is right for the journal and for the e2e suite's seeding, and wrong for
+  a button: a Playing pass with no start belongs to no year, and the board reads one year at a
+  time.
+- **A client sending `startedAt: now`** is a second copy of the drag's rules, free to drift from the
+  first. `library.test.ts` already said so about a move.
+- **Letting a move insert when there is no entry** would make a stale card, removed in another tab,
+  re-add itself when dragged. `Moving_a_title_that_has_never_been_logged_is_a_404` still pins that.
+
+**409 for a title already on your board**, rather than a second pass nobody made — on top of a
+2024 completion that reads as the game being started again. Only a stale tile can get there. It is
+asked through `LatestEntryFor`, the query a move already uses, so *already on your board* means
+yours: somebody else having the title never blocks you, and there is **no new user-scoping site**.
+404 for a title the catalogue does not hold, because here it is the resource addressed.
+
+**Arriving still fetches metadata**, whichever column a title arrives in. The `IMediaAdded`
+announcement moved out of `LogEntryService`, unchanged, into `MediaAddedAnnouncements`, which both
+add paths call — so a handler that throws still cannot lose the pass, and still cannot rob the
+handlers behind it of the news.
+
+**One consequence worth knowing rather than fixing:** a game finished in 2019 and added straight to
+Completed is stamped today, because today is the only finish anybody has said — exactly what a drag
+does. The journal's date is where the real one goes.
+
 ### The board is one year at a time
 
 One `Year` control above the board, **opening on the latest year there is** rather than on all of
@@ -337,11 +385,13 @@ belongs on the server.
   width and `CardMenu.columns`, which is where a card's moves come from. A card worked out its moves
   from the hobby before; left that way it would offer *Move to Dropped* on a board with no Dropped.
 - **Backlog cannot be hidden, and the menu says so in words** rather than offering a disabled box —
-  the nav's rule for unbuilt hobbies. Search adds every title there, so a board without it would
-  swallow each add; the calendar is a view of it; and it guarantees one column is always on screen.
+  the nav's rule for unbuilt hobbies. A tile's + adds there, and a title that is not out can be
+  added nowhere else, so a board without it would swallow those adds; the calendar is a view of it;
+  and it guarantees one column is always on screen. The tiles offer only the columns the board is
+  drawing, by the card menu's rule, so Backlog is also what guarantees a tile always has an add.
 - **Titles in a hidden column stay exactly where they are.** Nothing is written. The one place they
-  show through is the search strip's *On your board*, which reads the unfiltered library — true, so
-  left alone.
+  show through is a tile naming the column a title is in, which reads the unfiltered library — true,
+  so left alone.
 - **What is stored is what is hidden, not what is shown**, under `hobbytracker.hidden-columns.<hobby>`
   beside the calendar's `hobbytracker.coming-soon.<hobby>`. A shown-list would have taken On Hold off
   every board whose owner had ever touched the setting, on the day it arrived. Anything unrecognised
@@ -368,9 +418,10 @@ three things it does to the board.
 
 **It applies only where a status is named, and only to Backlog.** `Filtered` also runs with no
 status — `ActivityYearsAsync`, `ReorderAsync`, and the un-statused `GET /api/library` that
-`libraryMediaIds()` pages through to build the search strip's *"On your board"* set. Narrow that and
-an unreleased title drops out of it, the strip offers to add a title you already have, and the second
-press writes a Backlog entry the card renders as a replay that never happened. It sits in the status
+`libraryStatuses()` pages through to learn what is on the board and where. Narrow that and an
+unreleased title drops out of it, and the strip offers to add a title you already have — a press the
+add now refuses with a 409, where it used to write a Backlog entry the card rendered as a replay
+that never happened. It sits in the status
 switch beside `InYear` for exactly that reason. Every other column holds titles you have already
 started, and whether those are out is not a question worth asking — it would hide an early build
 somebody is deliberately recording.
@@ -429,12 +480,18 @@ What a caller has to know:
   server's to decide and there is no knowing where the card would have landed in it. See **A card
   mounted twice**.
 - **`upcomingKey(hobby)` is `['library', hobby, 'upcoming']`, and it sits where a status sits** —
-  beside `'years'` and the search strip's `'ids'`. That placement is what makes it reachable from the
+  beside `'years'` and the tiles' `'statuses'`. That placement is what makes it reachable from the
   `['library', hobby]` prefix an add, a remove and a drawer write all settle on, and unreachable from
   the narrower `['library', hobby, from]` a move uses. **So a move has to name it, exactly as it has
   to name `'years'`.** The calendar is the other half of the Backlog column, and a card's menu can
   move a title out of it and back; settle only the two column keys and the section goes on showing a
   title that is no longer waiting, until something unrelated happens to refetch.
+- **`libraryStatusesKey(hobby)` is `['library', hobby, 'statuses']`**: every title on the board and
+  the column it is in, which is how a tile says *Completed* instead of offering its add. It sits
+  beside `'upcoming'`, so **a move has to name it too** — and did not have to while it held ids
+  alone, because a move never changes whether a title is on the board and does change which column.
+  Left out, the strip above the board goes on naming the column a card was just dragged out of.
+  `BoardPage.test.tsx` catches it.
 - `mediaKey(hobby, mediaId)` is `['media', hobby, mediaId]` — one title's journal. The drawer reads
   it; **the board writes to it**, because a transition stamps `started_at` and can insert a whole new
   entry. It was `gameKey(mediaId)`, keyed on the id alone: media ids are unique across hobbies, so
@@ -519,13 +576,22 @@ drops the inactive views of the two columns it touched rather than merely markin
 second is the one that matters, because the year was only the path somebody happened to find —
 switching a column's sort back to one it had before a move reaches the same stale entry.
 
+**A third path went through Remove from board**, found while planning adding straight to a
+column. A remove invalidated every column but left the views not on screen holding the card. Take
+a title off, add it back from the strip, switch one of those views on, and it is mounted twice
+again. That was always reachable — re-adding into Backlog was enough — and adding into any of three
+columns made it an ordinary thing to do rather than an unlikely one. A remove now drops the hobby's
+inactive views as a move drops its two columns'. *Does not bring a removed card back in an
+ordering it left behind, once it is added again*, in `BoardPage.test.tsx`, reproduces it — two
+cards named Celeste on the unfixed board.
+
 **Two things about testing it, and the first cost an hour.**
 
 - **`renderWithProviders` sets `gcTime: 0`, which makes this class of bug unreproducible in
   jsdom.** A query is collected the instant its last observer goes, so a board can never be handed
   an entry it left behind. The first version of the regression test passed against the unfixed
-  code and said nothing. `keepsCache: true` is the opt-in, and it is the only test in the suite
-  that asks for it — everything else is better off without a query outliving its test.
+  code and said nothing. `keepsCache: true` is the opt-in, and the two tests about this card are
+  the only ones that ask for it — everything else is better off without a query outliving its test.
 - **The assertion has to be the next thing after the render.** `userEvent` awaits a macrotask on
   its way out, which is long enough for the refetch to land and tidy the evidence away; a
   `waitFor` would happily wait out the moment the board held two of it. `fireEvent.change` on the

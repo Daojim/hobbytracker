@@ -22,6 +22,13 @@ export function getLogEntry(id: number): Promise<LogEntry> {
   return apiJson<LogEntry>(`/api/log-entries/${id}`);
 }
 
+/**
+ * Writes a pass with exactly the fields given — no dates unless you send some.
+ *
+ * Not how a tile puts a title on the board: that is `addToBoard` in `library.ts`, which lets the
+ * server stamp the dates a column calls for. A Playing pass written through here with no start
+ * belongs to no year, and the board reads one year at a time.
+ */
 export function createLogEntry(entry: CreateLogEntry): Promise<LogEntry> {
   // Rebuilt field by field rather than passed through. `loggedAt` is the server's record of when
   // the entry was written, and a body that carried one would be asserting something the caller is
@@ -30,14 +37,6 @@ export function createLogEntry(entry: CreateLogEntry): Promise<LogEntry> {
     method: 'POST',
     body: pick(entry, entry.mediaId),
   });
-}
-
-/**
- * Puts a game on the board. There is no endpoint for this and none is needed: search has already
- * upserted the title into the catalog, so this is simply its first entry.
- */
-export function addToBacklog(mediaId: number): Promise<LogEntry> {
-  return createLogEntry({ mediaId, status: 'Backlog' });
 }
 
 /**

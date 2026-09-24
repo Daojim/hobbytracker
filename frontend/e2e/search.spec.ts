@@ -1,19 +1,27 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { column, seed } from './support/board';
+import { card, column, seed, today, todayOnCard } from './support/board';
 
 /**
  * The way a game gets onto the board in the first place.
  *
- * There is no "add a game" endpoint: searching upserts every result into the catalogue as a side
- * effect, so the button only has to write a log entry. That upsert is the part worth doing for
- * real rather than stubbing in the browser — it is what turns an IGDB result into an id the
- * board can point at.
+ * Searching upserts every result into the catalogue as a side effect, so a result already has the
+ * id `POST /api/library/{mediaId}` puts on your board — in Backlog, Playing or Completed, with the
+ * dates a drag into that column would give. That upsert is the part worth doing for real rather
+ * than stubbing in the browser — it is what turns an IGDB result into an id the board can point
+ * at.
  *
  * `.fill()` rather than `.type()`, which sets the value in one shot: the 300ms debounce is then
  * waited out by an auto-retrying expect rather than by keystroke timing.
  */
+
+/** A result in the strip, named by its heading — `hasText` would also match a title it prefixes. */
+const result = (page: Page, title: string) =>
+  page
+    .getByRole('region', { name: 'Search results' })
+    .getByRole('listitem')
+    .filter({ has: page.getByRole('heading', { name: title, exact: true }) });
 
 test.beforeEach(async ({ page }) => {
   resetDatabase();
@@ -30,8 +38,8 @@ test('finding a game puts it on the board without leaving it', async ({ page }) 
   await page.getByRole('button', { name: 'Add Hollow Knight to backlog' }).click();
 
   // The answer changes on the write, not on the refetch that follows it — a button still live
-  // here would take a second click, and a second Backlog entry reads on the board as a replay.
-  await expect(page.getByText('On your board')).toBeVisible();
+  // here would take a second click, which the API would refuse as a title already on the board.
+  await expect(result(page, 'Hollow Knight')).toContainText('On your board: Backlog');
   await expect(page.getByRole('button', { name: 'Add Hollow Knight to backlog' })).toHaveCount(0);
 
   // The whole point of the move: the column behind the strip has it already.
@@ -44,9 +52,47 @@ test('a game you already logged is not offered a second time', async ({ page }) 
 
   await page.getByRole('searchbox', { name: 'Search games' }).fill('celeste');
 
-  // Already on the board means logged, in any column — not just Backlog.
-  await expect(page.getByText('On your board')).toBeVisible();
+  // Already on the board means logged, in any column — not just Backlog — and the tile says which.
+  await expect(result(page, 'Celeste')).toContainText('On your board: Playing');
   await expect(page.getByRole('button', { name: 'Add Celeste to backlog' })).toHaveCount(0);
+});
+
+test('a game can go straight to Playing, started today', async ({ page }) => {
+  // One press rather than a press and a drag, and the same record either way: the start is the
+  // server's to stamp, by the rule a drag into Playing follows. The card saying today is that
+  // rule reaching the board, and a Playing card with no start would be on no year's board.
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+  await page.getByRole('button', { name: 'Add Hollow Knight to playing' }).click();
+
+  await expect(result(page, 'Hollow Knight')).toContainText('On your board: Playing');
+  await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
+  await expect(card(page, 'Hollow Knight')).toContainText(todayOnCard());
+});
+
+test('a game can go straight to Completed, finished today with no start made up', async ({
+  page,
+}) => {
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+  await page.getByRole('button', { name: 'Add Hollow Knight to completed' }).click();
+
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
+  await expect(card(page, 'Hollow Knight')).toContainText(todayOnCard());
+
+  // Finished today and begun on no day anybody said, which is what a drag from Backlog leaves
+  // too. Somebody filling a board backwards is adding games finished years ago; the journal is
+  // where the real date goes, and a start invented here would be a second fiction on the first.
+  const entries = await page.request.get('/api/log-entries', { params: { pageSize: 100 } });
+  const { items } = (await entries.json()) as {
+    items: { status: string; startedAt: string | null; completedAt: string | null }[];
+  };
+  expect(items).toHaveLength(1);
+  expect(items[0]!.status).toBe('Completed');
+  expect(items[0]!.startedAt).toBeNull();
+  expect(
+    new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(
+      new Date(items[0]!.completedAt!),
+    ),
+  ).toBe(today());
 });
 
 test('a search that matches nothing says so', async ({ page }) => {

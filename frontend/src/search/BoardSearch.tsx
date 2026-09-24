@@ -10,10 +10,10 @@ import { useAddToBoard } from './useAddToBoard';
 /**
  * Finding a game and putting it on the board, from the board.
  *
- * There is no "add a game" endpoint and none is needed: searching upserts every IGDB result into
- * the catalogue as a side effect, so a result already has an id that a log entry can point at.
- * That is also why the catalogue is not the library — most of `media` is metadata for games
- * nobody ever recorded anything about.
+ * Searching upserts every IGDB result into the catalogue as a side effect, so a result already
+ * has the id that `POST /api/library/{mediaId}` puts on your board — in Backlog, Playing or
+ * Completed, with the dates a drag into that column would give. That is also why the catalogue is
+ * not the library — most of `media` is metadata for games nobody ever recorded anything about.
  *
  * This used to be its own screen, which meant adding a game was a round trip away from the thing
  * you were adding it to. The bar sits above the board now and the results come in as a strip
@@ -23,11 +23,11 @@ import { useAddToBoard } from './useAddToBoard';
  * keeps its tests about the board — and lets this one be tested without a board around it, which
  * matters because a result's title and a card's title are both an h3.
  *
- * Everything it holds belongs to the board it sits above: the term, the debounced copy the query
- * is keyed on, and the ids added since it opened. So the page keys this on the hobby and the nav
- * remounts it, which is the one thing about search that this file cannot do for itself — by the
- * time the prop changed, the debounced term had already settled, and the query keyed on both was
- * away to the new provider with the old word before anything here could clear it.
+ * Everything it holds belongs to the board it sits above: the term, and the debounced copy the
+ * query is keyed on. So the page keys this on the hobby and the nav remounts it, which is the one
+ * thing about search that this file cannot do for itself — by the time the prop changed, the
+ * debounced term had already settled, and the query keyed on both was away to the new provider
+ * with the old word before anything here could clear it.
  */
 export interface BoardSearchProps {
   hobby: string;
@@ -53,8 +53,9 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
     enabled: settled !== '',
   });
 
-  // What is on the board already, and the add itself — shared with the Discover page's wall, so
-  // a title cannot read as on the board in one place and addable in the other.
+  // What is on the board already and where, which columns a title can go to, and the add itself —
+  // shared with the Discover page's wall, so a title cannot read as on the board in one place and
+  // addable in the other.
   const board = useAddToBoard(hobby);
 
   // Pressing the button unmounts it — there is nothing left to clear — so it has to say where
@@ -177,9 +178,10 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
                 <SearchResult
                   key={hit.id}
                   hit={hit}
-                  onBoard={board.onBoard.has(hit.id)}
+                  onBoard={board.statusOf(hit.id)}
                   adding={board.isAdding(hit.id)}
                   onAdd={board.add}
+                  columns={board.columns}
                   definition={definition}
                 />
               ))}

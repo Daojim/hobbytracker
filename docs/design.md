@@ -18,7 +18,7 @@ the header.
 | Registers | **Three lights, two mid-tones, three darks.** Dusk and Blood Red are the mid ones — neither paper nor near-black — and Blood Red is the warm one at 0.0414 against Dusk's 0.0580 |
 | Red | **Two themes, and they are opposite constructions.** Ember is neutral charcoal wearing red as its accent; Blood Red *is* the red, and puts gold on it. Neither is forced on the other six |
 | HLTB | **One blue on every theme** — the estimates are that site's numbers. See **A fixed chip and a mid-tone theme** |
-| Accent | **A per-theme token.** There is no brand colour |
+| Accent | **A per-theme token.** There is no brand colour. It is also what a tile's + ▶ ✓ turn under the cursor, on the hover fill — measured at 4.5:1 there on every theme |
 | Rating | **Coloured by what it says** — under 6 red, 6–8 orange, 8 and over yellow |
 | Danger | **Never colour alone** — a filled chip the accent never wears |
 | Density | Comfortable / Compact, a setting rather than a decision |
@@ -100,9 +100,9 @@ Each is invisible in development and each has a test that was checked by breakin
   selector. `index.css.test.ts` compares the two blocks declaration by declaration.
 - **Contrast.** `index.css.test.ts` checks `fg`, `muted`, `accent`, `rating` and `danger` against every
   ground they sit on across all nine palette blocks, plus the chip's label against its own fill —
-  ninety assertions, and a theme adds ten of them by existing — **automatically**, since `PALETTES`
-  is derived from `THEMES` rather than kept by hand. It was not always. It exists because the same mistake
-  happened twice: `text-neutral-500` sat at
+  ninety-nine assertions, and a theme adds eleven of them by existing — **automatically**, since
+  `PALETTES` is derived from `THEMES` rather than kept by hand. It was not always. It exists
+  because the same mistake happened twice: `text-neutral-500` sat at
   **3.8:1** on the dark theme for the life of the board, and then `--danger-fg` was set near-white on
   every theme, which is right where the fill is a deep red and **2.07:1** where the fill is a light
   salmon. **The fill and its ink move in opposite directions per theme.**
