@@ -631,6 +631,11 @@ being wrong. Both rows are marked below.
 - **Sweep up titles with no headline figure when the worker starts.** The first thing to pick up. See
   **The backfill is a thing you run** in `docs/games-hltb.md`, including the reason it was not
   simply done.
+- **Adding straight to a column other than Backlog**, from search or the Discover page — the other
+  half of the feedback the Discover page answered. Asked for on 23 September 2026 and deliberately
+  not designed yet, so its shape is still to be workshopped. Both surfaces add through
+  `search/useAddToBoard.ts`, so it lands there once. Most played is where it matters most: somebody
+  filling a board backwards is adding games they have already finished, one Backlog drag at a time.
 - **Linking a second provider to an existing account.** The schema has been ready since the first
   migration — `auth_identities` is unique on `(provider, provider_user_id)` and many rows may point at
   one user — and a test pins that two identities give one board. What does not exist is the deliberate
