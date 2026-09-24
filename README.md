@@ -307,6 +307,14 @@ So the wall shows what is newly out, what people are playing, what is most antic
 the most people have played — and every list carries a filter a search does not, because somebody
 who typed a title asked for it and a wall shows what nobody asked for.
 
+**Page two of a list does not start at the 49th title.** The wall comes 48 at a time with a *Load
+more* under it, and two of the lists drop titles after IGDB has answered — a game in early access
+is not "anticipated", and PopScore ranks games the question describing them then declines — so
+page one already reaches past IGDB's 48th place to fill itself. A page number can only multiply.
+So each page says where the next one starts, and the client hands that back. Going deeper also
+meant measuring deeper: every list was read 500 titles down before the button existed, which is
+how Most anticipated turned out to carry cancelled games from page two on.
+
 **Ratings reject two decimal places.** The column is `numeric(3,1)`, and Postgres *rounds* rather
 than refusing: an accepted `8.75` is stored as `8.8`, and the response would report a rating the
 database does not hold. A 400 is the honest answer.
@@ -402,8 +410,9 @@ to prevent something, the test for it is checked by reintroducing the thing.
       once Half-Life 3 is on it
 - [x] Browsing what is popular, rather than having to know what to search for. A wall of covers,
       offered from under the empty search box, with four lists of what IGDB knows — newly out,
-      being played, most anticipated and most played — and the same one-click add search has. A
-      game not out yet goes on the release calendar, as it would from search
+      being played, most anticipated and most played — 48 at a time with a Load more, and the same
+      one-click add search has. A game not out yet goes on the release calendar, as it would from
+      search
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

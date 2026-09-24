@@ -56,9 +56,10 @@ because most bundles are shovelware pairs nobody logs. The user has said to leav
 the ids are named constants (`BundleType`, `ModType`) and re-enabling is one edit plus deleting the
 half of the client test and the e2e spec that name a bundle. **Do not treat this one as settled.**
 
-`Season` is untouched, which is a live annoyance rather than a decision: "Mario Kart" returns ten
-*Mario Kart Tour: … Tour* seasons and none of the actual games. One id would fix it and has not been
-asked for. See **Discovery**, where it was expected to bite much harder and was measured not to.
+`Season` is untouched here, which is a live annoyance rather than a decision: "Mario Kart" returns
+ten *Mario Kart Tour: … Tour* seasons and none of the actual games. One id would fix it and has not
+been asked for. **Discovery** does leave seasons off, with DLC and updates — measured not to matter
+in any list's top 60, and then found from page three of New releases once Load more went further.
 
 ### Two questions, not one
 
@@ -475,9 +476,10 @@ you want, and filling a board — especially filling one backwards — is mostly
 
 A page of its own at `/board/:hobby/discover/:list`, offered by a line under the search box while
 the box is empty: *Not sure what to add? Browse popular games*. Four lists as tabs, one list at a
-time, 48 covers each. **The page names no hobby**: `HobbyDefinition.discover` holds the lists,
-their words and their slugs, and is null for films, TV and anime. TMDB and MAL both have lists of
-their own and nothing asks them yet, which is the `releases` rule again — a fact about providers.
+time, 48 covers a page with a *Load more* under the wall — see **Load more, and how far down each
+list goes**. **The page names no hobby**: `HobbyDefinition.discover` holds the lists, their words
+and their slugs, and is null for films, TV and anime. TMDB and MAL both have lists of their own
+and nothing asks them yet, which is the `releases` rule again — a fact about providers.
 
 ### What IGDB has, measured
 
@@ -502,9 +504,9 @@ So three of the four tabs are plain `/games` questions rather than PopScore's:
 
 | tab | slug | what IGDB is asked |
 |---|---|---|
-| New releases | `new-releases` | out in the last 60 days, `sort hypes desc`. Hype because a game out for a fortnight has hardly been rated: by ratings, Valheim's 1.0 led on 301 carried over from early access and nothing after it passed 36 |
+| New releases | `new-releases` | out in the last 60 days and `hypes != null`, `sort hypes desc`. Hype because a game out for a fortnight has hardly been rated: by ratings, Valheim's 1.0 led on 301 carried over from early access and nothing after it passed 36. Only what has any, so the list ends where its sort stops sorting — see **Load more** |
 | Popular now | `popular-now` | PopScore's Playing ranking, then `/games where id = (…)`, put back in PopScore's order |
-| Most anticipated | `most-anticipated` | `hypes != null & (first_release_date > now \| first_release_date = null)`, `sort hypes desc` |
+| Most anticipated | `most-anticipated` | `hypes != null & (first_release_date > now \| first_release_date = null)`, `sort hypes desc` — then the calendar's rule and nothing cancelled, in the service |
 | Most played | `most-played` | `total_rating_count != null`, `sort total_rating_count desc` — the list for filling a board backwards |
 
 ### The filter every list carries, and search does not
@@ -520,14 +522,23 @@ with the client's own query bodies, no Erotic-tagged title was left.
 pins that. Somebody who typed a title asked for it; a wall shows what nobody asked for, and that is
 the whole difference.
 
-**No stricter list of game types.** This section used to predict that `Season` would bite hard
-here, since seasons are what a coming-soon list fills with. Measured, it did not: no DLC, season,
-episode or edition appeared in the top 40 to 60 of any of the four lists, with or without a strict
-allowlist. A rule for it would be speculative, and **Game types** above still describes search.
+**DLC, seasons and updates are off every list too** — `game_type != (1,3,5,7,14)`, where search
+has `(3,5)` — and that took two measurements to earn. This section used to predict that `Season`
+would bite hard here, since seasons are what a coming-soon list fills with. Measured on 23
+September, it did not: no DLC, season, episode or edition in the top 40 to 60 of any list, so a
+rule would have been speculative. Load more goes further than that, and on 24 September 8 of New
+releases' first 500 were one of the three — *Medieval Dynasty: Hunting Pack*, *Core Keeper: Riders
+of the Underground* — from page three on; none of the other lists had one in 500. Ids read off
+`/v4/game_types` that day: DLC 1, Season 7, Update 14. **Search still keeps them**, because a
+person searching for *Shadow of the Erdtree* wants the DLC.
+`Keeps_add_ons_off_every_discover_list` and `Leaves_a_search_to_find_whatever_was_asked_for` pin
+the two halves; Episode, Pack and the editions stay in, because nothing measured needed them out.
 
 **The shovelware worry is answered by the sorts rather than by a filter.** Every list is ordered by
 hype, ratings or PopScore's ranking, so the 53,096 undated main games from **The second row of
-that table was two rows** — 250 of them ever rated — never reach the top 48 of anything.
+that table was two rows** — 250 of them ever rated — never reach the top 48 of anything. With Load
+more the argument has to hold further down, and it does, with one exception: New releases' sort
+ran out of hype at #552, and it now ends there.
 
 ### IGDB's "not out" is not the calendar's
 
@@ -547,6 +558,14 @@ is left still fills it. `Most_anticipated_holds_only_what_the_calendar_would_cal
 and dropping the filter fails it and nothing else. Popular now asks for twice as well, because its
 filter can only go on the second question, after PopScore's limit.
 
+**And nothing cancelled, which is where this list and the calendar part company.** The calendar
+keeps a cancelled title somebody already tracks — `NotOnItsDate` — because that is where they find
+out it is dead. A list of what people are waiting for has no business offering one, and page one
+never showed that it would: the live list had none in its top 48, then one or two a page from page
+two on and five on page nine — *Perfect Dark*, *Everwild*, *Scalebound*, *Silent Hills*,
+*Half-Life 2: Episode Three*, each with an *Add to calendar* button. `Keeps` in `GameCatalogService`
+holds both rules, and `Most_anticipated_leaves_off_what_was_cancelled` pins the second.
+
 ### Browsing upserts, and the cache holds IGDB's answer
 
 **A list upserts exactly as a search does**, which is the answer this section's first version asked
@@ -555,7 +574,8 @@ for — "the two should probably agree". A tile is a `GameDto` with a media id, 
 the upsert, so the catalogue grows by one row per title a person could have seen and never by views.
 
 **The app's first `IMemoryCache`**, because the lists change daily and every view would otherwise
-re-ask IGDB and rewrite 48 rows. Keyed on the list and the journal day, and expiring after
+re-ask IGDB and rewrite 48 rows. Keyed on the list, the journal day and the place the page starts
+at — see **Load more** for what leaving that last one out does — and expiring after
 `Igdb:DiscoverCacheHours` (6). **What it holds is IGDB's answer and never the rows**: the upsert runs
 on every view, idempotent and almost always writing nothing. **That is the load-bearing half.** The
 e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API process lives on, so
@@ -563,14 +583,92 @@ a cached media id would name a row that is gone — or, once the sequence came r
 title, and the wrong game would be added with no error. `A_cached_list_still_hands_out_media_ids_that_exist`
 truncates mid-test; caching the DTOs instead fails it and nothing else. A failed fetch is not kept.
 
-- **No rate limiter.** Tabs load one list at a time, so a view costs at most two IGDB requests. A
-  page loading several lists at once — shelves, which were rendered and not picked — would burst
-  past IGDB's 4 requests a second on a cold cache, and would need one in the IGDB pipeline.
+- **No rate limiter.** Tabs load one list at a time and Load more one page at a time, so a view or
+  a click costs at most two IGDB requests — which holds only because a loaded wall is never
+  refetched as a whole; see **On the page** under **Load more**. A page loading several lists at
+  once — shelves, which were rendered and not picked — would burst past IGDB's 4 requests a second
+  on a cold cache, and would need one in the IGDB pipeline.
 - **`where id = ()` is an APIcalypse syntax error**, hit while measuring, so an empty PopScore
   ranking returns before the second question. `GetGamesAsync` already guarded the same thing.
 - **Each query body was sent to the live API as the client builds it**, fields and all, because the
   stub parses loosely and a syntax error would reach production as a 502 on the page. All four
   filled their 48.
+
+### Load more, and how far down each list goes
+
+**Added 24 September 2026**: a *Load more* under the wall brings the next 48 of the same list. The
+button was the small part. Every claim above about a list being clean was measured on its first 48
+to 60 titles, and Load more is precisely a way past them — so each list was read 500 deep from the
+live API, in pages of 48, with the client's own clauses, before anything was built:
+
+| list | length | how far down it holds up | past page one |
+|---|---|---|---|
+| Most played | 38,360 | all 500 — *Balatro*, *Inscryption* and *Diablo IV* near #500, every one with 381 ratings or more | nothing to fix |
+| Popular now | 25,423 ranked | all 500 — *Papers, Please* at about #435 | 18 of the 500 declined by the filter, as on page one |
+| Most anticipated | 7,192 | recognisable titles to about page eight, hype 12 and up | **cancelled games from page two on** |
+| New releases | 3,344 in the window | pages one to three — median hype 27, then 7, then 4, and 1 by page seven | **hype ran out at exactly #552**, and DLC, updates and a season from page three |
+
+Three rules came out of it, and each is written up where its list is: New releases **ends where
+its hype does** (**What IGDB has, measured**), Most anticipated **drops what was cancelled**
+(**IGDB's "not out" is not the calendar's**), and **DLC, seasons and updates are off every list**
+(**The filter every list carries**). **Nothing caps how far anybody can go**: every list either
+ends on its own — New releases at about twelve pages today, Most anticipated at about 150 — or stays
+real games further than anyone will click.
+
+#### A page says where the next one starts
+
+`GET /api/games/discover/{list}?from=N` answers `{ titles, next }`, and the client sends `next`
+back as `from`. **Not `?page=2` and not a `PagedResult`**, because two of the four lists drop
+titles after IGDB has answered: Most anticipated when the calendar's rule does, and Popular now
+when the question describing PopScore's ranking declines a game. Nine of the live top 48 of Most
+anticipated were in alpha, beta or early access or a rumour, so page one already reaches past
+IGDB's 48th place to fill itself, and a page two starting at 48 shows titles twice. No total
+either, because it would cost IGDB another question for a number nobody reads.
+
+- **`next` is the place of the first title a page kept back** — or, with none kept back, the
+  place after everything it asked about, unless the ordering ended inside that, which is
+  `next: null`. `Page` in `GameCatalogService` is the whole of it.
+- **A place, not a position, which is `IgdbSlice`'s reason to exist.** PopScore ranks games its
+  second question then declines, so a slice has holes: the game after a declined one is still
+  51st, and counting what came back would call it 50th. Put back to count titles, it fails
+  `A_filtered_list_carries_on_from_the_first_title_it_did_not_show` and
+  `Popular_now_carries_on_from_a_place_in_popscore_rather_than_a_count_of_titles`, and nothing
+  else — the plain lists are exactly where the two agree.
+- **The plain lists ask about one place more than a page holds.** Their filters are inside the
+  question, so the 49th answers whether there is a next page, and a list that fills its last page
+  exactly offers no Load more whose only effect would be to find that out. The other two still ask
+  for twice the wall.
+- **The cache is keyed on the place as well.** Keyed on the list alone, page two is answered with
+  page one — and because the wall drops a title it already shows, **that is a Load more that does
+  nothing, with no error anywhere**. `Keeps_each_page_of_a_list_apart` was red for exactly that
+  until the key had `from` in it.
+- **`from` is `[Range(0, int.MaxValue)]` and nothing tighter.** IGDB answers an offset past the
+  end of a list with nothing — measured at 50,000 on Most played — and an empty slice has ended,
+  so nothing is ever added to a place that far out.
+
+#### On the page
+
+- **`useInfiniteQuery` under the same `discoverKey`**, which nothing else reads.
+- **A title already on the wall is dropped from a later page rather than drawn twice.** IGDB's
+  answer is kept for six hours and asked again at midnight, so a Load more either side of that can
+  carry a title the page before showed: two tiles with one key, one offering to add what the other
+  says is on the board. A title can be skipped the same way, which a list that moves is allowed to do.
+- **Focus moves to the first title a page added.** The new tiles arrive above the button, so left
+  on it, somebody on a keyboard has to go back through 48 of them. The tile's heading is
+  `tabIndex={-1}` — focusable from script, and Tab goes from it to its own button — and a mouse
+  click shows no ring. **The pending move is forgotten when the tabs change**, because one
+  component serves every tab: without that, a page asked for on Most played, landing while Popular
+  now was open and found in the cache on the way back, took focus when nobody had pressed anything.
+  Its test was red on the first version, which had exactly that bug.
+- **A page that fails says so by the button and leaves the wall alone.** Pressing the button again
+  is the retry, so it stays. The error line at the top is still the first page's.
+- **A loaded wall is never refreshed behind somebody's back** — `staleTime: Infinity`, where it
+  was an hour while a list was one page. An infinite query refreshed asks for every page again,
+  one after another: ten pages of Popular now is twenty IGDB requests in a few seconds, against
+  four a second, set off by nothing more than the window coming back into focus. The server keeps
+  each page for the day anyway. Its test was red on the hour.
+- **Loaded pages are not in the address.** They live in the query cache, so a tab left and
+  returned to keeps them for TanStack's default five minutes, and a fresh visit starts at page one.
 
 ### The page, picked from renders
 
@@ -587,6 +685,14 @@ IGDB answered with that evening, light and dark at 1440, 768 and 390px, measured
 | tab words | *New releases, Popular now, Most anticipated, Most played* | *Coming soon* for the third, which is already the calendar's heading |
 | the way in | a sentence under the empty box, its link in the accent colour | a link beside the box, which saved 28px and read as something to miss |
 | on your board | a ✓ chip on the cover | the strip's text where the button was. Picked knowing those tiles lose their bottom row |
+| Load more | the tile's own Add button at its own width, centred: 119 × 36 at every width | a full-width bar, 1392px at 1440 in the fill and border of the Add buttons right above it; the same button on a rule; an accent link, 69 × 20 and the easiest to miss |
+| a list's end | a muted line where the button was: *That's everything on this list right now.* | nothing, which looks the same as a page that stopped loading |
+
+The last two were picked on 24 September 2026 from a second Artifact made the same way, laid out
+by width rather than by option so four forms of one control could be compared at one scale.
+Loading and a failed page were decided by what the app already does rather than rendered as
+choices — *Loading…* as a tile says *Adding…*, and the page's own red line — and were shown on the
+same page so the pick was made seeing them.
 
 - **Under the board's own address**, because it is a page of that board. `AppHeader`'s `NavLink`
   lost its `end` so Games stays current there — `end` came in with the nav while `/board` was the
@@ -601,7 +707,8 @@ IGDB answered with that evening, light and dark at 1440, 768 and 390px, measured
 - **The invitation is a sibling of the `<label>`**, the clear button's rule. Inside it, the box's
   accessible name becomes the whole sentence and every test finding the box by name stops finding
   it — reintroduced, that failed fourteen.
-- **48 a list fills the last row at 2, 3, 4, 8 and 12 across alike.** `e2e/layout.spec.ts` counts the
+- **48 a page fills the last row at 2, 3, 4, 8 and 12 across alike, and so does every multiple of
+  it**, so the wall's last row stays full however many pages are loaded. `e2e/layout.spec.ts` counts the
   grid's tracks at 1440 and 390, and checks every tab stays whole and on the screen at 390 against
   one line computed from the tab's own style — a row that neither wraps nor scrolls squeezes every
   tab alike, so comparing tabs with each other would prove nothing, and the first version of that
@@ -611,8 +718,17 @@ IGDB answered with that evening, light and dark at 1440, 768 and 390px, measured
 
 `igdb-stub.mjs` answers `/v4/popularity_primitives` for the Playing list and the three new `/games`
 shapes, **parsing each clause** — the date bounds, `hypes != null`, `total_rating_count != null`,
-`themes != (…)`, the sort and the limit — rather than recognising the question as a whole. Filters
-run before the limit, as IGDB applies them.
+`themes != (…)`, the sort, the offset and the limit — rather than recognising the question as a
+whole. Filters run before the offset and the limit, as IGDB applies them.
+
+- **The e2e API pages a list two at a time**, `Igdb__DiscoverListSize=2` in `playwright.config.ts`.
+  At 48 every stub list would be one page and Load more would never be offered; at two, Most
+  anticipated's rumour and cancellation both sit inside page one's slice, so where page two starts
+  is decided by the API's rules. With the stub's offset put back to nought, both Load more specs go
+  red and the other six stay green — page two arrives as page one again and the wall drops it,
+  which is the silent version of the fault.
+- ***Scalebound*, cancelled, with hype and no date** — the calendar would keep it and only Most
+  anticipated's own rule does not. Ranked second, so the rule has to hold on page one.
 
 - **A decoy, *Velvet Lounge***, tagged Erotic, with more hype than anything else and first place in
   the PopScore ranking — the first tile on two lists the day the filter goes missing.
