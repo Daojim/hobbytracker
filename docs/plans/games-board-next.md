@@ -1,0 +1,645 @@
+# The games board, before the other hobbies
+
+Written 1 October 2026 at the user's request. A feature is built on the **games board first** and
+taken to the other hobbies afterwards. The ten below are planned so a session can pick up **any
+one, in any order**, when the user names it. CLAUDE.md's **What is next** points here.
+
+**This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
+days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
+archive** in CLAUDE.md.
+
+Each section is a plan unless it says it shipped. **Decide at pickup** marks the user's choices,
+with a recommendation that is not yet a decision. `file:line` references drift, so search for the
+named symbol if a line has moved. Lines were read at `162db83` unless a section says otherwise.
+
+## Where things stand
+
+| # | Feature | Size | Status |
+|---|---|---|---|
+| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). Left: the web manifest and home-screen icon |
+| 2 | Record when a title changes column | M | Planned |
+| 3 | Hours in the column headers | S–M | Planned. Gained a phone question; see its section |
+| 4 | "How long will it take me?" | S–M | Planned |
+| 5 | Stats | M–L | Planned, after #2, using #3's sums |
+| 6 | Search your notes | S–M | Planned |
+| 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
+| 8 | Delete my account | S–M | Planned. Workshop it with #7 |
+| 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
+| 10 | `/` focuses the search box | S | Planned |
+
+Production runs `df54a8b`, which was `main` on 1 October 2026. Deploying is the runbook in
+`docs/deploy.md`.
+
+## Suggested order (any order works)
+
+- **#2 early.** History that isn't recorded can't be backfilled, and #5 reads it. Every day it
+  waits is history lost.
+- **#3 before #4's backlog mode and before #5.** Both reuse #3's server-side totals.
+- **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
+  time.
+- **#10 is the smallest** if a quick one is wanted.
+- **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
+  build.
+
+## Rules every plan below follows
+
+- Read the `docs/` file that CLAUDE.md's map names before touching the code it covers.
+- **Write the failing test first and show it red.** Where a rule exists to prevent something, check
+  its test by putting the fault back.
+- **Anything decided by eye gets rendered options and a pick before any value goes into code.** See
+  the memory *Workshop visual choices before building*. **How #1's was run** is in #1 below, and it
+  is the pattern to reuse.
+- **Never branch on the hobby slug.** Games-only behaviour follows the data — `TitleDetail.hltb`,
+  `PassFields.hoursPlayed` — so each feature extends to the other hobbies later with no new
+  conditions.
+- `data-model.md` counts four places the journal time zone is applied. A feature that adds a fifth
+  updates that sentence.
+- Columns are paged at 100 titles. Anything that needs a whole column aggregates on the server or
+  pages to the end. Never compute it from one page.
+- **The board has two layouts now.** Below Tailwind's `md` it is one column at a time under a
+  switcher pinned to the top (`SIDE_BY_SIDE` in `board/grid.ts`, read through
+  `lib/useMediaQuery.ts`). A column that is not shown is not mounted. **Anything that adds to the
+  board, a column header or a new page says where it goes at 390px**, and renders it there in its
+  workshop. See `docs/design.md`, *On a phone*.
+- **Phone tests.**
+  - In Vitest, use `windowOfWidth(390)` from `src/test/media.ts`. jsdom has no `matchMedia`, so a
+    test without it is quietly a desktop test.
+  - In Playwright, use the *on a phone* block in `board.spec.ts` (390×844, `hasTouch`,
+    `isMobile`), with `holdAndDrag`, `swipeUp` and `segment()` from `e2e/support/board.ts`.
+  - **Never `Input.synthesizeScrollGesture`**: headless Chromium accepts it and moves nothing.
+- **A column's request is `columnQuery` in `Column.tsx`.** Anything else that needs a column's
+  answer shares it — the switcher's counts already do — rather than asking again under another key.
+- **A new drop target goes through `boardCollisions`** (`board/collisions.ts`). If it is pinned, or
+  does not otherwise scroll with the page, it has to be measured live as the switcher's segments
+  are. dnd-kit moves every target it measured by however far the page scrolls. See
+  `docs/board.md`, *Carrying a card onto the phone's switcher*.
+- **Deploying** follows `docs/deploy.md`. A request to deploy is not a request to merge.
+
+---
+
+## 1. A board that works on a phone · shipped, but for the icon
+
+**Shipped and deployed on 1 October 2026.** The user reported everything working afterwards.
+
+- **Part A, PR #41: a swipe that starts on a card scrolls the page.** A mouse drags from 8px as
+  before. A finger holds still for 250ms to pick a card up. Write-up: `docs/board.md`, *A finger on
+  a card*.
+- **Part B, PR #42: one column at a time under a pinned, segmented switcher** that counts every
+  column and takes a dropped card. It was picked from four layouts rendered at 390px. Write-ups:
+  `docs/design.md`, *On a phone*, and `docs/board.md`, *Carrying a card onto the phone's
+  switcher*.
+
+**What the original plan got wrong.** Kept here because a session reading an old copy should know:
+
+- It drove a swipe with `Input.synthesizeScrollGesture`, which headless Chromium ignores. That test
+  would have been red before the fix and after it.
+- It missed that the card's corner, open menu and remove confirm stopped `pointerdown` alone. A
+  finger held on `⋯` would have dragged the card while the jsdom spy, also on `pointerdown`, stayed
+  green.
+- It treated the switcher's segments as a simple option. Building them took two fixes:
+  - segments are measured live, because dnd-kit moves droppables with the page scroll;
+  - autoscroll stops while a card is over one.
+
+  Both were found by measuring in a browser.
+
+### What is left: a web manifest and a home-screen icon · workshop, then S
+
+**Decide at pickup (workshop first):**
+- **The icon itself.** Render three or four options at the sizes a home screen uses: 180px for
+  iOS, 192px and 512px for Android, and Android's maskable safe zone. Show each on a light and a
+  dark wallpaper. There is no favicon today either, so the same art probably covers that too.
+- **`theme_color`.** There are eight themes, so pick one colour or have the pre-paint script set
+  `<meta name="theme-color">` from the stored theme. The script already stamps the theme before
+  the bundle loads.
+
+**Build:**
+- Create `frontend/public/`, which does not exist yet: `manifest.webmanifest` and the icons. Vite
+  copies `public/` to the root of `dist` **without fingerprinting it**, unlike `/assets/*`.
+- In `index.html`: `<link rel="manifest">`, `<link rel="icon">`, `<link rel="apple-touch-icon">` and
+  `<meta name="theme-color">`.
+- The manifest: `name`, `short_name`, `start_url: "/board"`, `display`, `background_color`,
+  `theme_color`, and `icons`, including a `maskable` one.
+- **Check Caddy's caching for the unfingerprinted files**, or a changed icon is held by phones
+  indefinitely. `docs/deploy.md` has the cache rule for `index.html` and `/assets/*`.
+
+**Traps to measure, not assume:**
+- **Sign-in from the home-screen app on an iPhone.** A web app opened in standalone mode keeps its
+  own cookie storage, and the redirect out to Google or Discord may leave the app. Try both
+  providers from the installed icon. If it breaks, `display: "minimal-ui"` or `"browser"` is the
+  fallback.
+- **`display: "standalone"` takes away the browser's own controls, Back among them.** A phone's
+  Back is what closes the drawer, through its history entry (`useOverlayHistory`). Check what
+  closes it from the installed app on each platform before choosing `standalone`.
+
+**Tests first:**
+- A Vitest test that reads `index.html` for the manifest, icon and theme-color links, as
+  `theme.test.ts` already reads it for the pre-paint script.
+- An e2e test that the manifest parses and names icons that exist at their stated sizes. **It
+  runs against Vite, not Caddy**, so the content type production serves is checked on the
+  deployed site afterwards with `curl -I`, in the runbook's *Proving it* step.
+
+**Docs:** `design.md` for the icon pick and theme colour; `deploy.md` if Caddy's caching changes.
+
+### How the workshop was run, to reuse
+
+1. **The real components, behind a throwaway query switch** (`?phone=a|b|c|d`) read in
+   `BoardPage`. **`/board` redirects and drops the query**, so shots go to `/board/games?…`.
+2. **A throwaway Playwright spec**, `e2e/zz-shots.spec.ts`, never committed. It seeds a realistic
+   board through the API and writes PNGs into the session scratchpad: the first screen, the whole
+   page, and a second state per option (a tab chosen, scrolled, swiped, unfolded). A full-page
+   shot in mobile emulation came out at the wrong width for a sideways-scrolling strip; use the
+   first screen there.
+3. **One private Artifact page**, with phone-sized frames that scroll like a screen, notes per
+   option, and the recommendation at the top. It was republished with an *As built* section
+   afterwards: https://claude.ai/artifact/RaXdQnpkcQPt7bXSbrmT9w.
+4. **The prototype saved as a patch in the scratchpad and reverted** before any test was written,
+   so nothing of it reached a commit.
+
+---
+
+## 2. Record when a title changes column · M
+
+**What it's for.** A history of moves, so stats and the year in review can say *when* a title went
+On Hold, was dropped or came back. Today `logged_at` is set only when a pass is created
+(`LibraryService.cs:777`, `LogEntryService.cs:125`). A move edits the pass in place
+(`LibraryService.cs:357`), so the moment of the move is lost. **Every day this isn't recorded is
+history that can't be recovered.**
+
+**Since this was written:** a card dropped on a phone's switcher segment is an ordinary move. It
+goes through the same `move` mutation and `TransitionAsync` as a drag or a menu move, so the
+recorder sees it with no extra work.
+
+### The user's concern: a tester shuffling cards would be recorded too
+
+**Recommended: merge rapid changes when they're written.** Use a settle window of about 10 minutes,
+as a named constant.
+- If a pass changes status within the window of its last recorded change, update that row's
+  `to_status` and `changed_at` instead of adding a new row.
+- If that leaves `from == to`, delete the row. A round trip leaves nothing.
+- Rows older than the window are never touched.
+
+**Alternative:** keep every raw row, and have readers ignore any status that lasted less than the
+window. Every reader then needs that logic.
+
+**Leaving Completed already inserts a new pass** (the existing ×2 behaviour). A Completed → Playing
+→ Completed shuffle still leaves that extra pass behind, but its history goes with it when the pass
+is deleted in the drawer.
+
+### Backend
+
+**Table `status_changes`:**
+- `id`
+- `log_entry_id` — foreign key, cascade on delete
+- `from_status` — varchar(20); null means the pass was created
+- `to_status` — varchar(20)
+- `changed_at` — timestamptz, from `IJournalClock.Now`
+- an index on `(log_entry_id, changed_at)`
+- No user column, like `notes`. Scoping joins through `log_entries.user_id`.
+
+**Recommended: one `SaveChangesInterceptor`.** It sees every `LogEntry` that is added or whose
+`Status` changed.
+- Status is written in four places today: `TransitionAsync`, `AddToBoardAsync` / `NewPassAsync`,
+  `LogEntryService.CreateAsync`, and `UpdateAsync` (`:166`).
+- With an interceptor, a fifth write path can't forget to record.
+
+**This is the opposite trade from the query filter `auth.md` rejected, so say why in a comment:**
+- A scoping filter that goes wrong hides data or leaks it.
+- A recorder that misses one write site loses that history for good, and nothing errors.
+- So here the risk worth minimising is a forgotten write site. Counting call sites has already
+  bitten this codebase — see *four places order a title's entries*.
+
+**Registration:** `AddDbContext((sp, options) => … .AddInterceptors(sp.GetRequiredService<…>()))` at
+`Program.cs:20`.
+
+**No backfill.** A synthetic "moved when created" row would be false for every pass that was edited
+in place. Readers treat a missing history as "unknown before <ship date>", and `data-model.md`
+records that date.
+
+### Tests first
+
+Write these through the API. `PostgresFixture.CreateDbContext()` builds contexts by hand without the
+interceptor.
+
+**One row per write path:**
+- a move that edits in place
+- a move out of Completed, which creates a new pass
+- an add
+- `POST /log-entries`
+- a `PUT` that changes status
+- A `PUT` that keeps the same status records nothing.
+
+**Coalescing** (set `FrozenTimeProvider.UtcNow` between moves):
+- Two moves inside the window leave one row.
+- A round trip leaves none.
+- Two moves further apart than the window leave two rows.
+
+**Cascades:** deleting a pass, *Remove from board* and deleting the user each remove the history.
+
+**Guard:** taking the interceptor out fails every write-path test.
+
+**Docs to update:**
+- `data-model.md`: the table, the window, and why there's no backfill.
+- `board.md`: moves are now recorded.
+
+---
+
+## 3. Hours in the column headers · S–M
+
+**What, as the user specified it:**
+- Every column shows the total of HowLongToBeat's **All play styles** figure. For games, that's
+  `LibraryItemDto.LengthHours` (`LibraryService.cs:234`).
+- **Completed** instead shows the user's logged hours, compared with HLTB All Styles.
+- Optional: Playing could show what's left instead.
+
+**Decide at pickup:**
+- The comparison counts only titles that have *both* figures, and says how many lack the user's
+  hours — e.g. *212 h vs HLTB ~240 h · 31 games, 12 without your hours*.
+- Where the total sits is a render-and-pick choice. The header already wraps at 1280px for
+  Completed and Dropped (`design.md`).
+- **On a phone, since #1:** the column's own heading is hidden under the switcher (`namedAbove`,
+  `sr-only`), and each segment shows a column's name over its count. Two candidates for the
+  hours there: under the count in each segment, or in the column's header row beside the sort
+  control, which is the only thing still visible there. Render both at 390px.
+
+### Backend
+
+**Totals cover the whole filtered column**, computed before `Skip`/`Take` in `ListAsync` (`:178`).
+Columns are paged at 100, and Backlog leaves out the calendar's titles, so the header has to agree
+with the cards and not with one page.
+
+**Recommended: put the totals in the column response itself** — a record extending `PagedResult` —
+rather than on a new endpoint.
+- Every move, add, remove and drawer write already invalidates the column's query key.
+- A move already has to name `'years'`, `'upcoming'` and `'statuses'`. A `'totals'` key would be one
+  more thing to remember.
+- **Since #1, this also reaches the phone for free.** The switcher reads every column through
+  `columnQuery`, so totals carried in the column response are in its hands with no new request.
+
+**The sum's downcast stays in that final aggregate**, never in `BoardQuery`.
+
+**This makes a fourth copy of the LengthHours coalesce** (after the two projections and `Sorted`).
+Either:
+- move it into one `Expression` that `Sorted` and the sum share (the projections can't use it
+  without `Invoke`), or
+- add a test that pins the copies together.
+
+### Frontend
+
+- Show the totals in `Column.tsx`'s header, the `<h2>` (line 169 at `df54a8b`), formatted with the
+  hobby's `formatLength`.
+- Show the Completed comparison only when the hobby's pass records hours
+  (`PassFields.hoursPlayed`). Never check the slug.
+
+### Tests first
+
+- Totals cover the whole column when it's paged (`pageSize=2` with three titles).
+- The Backlog total excludes unreleased titles.
+- The Completed total follows the year, including a game finished at 8pm on New Year's Eve.
+- A null HLTB figure never counts as 0.
+- Another user's hours never count.
+- On a phone (`windowOfWidth(390)`), the hours appear where the workshop put them.
+
+---
+
+## 4. "How long will it take me?" · S–M, all client-side
+
+**What.** The user said how many hours they play a day or a week, and which play style (a tier).
+The app says how many days that takes and roughly what date they'll finish. On a game in Playing,
+it starts from the hours already played.
+
+**The "anything similar" the user asked for:**
+- **Reverse:** "to finish by Nov 15, play about 1.2 h a day".
+- **Whole backlog:** "~1,300 h of backlog at 10 h a week is about 2.5 years", using #3's Backlog
+  total.
+
+**Decide at pickup (workshop both):**
+- an inline calculator in the drawer beside the estimates, or
+- the user's own idea: a little two-question quiz, opened from the drawer or the card's `⋯` menu.
+
+### Frontend
+
+**Pure functions in `journal/pace.ts`:**
+- `remaining = max(tier − hoursPlayed, 0)`
+- days = ⌈remaining ÷ hours per day⌉
+- the finish day is `todayHere()` plus that many days
+
+**Add an `addDays` to `lib/release.ts`**, using its UTC day arithmetic. Never build a `Date` from a
+day string: `release.ts` exists to prevent that, and it moves the day across a DST change.
+
+**Other details:**
+- The tiers come from `hltbTiers()` (`journal/fields.ts`).
+- Show the calculator only when the title has HLTB data (`TitleDetail.hltb`), so films never see it,
+  with no slug check.
+- Remember the pace per browser through `lib/storage.ts`.
+- When the user is past an estimate, say so — "past HLTB's Main Story, you're at 31 h" — rather than
+  showing 0 days.
+
+### Tests first
+
+**The maths:**
+- rounding
+- per week vs per day
+- already past the estimate
+- no figures at all
+
+**`addDays` across the 1 Nov 2026 DST change.**
+
+**Storage refusing a write.** Spy on the instance with `vi.spyOn(localStorage, 'setItem')`. A spy on
+the prototype refuses nothing in this test setup — see the CLAUDE.md trap.
+
+---
+
+## 5. Stats · M–L (after #2, sharing #3's sums)
+
+**What the user asked for:**
+- "X was added to your backlog Y days ago"
+- the user's completion time vs HLTB
+- completion rate
+- and was open to more
+
+**Decide at pickup:**
+- **Where it lives.** Recommended: `/board/:hobby/stats`, on Discover's pattern. The year in review
+  can grow from it. This changes CLAUDE.md's Settled **Scope** row. **Render it at 390px as well
+  as wide**, and give its `<main>` the board's `p-4 md:p-6`, as Discover now has.
+- **What completion rate means.** Recommended: of the titles started in the year, the share
+  finished, shown beside finished vs dropped. With nothing started, show *no data*, not 0%.
+- **Backlog age.**
+  - "In your backlog since" is exact from #2's history.
+  - Older passes fall back to the pass's `logged_at`, labelled so it doesn't overclaim.
+  - It could also appear on Backlog cards; pick at the workshop.
+- **You vs HLTB.** Recommended:
+  - use completed passes that have both figures, against All Styles (to match #3)
+  - show an overall percentage
+  - show the fastest and slowest titles relative to their estimate
+
+**More to offer:**
+- finished per month
+- rating distribution and average
+- genres among what was finished
+- platforms played on
+- oldest title still in Playing
+- backlog hours at the user's pace (#4)
+
+Use the `dataviz` skill for any charts, and render the page for a pick first.
+
+### Backend
+
+- `GET /api/stats?hobby=&year=`: aggregates scoped to the user.
+- Turn the year into `SpanOf`'s instant range. Never use `EXTRACT`.
+- Return instants, and let the client turn them into days with `lib/time.ts`. That's the UI, which
+  is already one of the four zone places.
+- If the server counts days itself, that's a **fifth** zone place, and `data-model.md`'s tripwire
+  sentence has to change.
+
+### Tests first
+
+- Scoping: user B never appears in user A's stats.
+- Each definition's edge cases.
+- Missing HLTB figures are excluded, not counted as 0.
+- Year boundaries.
+
+---
+
+## 6. Search your notes · S–M
+
+**What.** Find the note where the user wrote about that boss fight, and open that title's journal.
+
+### Backend
+
+**Route:** `GET /api/notes/search?q=&hobby=` on `NotesController`. Its routes are `notes/{id:int}`,
+so `notes/search` doesn't collide.
+
+**`NoteService.SearchAsync`:**
+- Scoped through `n.LogEntry.UserId`, like every query there.
+- Newest first, capped at 50.
+- Returns the title, media id, `writtenAt` and the body.
+
+**Use `ILIKE`, not full-text search.**
+- Escape `%`, `_` and `\`.
+- `sendOnEnter` already handles IME composition because notes get written in Japanese and Korean.
+  Postgres's `english` configuration would mangle that text, and no configuration splits Japanese
+  into words.
+- At this scale no index is needed. `pg_trgm` is the upgrade if one ever is.
+
+**Decide at pickup (workshop):**
+- a *Titles | My notes* switch on the search bar, or a box of its own
+- client-side highlighting of the match
+- a result opens the drawer through the board's existing `openJournal`
+
+### Tests first
+
+- Another user's note never matches.
+- `50%` matches literally.
+- Matching is case-insensitive.
+- A Japanese substring matches.
+- An empty `q` returns 400.
+
+---
+
+## 7. Export the board to a spreadsheet · S–M
+
+### Decide at pickup
+
+**Recommended: CSV, one row per title, as the board shows it.** Columns:
+- title
+- the column, in the hobby's own words
+- rating
+- hours played
+- platform
+- started and finished, as Eastern days
+- number of passes
+- the four HLTB figures
+- genre
+- developer
+- release date
+- latest note
+
+**Optional:** extra files for every pass and every note.
+
+**XLSX** (ClosedXML, MIT, added through `Directory.Packages.props`) is the alternative if Excel's CSV
+handling gets in the way.
+
+### How it's built: the server returns facts, the client writes words
+
+- `GET /api/library/export?hobby=` returns JSON rows with every field, including the ones the board
+  row lacks: hours, platform, both dates, the tiers.
+- The client builds the CSV:
+  - the hobby's words from `columnLabel` and `resolveGenre` in `hobbies/`
+  - the dates from `journalDateInput` in `lib/time.ts`
+- That keeps the hobby's words in `hobbies/` (a Settled rule) and the time zone in the UI, so it adds
+  no new zone place.
+- Download it as a `Blob` named `hobbytracker-games-<todayHere()>.csv`.
+
+### Traps
+
+- **Add a UTF-8 BOM**, or Excel shows *PokÃ©mon*.
+- **Formula injection.** Notes are free text, so any cell starting with `=`, `+`, `-`, `@`, a tab or
+  a carriage return gets a leading `'`. Quote every cell.
+- **Don't page the export.** Columns stop at 100, so the endpoint must return everything — no
+  `MaxPageSize`, and not through `ListAsync`'s pager.
+
+**UI (workshop):** a *Your data* group in Settings, shared with #8.
+
+---
+
+## 8. Delete my account · S–M
+
+### Backend
+
+**`DELETE /api/account` on a new `AccountController` with `[Authorize]`.**
+- **Not in `AuthController`.** That controller is `[AllowAnonymous]` at class level, and
+  `[AllowAnonymous]` overrides any `[Authorize]` on an action.
+- Test this: an anonymous DELETE gets 401.
+
+**Delete the `users` row and let the database cascade.**
+- It cascades to `log_entries`, from there to `notes` and `status_changes`, and to `auth_identities`.
+- The cascades are in `LogEntryConfiguration.cs:90`, `AuthIdentityConfiguration.cs:21` and
+  `NoteConfiguration.cs:24`.
+- Shared `media` and `games` rows stay.
+- Then call `SignOutAsync`.
+
+### Trap: the cookie outlives its user
+
+- The session cookie is self-contained and has no `OnValidatePrincipal` (`Program.cs:230`).
+- So another device stays signed in as a user id that no longer exists. Reads come back empty, and
+  writes 500 on the foreign key.
+- **Fix:** add an `OnValidatePrincipal` that looks the user up by primary key and calls
+  `RejectPrincipal()` if the row is gone.
+
+### Decide at pickup
+
+- **The confirmation.** Recommended: inline, with counts, in `ConfirmDelete`'s style. It must say
+  **every board** — games, films, TV, anime — not just this one. That needs a small read for the
+  counts.
+- **Backups.** Whether to mention that nightly backups keep the data until they expire. They are
+  kept 14 days; see *Backups* in `docs/deploy.md`.
+
+### Frontend
+
+On success, do what `SessionBadge`'s sign-out does: `setQueryData(sessionKey, null)`, then
+`clear()`. That lands the user on sign-in.
+
+### Tests first
+
+- Deleting user A removes all of A's rows and none of B's.
+- Shared catalogue rows survive.
+- A stale cookie gets 401 afterwards.
+- An anonymous DELETE gets 401.
+- e2e: sign in, add a title, delete the account, sign in again, see an empty board.
+
+---
+
+## 9. A read-only share link · M
+
+**What.** One revocable link to the games board, for friends and for portfolio reviewers. Today a
+reviewer can't see anything without making an account.
+
+### Decide at pickup
+
+**What a share shows.**
+- Recommended: covers, titles, columns, ratings and progress.
+- **Leave note previews out**: `LatestNotePreview` is null on the share path, because notes are a
+  private journal.
+
+**Which columns.** Hidden columns are a per-browser setting the server never sees. Either:
+- show all five, with Dropped collapsed, or
+- store a column list on the share.
+
+**Whether the share offers the year picker.**
+
+### Backend
+
+**Table `board_shares`:**
+- `id`
+- `user_id` — cascade on delete
+- `hobby_id`
+- `token_hash` — unique; the SHA-256 of 16 random bytes. The URL carries the raw token, base64url.
+- `created_at`
+- `revoked_at`
+
+**Owner routes (`[Authorize]`):**
+- create — the URL is shown once
+- list
+- revoke
+
+**Anonymous routes**, on their own `[AllowAnonymous]` controller:
+- `GET /api/shared/{token}/library`, `/years` and `/upcoming`.
+- An unknown token and a revoked token give the same 404.
+
+**Keep scoping visible at the call site.**
+- Refactor `LibraryService`'s *read* paths so `BoardQuery` takes an explicit owner id. The signed-in
+  methods pass `user.Id`; the share passes the token's user.
+- **Never swap `ICurrentUser` for the share request.** Any write path it could reach would then act
+  *as* the owner.
+- `ICurrentUser.Id` throwing when nobody is signed in is the backstop.
+
+### Frontend
+
+- A route at `/share/:token`, outside `RequireSession`.
+- Read-only columns render `CardFace` with no handlers, exactly as the drag preview does today.
+- No search, no drawer, no Discover.
+- In Settings: *Share this board* — create, copy, revoke. Workshop the look.
+- **On a phone, since #1:** a shared board needs the same one-column-at-a-time layout: the
+  `SIDE_BY_SIDE` media query and `ColumnSwitcher`. **A share must offer no drop target.** The
+  switcher's segments call `useDroppable`, so check at pickup whether it renders sensibly outside
+  a `DndContext` — dnd-kit's contexts have defaults — or needs a variant without droppables. Its
+  counts come from `columnQuery`, which reads the signed-in library, so the share needs its own
+  query for them.
+
+### Tests first
+
+- The share shows only the owner's titles.
+- No notes appear.
+- A revoked or unknown token gives 404.
+- The anonymous controller has no write routes.
+- Deleting the account kills the share.
+- At 390px, the share is one column at a time and nothing on it can be dragged.
+
+**Docs to update:**
+- `auth.md`: the deliberate anonymous route, and why it's safe.
+- CLAUDE.md's Settled **Scope** and **Sessions** rows.
+
+---
+
+## 10. `/` focuses the search box · S
+
+### Frontend
+
+In `BoardSearch.tsx`, which owns `boxRef` (`:42`, unchanged at `df54a8b`), add a `document`
+`keydown` listener for `/`.
+
+**Ignore the key when:**
+- a modifier is held
+- an IME is composing (`isComposing`, read off the native event)
+- focus is in an `input`, `textarea`, `select` or `contenteditable` element
+- a modal dialog is open — the drawer is `aria-modal`, and its Tab trap must keep the keyboard
+
+**Otherwise** call `preventDefault()` so the `/` isn't typed, then focus the box.
+
+**A document listener is fine for this key.** The rule in `games-igdb.md` is about two listeners
+for one key (Escape), and nothing else listens for `/`.
+
+### Tests first (Vitest)
+
+- `/` on the board focuses the search box.
+- `/` typed into a note still types a slash.
+- With the drawer open, focus doesn't move.
+- Ctrl+/ is ignored.
+
+**Optional:** a `/` hint in the placeholder.
+
+---
+
+## Noted for the other hobbies (no plans, as the user asked)
+
+**Import a MAL list.**
+- MAL's list statuses map one-to-one onto the five columns, and MAL ids are exact.
+- **Unmeasured:** a *public* list may be readable with the client id alone
+  (`GET /users/{name}/animelist`). `anime-mal.md` assumes it needs OAuth. Measure before planning.
+
+**+1 episode on Watching cards (TV and anime).**
+- Anime stops at `episodeCount`.
+- TV needs each season's episode count, which the board row doesn't carry.
+- **On a phone since #1**, a Watching card is under the switcher like any other, and a +1 button
+  on it must keep its press from the drag. Spread `NOT_A_DRAG` from `Card.tsx`, as the `⋯` corner
+  does.
