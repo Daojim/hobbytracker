@@ -19,6 +19,11 @@ public class LogEntry
     public int MediaId { get; set; }
     public Media? Media { get; set; }
 
+    /// <summary>
+    /// The board column this pass is in. Only ever the current one: when it changed is kept in
+    /// <see cref="StatusChange"/>, written by <c>StatusHistoryRecorder</c> during whichever save
+    /// changes this — so a write that goes around SaveChanges leaves no history behind.
+    /// </summary>
     public LogStatus Status { get; set; } = LogStatus.Backlog;
 
     /// <summary>

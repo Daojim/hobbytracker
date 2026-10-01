@@ -999,6 +999,99 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         stored.ShouldBe("Quarter");
     }
 
+    // ------------------------------------------------------- a pass's history
+
+    [Fact]
+    public async Task A_status_change_is_stored_as_readable_text()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var entry = new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.Dropped };
+            db.StatusChanges.Add(new StatusChange
+            {
+                LogEntry = entry,
+                FromStatus = LogStatus.InProgress,
+                ToStatus = LogStatus.Dropped,
+                ChangedAt = Eastern(2026, 9, 1),
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await WithDbAsync(async db =>
+        {
+            await db.Database.OpenConnectionAsync(Ct);
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "select from_status || ' to ' || to_status from status_changes";
+            return (string?)await command.ExecuteScalarAsync(Ct);
+        });
+
+        // As log_entries.status is, for its reason exactly: an ordinal here would mean that
+        // reordering LogStatus rewrote every move anybody ever made.
+        stored.ShouldBe("InProgress to Dropped");
+    }
+
+    [Fact]
+    public async Task Rejects_a_status_change_that_changes_nothing()
+    {
+        // The recorder deletes a shuffle that came back where it started. This is what makes a
+        // recorder that forgot to fail loudly, rather than storing a move nobody made.
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var entry = new LogEntry { UserId = UserId, MediaId = mediaId, Status = LogStatus.Backlog };
+            db.StatusChanges.Add(new StatusChange
+            {
+                LogEntry = entry,
+                FromStatus = LogStatus.Backlog,
+                ToStatus = LogStatus.Backlog,
+                ChangedAt = Eastern(2026, 9, 1),
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_status_changes_is_a_change");
+    }
+
+    [Fact]
+    public async Task Deleting_an_account_takes_its_history_and_nobody_elses()
+    {
+        // Nothing deletes an account yet; that route is planned, and it will delete the users row
+        // and leave the rest to the database. This is the half of it that is already promised:
+        // users cascades to log_entries, and log_entries to the history.
+        var mediaId = await GivenAGameAsync();
+        var someoneElse = await GivenUserAsync("Someone Else");
+
+        await WithDbAsync(async db =>
+        {
+            foreach (var owner in new[] { UserId, someoneElse })
+            {
+                db.StatusChanges.Add(new StatusChange
+                {
+                    LogEntry = new LogEntry { UserId = owner, MediaId = mediaId, Status = LogStatus.Backlog },
+                    ToStatus = LogStatus.Backlog,
+                    ChangedAt = Eastern(2026, 9, 1),
+                });
+            }
+
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await WithDbAsync(async db =>
+        {
+            db.Users.Remove(await db.Users.SingleAsync(user => user.Id == UserId, Ct));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var left = await WithDbAsync(db => db.StatusChanges
+            .Select(change => change.LogEntry!.UserId)
+            .ToListAsync(Ct));
+
+        left.ShouldBe([someoneElse]);
+    }
+
     private async Task<int> GivenAnAnimeAsync(
         string externalId = "1",
         int? episodes = null,
