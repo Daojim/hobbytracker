@@ -119,6 +119,14 @@ title, and editing in place would destroy the record silently, on a gesture as c
 actually started it, and a pass inserted by a drag out of Completed gets a null platform and null
 hours rather than inheriting the last one's.
 
+**Every move is written down, and nothing in this table does it.** Since 1 October 2026 a drag, a
+menu move, a drop on the phone's switcher and an add each leave a row in `status_changes` — which
+column the pass left, which it reached, and when — written by `StatusHistoryRecorder` during the
+save, so `TransitionAsync` and `NewPassAsync` carry no line for it. Leaving Completed records the
+replay being made and nothing against the finished pass, which did not change. A card
+shuffled between columns inside ten minutes folds away rather than being recorded. See **A pass's
+history** in `docs/data-model.md`.
+
 **Dropping stamps a start when the pass has none**, which is the one rule in that table that adds a
 fact rather than preserving one. A Backlog entry has both timestamps cleared by rule and the Dropped
 column is narrowed by *either* of them, so a card dragged straight out of the queue used to leave the

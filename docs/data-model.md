@@ -125,6 +125,56 @@ while every other primary key is snake_case; `EFCore.NamingConventions` does not
 for TPT tables. EF only uses constraint names when generating migrations, so renaming them behind
 EF's back would make a future `DROP CONSTRAINT` fail.
 
+## A pass's history
+
+**`status_changes` records when a pass arrived in each column**, because nothing else does. A move
+edits the pass in place, so until 1 October 2026 the moment of it was lost; `logged_at` says only
+when the pass was made. One row per arrival, `from_status` → `to_status` at `changed_at`, and
+**`from_status` is null when the pass was made**: by an add, by `POST /api/log-entries`, or by the
+replay a move out of Completed starts. Nothing reads it yet. It was recorded ahead of stats and the
+year in review because it is the one thing neither of them could backfill.
+
+- **Written by `StatusHistoryRecorder`, an EF `SaveChangesInterceptor`, and by no service.** It
+  sees every `LogEntry` a save adds and every one whose `Status` differs from what was loaded, so
+  the four places a status is written — a move, an add, logging a pass, rewriting one — carry no
+  line each, and a fifth cannot forget. **This is the opposite of the trade `docs/auth.md` made
+  against a query filter, and both are right.** Scoping gone wrong hides or leaks somebody's data,
+  so it stays visible at every call site. A recorder that misses a write site loses that history
+  for good with nothing failing, so here the risk worth minimising is the forgotten site.
+- **What it cannot see is a write around the change tracker**: `ExecuteUpdate`, raw SQL, or a
+  context built without it. Each moves a pass with no row and no error. The last is
+  `PostgresFixture.CreateDbContext()`, on purpose — it lets the backend suite arrange passes with no
+  history of their own, which is why `StatusHistoryTests` makes every row through the API.
+- **A shuffle folds on the way in, inside `SettleWindow`: ten minutes.** Somebody trying the board
+  out drags a card through every column, and none of that is history. A move made within the window
+  of the pass's latest row rewrites that row's `to_status` and `changed_at` rather than adding one;
+  a fold that lands back where the row began deletes it, so a round trip leaves nothing; and a row
+  older than the window is never touched again. On the way in rather than filtered on the way out,
+  so no reader has to know the window exists. **The cost, accepted when it was chosen:** a column a
+  pass genuinely spent five minutes in is not in the history either. Its dates are still on the pass.
+- **`ck_status_changes_is_a_change` refuses a row whose two columns agree.** The fold deletes those,
+  and a recorder that asked "did the pass change" rather than "did its column change" would write
+  one on the drawer's every save and on every reorder. It fails as a 500, which is the point.
+- **Leaving Completed records the replay, not the finished pass.** The finished pass does not change,
+  so it gets no row. "When did this title leave Completed" is the replay's made-row, read across the
+  title's passes.
+- **No backfill, and a reader can tell which passes that leaves unknown.** The only row a migration
+  could write for an existing pass is "made in its current column, when it was logged", which is
+  false for every pass a move has edited since. Instead, **every pass made since recording began has
+  exactly one made-row, and nothing deletes it**: a fold cannot, because a pass that came from
+  nowhere cannot come back to where it started. So a pass with no made-row predates recording, and
+  what happened to it before its first row is *unknown* rather than *nothing*. Recording began on 1
+  October 2026 in development, and in production with the deploy that carries it — but the per-pass
+  rule means a reader needs neither date.
+- **A fold moves a made-row's `changed_at` along with it**, so that row says where a new pass
+  settled and when, which can be a few minutes after it was made. When it was made is `logged_at`.
+- **It goes with its pass.** Deleting one in the drawer, *Remove from board* and an account being
+  deleted all cascade to it, the last through `log_entries`. No user column, exactly as `notes` has
+  none: a reader scopes through `log_entries.user_id`.
+- **`changed_at` is an instant**, stamped from `IJournalClock.Now` as `logged_at` is, and nothing on
+  the server turns it into a day — so the places the journal zone is applied, below, are still four.
+  A reader that counts days on the server makes it five, and updates that sentence.
+
 ## Time
 
 The app records days in **`America/New_York`**, configured as `Journal:TimeZone` in

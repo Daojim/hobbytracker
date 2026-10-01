@@ -279,6 +279,16 @@ rather than an error. Sixteen query sites carry the predicate by hand, and twent
 tests were written red first, and each was checked afterwards by reverting one predicate at a
 time: every one fails exactly the tests that name it and nothing else.
 
+**A pass's history is written by an interceptor, which is the opposite of the scoping decision,
+on purpose.** A move edits the current pass in place, so when it happened would be lost without
+`status_changes`. Four services set a status, and none of them records it. One EF
+`SaveChangesInterceptor` writes the row during the save, which is exactly the invisibility the
+note above rejects. The difference is in how each fails. A scoping filter gone wrong hides or leaks
+somebody's data, so scoping stays at the call site where a reviewer can see it. A recorder missing
+from one write site loses that history for good, and nothing errors, so here the forgotten site is
+the risk worth designing out. A card shuffled through the columns inside ten minutes is folded away
+as the row is written, so nothing that reads the history has to know about shuffles.
+
 **A card shows the number HowLongToBeat itself leads with, and it is fetched rather than
 averaged.** The site prints one headline figure above its three tiers — 42 hours for Hollow
 Knight, whose main story is 27 and completionist 65.6 — and it is not a function of them. The
@@ -431,6 +441,10 @@ to prevent something, the test for it is checked by reintroducing the thing.
       carried up onto a column's name moves there. The drag library measures every drop target
       once and then moves it with the page as the page scrolls, which is wrong for the one thing
       pinned to the screen, so the switcher is measured where it actually is
+- [x] A record of when each title changed column, before anything reads it. History that was
+      never written down is the one thing a later feature cannot backfill. It is written in the
+      same save as the move, by one interceptor rather than by each of four services. A card
+      shuffled through the columns inside ten minutes leaves nothing behind
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

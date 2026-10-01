@@ -40,6 +40,12 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     /// <summary>What was written during a pass. Child of log_entries, cascade deleted.</summary>
     public DbSet<Note> Notes => Set<Note>();
 
+    /// <summary>
+    /// When each pass arrived in each column. Child of log_entries, cascade deleted, and written
+    /// by StatusHistoryRecorder during a save rather than by any service.
+    /// </summary>
+    public DbSet<StatusChange> StatusChanges => Set<StatusChange>();
+
     public DbSet<User> Users => Set<User>();
     public DbSet<AuthIdentity> AuthIdentities => Set<AuthIdentity>();
 

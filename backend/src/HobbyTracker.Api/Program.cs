@@ -17,13 +17,21 @@ using Microsoft.Extensions.Options;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------------- persistence
-builder.Services.AddDbContext<HobbyTrackerDbContext>(options => options
+builder.Services.AddDbContext<HobbyTrackerDbContext>((services, options) => options
     .UseNpgsql(builder.Configuration.GetConnectionString("HobbyTracker"))
     // Maps PascalCase CLR names onto snake_case tables, columns, indexes and keys, so the
     // schema reads like idiomatic Postgres without a HasColumnName call on every property.
     // Explicit ToTable calls in Data/Configurations still win, which is how the lookup
     // tables keep their `_lu` suffix.
-    .UseSnakeCaseNamingConvention());
+    .UseSnakeCaseNamingConvention()
+    // Every save that moves a pass between columns writes down when, whichever service made
+    // it. On the context rather than in the four services that write a status, so a fifth
+    // cannot forget; see StatusHistoryRecorder for why this is the opposite of scoping's trade.
+    .AddInterceptors(services.GetRequiredService<StatusHistoryRecorder>()));
+
+// Stateless, so one serves every context. Its clock is the journal's, which is what lets a test
+// stop it with the rest.
+builder.Services.AddSingleton<StatusHistoryRecorder>();
 
 // ---------------------------------------------------------------------- time
 // Injected rather than read from DateTime.UtcNow at the point of use, so the rules that stamp
