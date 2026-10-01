@@ -184,6 +184,11 @@ export const TV: HobbyDefinition = {
   // No Discover page, for the same kind of reason: TMDB has trending and popular lists, and
   // nothing asks it for them yet. See HobbyDefinition.discover.
   discover: null,
+
+  // No hours in the column headers yet, by choice rather than for want of data: the board was
+  // built on games first. The proposed wording is in docs/plans/games-board-next.md. See
+  // HobbyDefinition.columnHours.
+  columnHours: null,
 };
 
 /**

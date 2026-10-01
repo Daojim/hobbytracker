@@ -24,7 +24,7 @@ public enum AddToBoardOutcome
 
 public interface ILibraryService
 {
-    Task<PagedResult<LibraryItemDto>> ListAsync(
+    Task<LibraryPage> ListAsync(
         string? hobby,
         LogStatus? status,
         int? year,
@@ -158,7 +158,7 @@ public sealed class LibraryService(
         return page.Items;
     }
 
-    public async Task<PagedResult<LibraryItemDto>> ListAsync(
+    public async Task<LibraryPage> ListAsync(
         string? hobby,
         LogStatus? status,
         int? year,
@@ -176,6 +176,10 @@ public sealed class LibraryService(
             BoardQuery().AsNoTracking(), hobby, status, SpanOf(year), partition, clock.Today);
 
         var total = await query.CountAsync(cancellationToken);
+
+        // Over the filtered column and before the page is cut, as the count above is: the header
+        // has to agree with the column, not with the hundred cards a page holds.
+        var hours = await HoursOfAsync(query, cancellationToken);
 
         var items = await Ordered(query, sort, partition)
             .Skip((normalisedPage - 1) * normalisedSize)
@@ -295,7 +299,65 @@ public sealed class LibraryService(
                     .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
-        return new PagedResult<LibraryItemDto>(items, total, normalisedPage, normalisedSize);
+        return new LibraryPage(items, total, normalisedPage, normalisedSize, hours);
+    }
+
+    /// <summary>
+    /// What a column's header says about how long its titles take: the figure each card prints,
+    /// added up, and your own hours against it over the titles that have both.
+    ///
+    /// <para>
+    /// <b>Two numbers a title are read out and added up here</b>, rather than summed in SQL, for
+    /// <c>ActivityYearsAsync</c>'s reason: a column is a few hundred rows at most at the scale a
+    /// personal catalogue reaches, and the rules that matter — a title with no figure is left out
+    /// and counted rather than added as nought, and a comparison is over one set of titles — read
+    /// as what they are. A SQL <c>SUM</c> answers nought for nothing, which is the first of them
+    /// broken.
+    /// </para>
+    /// </summary>
+    private static async Task<ColumnHours> HoursOfAsync(
+        IQueryable<BoardRow> column, CancellationToken cancellationToken)
+    {
+        var titles = await column
+            .Select(row => new
+            {
+                // LengthHours, exactly as the two projections build it, rounding and all — the
+                // fourth copy of this coalesce, after those two and Sorted's Length arm. A
+                // shared expression would have saved one copy of the four: the projections
+                // cannot reuse one without an Invoke, which EF cannot translate. So what holds
+                // the copies together is a test per hobby instead, that the total is the sum of
+                // what the cards print, as each hobby's length-sort test holds Sorted's. See
+                // ColumnHoursTests. Rounded per title because the cards are: a total of
+                // unrounded runtimes drifts from them by a fraction of a minute a title.
+                //
+                // TPT downcasts, so terminal and nowhere near BoardQuery, for the reason the
+                // projections give.
+                Length = (row.Media as Game)!.HltbAllStylesHours
+                    ?? ((row.Media as Movie)!.RuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as Movie)!.RuntimeMinutes ?? 0) / 60m, 2))
+                    ?? ((row.Media as TvShow)!.TotalRuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as TvShow)!.TotalRuntimeMinutes ?? 0) / 60m, 2))
+                    ?? ((row.Media as Anime)!.TotalRuntimeMinutes == null
+                        ? (decimal?)null
+                        : Math.Round(((row.Media as Anime)!.TotalRuntimeMinutes ?? 0) / 60m, 2)),
+
+                // Off the current pass, the one the card shows, like every other field on the
+                // row. Latest is already yours, so nobody else's hours can reach this.
+                row.Latest.HoursPlayed,
+            })
+            .ToListAsync(cancellationToken);
+
+        var timed = titles.Where(title => title.Length is not null).ToList();
+        var compared = timed.Where(title => title.HoursPlayed is not null).ToList();
+
+        return new ColumnHours(
+            Length: timed.Count == 0 ? null : timed.Sum(title => title.Length!.Value),
+            LengthTitles: timed.Count,
+            Played: compared.Count == 0 ? null : compared.Sum(title => title.HoursPlayed!.Value),
+            PlayedLength: compared.Count == 0 ? null : compared.Sum(title => title.Length!.Value),
+            PlayedTitles: compared.Count);
     }
 
     public async Task<IReadOnlyList<int>> ActivityYearsAsync(

@@ -6,8 +6,11 @@ namespace HobbyTracker.Api.Contracts;
 /// List endpoints return this envelope from the start rather than a bare array. Retrofitting
 /// pagination later means changing the response shape, which breaks every existing client —
 /// cheap now, expensive once a frontend exists.
+///
+/// Not sealed, so that a list can carry what is true of all its pages beside the one it hands
+/// back: a board column's hours are <see cref="LibraryPage"/>.
 /// </summary>
-public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize)
+public record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize)
 {
     public static PagedResult<T> Empty(int page, int pageSize) => new([], 0, page, pageSize);
 }

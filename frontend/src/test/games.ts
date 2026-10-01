@@ -1,9 +1,9 @@
 import { http, HttpResponse } from 'msw';
 import { server } from './server';
-import { libraryItem } from './library';
+import { libraryItem, libraryPage } from './library';
 import { logEntry, passServer, type PassCalls, type PassFixture } from './passes';
 import type { OnBoard } from '../api/library';
-import type { Game, GameDetail, LogStatus, PagedResult } from '../api/types';
+import type { Game, GameDetail, LogStatus } from '../api/types';
 
 // Re-exported because a pass is a pass whichever hobby it is through, and the specs that were
 // written when games were the only hobby import them from here. See `passes.ts`.
@@ -71,12 +71,11 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
     }),
 
     http.get('/api/library', () =>
-      HttpResponse.json({
-        items: onBoard.map(({ mediaId, status }) => libraryItem({ mediaId, currentStatus: status })),
-        total: onBoard.length,
-        page: 1,
-        pageSize: 100,
-      } satisfies PagedResult<ReturnType<typeof libraryItem>>),
+      HttpResponse.json(
+        libraryPage(
+          onBoard.map(({ mediaId, status }) => libraryItem({ mediaId, currentStatus: status })),
+        ),
+      ),
     ),
 
     http.post('/api/library/:mediaId', async ({ params, request }) => {

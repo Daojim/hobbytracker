@@ -4,7 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { Column } from './Column';
 import { columnsFor } from '../hobbies';
 import { server } from '../test/server';
-import { boardServer, libraryItem } from '../test/library';
+import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
 
 /**
  * The estimate poll, with its two durations compressed.
@@ -100,18 +100,82 @@ describe('Column', () => {
     boardServer();
     server.use(
       http.get('/api/library', () =>
-        HttpResponse.json({
-          items: [libraryItem({ title: 'Celeste' })],
-          total: 140,
-          page: 1,
-          pageSize: 100,
-        }),
+        HttpResponse.json(libraryPage([libraryItem({ title: 'Celeste' })], { total: 140 })),
       ),
     );
 
     renderColumn({ status: 'Backlog', label: 'Backlog' });
 
     expect(await screen.findByText('Showing 1 of 140')).toBeInTheDocument();
+  });
+
+  it('says under its heading how long its titles take, in words that read aloud', async () => {
+    boardServer({
+      columns: { Backlog: [libraryItem({ title: 'Celeste' }), libraryItem({ title: 'Hades' })] },
+      hours: { Backlog: { ...NO_HOURS, length: 61.82, lengthTitles: 2 } },
+    });
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+
+    // "~62 h" read aloud is a tilde and a letter. The line says it in words, as a card's own
+    // length badge does.
+    const line = await screen.findByRole('img', { name: 'About 62 hours to beat' });
+    expect(line).toHaveTextContent('~62 h to beat');
+
+    // Under the heading's row rather than in it: the heading and its sort control stay exactly
+    // where they were, which is why this placement was picked over the two that shared the row.
+    const sort = screen.getByRole('combobox', { name: 'Backlog order' });
+    expect(sort.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // And it is not part of the heading, which is what names the column's region.
+    expect(screen.getByRole('heading', { name: 'Backlog 2' })).toBeInTheDocument();
+  });
+
+  it('compares your hours with the estimate on Completed, over two lines', async () => {
+    boardServer({
+      columns: {
+        Completed: [
+          libraryItem({ title: 'Celeste', currentStatus: 'Completed' }),
+          libraryItem({ title: 'Outer Wilds', currentStatus: 'Completed' }),
+          libraryItem({ title: 'Hi-Fi Rush', currentStatus: 'Completed' }),
+        ],
+      },
+      hours: {
+        Completed: {
+          length: 50,
+          lengthTitles: 3,
+          played: 35.5,
+          playedLength: 37,
+          playedTitles: 2,
+        },
+      },
+    });
+
+    renderColumn({ status: 'Completed', label: 'Completed' });
+
+    expect(
+      await screen.findByRole('img', {
+        name: 'You played 36 hours, against about 37 hours to beat',
+      }),
+    ).toHaveTextContent('36 h played vs ~37 h to beat');
+    expect(
+      screen.getByRole('img', { name: 'over 2 games, 1 without your hours' }),
+    ).toHaveTextContent('over 2 games · 1 without your hours');
+  });
+
+  it('says nothing about hours on a board whose hobby has no words for them yet', async () => {
+    // Games only, by the user's choice. A films column handed the same answer prints no line,
+    // where a fallback to the games words would print one about beating a film.
+    boardServer({
+      hobby: 'movies',
+      columns: { Backlog: [libraryItem({ title: 'Arrival', hobby: 'movies' })] },
+      hours: { Backlog: { ...NO_HOURS, length: 1.93, lengthTitles: 1 } },
+    });
+
+    renderColumn({ hobby: 'movies', status: 'Backlog', label: 'Backlog' });
+    await screen.findByText('Arrival');
+
+    expect(screen.queryByRole('img', { name: /hours/ })).not.toBeInTheDocument();
   });
 
   it('says the column is empty rather than showing nothing at all', async () => {

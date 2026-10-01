@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { server } from './server';
 import { authServer } from './auth';
-import type { LibraryItem, LogStatus, PagedResult } from '../api/types';
+import type { ColumnHours, LibraryItem, LibraryPage, LogStatus } from '../api/types';
 
 /**
  * A board's worth of fixtures, and the handlers that serve them.
@@ -47,8 +47,40 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
   };
 }
 
+/**
+ * A column with no figure to add up, which is what a header with nothing to say is handed.
+ *
+ * The default for every fixture, so a test that is not about hours renders a header with none —
+ * exactly as it rendered before columns carried any.
+ */
+export const NO_HOURS: ColumnHours = {
+  length: null,
+  lengthTitles: 0,
+  played: null,
+  playedLength: null,
+  playedTitles: 0,
+};
+
+/**
+ * A column's answer: a page of titles, and the hours its header says over the whole column.
+ *
+ * One builder for every handler that serves a column, because a column's answer that leaves the
+ * hours out is a shape the API never sends, and a board handed one fails on the header rather
+ * than on whatever the test was about.
+ */
+export function libraryPage(
+  items: LibraryItem[],
+  { total = items.length, hours = NO_HOURS }: { total?: number; hours?: ColumnHours } = {},
+): LibraryPage {
+  return { items, total, page: 1, pageSize: 100, hours };
+}
+
 export interface BoardFixture {
   columns?: Partial<Record<LogStatus, LibraryItem[]>>;
+
+  /** What each column's header adds up. A column not named here has nothing to add up. */
+  hours?: Partial<Record<LogStatus, ColumnHours>>;
+
   years?: number[];
 
   /**
@@ -70,7 +102,7 @@ export interface BoardFixture {
 }
 
 export function boardServer(
-  { columns = {}, years = [], upcoming = [], hobby = 'games' }: BoardFixture = {},
+  { columns = {}, hours = {}, years = [], upcoming = [], hobby = 'games' }: BoardFixture = {},
 ) {
   // The shell asks who is signed in the moment it mounts, and MSW refuses a request no test
   // stated. Answered here so every board test does not have to say so; call authServer(...)
@@ -104,17 +136,14 @@ export function boardServer(
       // A board other than this fixture's is empty, not unhandled. The API really would answer
       // an empty page for a hobby you have logged nothing in, and answering these rows instead
       // would let a movies test assert its way to green on games fixtures.
-      const items =
-        asked !== null && asked !== hobby
-          ? []
-          : ((status === null ? undefined : columns[status]) ?? []);
+      const theirs = asked !== null && asked !== hobby;
+      const items = theirs ? [] : ((status === null ? undefined : columns[status]) ?? []);
 
-      return HttpResponse.json({
-        items,
-        total: items.length,
-        page: 1,
-        pageSize: 100,
-      } satisfies PagedResult<LibraryItem>);
+      return HttpResponse.json(
+        libraryPage(items, {
+          hours: theirs || status === null ? NO_HOURS : (hours[status] ?? NO_HOURS),
+        }),
+      );
     }),
 
     http.post('/api/library/:mediaId/status', async ({ params, request }) => {

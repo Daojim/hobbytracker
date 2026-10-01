@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatHours, formatRuntime } from './hours';
+import { formatHours, formatRuntime, totalHours } from './hours';
 
 describe('formatHours', () => {
   it('drops a trailing nought rather than writing 31.0 h', () => {
@@ -39,5 +39,28 @@ describe('formatRuntime', () => {
 
       expect(Number(h) * 60 + Number(m)).toBe(minutes);
     }
+  });
+});
+
+describe('totalHours', () => {
+  it('reads a column of titles added up in whole hours, with the thousands marked', () => {
+    // A card says ~41.82 h, because one game is worth the precision. Seventeen of them added
+    // up is not: 1,034.47 claims an accuracy no estimate behind it has.
+    expect(totalHours(1034.47)).toBe('1,034');
+    expect(totalHours(41.8)).toBe('42');
+    expect(totalHours(10.4)).toBe('10');
+  });
+
+  it('keeps a tenth under ten hours, where it is a real part of the answer', () => {
+    // A Playing column of one short game would otherwise read "~0 h", which says the column
+    // takes no time at all.
+    expect(totalHours(4.46)).toBe('4.5');
+    expect(totalHours(0.4)).toBe('0.4');
+    expect(totalHours(9.94)).toBe('9.9');
+  });
+
+  it('drops a trailing nought rather than writing 4.0', () => {
+    expect(totalHours(4)).toBe('4');
+    expect(totalHours(9.96)).toBe('10');
   });
 });

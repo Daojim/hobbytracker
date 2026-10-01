@@ -14,6 +14,21 @@ export function formatHours(hours: number | null): string | null {
 }
 
 /**
+ * Hours added up, for a column's header: whole hours with the thousands marked, or to the tenth
+ * under ten.
+ *
+ * Not {@link formatHours}, whose two places are right for one title and wrong for a column of
+ * them: seventeen estimates added up to 1,034.47 claim an accuracy none of them has. Under ten
+ * the tenth stays, because a Playing column holding one short game would otherwise read "~0 h".
+ *
+ * The number alone, with no unit, because a hobby says it two ways — `~1,034 h` on screen and
+ * "1,034 hours" aloud.
+ */
+export function totalHours(hours: number): string {
+  return hours.toLocaleString('en-US', { maximumFractionDigits: hours < 10 ? 1 : 0 });
+}
+
+/**
  * A film's runtime, read as a person says one: `1 h 52 m`, or `48 m` under the hour.
  *
  * Minutes in, because that is what TMDB stores and what the drawer is handed. The board takes

@@ -138,6 +138,42 @@ export interface HobbyDefinition {
     /** The lists, in tab order. The page opens on the first. */
     lists: readonly DiscoverList[];
   } | null;
+
+  /**
+   * What a column's header says about how long its titles take, or null for a hobby whose board
+   * does not say yet.
+   *
+   * **Only games sets it, and that is the user's call rather than a fact about the data.** Every
+   * hobby's cards carry a length and the API adds up every column's. What was decided on
+   * 1 October 2026 was to build it on the games board first. The wording proposed for the other
+   * three is in `docs/plans/games-board-next.md`, and turning one on is this block in its file.
+   *
+   * Completed's comparison is the pass's to allow rather than this block's: it needs
+   * {@link PassFields.hoursPlayed}, so a hobby whose pass records no hours never reaches
+   * `compared`, whatever it says here.
+   */
+  columnHours: {
+    /** The column's titles added up: `~1,034 h to beat`. */
+    total(hours: number): string;
+
+    /** How that reads aloud, which a tilde and a letter cannot. */
+    describeTotal(hours: number): string;
+
+    /** Your hours against the estimate, on Completed: `90 h played vs ~94 h to beat`. */
+    compared(played: number, length: number): string;
+
+    /** How that reads aloud. */
+    describeCompared(played: number, length: number): string;
+
+    /** How many titles a comparison is over: `over 7 games`. */
+    over(titles: number): string;
+
+    /** The titles a comparison leaves out for having none of your hours: `2 without your hours`. */
+    withoutPlayed(titles: number): string;
+
+    /** The titles any figure leaves out for having no length: `1 with no estimate`. */
+    withoutLength(titles: number): string;
+  } | null;
 }
 
 /**
