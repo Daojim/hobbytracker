@@ -323,6 +323,71 @@ cases are `board.spec.ts`'s *on a phone* block:
 **Not checked by any of this: iOS Safari.** WebKit's touch handling is its own, the callout is
 WebKit's alone, and a hold there wants checking on a real phone.
 
+### Carrying a card onto the phone's switcher
+
+**On a phone the other columns are not on the board at all**: one column at a time, chosen from a
+switcher pinned to the top of the screen (the layout is `docs/design.md`, **On a phone**). So a
+drag to another column lands on that column's **segment**. Each segment is a droppable with
+`{ status }` in its data, as a column is, and `onDragEnd` needs no new branch: a segment's id
+names no card, so the move lands where a menu move does, at the end of the column, through the
+same `move` mutation. Letting go on the card's own segment moves nothing, and that segment never
+lights. Three things had to be true for this to work, and two of them were found by measuring.
+
+**A segment is a target only while the finger is on it.** `board/collisions.ts` asks
+`pointerWithin` about the segments and `closestCorners` about everything else. With
+`closestCorners` alone, a segment competes on distance with the column it sits on top of. Carry
+a column's last card up to just under the switcher and a segment's corners are nearer than
+anything in the column: a drop where the finger never went. `collisions.test.ts` builds that
+arrangement and asserts that plain `closestCorners` does choose the segment in it, so the test
+cannot pass by being set up wrong.
+
+**A segment is measured where it is, not where dnd-kit thinks it is.** dnd-kit measures every
+droppable once, when the drag starts. Its `frequency: 'optimized'` is not a number, so the
+re-measuring timer never runs. After that, its `Rect` getters add the page's scroll since then to
+every edge. That is right for anything that scrolls with the page and wrong for a bar pinned to
+the screen. Measured from deep in a long column at 390×844, logging `over` and `scrollY` on every
+`onDragOver`:
+
+| `scrollY` | The drag was over |
+|---|---|
+| 615 | five cards in turn, on the way up — the bar pinned at y=4 |
+| 569 | `segment:Completed`, after 46px of autoscroll on the approach |
+| 564 | a card in its own column — dnd-kit now had the 43px segment 51px lower than it was |
+
+The bar never moved: it ended at y=4. So segments are read with `getBoundingClientRect()` at
+every collision, five rectangles a move. `collisions.test.ts` gives dnd-kit's belief and the
+page's answer separately, 120px apart, as a pinned bar after a scroll would.
+
+**The page holds still while a card is over a segment.** `useBoard` turns `autoScroll` off for
+exactly that long, from `onDragOver`. The top edge is both where the switcher is pinned and where
+a drag asks the page to scroll up. Left on, a finger waiting over a segment scrolls the page to
+its top, the bar comes unpinned and slides down with it, and the card is let go on whatever is
+under the finger by then. The approach still scrolls, which is right: it is how a long column is
+reordered from a phone.
+
+**Every column's count comes from that column's own query.** `columnQuery` in `Column.tsx` is the
+request and key both. The switcher observes every drawn column's current view, so when a move
+writes the cached answers optimistically the counts change at once. Those views also count as
+active, so a move's `removeQueries({ type: 'inactive' })` leaves them alone and drops only the
+other sorts and years of the two columns, as before.
+
+**Checked by putting each back.** Each was run against the finished feature. The second and third
+were put back together, and each turned only its own case red:
+
+| Put back | What goes red |
+|---|---|
+| Segments read from dnd-kit's rects | *finds a segment where it is on the screen* in `collisions.test.ts`, and *a card carried up to the switcher from deep in a long column lands where it is let go* in `board.spec.ts`, which said "Completed 0" |
+| `autoScroll` left on over a segment | that `board.spec.ts` case alone |
+| No scroll to a new column's start | *choosing a column from deep in another shows the new one from its top* alone |
+| The switcher counting with the board's year rather than each column's | *counts each column from the column's own request* — Backlog fetched twice |
+
+**That last spec needed a smaller phone to mean anything.** Chosen from the bottom of a long
+column, a short one shrinks the page, the browser clamps the scroll, and the new column is on
+screen whether the fix is there or not. It runs at 375×667 with six titles in one column and
+five in the other, so the clamp still leaves the new column's top above the screen without the
+fix. `holdAndDrag` gained a `lingerMs`, because a person waits over a target to see it light, and
+that wait is when a scrolling page does its damage.
+
 ### Adding straight to a column
 
 **An add is a move from nowhere.** `POST /api/library/{mediaId}` takes a column and nothing else,

@@ -19,6 +19,8 @@ The board is five columns — Backlog, Playing, On Hold, Completed, and Dropped 
 at the end — and a title moves between them by drag or from the card's own options menu. Any
 column but Backlog can be taken off a board in Settings, per board. Which entry a move touches and
 which timestamps it stamps are decided server-side, so no client has to know which pass is current.
+On a phone the board shows one column at a time, under a switcher pinned to the top that counts
+every column. A card is picked up by holding it still, so a swipe scrolls.
 
 Cards carry the cover, the genre they are painted as, your rating, how long the game takes, and
 the last thing you wrote about it. Clicking the title opens the journal over the board: rating,
@@ -421,6 +423,14 @@ to prevent something, the test for it is checked by reintroducing the thing.
       ago goes to Completed in one press rather than a press and a drag. The dates it arrives with
       are the ones a drag would have stamped, by the same code on the server, and the tile then
       says which column the title is in rather than only that it is on the board
+- [x] A board that works on a phone. A swipe that began on a card used to drag the card, because
+      every card took every touch for itself; now a finger holds still for a quarter of a second
+      to pick one up, and a mouse drags exactly as it did — two input sensors where there was one.
+      Below tablet width the board shows one column at a time, under a switcher pinned to the top
+      that counts every column, picked from four layouts rendered at a phone's width. A card
+      carried up onto a column's name moves there. The drag library measures every drop target
+      once and then moves it with the page as the page scrolls, which is wrong for the one thing
+      pinned to the screen, so the switcher is measured where it actually is
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

@@ -23,8 +23,9 @@ the header.
 | Danger | **Never colour alone** — a filled chip the accent never wears |
 | Density | Comfortable / Compact, a setting rather than a decision |
 | Journal | **Drawer or modal**, also a setting. Same dialog either way |
-| Width | The board stops widening at 2000px and puts the pixels into the cards |
-| Columns | **Two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
+| Width | The board stops widening at 2000px and puts the pixels into the cards. **16px of gutter on a phone**, 24 from 768px |
+| Columns | **One at a time on a phone, two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
+| On a phone | **A segmented switcher pinned to the top of the screen**: every column's name over its count, the current one raised. Picked on 1 October 2026 from four layouts rendered at 390px. See **On a phone** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
@@ -248,6 +249,70 @@ child of its own group — so the class meant to spare the first heading spared 
 began flush against the last row of the month before. The margin belongs to the group. The spec
 compares it against the space *inside* a group rather than against a number, because what was wrong
 is the ranking: a month break has to read as bigger than a row break.
+
+### On a phone
+
+**Below 768px the board shows one column at a time, and a switcher above it chooses which.**
+Before this, every column stacked into one long page: about 2,000px for nine titles, with
+Completed three screens down. The layout was picked on 1 October 2026 from four rendered at
+390×844 against the e2e stubs:
+
+| Option | What the render showed |
+|---|---|
+| Tabs with counts, like the hobby nav's | Five tabs and their counts do not fit at 390px, so Dropped was off the screen. It was also a second row of the same tabs, straight under the hobby nav |
+| **A segmented switcher, pinned** — picked | All five names and counts fit with room to spare. It looks unlike the nav, and stays at the top while a long column scrolls |
+| Columns side by side, swiped | The strip was as tall as its tallest column, so a short one left a large gap. Only the current column's count showed |
+| The stack, with every column but two folded | The smallest change, but a long Backlog still pushed the folds screens down |
+
+**Its values are the render's.** A rounded well with `p-1` and `gap-1` holds one segment per
+column drawn, each a name at 11px over its count in `text-sm` semibold. The current segment is
+raised exactly as a card is, `bg-surface shadow-card`, and the rest are `text-muted`. The bar is
+`sticky top-0` and runs edge to edge with `-mx-4 px-4`, so a card scrolling up under it is hidden
+rather than glimpsed through the gutter. All of that is `board/ColumnSwitcher.tsx`.
+
+- **A radio group, for the settings menu's reason**: a closed set where exactly one is current.
+  The space between the name and the count is in the markup on purpose. A flex container lays out
+  no whitespace between its items, so nobody sees it, and without it the accessible name is
+  "Backlog4" rather than "Backlog 4".
+- **The column under it does not repeat its own name.** Its heading goes `sr-only` (the
+  `namedAbove` prop), so the region keeps its name for a screen reader and the switcher says it
+  once on screen. Its sort control stays.
+- **Dropped is not folded on a phone.** Choosing it in the switcher is already asking to see it.
+- **Nothing to switch with only Backlog drawn**, so there is no switcher then.
+- **Stacking: z-15 at rest, z-50 while a card is carried.** At rest it sits over a card's open
+  menu (z-10) and under the drawer (z-20). While a card is being carried it lifts over the card
+  too, because the drag overlay would otherwise cover the segment under the finger just as it
+  lights up. The overlay was set to z-40 for that, down from dnd-kit's default of 999. The card
+  slides under the bar, which reads as it going into the column it names.
+
+**Choosing a column from deep in another scrolls to the new column's start.** Otherwise it would
+open at the same depth, scrolled past its own beginning. Instant, as a tab switch is, and only
+while the bar is pinned. Where the bar would sit unpinned is read from a mark just before it,
+since a sticky element reports the top of the screen.
+
+**React has to know it is a phone, not only CSS.** `SIDE_BY_SIDE` in `board/grid.ts` is
+`(min-width: 48rem)`, read through `lib/useMediaQuery.ts`. A column that is not shown is not
+mounted, rather than hidden, because a `display: none` column is still a drop target: dnd-kit
+measures it as an empty box in the page's top-left corner. Measured with `closestCorners` at
+phone geometry, a card carried up to just under the switcher ranked that empty box first, 254.9
+to the 308 of its own place. A hidden column would take the drop. The number is the one place
+CSS and React could disagree, and `grid.test.ts` reads it out of Tailwind's own
+`--breakpoint-md`, with the app's stylesheet winning if it names one.
+
+- **jsdom has no `matchMedia`**, so `useMediaQuery` answers a fallback there, and the board's is
+  side by side. Every component test written before this one still sees the board it was written
+  against. A test of phone behaviour must say so with `windowOfWidth(390)` from
+  `src/test/media.ts`. Without that it is quietly a desktop test that passes for the wrong
+  reason.
+- **Discover takes the same gutter**, 16px on a phone, so the header does not step 8px sideways
+  between the two pages.
+- **The hobby nav still scrolls sideways at 390px** and cuts *Books Soon* mid-word, as its own
+  comment says it should rather than wrapping. Left alone.
+
+`layout.spec.ts` measures this at 390px: one column region, five segments each on the screen
+with its name on one line, and a 16px gutter on the board and on Discover's wall. The gestures
+are `board.spec.ts`'s, in its *on a phone* block. What happens when a card is carried onto a
+segment is in `docs/board.md`, under **A finger on a card**.
 
 ### The hobby nav
 

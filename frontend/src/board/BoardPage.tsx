@@ -7,13 +7,15 @@ import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column } from './Column';
+import { ColumnSwitcher } from './ColumnSwitcher';
 import { ComingSoon } from './ComingSoon';
 import { EntryDrawer } from '../journal/EntryDrawer';
+import { useMediaQuery } from '../lib/useMediaQuery';
 import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { useBoard } from './useBoard';
 import { YearPicker } from './YearPicker';
 import { yearFor, yearsKey } from './keys';
-import { BOARD_GAP, boardTracks } from './grid';
+import { BOARD_GAP, SIDE_BY_SIDE, boardTracks } from './grid';
 import { useHiddenColumns } from './hiddenColumns';
 import { columnsFor } from '../hobbies';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby } from '../shell/hobbies';
@@ -78,6 +80,12 @@ function Board({ hobby }: { hobby: Hobby }) {
   const [chosen, setChosen] = useState<{ year?: number } | null>(null);
   // Dropped is a record, not a queue. It starts out of the way and opens when asked for.
   const [droppedOpen, setDroppedOpen] = useState(false);
+  // Every column side by side, or a phone's one at a time. Side by side where there is no media
+  // query to ask, which is jsdom — every component test but the phone's gets the board as it was.
+  const sideBySide = useMediaQuery(SIDE_BY_SIDE, true);
+  // Which column a phone is showing. Kept while the window is wide, so turning a phone sideways
+  // and back returns to the column you were reading.
+  const [shown, setShown] = useState<LogStatus>('Backlog');
   // Which title's journal is open, if any. One at a time: the drawer covers the board.
   //
   // It lives in a history entry rather than in state, which is what makes a phone's Back
@@ -127,6 +135,14 @@ function Board({ hobby }: { hobby: Hobby }) {
   const hidden = useHiddenColumns(hobby);
   const columns = columnsFor(hobby).filter((column) => !hidden.has(column.status));
 
+  // What a phone shows of those: the column chosen, or Backlog once the chosen one is taken off
+  // in Settings. Backlog cannot be taken off, so the board always has a first column to fall
+  // back to. The others are not mounted at all rather than hidden — see SIDE_BY_SIDE for why a
+  // column out of sight must also be out of the drag.
+  const showing = columns.find(({ status }) => status === shown) ?? columns[0]!;
+  const drawn = sideBySide ? columns : [showing];
+  const switching = !sideBySide && columns.length > 1;
+
   // Focus goes back to the card the drawer was opened from — by id, not by a stored element.
   // Refetches remount the card while the drawer is open, so a reference kept from then would
   // point at a node no longer in the document.
@@ -140,7 +156,9 @@ function Board({ hobby }: { hobby: Hobby }) {
   }, [journalFor]);
 
   return (
-    <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
+    // 16px on a phone. 24 there, with the column's own 12 inside it, put the cards 36px in from
+    // either edge of a 390px screen.
+    <main className="min-h-screen bg-sunken p-4 text-fg md:p-6 2xl:p-8 3xl:p-10">
       <div className="mx-auto max-w-board">
         <AppHeader title="HobbyTracker" hobby={hobby} />
 
@@ -173,6 +191,21 @@ function Board({ hobby }: { hobby: Hobby }) {
             </div>
 
             <DndContext {...board.dnd}>
+              {/* A phone's one column at a time, chosen here. Inside the DndContext because each
+                  segment is a drop target: carry a card up onto one and it moves there. Not
+                  drawn with only Backlog on the board, where there is nothing to choose. */}
+              {switching && (
+                <ColumnSwitcher
+                  hobby={hobby}
+                  columns={columns}
+                  sorts={sorts}
+                  year={year}
+                  shown={showing.status}
+                  onShow={setShown}
+                  lifted={board.dragging !== null}
+                />
+              )}
+
               {/* Two across before all of them. Four across a 768px window left each one 168px,
                   which after the well, the card and the cover is about 32px of title — every name
                   a stack of broken words. The tracks follow how many columns there are, and the
@@ -181,9 +214,9 @@ function Board({ hobby }: { hobby: Hobby }) {
                   search result cannot answer to it. */}
               <div
                 data-board=""
-                className={`grid items-start ${BOARD_GAP} ${boardTracks(columns.length)}`}
+                className={`grid items-start ${BOARD_GAP} ${boardTracks(drawn.length)}`}
               >
-                {columns.map(({ status, label }) => (
+                {drawn.map(({ status, label }) => (
                   <Column
                     key={status}
                     hobby={hobby}
@@ -192,10 +225,15 @@ function Board({ hobby }: { hobby: Hobby }) {
                     sort={sorts[status]}
                     onSortChange={(sort) => setSorts((current) => ({ ...current, [status]: sort }))}
                     year={yearFor(status, year)}
-                    collapsed={status === 'Dropped' ? !droppedOpen : undefined}
+                    // Folded only side by side. On a phone, choosing Dropped in the switcher is
+                    // already asking to see it, and a fold would want a second tap for that.
+                    collapsed={sideBySide && status === 'Dropped' ? !droppedOpen : undefined}
                     onToggleCollapse={
-                      status === 'Dropped' ? () => setDroppedOpen((open) => !open) : undefined
+                      sideBySide && status === 'Dropped'
+                        ? () => setDroppedOpen((open) => !open)
+                        : undefined
                     }
+                    namedAbove={switching}
                     onMove={(mediaId, to) => board.move(mediaId, status, to)}
                     removal={{
                       mediaId: removingFor,
@@ -227,7 +265,10 @@ function Board({ hobby }: { hobby: Hobby }) {
                   started in and only then re-renders it where it was dropped — which reads as the card
                   being yanked home before it changes its mind. The optimistic cache update has already
                   put it in the new column by then, so there is nothing worth animating towards. */}
-              <DragOverlay dropAnimation={null}>
+              {/* z-40 rather than dnd-kit's own 999, so a phone's switcher can be lifted over the
+                  card being carried to it (z-50 while a drag is on, in ColumnSwitcher). Over
+                  everything else on the board either way. */}
+              <DragOverlay dropAnimation={null} zIndex={40}>
                 {board.dragging !== null && (
                   <div className={`${CARD_CLASS} cursor-grabbing shadow-lg`}>
                     <CardFace item={board.dragging} />

@@ -307,6 +307,53 @@ test.describe('the release calendar, at 1440px', () => {
 });
 
 /**
+ * The board on a phone, picked from four layouts rendered at 390px on 1 October 2026: one
+ * column at a time, chosen from a segmented switcher that counts every column, and a 16px
+ * gutter where the wider board has 24.
+ */
+test.describe('on a phone, at 390px', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('shows one column, under a switcher whose every segment is whole and on the screen', async ({
+    page,
+  }) => {
+    await seed(page.request, 'Celeste', 'Backlog');
+    await page.goto('/board');
+    await expect(card(page, 'Celeste')).toBeVisible();
+
+    await expect(page.getByRole('region', { name: /^(Backlog|Playing|On Hold|Completed|Dropped) / })).toHaveCount(1);
+
+    const segments = page.getByRole('radiogroup', { name: 'Columns' }).getByRole('radio');
+    await expect(segments).toHaveCount(5);
+
+    // Each segment is a name over a count. The width is shared five ways, so the failure worth
+    // catching is a name squeezed until it breaks — Completed is the longest the games board
+    // has — rather than a segment running off the edge, which the grid already prevents.
+    for (const segment of await segments.all()) {
+      const box = await boxOf(segment, 'a column segment');
+      expect(box.x, 'a segment starts off the left of the screen').toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, 'a segment runs off the right of the screen').toBeLessThanOrEqual(390);
+
+      const name = segment.locator('span').first();
+      const lines = await name.evaluate(
+        (span) => span.getBoundingClientRect().height / parseFloat(getComputedStyle(span).lineHeight),
+      );
+      expect(lines, `${await name.textContent()} has broken onto two lines`).toBeLessThan(1.5);
+    }
+  });
+
+  test('leaves a 16px gutter at either side of the board', async ({ page }) => {
+    // 24px of page padding and 12px inside the column put a phone's cards 36px in from each edge.
+    await seed(page.request, 'Celeste', 'Backlog');
+    await page.goto('/board');
+    const backlog = await boxOf(column(page, 'Backlog'), 'the Backlog column');
+
+    expect(backlog.x).toBeCloseTo(16, 0);
+    expect(390 - (backlog.x + backlog.width)).toBeCloseTo(16, 0);
+  });
+});
+
+/**
  * How many tracks the Discover page's wall is laid out in, as the browser computed them.
  *
  * Counted from the grid rather than from tiles sharing a row, because the stub's lists are a
@@ -357,5 +404,9 @@ test.describe('the Discover wall', () => {
       expect(box.x + box.width, 'a list tab runs off the right of the screen').toBeLessThanOrEqual(390);
       expect(box.height, 'a list tab has broken onto two lines').toBeLessThanOrEqual(oneLine + 1);
     }
+
+    // The board's gutter, so the header does not step 8px sideways between the two pages.
+    const wall = await boxOf(page.getByRole('list', { name: 'New releases' }), 'the wall');
+    expect(wall.x).toBeCloseTo(16, 0);
   });
 });

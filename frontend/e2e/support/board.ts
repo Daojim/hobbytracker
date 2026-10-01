@@ -117,6 +117,18 @@ export function column(page: Page, status: LogStatus, hobby: Hobby = DEFAULT_HOB
 }
 
 /**
+ * One segment of the switcher a phone shows above the board, in place of the other columns.
+ *
+ * Matched on the column's name and any count after it, because the count is what changes as
+ * titles move and the name is what a spec means.
+ */
+export function segment(page: Page, status: LogStatus, hobby: Hobby = DEFAULT_HOBBY): Locator {
+  return page
+    .getByRole('radiogroup', { name: 'Columns' })
+    .getByRole('radio', { name: new RegExp(`^${COLUMN_LABEL[hobby][status]} \\d+$`) });
+}
+
+/**
  * A card on the board.
  *
  * Scoped to the board rather than the page: a list item is not a board card just because it
@@ -173,8 +185,17 @@ export async function drag(page: Page, from: Locator, to: Locator): Promise<void
  * Playwright can tap and nothing more, so this speaks the Chrome DevTools Protocol directly.
  * That ties it to Chromium, the only browser this suite runs, and to a context with `hasTouch`,
  * without which the page is never told that a touch happened.
+ *
+ * `lingerMs` holds the finger still over the target before letting go, the way a person waits
+ * to see a target light up. That pause is when a page scrolling itself under a drag does its
+ * damage, so a spec about that asks for one.
  */
-export async function holdAndDrag(page: Page, from: Locator, to: Locator): Promise<void> {
+export async function holdAndDrag(
+  page: Page,
+  from: Locator,
+  to: Locator,
+  { lingerMs = 0 }: { lingerMs?: number } = {},
+): Promise<void> {
   const source = await from.boundingBox();
   const target = await to.boundingBox();
   if (source === null || target === null) {
@@ -199,6 +220,10 @@ export async function holdAndDrag(page: Page, from: Locator, to: Locator): Promi
       y: start.y + ((end.y - start.y) * step) / steps,
     };
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] });
+  }
+
+  if (lingerMs > 0) {
+    await page.waitForTimeout(lingerMs);
   }
 
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

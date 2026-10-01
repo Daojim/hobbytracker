@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { closestCorners, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
+import { type DragEndEvent, type DragOverEvent, type DragStartEvent } from '@dnd-kit/core';
 import { arrayMove } from '@dnd-kit/sortable';
+import { boardCollisions } from './collisions';
+import { isSegment } from './ColumnSwitcher';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
 import {
   columnKey,
@@ -46,6 +48,10 @@ interface Reorder {
 export function useBoard({ hobby, sorts, year }: BoardView) {
   const queryClient = useQueryClient();
   const [dragging, setDragging] = useState<LibraryItem | null>(null);
+
+  // Whether a card is being held over one of a phone's segments, which is when the page must
+  // stop scrolling itself. See `dnd.autoScroll` below.
+  const [overSegment, setOverSegment] = useState(false);
 
   const keyFor = (status: LogStatus) =>
     columnKey(hobby, status, sorts[status], yearFor(status, year));
@@ -240,8 +246,13 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     setDragging(findCard(Number(event.active.id)));
   }
 
+  function onDragOver({ over }: DragOverEvent) {
+    setOverSegment(over !== null && isSegment(over.id));
+  }
+
   function onDragEnd({ active, over }: DragEndEvent) {
     setDragging(null);
+    setOverSegment(false);
     if (over === null) {
       return;
     }
@@ -300,10 +311,22 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     dragging,
     dnd: {
       sensors,
-      collisionDetection: closestCorners,
+      collisionDetection: boardCollisions,
+
+      // Off while a card is over a phone's segment, and only then. The switcher is pinned to
+      // the top edge, and the top edge is also where a drag asks the page to scroll up. Left
+      // on, a finger waiting over a segment scrolls the page back to its top, the switcher
+      // comes unpinned and slides down with it, and the card is let go on whatever is under the
+      // finger by then. Measured, not reasoned: the e2e spec that waits over a segment from deep
+      // in a long column lands in the wrong column without this.
+      autoScroll: { enabled: !overSegment },
       onDragStart,
+      onDragOver,
       onDragEnd,
-      onDragCancel: () => setDragging(null),
+      onDragCancel: () => {
+        setDragging(null);
+        setOverSegment(false);
+      },
     },
   };
 }
