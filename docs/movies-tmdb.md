@@ -195,8 +195,9 @@ of a request. It stays synchronous because it is fast per title, not because it 
 
 **It is not scoped to the signed-in user**, and that reads like a missed scoping site and is not
 one: it selects on "anybody has logged this" and writes only shared columns.
-`GameCatalogService.RefreshLibraryAsync` carries the same note for the same reason. See
-**What is yours** in `docs/auth.md`.
+`GameCatalogService.RefreshLibraryAsync` carries the same note for the same reason. See the rule
+that `log_entries` and `notes` are yours and `media` is shared, under **Scoping** in
+`docs/auth.md`.
 
 **Like IGDB's, it has no UI.** `media` rows are only ever written by a search, so a column added
 by a migration stays empty on the library you already have until something asks. This has caught
