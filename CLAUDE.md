@@ -491,6 +491,7 @@ here**.
 | **Npgsql writes only an offset-0 `DateTimeOffset` to `timestamptz`.** Anything else throws `ArgumentException` — a 500, not a validation error | `docs/data-model.md` |
 | **`System.Text.Json` reads a bare `"2026-03-03"` as midnight *UTC*** — 7pm on the 2nd here, which is the original timezone bug walking back in through the API | `docs/data-model.md` |
 | **The year filter is a range, never an `EXTRACT`.** `date_part('year', …)` on a `timestamptz` reads the *session's* timezone, so the same query answers differently depending on how the connection was opened | `docs/data-model.md` |
+| **A pass's status written around `SaveChanges` leaves no history.** `StatusHistoryRecorder` is an interceptor, so an `ExecuteUpdate`, raw SQL or a context built without it moves a pass with no `status_changes` row and no error — and history not written down cannot be recovered. Anything that writes `status` in bulk, an import included, goes through tracked entities | `docs/data-model.md` |
 | **Tailwind v4 scans source text**, so an interpolated class name generates nothing and the element renders unstyled rather than failing — `` `bg-genre-${x}` `` paints a transparent stripe | `docs/design.md` |
 | **A new theme has more lists to join than it looks**, and the one that fails quietly stamps nothing: the theme is offered, chosen, stored, and then repainted after the bundle mounts on every load — the flash the pre-paint script exists to prevent, on the one theme nobody would test for it | `docs/design.md` |
 | **`log_entries` and `notes` are yours; `media`, `games` and the lookup tables are shared and must stay shared.** Scoping is an injected `ICurrentUser` at sixteen call sites rather than a query filter, and a missed one shows as a stranger's data on your board, never as an error | `docs/auth.md` |
@@ -528,6 +529,7 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 | `anime` | `media_id` (PK **and** FK to media), `english_title`, `media_type`, `episode_count`, `episode_runtime_seconds` (**MAL's own unit**), `total_runtime_minutes` (**generated**, and it converts), `start_season`, `start_year`, `air_status`, `source_material`, `genres`, `primary_genre`, `studios`, `mean_score`. **No seasons table** — a cour is its own MAL entry |
 | `log_entries` | `id`, `user_id` (**NOT NULL**), `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `season_number`, `episode_number`, `started_at`, `completed_at`, `logged_at` |
 | `notes` | `id`, `log_entry_id`, `body`, `written_at` |
+| `status_changes` | `id`, `log_entry_id`, `from_status` (**null when the pass was made**), `to_status`, `changed_at`. Written by `StatusHistoryRecorder` during the save, never by a service; a shuffle inside ten minutes folds away |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
 
@@ -571,7 +573,8 @@ shuffled.
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher. **What is left of it:** a manifest and an icon, so it can
         go on a home screen, and the icon wants rendered options first
-      - recording when a title changes column
+      - [x] recording when a title changes column — `status_changes`, written by one
+        interceptor rather than four services, with shuffles folded away on the way in
       - hours in the column headers
       - a how-long-will-it-take-me calculator
       - stats

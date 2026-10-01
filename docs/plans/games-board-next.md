@@ -17,7 +17,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | # | Feature | Size | Status |
 |---|---|---|---|
 | 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). Left: the web manifest and home-screen icon |
-| 2 | Record when a title changes column | M | Planned |
+| 2 | Record when a title changes column | M | **Shipped 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | Planned. Gained a phone question; see its section |
 | 4 | "How long will it take me?" | S–M | Planned |
 | 5 | Stats | M–L | Planned, after #2, using #3's sums |
@@ -33,7 +33,7 @@ Production runs `df54a8b`, which was `main` on 1 October 2026. Deploying is the 
 ## Suggested order (any order works)
 
 - **#2 early.** History that isn't recorded can't be backfilled, and #5 reads it. Every day it
-  waits is history lost.
+  waits is history lost. **Shipped 1 October 2026.**
 - **#3 before #4's backlog mode and before #5.** Both reuse #3's server-side totals.
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time.
@@ -157,89 +157,55 @@ Production runs `df54a8b`, which was `main` on 1 October 2026. Deploying is the 
 
 ---
 
-## 2. Record when a title changes column · M
+## 2. Record when a title changes column · shipped
 
-**What it's for.** A history of moves, so stats and the year in review can say *when* a title went
-On Hold, was dropped or came back. Today `logged_at` is set only when a pass is created
-(`LibraryService.cs:777`, `LogEntryService.cs:125`). A move edits the pass in place
-(`LibraryService.cs:357`), so the moment of the move is lost. **Every day this isn't recorded is
-history that can't be recovered.**
+**Shipped on 1 October 2026** (PR #44). Write-ups: `docs/data-model.md`, *A pass's history*, and
+`docs/board.md`, *Board semantics*.
 
-**Since this was written:** a card dropped on a phone's switcher segment is an ordinary move. It
-goes through the same `move` mutation and `TransitionAsync` as a drag or a menu move, so the
-recorder sees it with no extra work.
+- **`status_changes`**: `from_status` → `to_status` at `changed_at`, one row each time a pass
+  arrives in a column. `from_status` is null when the pass was made. Rows cascade with their pass,
+  so *Remove from board* and a deleted account take them too.
+- **One `SaveChangesInterceptor`, `StatusHistoryRecorder`**, as recommended. Its comment says why
+  this is the opposite of `auth.md`'s trade. It records a pass whose `Status` differs from what was
+  loaded, not just any pass that changed: the drawer's autosave and a reorder both save passes that
+  did not change column.
+- **Shuffles merge when written, inside a ten-minute `SettleWindow`.** The user chose this on 1
+  October 2026, over keeping raw rows or a two-minute window. A round trip deletes the row, and only
+  the pass's latest row is ever folded.
+- **No backfill.**
 
-### The user's concern: a tester shuffling cards would be recorded too
+**Tests.** `Endpoints/StatusHistoryTests.cs` has 14, and `Data/SchemaTests.cs` has 3 more. All go
+through the API except the account cascade, which has no route until #8. Each guard was checked by
+planting its fault, and each fault turned red exactly the tests that name it:
 
-**Recommended: merge rapid changes when they're written.** Use a settle window of about 10 minutes,
-as a named constant.
-- If a pass changes status within the window of its last recorded change, update that row's
-  `to_status` and `changed_at` instead of adding a new row.
-- If that leaves `from == to`, delete the row. A round trip leaves nothing.
-- Rows older than the window are never touched.
+| Fault planted | Red |
+|---|---|
+| No interceptor | 12 |
+| A recorder that fires on any change to a pass | the two *records nothing* cases |
+| No fold | 4 |
+| No round-trip delete | 2 |
+| A restricting foreign key | the 3 cascades |
 
-**Alternative:** keep every raw row, and have readers ignore any status that lasted less than the
-window. Every reader then needs that logic.
+**What the plan got wrong, or left out:**
 
-**Leaving Completed already inserts a new pass** (the existing ×2 behaviour). A Completed → Playing
-→ Completed shuffle still leaves that extra pass behind, but its history goes with it when the pass
-is deleted in the drawer.
+- **The ship date.** The plan had readers treat a missing history as "unknown before <ship date>".
+  No global date is needed. Every pass made since recording began has exactly one made-row, and a
+  fold cannot delete it, so a pass without one predates recording. `data-model.md` still records the
+  date, for people.
+- **The reorder.** The plan listed a `PUT` that keeps the same status, but not its twin: a reorder
+  saves every card in a column and moves none of them. Both are tested now.
+  `ck_status_changes_is_a_change`, which the plan didn't have, makes a recorder that gets this wrong
+  fail as a 500 instead of storing *Playing to Playing*.
+- **The e2e reset.** Its truncate list says it is an honest inventory, but it hadn't named `anime`
+  since that table arrived. It now names `anime` and `status_changes`.
 
-### Backend
+**For #5, which reads this first:**
 
-**Table `status_changes`:**
-- `id`
-- `log_entry_id` — foreign key, cascade on delete
-- `from_status` — varchar(20); null means the pass was created
-- `to_status` — varchar(20)
-- `changed_at` — timestamptz, from `IJournalClock.Now`
-- an index on `(log_entry_id, changed_at)`
-- No user column, like `notes`. Scoping joins through `log_entries.user_id`.
-
-**Recommended: one `SaveChangesInterceptor`.** It sees every `LogEntry` that is added or whose
-`Status` changed.
-- Status is written in four places today: `TransitionAsync`, `AddToBoardAsync` / `NewPassAsync`,
-  `LogEntryService.CreateAsync`, and `UpdateAsync` (`:166`).
-- With an interceptor, a fifth write path can't forget to record.
-
-**This is the opposite trade from the query filter `auth.md` rejected, so say why in a comment:**
-- A scoping filter that goes wrong hides data or leaks it.
-- A recorder that misses one write site loses that history for good, and nothing errors.
-- So here the risk worth minimising is a forgotten write site. Counting call sites has already
-  bitten this codebase — see *four places order a title's entries*.
-
-**Registration:** `AddDbContext((sp, options) => … .AddInterceptors(sp.GetRequiredService<…>()))` at
-`Program.cs:20`.
-
-**No backfill.** A synthetic "moved when created" row would be false for every pass that was edited
-in place. Readers treat a missing history as "unknown before <ship date>", and `data-model.md`
-records that date.
-
-### Tests first
-
-Write these through the API. `PostgresFixture.CreateDbContext()` builds contexts by hand without the
-interceptor.
-
-**One row per write path:**
-- a move that edits in place
-- a move out of Completed, which creates a new pass
-- an add
-- `POST /log-entries`
-- a `PUT` that changes status
-- A `PUT` that keeps the same status records nothing.
-
-**Coalescing** (set `FrozenTimeProvider.UtcNow` between moves):
-- Two moves inside the window leave one row.
-- A round trip leaves none.
-- Two moves further apart than the window leave two rows.
-
-**Cascades:** deleting a pass, *Remove from board* and deleting the user each remove the history.
-
-**Guard:** taking the interceptor out fails every write-path test.
-
-**Docs to update:**
-- `data-model.md`: the table, the window, and why there's no backfill.
-- `board.md`: moves are now recorded.
+- *When did this title leave Completed?* That is the replay's made-row. The finished pass gets no
+  row.
+- A fold moves a made-row's `changed_at` to where the pass settled, so the time a pass was *made* is
+  still `logged_at`.
+- Scope through `log_entries.user_id`, as `NoteService` does.
 
 ---
 
@@ -365,7 +331,9 @@ the prototype refuses nothing in this test setup — see the CLAUDE.md trap.
   finished, shown beside finished vs dropped. With nothing started, show *no data*, not 0%.
 - **Backlog age.**
   - "In your backlog since" is exact from #2's history.
-  - Older passes fall back to the pass's `logged_at`, labelled so it doesn't overclaim.
+  - Older passes fall back to the pass's `logged_at`, labelled so it doesn't overclaim. **Since #2
+    was built:** an older pass is one with no made-row (`from_status` null). See *A pass's history*
+    in `data-model.md`.
   - It could also appear on Backlog cards; pick at the workshop.
 - **You vs HLTB.** Recommended:
   - use completed passes that have both figures, against All Styles (to match #3)
