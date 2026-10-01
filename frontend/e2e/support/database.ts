@@ -34,16 +34,17 @@ export function psql(sql: string, database = E2E_DATABASE): string {
  * rather than as an empty table.
  */
 export function resetDatabase(): void {
-  // notes is named rather than left to CASCADE. Postgres reaches it either way through its
-  // foreign key, but saying so keeps this list an honest inventory of what a run destroys.
+  // notes and status_changes are named rather than left to CASCADE. Postgres reaches both
+  // either way through their foreign keys, but saying so keeps this list an honest inventory of
+  // what a run destroys.
   //
-  // The three detail tables are named for the same reason, though CASCADE from media reaches
-  // all of them: a list that only mentioned games would read as though the other two survived.
+  // The detail tables are named for the same reason, though CASCADE from media reaches all of
+  // them: a list that only mentioned games would read as though the others survived.
   //
   // users and auth_identities go too, so a run starts with nobody signed up. They are not
   // reference data — the lookup tables are — and a leftover account would let one spec's
   // sign-in satisfy the next spec's.
   psql(
-    'TRUNCATE notes, log_entries, games, movies, tv_seasons, tv_shows, media, auth_identities, users RESTART IDENTITY CASCADE;',
+    'TRUNCATE notes, status_changes, log_entries, games, movies, tv_seasons, tv_shows, anime, media, auth_identities, users RESTART IDENTITY CASCADE;',
   );
 }
