@@ -7,8 +7,10 @@ import {
   column,
   drag,
   entriesFor,
+  holdAndDrag,
   seed,
   setSort,
+  swipeUp,
   titlesIn,
   today,
 } from './support/board';
@@ -499,4 +501,79 @@ test('a year offered by the picker is one something was only started in', async 
 
   await picker.selectOption('2019');
   await expect.poll(() => titlesIn(page, 'InProgress')).toEqual(['Anthem']);
+});
+
+test.describe('on a phone', () => {
+  // A phone's width, and a page told about touches rather than a mouse. Without hasTouch the
+  // browser never sends one, and nothing below could happen.
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('a swipe that begins on a card scrolls the board and leaves the card where it was', async ({
+    page,
+  }) => {
+    // Reported on 1 October 2026, and the reason this block exists. Every card took every touch
+    // for itself — `touch-none`, which a pointer sensor needs — so on a phone, where the cards
+    // are most of the board, a swipe dragged whichever card it began on and the page never
+    // moved.
+    for (const title of ['Celeste', 'Hades', 'Hollow Knight', 'Outer Wilds', 'Stardew Valley']) {
+      await seed(page.request, title, 'Backlog');
+    }
+    await page.reload();
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(5);
+    const order = await titlesIn(page, 'Backlog');
+
+    // Somewhere to scroll to, or a page that stayed put would prove nothing.
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight),
+    ).toBeGreaterThan(300);
+
+    await swipeUp(page, card(page, order[0]!), 300);
+
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+    expect(await titlesIn(page, 'Backlog')).toEqual(order);
+  });
+
+  test('a finger held still on a card picks it up and carries it to another column', async ({
+    page,
+  }) => {
+    // The other half of the fix, and the half that has to keep working: a hold is how a drag
+    // starts on a phone now.
+    const mediaId = await seed(page.request, 'Celeste', 'Backlog');
+    await page.reload();
+
+    await holdAndDrag(page, card(page, 'Celeste'), column(page, 'InProgress'));
+
+    await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+    await expect
+      .poll(async () => (await entriesFor(page.request, mediaId))[0]?.status)
+      .toBe('InProgress');
+  });
+
+  test('a finger held on the options corner does not pick the card up', async ({ page }) => {
+    // The trap in changing sensors. The corner kept its press from the drag by stopping
+    // pointerdown, which was all a pointer sensor read; the touch sensor reads touchstart, and
+    // a hold there carried the card off by its smallest corner.
+    await seed(page.request, 'Celeste', 'Backlog');
+    await page.reload();
+
+    await holdAndDrag(
+      page,
+      card(page, 'Celeste').getByRole('button', { name: 'Options for Celeste' }),
+      column(page, 'InProgress'),
+    );
+
+    await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(['Celeste']);
+    expect(await titlesIn(page, 'InProgress')).toEqual([]);
+  });
+
+  test('a tap on a title still opens its journal', async ({ page }) => {
+    // A finger that lifts before the hold is up is a tap, and the title is a button. The touch
+    // sensor lets go of a press it never activated on, so the click lands as it always did.
+    await seed(page.request, 'Celeste', 'Backlog');
+    await page.reload();
+
+    await card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true }).tap();
+
+    await expect(page.getByRole('dialog', { name: 'Celeste' })).toBeVisible();
+  });
 });
