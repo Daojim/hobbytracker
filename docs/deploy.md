@@ -157,7 +157,8 @@ Each check reads what `main` has gained since the commit the server is on:
 - **A migration.** Run `git diff --stat <deployed>..main -- backend/src/HobbyTracker.Api/Data/Migrations`.
   It applies itself when the new API starts, and nothing runs it backwards on the server, so the
   last nightly backup is the undo. Know when that ran before deploying one that drops or renames
-  anything.
+  anything. **Record the newest migration production has**, with the query under **Proving it**:
+  for a change that is only a migration, that is the one before-and-after there is.
 - **What the public site serves now**, recorded so the check afterwards proves something. That is
   the `/assets/index-*.js` and `.css` that `<origin>/` names, and how many times a string the
   change adds appears in them: zero, now. For a new API route, record what its method answers
@@ -178,7 +179,8 @@ ssh -o BatchMode=yes <host> 'cd <dir> && ./scripts/deploy.sh'
   log, or `already at …` when there is nothing new), the build, then
   `waiting for the api. -- ok` and `deployed <sha>`. It exits 0.
 - **Only a container whose image changed is recreated.** On 1 October 2026 a frontend-only change
-  recreated Caddy, and the API kept the uptime it had.
+  recreated Caddy, and the API kept the uptime it had. Later that day a backend-only one recreated
+  the API and left Caddy running.
 - **Never a bare `git pull` on the server.** A running container goes on executing the image it
   started with, and the script's `up -d --build` is what rebuilds.
 
@@ -210,6 +212,19 @@ serves the new build, so prove that from outside:
   absent.
 - **`<origin>/api/auth/me` answers 200**, with `null` when nobody is signed in.
 - **A new route answers 401.**
+- **A new migration is the newest in production's history.** A backend-only deploy leaves the
+  bundle names exactly as they were, which proves nothing either way, so ask the database. Use the
+  container's own credentials, so none crosses a screen:
+
+  ```bash
+  ssh -o BatchMode=yes <host> 'cd <dir> && docker compose exec -T db sh -c "psql -U \$POSTGRES_USER -d \$POSTGRES_DB -tA"' <<'SQL'
+  select max(migration_id) from "__EFMigrationsHistory";
+  SQL
+  ```
+
+  **The column is `migration_id`.** The snake_case convention reaches EF's own history table too,
+  so `"MigrationId"` is an error. Beside it, `docker compose ps` shows the API created minutes ago,
+  and its log names the migration it applied: `docker compose logs api | grep "Applying migration"`.
 
 ### When it fails
 
