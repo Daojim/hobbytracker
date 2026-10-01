@@ -23,7 +23,8 @@ On a phone the board shows one column at a time, under a switcher pinned to the 
 every column. A card is picked up by holding it still, so a swipe scrolls.
 
 Cards carry the cover, the genre they are painted as, your rating, how long the game takes, and
-the last thing you wrote about it. Clicking the title opens the journal over the board: rating,
+the last thing you wrote about it. Each column's header adds those lengths up, and Completed's sets
+the hours you logged against them. Clicking the title opens the journal over the board: rating,
 platform, dates, your hours beside HowLongToBeat's three estimates, dated notes, and every
 earlier pass with its own notes below it.
 
@@ -445,6 +446,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       never written down is the one thing a later feature cannot backfill. It is written in the
       same save as the move, by one interceptor rather than by each of four services. A card
       shuffled through the columns inside ten minutes leaves nothing behind
+- [x] Hours in each column's header, on the games board. A column adds up how long its games
+      take to beat over the whole column, not just the hundred cards it loads, and Completed sets
+      your logged hours against HowLongToBeat's over the games that have both. A game with no
+      estimate is counted rather than added in as nothing. Where the line sits was picked from
+      renders at three widths
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 
