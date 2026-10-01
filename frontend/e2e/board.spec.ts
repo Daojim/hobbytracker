@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import {
@@ -9,6 +9,7 @@ import {
   entriesFor,
   holdAndDrag,
   seed,
+  segment,
   setSort,
   swipeUp,
   titlesIn,
@@ -508,6 +509,31 @@ test.describe('on a phone', () => {
   // browser never sends one, and nothing below could happen.
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
+  /**
+   * A Backlog long enough to scroll on a phone. A phone shows one column at a time, so the
+   * page is as long as that one column, and five titles do not reliably outrun the screen.
+   */
+  const LONG_BACKLOG = [
+    'Celeste',
+    'Hades',
+    'Hollow Knight',
+    'Outer Wilds',
+    'Stardew Valley',
+    'Anthem',
+    'Hollow Knight: Silksong',
+  ];
+
+  async function seedBacklog(page: Page, titles: readonly string[]): Promise<string[]> {
+    for (const title of titles) {
+      await seed(page.request, title, 'Backlog');
+    }
+    await page.reload();
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(titles.length);
+    return titlesIn(page, 'Backlog');
+  }
+
+  const scrollY = (page: Page) => page.evaluate(() => window.scrollY);
+
   test('a swipe that begins on a card scrolls the board and leaves the card where it was', async ({
     page,
   }) => {
@@ -515,12 +541,7 @@ test.describe('on a phone', () => {
     // for itself — `touch-none`, which a pointer sensor needs — so on a phone, where the cards
     // are most of the board, a swipe dragged whichever card it began on and the page never
     // moved.
-    for (const title of ['Celeste', 'Hades', 'Hollow Knight', 'Outer Wilds', 'Stardew Valley']) {
-      await seed(page.request, title, 'Backlog');
-    }
-    await page.reload();
-    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(5);
-    const order = await titlesIn(page, 'Backlog');
+    const order = await seedBacklog(page, LONG_BACKLOG);
 
     // Somewhere to scroll to, or a page that stayed put would prove nothing.
     expect(
@@ -529,24 +550,26 @@ test.describe('on a phone', () => {
 
     await swipeUp(page, card(page, order[0]!), 300);
 
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+    await expect.poll(() => scrollY(page)).toBeGreaterThan(100);
     expect(await titlesIn(page, 'Backlog')).toEqual(order);
   });
 
-  test('a finger held still on a card picks it up and carries it to another column', async ({
+  test('a finger held still on a card carries it to another column, by its segment', async ({
     page,
   }) => {
-    // The other half of the fix, and the half that has to keep working: a hold is how a drag
-    // starts on a phone now.
+    // The other half of the fix: a hold is how a drag starts on a phone. The column it is going
+    // to is not on screen, because a phone shows one at a time, so it is let go on that
+    // column's segment in the switcher.
     const mediaId = await seed(page.request, 'Celeste', 'Backlog');
     await page.reload();
 
-    await holdAndDrag(page, card(page, 'Celeste'), column(page, 'InProgress'));
+    await holdAndDrag(page, card(page, 'Celeste'), segment(page, 'InProgress'));
 
-    await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+    await expect(segment(page, 'InProgress')).toHaveAccessibleName('Playing 1');
     await expect
       .poll(async () => (await entriesFor(page.request, mediaId))[0]?.status)
       .toBe('InProgress');
+    expect(await titlesIn(page, 'Backlog')).toEqual([]);
   });
 
   test('a finger held on the options corner does not pick the card up', async ({ page }) => {
@@ -559,11 +582,11 @@ test.describe('on a phone', () => {
     await holdAndDrag(
       page,
       card(page, 'Celeste').getByRole('button', { name: 'Options for Celeste' }),
-      column(page, 'InProgress'),
+      segment(page, 'InProgress'),
     );
 
     await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(['Celeste']);
-    expect(await titlesIn(page, 'InProgress')).toEqual([]);
+    await expect(segment(page, 'InProgress')).toHaveAccessibleName('Playing 0');
   });
 
   test('a tap on a title still opens its journal', async ({ page }) => {
@@ -575,5 +598,64 @@ test.describe('on a phone', () => {
     await card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true }).tap();
 
     await expect(page.getByRole('dialog', { name: 'Celeste' })).toBeVisible();
+  });
+
+  test('the switcher stays at the top of the screen while a long column scrolls past it', async ({
+    page,
+  }) => {
+    // Wherever you are in a column, every other column is one tap or one drag away.
+    const order = await seedBacklog(page, LONG_BACKLOG);
+
+    await swipeUp(page, card(page, order[0]!), 300);
+    await expect.poll(() => scrollY(page)).toBeGreaterThan(100);
+
+    const switcher = await page.getByRole('radiogroup', { name: 'Columns' }).boundingBox();
+    expect(switcher!.y).toBeGreaterThanOrEqual(0);
+    expect(switcher!.y).toBeLessThan(10);
+  });
+
+  test('a card carried up to the switcher from deep in a long column lands where it is let go', async ({
+    page,
+  }) => {
+    // The switcher is pinned to the top edge, and the top edge is also where a drag asks the page
+    // to scroll up. Left to it, the page scrolls to its top under a finger waiting over a
+    // segment, the switcher comes unpinned and slides down out from under the finger, and the
+    // card is let go somewhere else. The page must hold still while a card is over the switcher.
+    const order = await seedBacklog(page, LONG_BACKLOG);
+    const last = order.at(-1)!;
+
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(() => scrollY(page)).toBeGreaterThan(200);
+
+    await holdAndDrag(page, card(page, last), segment(page, 'Completed'), { lingerMs: 800 });
+
+    await expect(segment(page, 'Completed')).toHaveAccessibleName('Completed 1');
+    expect(await titlesIn(page, 'Backlog')).not.toContain(last);
+  });
+
+  test.describe('on a smaller phone', () => {
+    test.use({ viewport: { width: 375, height: 667 } });
+
+    test('choosing a column from deep in another shows the new one from its top', async ({
+      page,
+    }) => {
+      // Two long columns. Chosen from the bottom of the first, the second would otherwise open
+      // at the same depth — scrolled past its own beginning, with its first titles above the
+      // screen and nothing to say they are there.
+      for (const title of ['Hollow Knight: Silksong', 'Hollow Knight Silksong', 'Tunic II', 'Velvet Lounge', 'Half-Life 3']) {
+        await seed(page.request, title, 'Completed', { completedAt: today() });
+      }
+      await seedBacklog(page, LONG_BACKLOG.slice(0, 6));
+
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect.poll(() => scrollY(page)).toBeGreaterThan(300);
+
+      await segment(page, 'Completed').tap();
+      await expect(column(page, 'Completed')).toBeVisible();
+
+      const switcher = await page.getByRole('radiogroup', { name: 'Columns' }).boundingBox();
+      const completed = await column(page, 'Completed').boundingBox();
+      expect(completed!.y).toBeGreaterThanOrEqual(switcher!.y + switcher!.height);
+    });
   });
 });
