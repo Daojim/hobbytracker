@@ -136,7 +136,9 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
   };
 
   return (
-    <main className="min-h-screen bg-sunken p-6 text-fg 2xl:p-8 3xl:p-10">
+    // The board's gutter at every width, 16px on a phone, so the header does not step sideways
+    // between the two pages.
+    <main className="min-h-screen bg-sunken p-4 text-fg md:p-6 2xl:p-8 3xl:p-10">
       <div className="mx-auto max-w-board">
         <AppHeader title="HobbyTracker" hobby={hobby} />
 

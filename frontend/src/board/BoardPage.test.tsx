@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { BoardPage } from './BoardPage';
@@ -11,6 +11,7 @@ import { game, gameDetail, journalServer, logEntry, searchServer } from '../test
 import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
 import { BackButton, renderWithProviders } from '../test/render';
+import { windowOfWidth } from '../test/media';
 
 /**
  * Where the board lives, so `useParams` has a hobby to hand it.
@@ -606,6 +607,180 @@ describe('BoardPage', () => {
     // read too early passes whether or not it was going to stay empty.
     await userEvent.type(films, 'arriv');
     await waitFor(() => expect(tmdb.searches).toEqual(['arriv']));
+  });
+});
+
+/**
+ * The board on a phone: one column at a time, chosen from a switcher that counts all of them.
+ *
+ * Picked on 1 October 2026 from four layouts rendered at 390px. Below Tailwind's `md` the board
+ * shows one column, and a segmented switcher pinned to the top of the screen chooses which.
+ * Every other test in this file runs in jsdom's window, which has no media queries and so gets
+ * the board side by side; these give it a phone's width.
+ */
+describe('BoardPage, on a phone', () => {
+  let phone: ReturnType<typeof windowOfWidth>;
+
+  beforeEach(() => {
+    phone = windowOfWidth(390);
+  });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** What each segment says, in order: a column's name and how many titles are in it. */
+  const segments = () =>
+    within(screen.getByRole('radiogroup', { name: 'Columns' }))
+      .getAllByRole('radio')
+      .map((segment) => segment.textContent);
+
+  it('shows one column at a time, under a switcher that counts every column', async () => {
+    // The page was five columns stacked, about three screens of Backlog before Completed began.
+    boardServer({
+      columns: {
+        Backlog: [libraryItem({ title: 'Celeste' }), libraryItem({ title: 'Hades' })],
+        Completed: [libraryItem({ title: 'Outer Wilds', currentStatus: 'Completed' })],
+      },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByRole('radiogroup', { name: 'Columns' });
+
+    await waitFor(() =>
+      expect(segments()).toEqual([
+        'Backlog 2',
+        'Playing 0',
+        'On Hold 0',
+        'Completed 1',
+        'Dropped 0',
+      ]),
+    );
+    expect(screen.getByRole('radio', { name: 'Backlog 2' })).toBeChecked();
+    expect(screen.getByRole('region', { name: 'Backlog 2' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /^Completed/ })).not.toBeInTheDocument();
+  });
+
+  it('shows the column that is chosen, and only that one', async () => {
+    boardServer({
+      columns: {
+        Backlog: [libraryItem({ title: 'Celeste' })],
+        Completed: [libraryItem({ title: 'Outer Wilds', currentStatus: 'Completed' })],
+      },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: /^Completed/ }));
+
+    expect(await screen.findByRole('region', { name: 'Completed 1' })).toBeInTheDocument();
+    expect(screen.getByText('Outer Wilds')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /^Backlog/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Completed 1' })).toBeChecked();
+  });
+
+  it("counts each column from the column's own request, year and all", async () => {
+    // A segment's count is the total its column would show, so it has to come from the same
+    // request: the same key, so the column on screen and its segment share one fetch rather
+    // than making two; and the same year, or Completed's segment would count every completion
+    // there has ever been while its column showed this year's.
+    const board = boardServer({ years: [2026] });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByRole('radiogroup', { name: 'Columns' });
+
+    await waitFor(() => expect(board.queriesFor('Completed')).toHaveLength(1));
+    expect(board.queriesFor('Completed')[0]?.get('year')).toBe('2026');
+    expect(board.queriesFor('Backlog')).toHaveLength(1);
+  });
+
+  it('counts a card moved from its menu in the column it went to', async () => {
+    // A move writes both columns' cached answers, and the switcher reads those same answers.
+    boardServer({ years: [2026] });
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste' }));
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
+
+    expect(await screen.findByRole('radio', { name: 'Completed 1' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Backlog 0' })).toBeInTheDocument();
+  });
+
+  it('offers only the columns the board is drawing', async () => {
+    // A column taken off in Settings is not on the board, so it is not in the switcher either.
+    localStorage.setItem(hiddenColumnsKey('games'), JSON.stringify(['OnHold', 'Dropped']));
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByRole('radiogroup', { name: 'Columns' });
+
+    expect(segments()).toEqual(['Backlog 0', 'Playing 0', 'Completed 0']);
+  });
+
+  it('goes back to Backlog when the column it is showing is taken off in Settings', async () => {
+    // Otherwise the board would be showing a column it is no longer drawing. Backlog, because it
+    // is the one column that cannot be taken off.
+    boardServer({ columns: { Backlog: [libraryItem({ title: 'Celeste' })] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: /^On Hold/ }));
+    expect(await screen.findByRole('region', { name: /^On Hold/ })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'On Hold' }));
+
+    expect(await screen.findByRole('region', { name: 'Backlog 1' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Backlog 1' })).toBeChecked();
+  });
+
+  it('opens Dropped when it is the column chosen, rather than folding it', async () => {
+    // Side by side, Dropped starts folded so it stays out of the way. On a phone, choosing it in
+    // the switcher is already asking to see it, and a folded column would need a second tap.
+    boardServer({ columns: { Dropped: [libraryItem({ title: 'Anthem', currentStatus: 'Dropped' })] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: /^Dropped/ }));
+
+    expect(await screen.findByText('Anthem')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show Dropped' })).not.toBeInTheDocument();
+  });
+
+  it('has nothing to switch between when Backlog is the only column drawn', async () => {
+    localStorage.setItem(
+      hiddenColumnsKey('games'),
+      JSON.stringify(['InProgress', 'OnHold', 'Completed', 'Dropped']),
+    );
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    expect(await screen.findByRole('region', { name: 'Backlog 0' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Columns' })).not.toBeInTheDocument();
+  });
+
+  it("says a column's name once, in the switcher, and still names the column to a screen reader", async () => {
+    // The switcher already reads "Backlog 2" directly above the column, so the column's own
+    // heading would say it again. Hidden from sight rather than removed, because it is what the
+    // column region is named by.
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    expect(await screen.findByRole('heading', { name: 'Backlog 0' })).toHaveClass('sr-only');
+    expect(screen.getByRole('region', { name: 'Backlog 0' })).toBeInTheDocument();
+  });
+
+  it('puts every column side by side again when the window widens', async () => {
+    // A phone turned sideways past the line, or a desktop window dragged wide.
+    boardServer();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByRole('radiogroup', { name: 'Columns' });
+
+    act(() => phone.resize(1024));
+
+    expect(await screen.findByRole('region', { name: 'Completed 0' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Backlog 0' })).toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Columns' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Backlog 0' })).not.toHaveClass('sr-only');
   });
 });
 

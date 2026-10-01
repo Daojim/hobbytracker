@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { listColumn } from '../api/library';
@@ -12,6 +12,25 @@ import type { LibrarySort, LogStatus } from '../api/types';
 
 /** The id a column droppable answers to, so a drop onto empty space still names a column. */
 export const droppableId = (status: LogStatus) => `column:${status}`;
+
+/**
+ * One column's request, for the column and for anything else that needs its answer.
+ *
+ * The phone's switcher counts every column from this, so a segment's count is the total its
+ * column shows: the same key, so the column on screen and its segment share one fetch, and the
+ * same year, so Completed's segment does not count every year's completions under a column
+ * showing this one's.
+ */
+export const columnQuery = (
+  hobby: string,
+  status: LogStatus,
+  sort: LibrarySort,
+  year: number | undefined,
+) =>
+  queryOptions({
+    queryKey: columnKey(hobby, status, sort, year),
+    queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
+  });
 
 /**
  * Removing a title, as the whole column sees it: which card is currently asking, and what to do
@@ -50,6 +69,12 @@ export interface ColumnProps {
   year?: number;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
+  /**
+   * The switcher directly above already says this column's name and count, as it does on a
+   * phone. The heading stays for a screen reader, because it is what names the column's region,
+   * and only leaves the screen.
+   */
+  namedAbove?: boolean;
   /** Moves a card to another column. The column it leaves is this one, so it goes unsaid. */
   onMove: (mediaId: number, to: LogStatus) => void;
   removal: ColumnRemoval;
@@ -66,6 +91,7 @@ export function Column({
   year,
   collapsed = false,
   onToggleCollapse,
+  namedAbove = false,
   onMove,
   removal,
   menu,
@@ -78,8 +104,7 @@ export function Column({
   const [pollUntil, setPollUntil] = useState(0);
 
   const { data, isPending, error } = useQuery({
-    queryKey: columnKey(hobby, status, sort, year),
-    queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
+    ...columnQuery(hobby, status, sort, year),
 
     // A function rather than a number, and that is load-bearing. TanStack calls this to schedule
     // each next ask, so the budget is re-read against the clock every time — where a number
@@ -141,7 +166,10 @@ export function Column({
       } ${isOver ? 'bg-drop' : 'bg-well'}`}
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
+        <h2
+          id={headingId}
+          className={`text-sm font-medium tracking-wide uppercase ${namedAbove ? 'sr-only' : ''}`}
+        >
           {label} <span className="text-muted">{data?.total ?? 0}</span>
         </h2>
 

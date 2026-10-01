@@ -16,6 +16,20 @@
 export const BOARD_GAP = 'gap-4 2xl:gap-5 3xl:gap-6';
 
 /**
+ * Whether the columns sit side by side, which they do from Tailwind's `md` — the line every
+ * `md:` class in this file answers to. Below it a phone shows one column at a time, chosen from
+ * the switcher above the board.
+ *
+ * **A media query React reads, not only a class the browser does**, because a column that is
+ * not shown must not be a drop target either, and CSS cannot see to that. dnd-kit measures a
+ * `display: none` column as an empty box in the page's top-left corner, and `closestCorners` will
+ * hand a card carried up near it to that box: a move into a column nobody can see. So a column
+ * that is not shown is not mounted. `grid.test.ts` reads the number out of Tailwind, so the two
+ * copies cannot disagree about where a phone ends.
+ */
+export const SIDE_BY_SIDE = '(min-width: 48rem)';
+
+/**
  * How many tracks the board is laid out in, keyed on how many columns it is showing.
  *
  * Two across from 768px, because four at 768 left each column 168px — about 32px of title once
