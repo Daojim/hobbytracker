@@ -17,7 +17,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | # | Feature | Size | Status |
 |---|---|---|---|
 | 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). Left: the web manifest and home-screen icon |
-| 2 | Record when a title changes column | M | **Shipped 1 October 2026** (PR #44). See its section |
+| 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | Planned. Gained a phone question; see its section |
 | 4 | "How long will it take me?" | S–M | Planned |
 | 5 | Stats | M–L | Planned, after #2, using #3's sums |
@@ -27,7 +27,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | Planned |
 
-Production runs `df54a8b`, which was `main` on 1 October 2026. Deploying is the runbook in
+Production runs `a028043`, which was `main` on 1 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -159,8 +159,9 @@ Production runs `df54a8b`, which was `main` on 1 October 2026. Deploying is the 
 
 ## 2. Record when a title changes column · shipped
 
-**Shipped on 1 October 2026** (PR #44). Write-ups: `docs/data-model.md`, *A pass's history*, and
-`docs/board.md`, *Board semantics*.
+**Shipped and deployed on 1 October 2026** (PR #44). Production applied the migration on start and
+had no rows until the first move after it. Write-ups: `docs/data-model.md`, *A pass's history*,
+and `docs/board.md`, *Board semantics*.
 
 - **`status_changes`**: `from_status` → `to_status` at `changed_at`, one row each time a pass
   arrives in a column. `from_status` is null when the pass was made. Rows cascade with their pass,
