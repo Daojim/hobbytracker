@@ -39,7 +39,8 @@ thing always known before an edit:
 | `frontend/src/journal/`, `LogEntryService`, `NoteService` | `docs/journal.md` |
 | `frontend/src/index.css`, `src/theme/`, anything about colour, contrast or width | `docs/design.md` |
 | `AuthService`, `AuthController`, `Program.cs`'s auth block, `frontend/src/shell/` | `docs/auth.md` |
-| `Dockerfile`, `deploy/`, `PublicOriginMiddleware` | `docs/deploy.md` |
+| `Dockerfile`, `deploy/`, `PublicOriginMiddleware`, **or being asked to deploy** | `docs/deploy.md` — the source of truth, runbook included |
+| **Picking up a feature from What is next** | `docs/plans/games-board-next.md` — its status table, its rules, then the feature's section |
 | `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
 | `Integrations/Hltb/`, `Services/Hltb*`, `Infrastructure/Hltb*`, `board/estimates.ts`, `journal/HltbPin.tsx` | `docs/games-hltb.md` |
 | `Integrations/Tmdb/`, `MovieCatalogService`, `TmdbOnMediaAdded`, `MoviesController`, `hobbies/movies.ts` | `docs/movies-tmdb.md` |
@@ -506,6 +507,7 @@ here**.
 | **A spy on `Storage.prototype` refuses nothing in the frontend suite.** `src/test/setup.ts` supplies a `localStorage` that implements `Storage` without being one, so a test of storage refusing passes without storage ever refusing — green over the very fallback it names, which is how the hidden-columns store's first version of that test went. Spy on the instance: `vi.spyOn(localStorage, 'setItem')` | `docs/design.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
 | **A null `media.release_precision` means *nobody has asked a provider* and must read as *released*.** Every row that existed before the release calendar carries it. Get it backwards and the migration empties every user's Backlog column on deploy day — no error, no log line, just a board with its queue gone. It is `games.hltb_checked_at`'s distinction, and `Unknown` is the *different* claim that a provider was asked and had no date. **No provider mapping writes null any more**, only the absence of one, so the two states no longer share a shape | `docs/data-model.md` |
+| **`~/.claude/plans/` is swept after 30 days, without a word.** Claude Code's `cleanupPeriodDays` deletes plan files along with old transcripts, and the hosting plan this file once called the source of truth went that way. Anything meant to last goes in the repo — plans in `docs/plans/` — or, if it must stay private, in this project's auto memory, which the sweep spares | **The plan archive**, below |
 | **A release date is a day and must never go through the journal zone.** `new Date('2026-09-26')` is midnight *UTC*, so rendering one the way every other date in this app is rendered shows the 25th — the `System.Text.Json` trap above, arriving from the other side of the wire. Days live in `lib/release.ts`; `lib/time.ts` is instants | `docs/data-model.md` |
 
 ## Schema
@@ -564,7 +566,7 @@ shuffled.
       because a MAL search answers everything a detail call would.
 - [ ] **The games board, before the other hobbies — the current focus.** Decided 1 October 2026:
       a feature is built on the games board first and taken to the other hobbies afterwards. Ten
-      are planned in `C:\Users\jimmy\.claude\plans\games-board-next.md`, one section each, to be
+      are planned in `docs/plans/games-board-next.md`, one section each, to be
       picked up in any order:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher. **What is left of it:** a manifest and an icon, so it can
@@ -689,29 +691,43 @@ being wrong. Both rows are marked below.
 ## The plan archive
 
 Each phase before the most recent was planned in a file under `C:\Users\jimmy\.claude\plans\`. Those
-are **machine-local and outside the repo** — useful history on this machine, absent everywhere else,
-and none of them is a source of truth. This file is.
+are **machine-local and outside the repo**, and none of them is a source of truth. This file is,
+with `docs/`.
 
-**`deploying-on-ppserver.md` is not history.** It is current, and it is the source of
-truth for how this app is hosted — where it runs, what has to be built first, and which hosting
-approaches were already ruled out and why. **Read it before proposing any deployment**; several
-obvious ones have been considered and rejected for stated reasons, and re-proposing them is repeated
-work. It stays machine-local deliberately, because it describes a private machine: **do not copy it
+**Claude Code deletes them after 30 days.** `plans/` is in the sweep that `cleanupPeriodDays` runs,
+30 days by default, which its documentation confirmed on 1 October 2026. On that day every plan
+file older than a month was gone and the oldest left was 29 days old. Nobody moved anything, and
+nothing said a word. **Anything meant to outlast a month goes in the repo, or, if it has to stay
+private, in this project's auto memory**, which the documentation says the sweep leaves alone. Its
+notes from August were all still there.
+
+**Deploying: `docs/deploy.md` is the source of truth**, runbook included. It replaced the
+machine-local hosting plan, which held the hosting decisions until the sweep deleted it. The
+machine-specific half (which host, which directory, the public address) stays out of this public
+repo, in the auto-memory note `hobbytracker-self-hosted-deployment.md`. That note also keeps what
+survives of the hosting decisions: the approaches already ruled out, and the one reason that was
+recorded elsewhere. **Read it before proposing any change to how the app is hosted. Do not copy it
 into this repo, and do not publish it anywhere.**
 
-**Nor is `games-board-next.md`.** It holds the plans for the games-board work queued under **What is
-next**: one section per feature, each with its tests listed first and the decisions it leaves for
-the day it is picked up. **Read a feature's section before starting it.**
+**`docs/plans/games-board-next.md` is current, and it is in the repo so the sweep cannot reach
+it.** It holds the plans for the games-board work queued under **What is next**. There is a status
+table at the top, rules every feature follows, and one section per feature, each with its tests
+listed first and the decisions it leaves for the day it is picked up. **Read a feature's section
+before starting it, and update the table and the section when it ships.** A plan for a later phase
+goes in `docs/plans/` beside it rather than in `~/.claude/plans/`.
 
-**`anime-as-its-own-hobby.md` is now history**, and its contents live in `docs/anime-mal.md` —
-the decisions, the provider measurements, and the two stretches it predicted. The phase shipped on
-7 September 2026, the day after the file was written. Two things it got wrong are worth knowing if
-anybody opens it: it expected the genre palette to be workshopped with the user (it was picked,
-at the user's request), and it left the search re-rank's rules open where they are now measured
-and pinned.
+**`anime-as-its-own-hobby.md` is history, and the sweep takes it in October 2026.** Its contents
+live in `docs/anime-mal.md`: the decisions, the provider measurements, and the two stretches it
+predicted. The phase shipped on 7 September 2026, the day after the file was written. Two things it
+got wrong are worth keeping without it. It expected the genre palette to be workshopped with the
+user, and it was picked, at the user's request. And it left the search re-rank's rules open, where
+they are now measured and pinned.
 
-One is worth a warning if you open it: `for-the-next-part-delightful-alpaca.md`, the HowLongToBeat
-plan. Three of its assumptions did not survive contact with the site — it has an `HltbSessionHandler`
-mirroring `IgdbAuthHandler`, which is impossible given the body-borne credential; it assumes fetching
-by id needs the same handshake, which needs none; and it argues `release_year` was needed to stop
-remasters being matched by coin flip, where the ambiguity margin already refuses those safely.
+The HowLongToBeat plan, `for-the-next-part-delightful-alpaca.md`, has already been swept, and
+what it got wrong is worth keeping without it. Three of its assumptions did not survive contact
+with the site:
+- It has an `HltbSessionHandler` mirroring `IgdbAuthHandler`, which is impossible given the
+  body-borne credential.
+- It assumes fetching by id needs the same handshake, which needs none.
+- It argues `release_year` was needed to stop remasters being matched by coin flip, where the
+  ambiguity margin already refuses those safely.
