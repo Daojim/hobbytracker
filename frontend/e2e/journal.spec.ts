@@ -276,7 +276,7 @@ test('a wobble while clicking the title still opens the journal', async ({ page 
   const y = box.y + box.height / 2;
   await page.mouse.move(x, y);
   await page.mouse.down();
-  // Inside the pointer sensor's 8px activation distance, so this is still a click.
+  // Inside the mouse sensor's 8px activation distance, so this is still a click.
   await page.mouse.move(x + 3, y + 2);
   await page.mouse.up();
 

@@ -561,6 +561,24 @@ shuffled.
       `PassFields.progress` became three-valued, because a cour *is* the entry; and
       `LibraryItemDto.Subtitle` gave the board row a second title. No `IMediaAdded` handler,
       because a MAL search answers everything a detail call would.
+- [ ] **The games board, before the other hobbies — the current focus.** Decided 1 October 2026:
+      a feature is built on the games board first and taken to the other hobbies afterwards. Ten
+      are planned in `C:\Users\jimmy\.claude\plans\games-board-next.md`, one section each, to be
+      picked up in any order:
+      - a board that works on a phone — a swipe on a card drags it rather than scrolling, which
+        makes this the place to start
+      - recording when a title changes column
+      - hours in the column headers
+      - a how-long-will-it-take-me calculator
+      - stats
+      - searching your notes
+      - export to a spreadsheet
+      - deleting an account
+      - a read-only share link
+      - `/` to the search box
+
+      **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
+      +1 episode button on Watching cards.
 - [ ] **Detail and review — next.** A title detail page and a year-in-review page.
 - [x] **The release calendar** — a *Coming soon* agenda under the board, and the first half of
       *filling the board without searching*. Not a fifth status and not a fifth column: the same
@@ -656,6 +674,15 @@ being wrong. Both rows are marked below.
 - **`Season` is not in the game-type filter**, so "Mario Kart" returns ten *Mario Kart Tour: … Tour*
   seasons and none of the actual games. One id in one clause. Nobody has asked for it.
 - **`users.role` is read by nothing.** It defaults to `"user"` and exists for a day that has not come.
+  **One consequence: any signed-in account can call the five refresh routes.** The IGDB and TMDB
+  refreshes re-fetch every title *anybody* has logged. With sign-up open, that is the same exposure
+  as `Auth:AllowNewAccounts` above. An admin role checked on those routes would give `role` its
+  first reader.
+- **A board column stops at 100 titles.** `COLUMN_PAGE_SIZE` is `Paging.MaxPageSize`. Past it,
+  `Column.tsx` says *Showing 100 of N* and offers no way to see the rest; a large Backlog, or any
+  import, will hit it. The fix is a *Load more* on Discover's shape. Anything that needs a whole
+  column — a total, an export, a share — aggregates on the server or pages to the end, as
+  `libraryStatuses()` does.
 
 ## The plan archive
 
@@ -663,12 +690,16 @@ Each phase before the most recent was planned in a file under `C:\Users\jimmy\.c
 are **machine-local and outside the repo** — useful history on this machine, absent everywhere else,
 and none of them is a source of truth. This file is.
 
-**One of them is not history: `deploying-on-ppserver.md`.** It is current, and it is the source of
+**`deploying-on-ppserver.md` is not history.** It is current, and it is the source of
 truth for how this app is hosted — where it runs, what has to be built first, and which hosting
 approaches were already ruled out and why. **Read it before proposing any deployment**; several
 obvious ones have been considered and rejected for stated reasons, and re-proposing them is repeated
 work. It stays machine-local deliberately, because it describes a private machine: **do not copy it
 into this repo, and do not publish it anywhere.**
+
+**Nor is `games-board-next.md`.** It holds the plans for the games-board work queued under **What is
+next**: one section per feature, each with its tests listed first and the decisions it leaves for
+the day it is picked up. **Read a feature's section before starting it.**
 
 **`anime-as-its-own-hobby.md` is now history**, and its contents live in `docs/anime-mal.md` —
 the decisions, the provider measurements, and the two stretches it predicted. The phase shipped on

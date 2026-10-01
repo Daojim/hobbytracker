@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { KeyboardSensor } from '@dnd-kit/core';
 import { Card, type CardMenu, type CardRemoval } from './Card';
+import { useBoardSensors } from './sensors';
 import { columnsFor, type BoardColumn } from '../hobbies';
 import { libraryItem } from '../test/library';
 import { renderWithProviders } from '../test/render';
@@ -59,29 +61,61 @@ const renderOpen = (item = libraryItem({ title: 'Celeste' }), onMove = vi.fn()) 
   renderCard(item, false, onMove, vi.fn(), true);
 
 /**
- * A card under something listening for the press, which is what a drag listener is.
+ * Every way a press can reach a card: one per sensor that can start a drag from it.
+ *
+ * A touch carries its touch point, because dnd-kit's touch sensor reads that before anything
+ * else. Each press is let go again afterwards, so a touch sensor left waiting out its hold
+ * cannot pick a card up in the middle of some later test.
+ *
+ * This list has gone stale once already. It was pointerdown alone while the board ran a pointer
+ * sensor, and it went on passing after the board stopped reading pointerdown. By then a long
+ * press on the corner would have dragged the card. "presses a card every way a board sensor can
+ * be started" pins it to the sensors themselves.
+ */
+const PRESSES = [
+  [
+    'a mouse',
+    {
+      event: 'onMouseDown',
+      press: (target: Element) => fireEvent.mouseDown(target),
+      release: (target: Element) => fireEvent.mouseUp(target),
+    },
+  ],
+  [
+    'a finger',
+    {
+      event: 'onTouchStart',
+      press: (target: Element) =>
+        fireEvent.touchStart(target, { touches: [{ clientX: 0, clientY: 0 }] }),
+      release: (target: Element) => fireEvent.touchEnd(target),
+    },
+  ],
+] as const;
+
+/**
+ * A card under something listening for a press, which is what a drag listener is.
  *
  * The spy has to be a React prop rather than an addEventListener on the card: stopPropagation in
  * a React handler stops the *synthetic* event, and React attaches at the root container, so the
  * native event bubbles past the card either way and a native listener cannot tell the two cases
  * apart. dnd-kit's own listeners are React props, so this measures the layer that matters.
  */
-function renderPressed() {
+function renderPressed({ confirming = false, menuOpen = false } = {}) {
   const pressed = vi.fn();
   const removal: CardRemoval = {
-    confirming: false,
+    confirming,
     onAsk: vi.fn(),
     onCancel: vi.fn(),
     onConfirm: vi.fn(),
   };
 
   renderWithProviders(
-    <div onPointerDown={pressed}>
+    <div onMouseDown={pressed} onTouchStart={pressed}>
       <Card
         item={libraryItem({ title: 'Celeste', currentStatus: 'Backlog' })}
         onMove={vi.fn()}
         removal={removal}
-        menu={{ open: false, onOpen: vi.fn(), onClose: vi.fn(), columns: columnsFor('games') }}
+        menu={{ open: menuOpen, onOpen: vi.fn(), onClose: vi.fn(), columns: columnsFor('games') }}
         onOpen={vi.fn()}
         draggable
       />
@@ -483,30 +517,111 @@ describe('Card', () => {
     expect(onOpen).toHaveBeenCalledExactlyOnceWith(42);
   });
 
-  it('lets a press on the title reach the card, so the drag can start there', () => {
-    // The title is the biggest target on a card, so a press that lands on it has to be able to
-    // become a drag — otherwise most of the card is dead to the gesture. What separates a click
-    // from a drag is the pointer sensor's 8px activation distance, not this button swallowing
-    // the press: below it the click lands, above it dnd-kit suppresses the click itself.
+  it('presses a card every way a board sensor can be started', () => {
+    // The press tests below are only as good as this list. A sensor they do not press like is a
+    // drag they never check the corner against.
     //
-    // jsdom has no layout and no pointer events, so this says only that the press propagates and
-    // leaves the gesture to Playwright — see "a card drags from its title" in journal.spec.ts.
-    const { pressed } = renderPressed();
+    // The keyboard is left out on purpose. dnd-kit's keyboard sensor refuses a key press that
+    // comes from an element nested inside the card, so the corner has nothing to stop there.
+    const { result } = renderHook(() => useBoardSensors());
+    const starts = result.current
+      .filter(({ sensor }) => sensor !== KeyboardSensor)
+      .flatMap(({ sensor }) => sensor.activators.map(({ eventName }) => eventName));
 
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Celeste' }));
-
-    expect(pressed).toHaveBeenCalledOnce();
+    expect(PRESSES.map(([, { event }]) => event).sort()).toEqual(starts.sort());
   });
 
-  it('keeps the options corner from starting one, because it is a small target', () => {
-    // The opposite call, deliberately: twenty pixels in the corner is a button and nothing else,
-    // and a hand that wobbles past the threshold there would drag the card rather than open the
-    // options. The title has room for both gestures; this does not.
-    const { pressed } = renderPressed();
+  it.each(PRESSES)(
+    'lets %s press on the title reach the card, so the drag can start there',
+    (_input, { press, release }) => {
+      // The title is the biggest target on a card, so a press that lands on it has to be able
+      // to become a drag. Otherwise most of the card is dead to the gesture. The sensors tell a
+      // click from a drag, not this button swallowing the press: 8px of mouse travel, or a
+      // finger held still for a quarter of a second. Short of either, the click lands; past it,
+      // dnd-kit suppresses the click itself.
+      //
+      // jsdom has no layout, so this says only that the press propagates and leaves the gesture
+      // to Playwright — see "a card drags from its title" in journal.spec.ts, and the phone's
+      // cases in board.spec.ts.
+      const { pressed } = renderPressed();
+      const title = screen.getByRole('button', { name: 'Celeste' });
 
-    fireEvent.pointerDown(optionsButton());
+      press(title);
 
-    expect(pressed).not.toHaveBeenCalled();
+      expect(pressed).toHaveBeenCalledOnce();
+      release(title);
+    },
+  );
+
+  it.each(PRESSES)(
+    'keeps %s press on the options corner from starting one, because it is a small target',
+    (_input, { press, release }) => {
+      // The opposite call, deliberately: twenty pixels in the corner is a button and nothing
+      // else, and a hand that wobbles past the threshold there would drag the card rather than
+      // open the options. The title has room for both gestures; this does not.
+      const { pressed } = renderPressed();
+
+      press(optionsButton());
+
+      expect(pressed).not.toHaveBeenCalled();
+      release(optionsButton());
+    },
+  );
+
+  it.each(PRESSES)(
+    'keeps %s press on an open menu from starting one',
+    (_input, { press, release }) => {
+      // The panel hangs off the card it belongs to, so it is inside that card as far as an event
+      // is concerned. A press on one of its items that started a drag would carry the card off
+      // under the choice being made about it.
+      const { pressed } = renderPressed({ menuOpen: true });
+      const item = screen.getByRole('button', { name: 'Move to Playing' });
+
+      press(item);
+
+      expect(pressed).not.toHaveBeenCalled();
+      release(item);
+    },
+  );
+
+  it.each(PRESSES)(
+    'keeps %s press on the remove confirm from starting one',
+    (_input, { press, release }) => {
+      // The one question a card asks that cannot be undone. A press meant for "Really remove?"
+      // that dragged the card instead would leave the question asked about a title that is
+      // somewhere else by the time anybody answers it.
+      const { pressed } = renderPressed({ confirming: true });
+      const confirm = screen.getByRole('button', { name: 'Really remove?' });
+
+      press(confirm);
+
+      expect(pressed).not.toHaveBeenCalled();
+      release(confirm);
+    },
+  );
+
+  it('leaves a swipe that starts on it to the browser, so a phone can scroll the board', () => {
+    // `touch-none` handed every touch on a card to the drag, and on a phone the cards are most
+    // of the board, so a swipe that began on one dragged it instead of scrolling. A finger now
+    // has to hold still before it drags (the touch sensor's delay, in board/sensors.ts), and
+    // until it has, the swipe is the browser's.
+    renderCard(libraryItem({ title: 'Celeste' }));
+    const card = screen.getByRole('listitem');
+
+    expect(card).not.toHaveClass('touch-none');
+    expect(card).toHaveClass('touch-manipulation');
+  });
+
+  it('keeps a held press from selecting the title or offering to save the cover', () => {
+    // Holding still is how a drag starts on a phone now. It is also how a phone asks to select
+    // text and, on iOS, to save an image, and either would put a callout over the card just as
+    // it is being picked up. Nothing is lost on a desktop: a mouse that moves 8px across a card
+    // is already a drag, and dnd-kit clears any selection the moment one starts.
+    renderCard(libraryItem({ title: 'Celeste' }));
+    const card = screen.getByRole('listitem');
+
+    expect(card).toHaveClass('select-none');
+    expect(card).toHaveClass('[-webkit-touch-callout:none]');
   });
 
   it('shows cover art when there is any, and falls back to an initial when there is not', () => {

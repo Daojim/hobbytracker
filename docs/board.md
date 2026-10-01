@@ -218,14 +218,16 @@ card whose menu mentioned another card's game. *Remove from board* wears a **tra
 not danger text** — Ember's `--danger` is one hue from its `--accent`, so a red word there reads as
 the emphasised item rather than the dangerous one.
 
-**A card's surface carries two gestures, and the 8px activation distance is the whole of what tells
-them apart.** `useBoardSensors` in `board/sensors.ts` is the one place that decides it: under the
-distance the drag never begins and the click lands on whatever button was pressed; over it dnd-kit
-adds a capture-phase `click` listener of its own, so the press that moved a card cannot also open its
-drawer. **The title therefore does not stop the pointer** — it is most of the card's surface, and
-swallowing the press there left the drag only the margins to start from — where the options corner
-and the open panel both do. Nothing is needed for the keyboard: dnd-kit's keyboard sensor refuses to
-activate from a nested element.
+**A card's surface carries two gestures, and the sensors' activation constraints are the whole of
+what tells them apart**: 8px of travel for a mouse, a quarter of a second held still for a finger.
+`useBoardSensors` in `board/sensors.ts` is the one place that decides it. Short of the constraint the
+drag never begins and the click lands on whatever button was pressed; past it dnd-kit adds a
+capture-phase `click` listener of its own, so the press that moved a card cannot also open its
+drawer. **The title therefore does not stop the press**. It is most of the card's surface, and
+swallowing the press there left the drag only the margins to start from. The options corner, the
+open panel and the remove confirm all do stop it — see **A finger on a card** below for which
+events that means. Nothing is needed for the keyboard: dnd-kit's keyboard sensor refuses to activate
+from a nested element.
 
 **The test harness mounts cards under those same sensors**, which is why they are a module rather
 than a few lines inside `useBoard`. A bare `DndContext` takes dnd-kit's defaults, which carry no
@@ -244,6 +246,82 @@ kind of thing replied. It stays true while reordering inside one column, which i
 where the card is going to land. Pinned by two e2e cases, one dropping onto the middle of a stack and
 one asserting the tint mid-gesture with the button still down; the second was red and the first was
 green before the change, which is what said the defect was the answer rather than the drop.
+
+### A finger on a card
+
+**Reported 1 October 2026: on a phone, a swipe that began on a card dragged the card instead of
+scrolling the page.** Every card was `touch-none`, which hands every touch on it to the page, and
+the board ran one `PointerSensor` starting at 8px. On a phone the cards are most of the board, so
+there was almost nowhere a swipe could start that the browser was allowed to scroll from.
+
+**The fix is two sensors where there was one, and a card that leaves touches to the browser.**
+`MouseSensor` keeps the 8px exactly. `TouchSensor` waits for a finger to hold still for 250ms with
+5px of tolerance, and a finger that moves sooner is a swipe the sensor lets go of. Cards wear
+`touch-manipulation`, so until a hold has made it a drag, the browser is free to scroll. Three facts
+about dnd-kit 6.3.1 decided the shape, and all three were read in the installed source
+(`node_modules/@dnd-kit/core/dist/core.esm.js`) rather than its documentation:
+
+- **A pointer sensor takes one activation constraint for every kind of pointer.** A delay for the
+  finger would have slowed the mouse drag the 8px is tuned for.
+- **A pointer sensor can keep a finger from scrolling only with `touch-action: none`**, because the
+  browser takes a pan before any `pointermove` can refuse it. That *was* the bug.
+- **`TouchSensor` refuses the scroll itself, and only once it is active**: its `touchmove` listener
+  is non-passive and calls `preventDefault()` after activation and never before. Its `setup()` adds
+  the window-level non-passive listener iOS Safari needs before a dynamically added one is allowed
+  to cancel anything.
+
+**The documentation index now answers with a different library.** Asked about touch, it returns
+the `@dnd-kit/dom` 0.x API, where one `PointerSensor` branches on `event.pointerType` and
+`MouseSensor` and `TouchSensor` are gone. None of that exists in `@dnd-kit/core` 6, which is what
+this app runs. Its touch default there is the same 250ms and 5px, for what that corroboration is
+worth.
+
+**The trap in changing sensors: it changes which events start a drag.** The corner, the open panel
+and the remove confirm kept a press from the drag by stopping `pointerdown`, which was all a
+pointer sensor read. The new sensors start from `mousedown` and `touchstart`, so after the swap the
+old stop would have caught an event nothing reads any more, and a finger held on the `⋯` corner
+would have carried the card off by it. The jsdom tests would have stayed green, because they
+spied on `pointerdown` too. Now:
+
+- **`NOT_A_DRAG` in `Card.tsx` stops both events**, spread onto all three controls.
+- **`Card.test.tsx` presses each control both ways**, and *presses a card every way a board sensor
+  can be started* reads the activator events off `useBoardSensors()` itself, so the press list
+  cannot drift from the sensors the way the `pointerdown` spy did.
+- **Checked by reintroducing it.** `NOT_A_DRAG` without `onTouchStart` fails exactly the three
+  finger cases. The new sensors with the corner stopping `pointerdown` alone fail the e2e case *a
+  finger held on the options corner does not pick the card up*, and nothing else.
+
+**One consequence, measured.** Nothing stops `pointerdown` on a card any more, so a press on a
+card's corner now reaches the `document`. A Settings menu or another card's menu that is open
+closes, which is what *a press anywhere else shuts the menu* always claimed. Before, React's
+`stopPropagation()` stopped the native event at the root container, and a listener on `document`
+heard 0 presses on a card's corner, where it hears 1 now.
+
+**`select-none` and `[-webkit-touch-callout:none]` are the hold's other half.** Holding a finger
+still is also how a phone asks to select text, and how iOS asks to save an image. Either would open
+a callout over the card just as it was picked up. Nothing is lost on a desktop: 8px of mouse travel
+across a card is already a drag, and dnd-kit clears any selection the moment one starts. Android's
+long-press menu needs nothing, because dnd-kit cancels `contextmenu` while a sensor is pending.
+
+**Testing it, which needs Chromium's protocol, and one measurement saved a red-for-ever spec.**
+Playwright can tap and nothing more, so `holdAndDrag` and `swipeUp` in `e2e/support/board.ts`
+dispatch touch events through CDP in a `hasTouch`, `isMobile` context. **Headless Chromium accepts
+`Input.synthesizeScrollGesture` and ignores it.** It moved the page 0px from the board's gutter in
+both the headless shell and the new headless mode, where hand-written touch events scrolled the
+same page 285px and 674px. A swipe test built on it fails before the fix and after it, and looks
+like the bug both times. The touches are also the more honest test: on the board before the fix,
+that swipe on a card scrolled nothing and dragged the card two places up its column. The four
+cases are `board.spec.ts`'s *on a phone* block:
+
+| Case | Old code | New sensors, corner stopping `pointerdown` only | Fixed |
+|---|---|---|---|
+| A swipe that begins on a card scrolls the board | **red** — `scrollY` 0 | green | green |
+| A finger held still on a card carries it to another column | green | green | green |
+| A finger held on the options corner does not pick the card up | green | **red** | green |
+| A tap on a title still opens its journal | green | green | green |
+
+**Not checked by any of this: iOS Safari.** WebKit's touch handling is its own, the callout is
+WebKit's alone, and a hold there wants checking on a real phone.
 
 ### Adding straight to a column
 

@@ -159,12 +159,91 @@ export async function drag(page: Page, from: Locator, to: Locator): Promise<void
 
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  // Past the pointer sensor's 8px activation distance, which is what keeps a click on the drop
+  // Past the mouse sensor's 8px activation distance, which is what keeps a click on the drop
   // button from being read as the beginning of a drag.
   await page.mouse.move(startX + 20, startY + 20, { steps: 5 });
   await page.mouse.move(target.x + target.width / 2, target.y + 60, { steps: 20 });
   await page.mouse.move(target.x + target.width / 2, target.y + 60, { steps: 5 });
   await page.mouse.up();
+}
+
+/**
+ * The same gesture with a finger: press, hold still, then carry the card across and let go.
+ *
+ * Playwright can tap and nothing more, so this speaks the Chrome DevTools Protocol directly.
+ * That ties it to Chromium, the only browser this suite runs, and to a context with `hasTouch`,
+ * without which the page is never told that a touch happened.
+ */
+export async function holdAndDrag(page: Page, from: Locator, to: Locator): Promise<void> {
+  const source = await from.boundingBox();
+  const target = await to.boundingBox();
+  if (source === null || target === null) {
+    throw new Error('holdAndDrag needs both ends of the gesture to be on screen');
+  }
+
+  const start = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+  const end = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+  const cdp = await page.context().newCDPSession(page);
+
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+
+  // The one fixed wait in these helpers that is the gesture rather than a guess at when
+  // something will have finished: a hold is a length of time. Comfortably past the touch
+  // sensor's 250ms, so a slow machine cannot turn it into a swipe.
+  await page.waitForTimeout(500);
+
+  const steps = 20;
+  for (let step = 1; step <= steps; step++) {
+    const point = {
+      x: start.x + ((end.x - start.x) * step) / steps,
+      y: start.y + ((end.y - start.y) * step) / steps,
+    };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] });
+  }
+
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+
+/**
+ * A thumb flicking up the glass from `from`, which scrolls the page down.
+ *
+ * Touch events written out by hand, and that was measured rather than chosen. Chromium has a
+ * gesture for exactly this, `Input.synthesizeScrollGesture`, and headless Chromium accepts it
+ * and does nothing: 0px from the page's gutter in both the headless shell and the new headless
+ * mode, where these touches scrolled the same page 285px and 674px. A test built on it would
+ * have failed for ever, before the fix and after it, and looked like the bug both times.
+ *
+ * Touches are also the more honest test of this. The browser decides whether to scroll from
+ * the touched element's `touch-action` and from whether the page cancelled the move, which are
+ * the two things a swipe across a card is about. On the board before the fix, this gesture on a
+ * card scrolled nothing and dragged the card two places up its column.
+ */
+export async function swipeUp(page: Page, from: Locator, distance: number): Promise<void> {
+  const box = await from.boundingBox();
+  if (box === null) {
+    throw new Error('swipeUp needs somewhere on screen to start from');
+  }
+
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  if (y - distance < 0) {
+    throw new Error(`swipeUp would run off the top of the screen: start lower than y=${y}`);
+  }
+
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+
+  // No pause before the first move, which is what makes it a swipe: a finger that moves at once
+  // is past the touch sensor's 5px tolerance long before its 250ms are up.
+  const steps = 15;
+  for (let step = 1; step <= steps; step++) {
+    const point = { x, y: y - (distance * step) / steps };
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] });
+  }
+
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
 }
 
 /**
