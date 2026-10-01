@@ -207,7 +207,9 @@ unmatchable title, and a real library has several.
 - **The projection is `row.Media is Game && …`, not `(row.Media as Game) != null && …`.** EF elides
   the second as always true, so every film comes back pending and the movies board polls for an
   answer nobody is bringing. `is Game` becomes the TPT join's own null check. Pinned by
-  `A_board_row_for_something_that_is_not_a_game_is_never_waiting`.
+  `A_board_row_for_a_hobby_with_no_detail_table_is_never_waiting`, which films' arrival renamed
+  from `…for_something_that_is_not_a_game…`, and for films themselves by
+  `A_film_is_never_waiting_on_HowLongToBeat`.
 - **It is in both terminal DTO projections.** A transition answers with the row it just wrote and the
   board caches that, so a disagreement would tell the board to stop waiting for a live lookup.
 - **`refetchInterval` is a function, not a number.** TanStack calls it to schedule each next ask, so a
