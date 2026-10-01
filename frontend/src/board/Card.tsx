@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { type SyntheticEvent, useEffect, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { formatJournalDate } from '../lib/time';
@@ -32,6 +32,21 @@ export const cardTitleId = (mediaId: number) => `card-title-${mediaId}`;
  * would be pointing at a detached node; an id finds whatever is there now.
  */
 export const cardMenuId = (mediaId: number) => `card-menu-${mediaId}`;
+
+const stopPress = (event: SyntheticEvent) => event.stopPropagation();
+
+/**
+ * Spread onto a control inside a card, so a press on it is the control's and never the card's
+ * drag.
+ *
+ * One handler for each event a board sensor starts from — the mouse sensor's `mousedown` and the
+ * touch sensor's `touchstart`, in `board/sensors.ts`. It was `pointerdown` alone while the board
+ * ran a pointer sensor, and left that way after the change it would have stopped an event nothing
+ * reads any more while a finger held on the corner picked the card up. `Card.test.tsx` presses
+ * every control that wears this in each way a sensor can be started, and reads that list off the
+ * sensors themselves.
+ */
+const NOT_A_DRAG = { onMouseDown: stopPress, onTouchStart: stopPress };
 
 /**
  * Removing a title, in the same three parts the drawer's deletes use.
@@ -134,8 +149,9 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   // `pointerdown` rather than `click`, attached only while open, tested against a wrapper that
   // holds the corner as well as the panel. There is no other way to hear a press outside — and
   // unlike Escape there is no second listener to disagree with, since nothing else in the app
-  // listens for one. It doubles as what closes the menu when a drag begins, because dnd-kit's
-  // gesture starts with a pointerdown on some other card.
+  // listens for one. It doubles as what closes the menu when a drag begins, because a press on
+  // some other card arrives as a pointerdown before it arrives as the `mousedown` or
+  // `touchstart` the sensors read.
   const options = useRef<HTMLDivElement>(null);
   const menuOpen = menu?.open ?? false;
   const closeMenu = menu?.onClose;
@@ -204,10 +220,11 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
             surface, so a press here that could only ever be a click leaves the drag with just
             the margins to start from — which is what having to aim at a card felt like.
 
-            Nothing is needed to keep the two gestures apart. The pointer sensor's 8px
-            activation distance already decides it: under that the drag never begins and the
-            click lands, and over it dnd-kit adds a capture-phase click listener of its own, so
-            the press that moved a card cannot also open its drawer. */}
+            Nothing is needed to keep the two gestures apart. The sensors' activation
+            constraints already decide it — 8px of mouse travel, or a finger held still for a
+            quarter of a second: short of that the drag never begins and the click lands, and
+            past it dnd-kit adds a capture-phase click listener of its own, so the press that
+            moved a card cannot also open its drawer. */}
         <h3 className="text-card font-medium break-words">
           {onOpen === undefined ? (
             item.title
@@ -244,10 +261,7 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
         {/* The confirm takes the metadata row's place rather than sitting under it, so a card
             asking a question does not also resize the column it is in. */}
         {confirming ? (
-          <span
-            onPointerDown={(event) => event.stopPropagation()}
-            className="mt-1 flex flex-wrap items-baseline gap-2 text-xs"
-          >
+          <span {...NOT_A_DRAG} className="mt-1 flex flex-wrap items-baseline gap-2 text-xs">
             <span className="text-muted">{warning}</span>
 
             {/* Filled rather than red text, for ConfirmDelete's reason: on Ember the accent is
@@ -374,11 +388,12 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
             id={cardMenuId(item.mediaId)}
             aria-label={`Options for ${item.title}`}
             aria-expanded={menu.open}
-            // Without this the card's drag listeners see the press first. The pointer sensor's
-            // activation distance already stops a click becoming a drag; this stops the press
-            // being claimed at all. dnd-kit's keyboard sensor refuses to start from a nested
-            // element on its own, so Space and Enter here need nothing.
-            onPointerDown={(event) => event.stopPropagation()}
+            // Without this the card's drag listeners see the press first. The sensors' activation
+            // constraints already stop a click becoming a drag; this stops the press being
+            // claimed at all, which matters most to a finger — a hold on the corner would
+            // otherwise pick the card up. dnd-kit's keyboard sensor refuses to start from a
+            // nested element on its own, so Space and Enter here need nothing.
+            {...NOT_A_DRAG}
             onClick={() => (menu.open ? menu.onClose() : menu.onOpen())}
             className="h-5 w-5 shrink-0 rounded text-muted hover:bg-hover hover:text-fg"
           >
@@ -395,7 +410,7 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
               // title would make it match any card whose menu mentioned another card's game.
               role="group"
               aria-label={`Options for ${item.title}`}
-              onPointerDown={(event) => event.stopPropagation()}
+              {...NOT_A_DRAG}
               className="absolute right-0 z-10 mt-1 flex w-44 flex-col rounded-lg border border-line bg-surface p-1 shadow-xl"
             >
               {/* The same drawer the title opens, and worth being here twice: the title is the
@@ -487,9 +502,17 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
  * preview wears, and the preview is rendered outside every column, so a container on the
  * column would make a card shrink at the moment it was picked up. Safe against a layout cycle
  * because a card's width comes from its grid track and never from its contents.
+ *
+ * **`touch-manipulation` leaves a swipe that starts on a card to the browser.** It was
+ * `touch-none`, which a pointer sensor needs to keep a finger for itself — and on a phone, where
+ * the cards are most of the board, that made the board one that could not be scrolled: a swipe
+ * dragged whatever card it began on. The touch sensor in `board/sensors.ts` waits for a finger
+ * to hold still, and stops the scroll itself once it has. **`select-none` and the callout** are
+ * that hold's other half: a held finger is also how a phone asks to select the title or, on iOS,
+ * to save the cover, and either would open over the card just as it was being picked up.
  */
 export const CARD_CLASS =
-  '@container flex touch-none items-start gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
+  '@container flex touch-manipulation select-none [-webkit-touch-callout:none] items-start gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
 
 export interface CardProps {
   item: LibraryItem;
