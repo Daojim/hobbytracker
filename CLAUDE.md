@@ -71,7 +71,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
-| **The design layer** | Semantic tokens, eight themes, two densities, and a board that works from 768px up | `docs/design.md` |
+| **The design layer** | Semantic tokens, eight themes, two densities, and a board that works at every width — **on a phone, one column at a time under a switcher pinned to the top** | `docs/design.md` |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it | `docs/auth.md` |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
@@ -440,6 +440,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Columns | Backlog · Playing · **On Hold** · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list; the board draws it less anything taken off in Settings, and hands *that* list to every card's menu. **No columns a person names themselves** — `LogStatus` is one shared vocabulary, and the year rules and the transitions depend on what each value means |
 | On Hold | **After Playing, a plain column, and exempt from the year like Backlog** — Playing with the controller put down, so it takes Playing's rule for the dates and keeps where you were in a show. A fifth `LogStatus` with **no migration**, because `status` is unconstrained text. Position, look and width were each picked from rendered screenshots on 17 September 2026. `docs/board.md` |
 | Hiding a column | **Any but Backlog, per board, per browser, from a Columns group of checkboxes in Settings.** Not rendered, not fetched, not a drop target, not offered in a card's menu — and nothing written, so its titles are there when it comes back. Backlog stays because search adds to it. `docs/board.md` |
+| On a phone | **One column at a time below Tailwind's `md`, chosen from a segmented switcher pinned to the top** that counts every column and takes a dropped card. A finger holds still for a quarter of a second to drag, so a swipe scrolls; a mouse still drags from 8px. Picked from four layouts rendered at 390px on 1 October 2026. **A column not shown is not mounted**, because a hidden one is still a drop target. `docs/design.md`, `docs/board.md` |
 | A hobby's words | **`frontend/src/hobbies/`, one file per hobby.** Column labels, the length label and its format, the pass noun, the genre list, search dispatch, which fields a pass has, and how it says where you are in one. Never a branch on the slug |
 | Anime | **Its own hobby, from MAL, and one card per cour** — Frieren and Frieren 2nd Season are two cards because they are two MAL ids. Anime does not appear in a TV search; **the Movies board is deliberately left alone**, and that asymmetry is intended. A film reads fine on two boards; a series with episode progress on two boards is the confusing case. `docs/anime-mal.md` |
 | An anime's name | **The English title leads and the romaji one sits under it** — card, drawer and search tile alike, and `sort=title` files it under the name on screen. It shipped the other way round and was reversed the same day, so the code-shaped argument for romaji-first is a temptation rather than a finding: `media.title` still holds the romaji, because that is what a MAL search matches on. Presentation only, and nothing is stored twice. `docs/anime-mal.md` |
@@ -565,8 +566,9 @@ shuffled.
       a feature is built on the games board first and taken to the other hobbies afterwards. Ten
       are planned in `C:\Users\jimmy\.claude\plans\games-board-next.md`, one section each, to be
       picked up in any order:
-      - a board that works on a phone — a swipe on a card drags it rather than scrolling, which
-        makes this the place to start
+      - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
+        time under a pinned switcher. **What is left of it:** a manifest and an icon, so it can
+        go on a home screen, and the icon wants rendered options first
       - recording when a title changes column
       - hours in the column headers
       - a how-long-will-it-take-me calculator
