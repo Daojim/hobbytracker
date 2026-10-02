@@ -37,7 +37,7 @@ thing always known before an edit:
 | `Domain/`, `Data/`, a migration, anything about timestamps or what year a row is in | `docs/data-model.md` |
 | `LibraryService`, `LibraryController`, `frontend/src/board/` | `docs/board.md` |
 | `frontend/src/journal/`, `LogEntryService`, `NoteService` | `docs/journal.md` |
-| `frontend/src/index.css`, `src/theme/`, anything about colour, contrast or width | `docs/design.md` |
+| `frontend/src/index.css`, `src/theme/`, `frontend/icons/`, `frontend/public/`, anything about colour, contrast or width | `docs/design.md` |
 | `AuthService`, `AuthController`, `Program.cs`'s auth block, `frontend/src/shell/` | `docs/auth.md` |
 | `Dockerfile`, `deploy/`, `PublicOriginMiddleware`, **or being asked to deploy** | `docs/deploy.md` — the source of truth, runbook included |
 | **Picking up a feature from What is next** | `docs/plans/games-board-next.md` — its status table, its rules, then the feature's section |
@@ -72,7 +72,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
-| **The design layer** | Semantic tokens, eight themes, two densities, and a board that works at every width — **on a phone, one column at a time under a switcher pinned to the top** | `docs/design.md` |
+| **The design layer** | Semantic tokens, eight themes, two densities, and a board that works at every width — **on a phone, one column at a time under a switcher pinned to the top**. An icon, and a manifest, so it installs to a home screen | `docs/design.md` |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it | `docs/auth.md` |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
@@ -209,10 +209,12 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 ├── deploy/               compose.yml, Caddyfile, .env.example, scripts/backup.sh
 ├── global.json           opts dotnet test into Microsoft.Testing.Platform
 ├── frontend/
-│   ├── index.html        stamps the chosen theme before the bundle loads. See Design system
+│   ├── index.html        stamps the chosen theme, and the bar's colour, before the bundle loads
 │   ├── vite.config.ts    /api proxy to :5201, and the Vitest config
 │   ├── playwright.config.ts  starts three stubs, the API and Vite itself
 │   ├── e2e/              specs, plus the IGDB, HowLongToBeat and OAuth stubs
+│   ├── icons/            the icon's drawings; `npm run icons` renders public/'s PNGs from them
+│   ├── public/           the manifest and the icons, copied into dist as they are
 │   └── src/
 │       ├── api/          one module per resource, mirroring Contracts/
 │       ├── lib/time.ts   instants → Eastern, pinned. Never new Date().getFullYear()
@@ -572,8 +574,9 @@ shuffled.
       are planned in `docs/plans/games-board-next.md`, one section each, to be
       picked up in any order:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
-        time under a pinned switcher. **What is left of it:** a manifest and an icon, so it can
-        go on a home screen, and the icon wants rendered options first
+        time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
+        installs to a home screen. **What is left of it:** deploying that, then the Android
+        checks listed in its section
       - [x] recording when a title changes column — `status_changes`, written by one
         interceptor rather than four services, with shuffles folded away on the way in
       - [x] hours in the column headers — a line under each heading adding up what its cards

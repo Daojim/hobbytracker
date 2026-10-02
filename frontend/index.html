@@ -6,6 +6,27 @@
     <title>HobbyTracker</title>
 
     <!--
+      The icon, in a tab and on a home screen. The .ico carries sizes="32x32" so that Chrome
+      takes the SVG instead of fetching both and preferring the .ico. Everything named here is a
+      file in public/, which Vite copies across without fingerprinting it; manifest.test.ts
+      checks each one is there and is the size it says.
+    -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!--
+      The bar above the page: Chrome's on Android, and the status bar of the installed app. Each
+      theme's is its ground, the sunken token in index.css, which is what every page is painted
+      on. These two answer for System, one per colour scheme, and nothing ever changes them. A
+      chosen theme gets a third tag ahead of them, from the script below and then from applyTheme,
+      because a browser takes the first one that matches.
+    -->
+    <meta name="theme-color" content="#efe9e1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16130f" media="(prefers-color-scheme: dark)" />
+
+    <!--
       The chosen theme, stamped before anything paints.
 
       This has to run here rather than in React. The bundle is fetched, parsed and mounted well
@@ -15,7 +36,8 @@
 
       It cannot import src/theme/theme.ts, so the keys and attribute names are repeated as
       literals. theme.test.ts reads this file and asserts the copies still match, because a
-      renamed key here fails by silently ignoring the preference rather than by breaking.
+      renamed key here fails by silently ignoring the preference rather than by breaking. The same
+      goes for each theme's ground, the one colour this file has to know before index.css loads.
 
       Wrapped in try/catch: reading localStorage throws outright in a browser set to block site
       data, and an exception at this point is a blank page rather than a wrong colour.
@@ -23,17 +45,23 @@
     <script>
       (function () {
         try {
-          var themes = [
-            'shelf-light', 'frost', 'almanac',
-            'dusk', 'blood-red',
-            'shelf-dark', 'console', 'ember',
-          ];
+          // Every theme, and its ground.
+          var grounds = {
+            'shelf-light': '#efe9e1', 'frost': '#e4e9f0', 'almanac': '#e5d9bf',
+            'dusk': '#2a323c', 'blood-red': '#430404',
+            'shelf-dark': '#16130f', 'console': '#0a0c10', 'ember': '#121110',
+          };
           var theme = localStorage.getItem('hobbytracker.theme');
           // 'system' is stored as an absent attribute on purpose, so an unknown value and the
           // system default land in the same place: leave the root alone and let the
-          // prefers-color-scheme query in index.css answer.
-          if (themes.indexOf(theme) !== -1) {
+          // prefers-color-scheme query in index.css answer. The bar is left to System's tags.
+          if (Object.prototype.hasOwnProperty.call(grounds, theme)) {
             document.documentElement.setAttribute('data-theme', theme);
+
+            var bar = document.createElement('meta');
+            bar.name = 'theme-color';
+            bar.content = grounds[theme];
+            document.head.insertBefore(bar, document.querySelector('meta[name="theme-color"]'));
           }
 
           var density = localStorage.getItem('hobbytracker.density');

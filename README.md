@@ -20,7 +20,9 @@ at the end — and a title moves between them by drag or from the card's own opt
 column but Backlog can be taken off a board in Settings, per board. Which entry a move touches and
 which timestamps it stamps are decided server-side, so no client has to know which pass is current.
 On a phone the board shows one column at a time, under a switcher pinned to the top that counts
-every column. A card is picked up by holding it still, so a swipe scrolls.
+every column. A card is picked up by holding it still, so a swipe scrolls. The app installs to a
+home screen with an icon of its own, and the bar above it takes the colour of whichever theme is
+chosen.
 
 Cards carry the cover, the genre they are painted as, your rating, how long the game takes, and
 the last thing you wrote about it. Each column's header adds those lengths up, and Completed's sets
@@ -441,7 +443,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       that counts every column, picked from four layouts rendered at a phone's width. A card
       carried up onto a column's name moves there. The drag library measures every drop target
       once and then moves it with the page as the page scrolls, which is wrong for the one thing
-      pinned to the screen, so the switcher is measured where it actually is
+      pinned to the screen, so the switcher is measured where it actually is. Then an icon, picked
+      from four drawings on four of the app's own grounds and rendered on home screens before any
+      was built, and a manifest, so the board installs as an app. The test of the manifest asks
+      Chrome itself whether it would install the app, which only means something in a full Chromium:
+      the headless shell Playwright uses by default answers that question with nothing at all
 - [x] A record of when each title changed column, before anything reads it. History that was
       never written down is the one thing a later feature cannot backfill. It is written in the
       same save as the move, by one interceptor rather than by each of four services. A card

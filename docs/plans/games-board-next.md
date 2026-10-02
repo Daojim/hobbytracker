@@ -16,7 +16,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 
 | # | Feature | Size | Status |
 |---|---|---|---|
-| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). Left: the web manifest and home-screen icon |
+| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon were built on 2 October 2026.** Left: deploying them, then the Android checks in its section |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | Planned |
@@ -40,7 +40,7 @@ Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the 
   time.
 - **#10 is the smallest** if a quick one is wanted.
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
-  build.
+  build. **Built on 2 October 2026.**
 
 ## Rules every plan below follows
 
@@ -68,6 +68,9 @@ Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the 
   - In Playwright, use the *on a phone* block in `board.spec.ts` (390×844, `hasTouch`,
     `isMobile`), with `holdAndDrag`, `swipeUp` and `segment()` from `e2e/support/board.ts`.
   - **Never `Input.synthesizeScrollGesture`**: headless Chromium accepts it and moves nothing.
+  - **Ask about installing with `channel: 'chromium'`.** Playwright's default headless shell
+    has none of Chrome's install machinery, and `Page.getInstallabilityErrors` answers nothing
+    there whatever the manifest says. See `e2e/install.spec.ts`.
 - **A column's request is `columnQuery` in `Column.tsx`.** Anything else that needs a column's
   answer shares it — the switcher's counts already do — rather than asking again under another key.
 - **A new drop target goes through `boardCollisions`** (`board/collisions.ts`). If it is pinned, or
@@ -78,7 +81,7 @@ Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the 
 
 ---
 
-## 1. A board that works on a phone · shipped, but for the icon
+## 1. A board that works on a phone · shipped, and the icon built
 
 **Shipped and deployed on 1 October 2026.** The user reported everything working afterwards.
 
@@ -103,43 +106,73 @@ Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the 
 
   Both were found by measuring in a browser.
 
-### What is left: a web manifest and a home-screen icon · workshop, then S
+### The web manifest and the home-screen icon · built 2 October 2026
 
-**Decide at pickup (workshop first):**
-- **The icon itself.** Render three or four options at the sizes a home screen uses: 180px for
-  iOS, 192px and 512px for Android, and Android's maskable safe zone. Show each on a light and a
-  dark wallpaper. There is no favicon today either, so the same art probably covers that too.
-- **`theme_color`.** There are eight themes, so pick one colour or have the pre-paint script set
-  `<meta name="theme-color">` from the stored theme. The script already stamps the theme before
-  the bundle loads.
+**Built on the `home-screen-icon` branch; not yet merged or deployed.** Write-ups:
+`docs/design.md`, *The icon, and the bar above the page*, and `docs/deploy.md` for what Caddy
+serves.
 
-**Build:**
-- Create `frontend/public/`, which does not exist yet: `manifest.webmanifest` and the icons. Vite
-  copies `public/` to the root of `dist` **without fingerprinting it**, unlike `/assets/*`.
-- In `index.html`: `<link rel="manifest">`, `<link rel="icon">`, `<link rel="apple-touch-icon">` and
-  `<meta name="theme-color">`.
-- The manifest: `name`, `short_name`, `start_url: "/board"`, `display`, `background_color`,
-  `theme_color`, and `icons`, including a `maskable` one.
-- **Check Caddy's caching for the unfingerprinted files**, or a changed icon is held by phones
-  indefinitely. `docs/deploy.md` has the cache rule for `index.html` and `/assets/*`.
+**Decided at the workshop, from renders.** The page is private:
+https://claude.ai/artifact/3qjCooCBbvsFa7QiqcNctF.
+- **The icon is Covers, on warm paper**: two pieces of box art, the front one ticked off, on Shelf
+  Light's ground. Four drawings were rendered on four grounds. The user picked Covers over the
+  recommended Shelf, and took the recommended paper.
+- **The bar above the page follows the theme**, as recommended. Each theme's bar is its ground.
+- **The user's phone is Android**, which decides the checks below.
 
-**Traps to measure, not assume:**
-- **Sign-in from the home-screen app on an iPhone.** A web app opened in standalone mode keeps its
-  own cookie storage, and the redirect out to Google or Discord may leave the app. Try both
-  providers from the installed icon. If it breaks, `display: "minimal-ui"` or `"browser"` is the
-  fallback.
-- **`display: "standalone"` takes away the browser's own controls, Back among them.** A phone's
-  Back is what closes the drawer, through its history entry (`useOverlayHistory`). Check what
-  closes it from the installed app on each platform before choosing `standalone`.
+**Built.**
+- `frontend/icons/`: `icon.svg` and `icon-maskable.svg`, and `render.mjs`. `npm run icons` runs it
+  to draw the PNGs and the `.ico` into `public/` with Playwright's Chromium.
+- `frontend/public/`: `manifest.webmanifest`, `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`,
+  `icon-192.png`, `icon-512.png` and `icon-maskable-512.png`.
+- `index.html`: the four links, System's two `theme-color` tags, and the pre-paint script writing
+  a chosen theme's tag ahead of them. `applyTheme` rewrites that tag when the theme changes.
+- The manifest says `display: "standalone"` and `start_url: "/board"`, with `scope` and `id`
+  both `/`.
 
-**Tests first:**
-- A Vitest test that reads `index.html` for the manifest, icon and theme-color links, as
-  `theme.test.ts` already reads it for the pre-paint script.
-- An e2e test that the manifest parses and names icons that exist at their stated sizes. **It
-  runs against Vite, not Caddy**, so the content type production serves is checked on the
-  deployed site afterwards with `curl -I`, in the runbook's *Proving it* step.
+**Tests.** `src/manifest.test.ts` has 9 and `theme.test.ts` gained 3. `e2e/install.spec.ts` has 2
+and `theme.spec.ts` gained 2. Each guard was checked by planting its fault:
 
-**Docs:** `design.md` for the icon pick and theme colour; `deploy.md` if Caddy's caching changes.
+| Fault planted | Red |
+|---|---|
+| Ember's ground changed in `index.css` alone | *gives the bar above the page each theme's ground* |
+| `applyTheme` no longer moves the bar | *moves the bar when a theme is chosen* |
+| The pre-paint script no longer writes the bar | *the bar above the page follows the chosen theme, before the bundle too*, at the reload |
+| `icon-512.png` deleted | *names icons that are PNGs of the size it says* |
+| The plain 512px icon left out of the manifest | *names plain icons at 192px and 512px*. Chrome itself does not mind |
+| `display: "browser"` | *Chrome reads the manifest*, with `manifest-display-not-supported` |
+| Only the maskable icon | *Chrome reads the manifest*, with `manifest-missing-suitable-icon` |
+
+**What the plan got wrong, or left out:**
+- **"Pick one colour or have the pre-paint script set it."** The script covers a load, not a theme
+  chosen after one, so `applyTheme` moves the bar too. System is two fixed tags with media queries
+  rather than script, so it follows the device's scheme as that changes.
+- **"If it breaks, `display: "minimal-ui"` is the fallback"** no longer holds on an iPhone. iOS 26
+  opens every site added to the Home Screen as a web app, with or without a manifest, and leaves
+  that to the person adding it. That is in WebKit's notes for Safari 26.0. The fallback still holds
+  on Android.
+- **`theme_color` on an iPhone.** Several developers report that Safari 26 ignores the tag. What
+  would follow the theme there is painting the root with `--sunken`, which is not built. See
+  `design.md`.
+- **"An e2e test that the manifest parses"** needed full Chromium, because the headless shell
+  answers installability with nothing. See the rule under *Phone tests*.
+- **"Check Caddy's caching."** Nothing to change. The manifest and the icons already get
+  `no-cache`, so a phone picks up a changed icon on its next request. That and the content types
+  were measured with the production image before deploying, not only after.
+
+**Check on your phone after deploying (Android):**
+1. Install it from Chrome's menu. The launcher crops the icon to its shape without cutting into
+   the drawing.
+2. Open it from the icon. The splash is paper with the icon on it.
+3. The status bar is the theme's ground, and changes when the theme does in Settings.
+4. Open a title's journal and press Back. The journal closes, and the app stays open.
+5. Sign out, then sign in with Google from the installed app, and again with Discord. Each lands
+   on the board, signed in, inside the app's own window. If it does not, `display: "minimal-ui"`
+   is the fallback on Android.
+
+**For other people's iPhones**, signing in from the home screen is the thing to try. It can be
+tried on the live site already, because iOS 26 opens anything added to the Home Screen as a web
+app.
 
 ### How the workshop was run, to reuse
 
@@ -155,6 +188,14 @@ Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the 
    afterwards: https://claude.ai/artifact/RaXdQnpkcQPt7bXSbrmT9w.
 4. **The prototype saved as a patch in the scratchpad and reverted** before any test was written,
    so nothing of it reached a commit.
+
+**For something drawn rather than laid out, as the icon was**, there were no components to put
+behind a switch. The drawings were written as SVG by a script in the scratchpad, from the app's
+own palettes. A contact sheet was rendered and looked at before anything was shown, and two of the
+first four drawings were redrawn and one replaced on the strength of it. The drawings then went
+live onto one private Artifact page: the matrix of drawings and grounds, home screens, Android's
+masks, true 16px rasters on a canvas, and a ground switch over all of it. The final SVGs in
+`frontend/icons/` were written out by hand from the picked drawing.
 
 ---
 

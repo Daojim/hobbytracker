@@ -1,31 +1,6 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { css, paletteAfter } from './test/palette';
 import { THEMES } from './theme/theme';
-
-const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
-
-/** The custom-property declarations inside the first block whose selector line matches. */
-function paletteAfter(marker: string): Record<string, string> {
-  const start = css.indexOf(marker);
-  expect(start, `no block found for ${marker}`).toBeGreaterThan(-1);
-
-  const body = css.slice(start + marker.length);
-  const end = body.indexOf('}');
-  const declarations: Record<string, string> = {};
-
-  // Trimmed rather than anchored to the line end: the repository stores CRLF, and a stray \r
-  // before the `;` is enough to make a strict anchor match nothing and the comparison vacuous.
-  for (const line of body.slice(0, end).split(/\r?\n/)) {
-    const match = /^\s*(--[a-z-]+):\s*(.+);\s*$/.exec(line);
-    const [, name, value] = match ?? [];
-    if (name !== undefined && value !== undefined) {
-      declarations[name] = value;
-    }
-  }
-
-  return declarations;
-}
 
 function luminance(hex: string): number {
   const value = hex.trim().replace('#', '');

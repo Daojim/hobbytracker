@@ -115,14 +115,37 @@ export function storeJournalView(view: JournalView): void {
  * `system` removes the attribute instead of setting it to "system". A literal there would match
  * no palette block *and* would stop `:root:not([data-theme])` matching, so the OS preference
  * would be ignored twice over.
+ *
+ * It moves the bar above the page too: Chrome's on Android, and the installed app's status bar.
+ * index.html's pre-paint script does that on a load, and this does it for a theme chosen after
+ * one. A chosen theme's colour goes in a `theme-color` tag of its own, ahead of System's two,
+ * because a browser takes the first that matches; System's two are never touched, so removing
+ * the chosen one hands the bar back to the device. The colour is read back from index.css rather
+ * than copied a third time, because by now the stylesheet is there to ask.
  */
 export function applyTheme(theme: Theme): void {
+  const root = document.documentElement;
+  document.head.querySelectorAll('meta[name="theme-color"]:not([media])').forEach((tag) => {
+    tag.remove();
+  });
+
   if (theme === 'system') {
-    document.documentElement.removeAttribute(THEME_ATTRIBUTE);
+    root.removeAttribute(THEME_ATTRIBUTE);
     return;
   }
 
-  document.documentElement.setAttribute(THEME_ATTRIBUTE, theme);
+  root.setAttribute(THEME_ATTRIBUTE, theme);
+
+  // Empty only where no stylesheet is loaded at all, which is a unit test that did not add one.
+  const ground = getComputedStyle(root).getPropertyValue('--sunken').trim();
+  if (ground === '') {
+    return;
+  }
+
+  const bar = document.createElement('meta');
+  bar.name = 'theme-color';
+  bar.content = ground;
+  document.head.insertBefore(bar, document.head.querySelector('meta[name="theme-color"]'));
 }
 
 /** Density has no system to defer to, so it is always stamped. */

@@ -124,6 +124,13 @@ else in the suite is quietly running against an origin it never mentioned.
 - **`index.html` must never be cached and `/assets/*` always should.** Vite fingerprints everything
   under `assets`, so those files never change content; `index.html` is what names the current
   bundle, so a held copy pins a browser to the previous deployment with nothing saying so.
+- **The manifest and the icons get `no-cache` along with `index.html`, and that is right for them.**
+  They come from `frontend/public/` and keep their names from build to build, so a browser
+  revalidates them and picks up a changed icon the next time it asks. Measured on 2 October 2026,
+  serving a build with the production image and this Caddyfile, the types came from the image's own
+  `/etc/mime.types`: `application/manifest+json`, `image/png`, `image/svg+xml` and
+  `image/vnd.microsoft.icon`. **A file that is not there comes back `200 text/html`**, by
+  `try_files`, so a missing icon looks like success to anything that checks only the status.
 
 ## Redeploying
 
@@ -216,6 +223,10 @@ serves the new build, so prove that from outside:
   escaped `\:` in a class name once matched nothing, and nothing matched looks exactly like
   absent.
 - **`<origin>/api/auth/me` answers 200**, with `null` when nobody is signed in.
+- **A change to the manifest or the icons is served as what it is.** `curl -I
+  <origin>/manifest.webmanifest` says `application/manifest+json`, and `curl -I
+  <origin>/icon-512.png` says `image/png`. `text/html` means the file is missing and `try_files`
+  answered with the page.
 - **A new route answers 401.**
 - **A new migration is the newest in production's history.** A backend-only deploy leaves the
   bundle names exactly as they were, which proves nothing either way, so ask the database. Use the
