@@ -18,7 +18,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 |---|---|---|---|
 | 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). Left: the web manifest and home-screen icon |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
-| 3 | Hours in the column headers | S–M | **Built 1 October 2026**, games only. See its section |
+| 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | Planned |
 | 5 | Stats | M–L | Planned, after #2, using #3's sums |
 | 6 | Search your notes | S–M | Planned |
@@ -27,14 +27,14 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | Planned |
 
-Production runs `a028043`, which was `main` on 1 October 2026. Deploying is the runbook in
+Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
 
 - **#2 early.** History that isn't recorded can't be backfilled, and #5 reads it. Every day it
   waits is history lost. **Shipped 1 October 2026.**
-- **#3 before #4's backlog mode and before #5.** Both reuse #3's server-side totals. **Built
+- **#3 before #4's backlog mode and before #5.** Both reuse #3's server-side totals. **Shipped
   1 October 2026.**
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time.
@@ -211,11 +211,12 @@ planting its fault, and each fault turned red exactly the tests that name it:
 
 ---
 
-## 3. Hours in the column headers · built
+## 3. Hours in the column headers · shipped
 
-**Built on 1 October 2026, on the games board only.** Write-ups: `docs/board.md`, *Hours in the
-column headers*, for what the line says and how it is added up, and `docs/design.md`, under the
-same name, for where it sits.
+**Shipped and deployed on 1 October 2026** (PR #46), on the games board only. Production serves
+the bundle carrying the header's wording, with no migration and no new variable. Write-ups:
+`docs/board.md`, *Hours in the column headers*, for what the line says and how it is added up,
+and `docs/design.md`, under the same name, for where it sits.
 
 **What the user asked for**, kept because everything below answers it: every column shows the
 total of HowLongToBeat's All Styles figure, Completed instead shows your logged hours against it,

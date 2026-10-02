@@ -181,6 +181,11 @@ ssh -o BatchMode=yes <host> 'cd <dir> && ./scripts/deploy.sh'
 - **Only a container whose image changed is recreated.** On 1 October 2026 a frontend-only change
   recreated Caddy, and the API kept the uptime it had. Later that day a backend-only one recreated
   the API and left Caddy running.
+- **A change to both recreates the API first.** `caddy` has `depends_on: [api]`, and #46's log
+  read *api Recreated, caddy Recreated, api Started, caddy Started*. So a bundle that reads
+  something new from the API never meets the API from before it. The only mix is the other way
+  round: a page loaded before the deploy talks to the new API until it is reloaded. That is safe
+  while a change only adds to a response, and not when it renames or removes something.
 - **Never a bare `git pull` on the server.** A running container goes on executing the image it
   started with, and the script's `up -d --build` is what rebuilds.
 
