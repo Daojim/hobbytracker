@@ -1,0 +1,47 @@
+<!--
+  HobbyTracker's icon, for a launcher that crops it.
+
+  icon.svg's drawing, smaller: everything that matters sits inside a circle 80% of the width
+  across, which is the spec's safe zone for a maskable icon. Android crops to whatever shape the
+  launcher uses (a circle on a Pixel, a squircle elsewhere) and that circle survives all of them.
+  The ground is full bleed so the crop never shows an edge. Colours are icon.svg's; see there.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="back" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#1aa2eb"/>
+      <stop offset="1" stop-color="#2663c9"/>
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#da7e1e"/>
+      <stop offset="1" stop-color="#b6303e"/>
+    </linearGradient>
+    <clipPath id="cover">
+      <rect x="-85" y="-119" width="170" height="238" rx="16"/>
+    </clipPath>
+    <g id="poster">
+      <g clip-path="url(#cover)">
+        <circle cx="20.4" cy="0" r="71.4" fill="#fff" fill-opacity="0.3"/>
+        <circle cx="20.4" cy="0" r="40.8" fill="#fff" fill-opacity="0.45"/>
+      </g>
+      <rect x="-61.2" y="-95.2" width="95.2" height="16.66" rx="8.33" fill="#fff" fill-opacity="0.85"/>
+      <rect x="-61.2" y="-69.02" width="57.8" height="10.71" rx="5.36" fill="#fff" fill-opacity="0.6"/>
+    </g>
+  </defs>
+
+  <rect width="512" height="512" fill="#efe9e1"/>
+
+  <g transform="translate(105.77 101.49) scale(0.8781)">
+    <g transform="translate(118 150) rotate(-9)">
+      <rect x="-85" y="-119" width="170" height="238" rx="16" fill="url(#back)"/>
+      <use href="#poster"/>
+    </g>
+    <g transform="translate(222 176) rotate(6)">
+      <rect x="-85" y="-119" width="170" height="238" rx="16" fill="url(#front)"/>
+      <use href="#poster"/>
+    </g>
+    <circle cx="280.75" cy="286.75" r="46" fill="#1f6b5e" stroke="#efe9e1" stroke-width="10"/>
+    <path d="M260.75 287.75 L274.75 301.75 L301.75 272.75" fill="none" stroke="#fffdfa"
+      stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

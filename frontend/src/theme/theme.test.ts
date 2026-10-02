@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { groundOf } from '../test/palette';
 import {
   DENSITY_ATTRIBUTE,
   DENSITY_KEY,
@@ -26,6 +27,9 @@ describe('theme preferences', () => {
     document.documentElement.removeAttribute(THEME_ATTRIBUTE);
     document.documentElement.removeAttribute(DENSITY_ATTRIBUTE);
     document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
+    document.head
+      .querySelectorAll('meta[name="theme-color"], style[data-palette]')
+      .forEach((el) => el.remove());
     vi.restoreAllMocks();
   });
 
@@ -142,5 +146,80 @@ describe('theme preferences', () => {
         `'${theme.value}'`,
       );
     }
+  });
+
+  it('gives the bar above the page each theme’s ground before the first paint', () => {
+    // Android colours its status bar, and Chrome its address bar, from <meta name="theme-color">,
+    // and the pre-paint script sets that from the stored theme. So the script carries a colour
+    // per theme: a copy of index.css's --sunken that nothing else keeps honest. A ground changed
+    // there and not here puts the old colour above the board, on a phone, where nobody working at
+    // a desktop would ever see it.
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+
+    for (const theme of THEMES) {
+      if (theme.value === 'system') {
+        continue;
+      }
+
+      const copy = new RegExp(`'${theme.value}':\\s*'(#[0-9a-f]{6})'`).exec(html)?.[1];
+      expect(copy, `the pre-paint script's bar colour for ${theme.label}`).toBe(
+        groundOf(`[data-theme='${theme.value}'] {`),
+      );
+    }
+  });
+
+  it('leaves the bar to the device under System, one colour per scheme', () => {
+    // Two tags with media queries, written into index.html and never touched by script, so a
+    // phone switching to dark at sunset takes the bar with it, as the palette itself does.
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+    const head = new DOMParser().parseFromString(html, 'text/html').head;
+    const bar = (scheme: string) =>
+      head
+        .querySelector(`meta[name="theme-color"][media="(prefers-color-scheme: ${scheme})"]`)
+        ?.getAttribute('content');
+
+    expect(bar('light')).toBe(groundOf("[data-theme='shelf-light'] {"));
+    expect(bar('dark')).toBe(groundOf(':root:not([data-theme]) {'));
+  });
+
+  it('moves the bar when a theme is chosen, and hands it back to the device for System', () => {
+    // The pre-paint script only runs on a load, and choosing from the menu happens after one.
+    // Without this a phone keeps the old theme's colour above the new theme until a reload.
+    const style = document.createElement('style');
+    style.dataset['palette'] = '';
+    style.textContent = ['ember', 'frost']
+      .map((theme) => `[data-theme='${theme}'] { --sunken: ${groundOf(`[data-theme='${theme}'] {`)}; }`)
+      .join('\n');
+    document.head.append(style);
+
+    // System's two, as index.html writes them. As attributes, because jsdom has no `media`
+    // property on a <meta> for a test to set, and the attribute is what a selector reads anyway.
+    for (const [scheme, marker] of [
+      ['light', "[data-theme='shelf-light'] {"],
+      ['dark', ':root:not([data-theme]) {'],
+    ] as const) {
+      const meta = document.createElement('meta');
+      meta.setAttribute('name', 'theme-color');
+      meta.setAttribute('media', `(prefers-color-scheme: ${scheme})`);
+      meta.setAttribute('content', groundOf(marker));
+      document.head.append(meta);
+    }
+
+    // A browser takes the first theme-color whose media matches, so a chosen theme's has to come
+    // first and carry no media at all.
+    const first = () => document.head.querySelector('meta[name="theme-color"]');
+    const chosen = () => document.head.querySelectorAll('meta[name="theme-color"]:not([media])');
+
+    applyTheme('ember');
+    expect(first()?.hasAttribute('media')).toBe(false);
+    expect(first()?.getAttribute('content')).toBe(groundOf("[data-theme='ember'] {"));
+
+    applyTheme('frost');
+    expect(first()?.getAttribute('content')).toBe(groundOf("[data-theme='frost'] {"));
+    expect(chosen()).toHaveLength(1);
+
+    applyTheme('system');
+    expect(chosen()).toHaveLength(0);
+    expect(document.head.querySelectorAll('meta[name="theme-color"][media]')).toHaveLength(2);
   });
 });

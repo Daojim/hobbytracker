@@ -95,6 +95,52 @@ test('the journal opens where you asked it to, and is the same dialog either way
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+/**
+ * The colour a phone puts in the bar above the page: the first theme-color tag in the document
+ * whose media matches, which is the rule browsers follow. Compared against the ground the page
+ * is actually painted in, so this spec names no colour of its own.
+ */
+const bar = (page: import('@playwright/test').Page) =>
+  page.evaluate(() => {
+    const tags = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+    return tags.find((tag) => tag.media === '' || matchMedia(tag.media).matches)?.content ?? null;
+  });
+
+const ground = (page: import('@playwright/test').Page) =>
+  page.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--sunken').trim(),
+  );
+
+test('the bar above the page follows the chosen theme, before the bundle too', async ({
+  page,
+}) => {
+  await choose(page, 'Ember');
+  const ember = await ground(page);
+  await expect.poll(() => bar(page)).toBe(ember);
+
+  // Without a reload: this is applyTheme's half, not the pre-paint script's.
+  await page.getByRole('radio', { name: 'Frost' }).click();
+  const frost = await ground(page);
+  expect(frost).not.toBe(ember);
+  await expect.poll(() => bar(page)).toBe(frost);
+
+  // And with the bundle blocked: this is the script's half.
+  await page.route('**/src/main.tsx*', (route) => route.abort());
+  await page.reload();
+  await expect(page.locator('#root')).toBeEmpty();
+  expect(await bar(page)).toBe(frost);
+});
+
+test('under System the bar follows the device, light and dark', async ({ page }) => {
+  await choose(page, 'Ember');
+  await page.getByRole('radio', { name: 'System' }).click();
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme });
+    await expect.poll(() => bar(page)).toBe(await ground(page));
+  }
+});
+
 test('System leaves no attribute, so the device keeps deciding', async ({ page }) => {
   await choose(page, 'Ember');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'ember');
