@@ -19,15 +19,18 @@ public class LibraryController(ILibraryService library) : ControllerBase
     ///
     /// The board fetches one column per request, which is how "the year picker narrows only
     /// Completed" falls out — only that column's request carries a year.
+    ///
+    /// The page comes with the column's hours, which are the whole column's rather than the
+    /// page's — what its header says. See <see cref="LibraryPage"/>.
     /// </summary>
     /// <param name="hobby">Hobby slug, e.g. "games". Omit for everything.</param>
     /// <param name="status">Filters on the current status, not on any past status.</param>
     /// <param name="year">Year a title was finished. Really only meaningful with Completed.</param>
     /// <param name="sort">Defaults to the user's manual ranking.</param>
     [HttpGet]
-    [ProducesResponseType<PagedResult<LibraryItemDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<LibraryPage>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<PagedResult<LibraryItemDto>>> List(
+    public async Task<ActionResult<LibraryPage>> List(
         [FromQuery] string? hobby,
         [FromQuery] LogStatus? status,
         [FromQuery] int? year,

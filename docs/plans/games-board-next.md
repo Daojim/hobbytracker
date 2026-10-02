@@ -18,7 +18,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 |---|---|---|---|
 | 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). Left: the web manifest and home-screen icon |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
-| 3 | Hours in the column headers | S–M | Planned. Gained a phone question; see its section |
+| 3 | Hours in the column headers | S–M | **Built 1 October 2026**, games only. See its section |
 | 4 | "How long will it take me?" | S–M | Planned |
 | 5 | Stats | M–L | Planned, after #2, using #3's sums |
 | 6 | Search your notes | S–M | Planned |
@@ -34,7 +34,8 @@ Production runs `a028043`, which was `main` on 1 October 2026. Deploying is the 
 
 - **#2 early.** History that isn't recorded can't be backfilled, and #5 reads it. Every day it
   waits is history lost. **Shipped 1 October 2026.**
-- **#3 before #4's backlog mode and before #5.** Both reuse #3's server-side totals.
+- **#3 before #4's backlog mode and before #5.** Both reuse #3's server-side totals. **Built
+  1 October 2026.**
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time.
 - **#10 is the smallest** if a quick one is wanted.
@@ -210,61 +211,71 @@ planting its fault, and each fault turned red exactly the tests that name it:
 
 ---
 
-## 3. Hours in the column headers · S–M
+## 3. Hours in the column headers · built
 
-**What, as the user specified it:**
-- Every column shows the total of HowLongToBeat's **All play styles** figure. For games, that's
-  `LibraryItemDto.LengthHours` (`LibraryService.cs:234`).
-- **Completed** instead shows the user's logged hours, compared with HLTB All Styles.
-- Optional: Playing could show what's left instead.
+**Built on 1 October 2026, on the games board only.** Write-ups: `docs/board.md`, *Hours in the
+column headers*, for what the line says and how it is added up, and `docs/design.md`, under the
+same name, for where it sits.
 
-**Decide at pickup:**
-- The comparison counts only titles that have *both* figures, and says how many lack the user's
-  hours — e.g. *212 h vs HLTB ~240 h · 31 games, 12 without your hours*.
-- Where the total sits is a render-and-pick choice. The header already wraps at 1280px for
-  Completed and Dropped (`design.md`).
-- **On a phone, since #1:** the column's own heading is hidden under the switcher (`namedAbove`,
-  `sr-only`), and each segment shows a column's name over its count. Two candidates for the
-  hours there: under the count in each segment, or in the column's header row beside the sort
-  control, which is the only thing still visible there. Render both at 390px.
+**What the user asked for**, kept because everything below answers it: every column shows the
+total of HowLongToBeat's All Styles figure, Completed instead shows your logged hours against it,
+and Playing could show what's left.
 
-### Backend
+**Decided at the workshop, from renders.** The workshop page is private:
+https://claude.ai/artifact/ScUneftqX567UHqNQehWwZ.
+- **A muted line of its own under each heading.** The two placements in the heading's row
+  wrapped every column's sort control, even at 1440.
+- **On a phone, the same line beside the sort control**, where the hidden heading was, rather than
+  under each segment's count.
+- **Playing says *to beat*, like every other column.** What's left was rendered beside it,
+  `~66 h left of ~119 h to beat`, and not chosen.
+- **Games only for now.** The wording proposed for the other three is under *Noted for the other
+  hobbies* below.
+- The comparison counts only titles that have both figures, as recommended:
+  `90 h played vs ~94 h to beat · over 7 games · 2 without your hours`.
 
-**Totals cover the whole filtered column**, computed before `Skip`/`Take` in `ListAsync` (`:178`).
-Columns are paged at 100, and Backlog leaves out the calendar's titles, so the header has to agree
-with the cards and not with one page.
+**Built.**
+- `GET /api/library` answers with `LibraryPage`, which extends `PagedResult` with `ColumnHours`,
+  added up over the whole filtered column. On the column's response rather than a route of its
+  own, as recommended.
+- `HobbyDefinition.columnHours` holds the words, and is `null` for films, TV and anime.
+  `board/columnHours.ts` decides what each column says.
 
-**Recommended: put the totals in the column response itself** — a record extending `PagedResult` —
-rather than on a new endpoint.
-- Every move, add, remove and drawer write already invalidates the column's query key.
-- A move already has to name `'years'`, `'upcoming'` and `'statuses'`. A `'totals'` key would be one
-  more thing to remember.
-- **Since #1, this also reaches the phone for free.** The switcher reads every column through
-  `columnQuery`, so totals carried in the column response are in its hands with no new request.
+**Tests.** `Endpoints/ColumnHoursTests.cs` has 10. On the frontend, `columnHours.test.ts` has 11,
+`hours.test.ts` 3 more, `Column.test.tsx` 3 and `BoardPage.test.tsx` 1, and `hltb.spec.ts` has one
+end to end. Fourteen faults were put back one at a time, each turning red the tests that name it.
+The table is in `docs/board.md`.
 
-**The sum's downcast stays in that final aggregate**, never in `BoardQuery`.
+**What the plan got wrong, or left out:**
 
-**This makes a fourth copy of the LengthHours coalesce** (after the two projections and `Sorted`).
-Either:
-- move it into one `Expression` that `Sorted` and the sum share (the projections can't use it
-  without `Invoke`), or
-- add a test that pins the copies together.
+- **"Formatted with the hobby's `formatLength`."** That is two decimal places, right for one title
+  and wrong for a column: `~1034.47 h`. Totals have a formatter of their own, `totalHours`: whole
+  hours with the thousands marked, and a tenth under ten so a short Playing column does not read
+  `~0 h`.
+- **"Show the totals in the `<h2>`."** The heading names the column's region, so the hours sit
+  outside it.
+- **The fourth copy.** The plan offered a shared expression or a test pinning the copies. It is the
+  test, because a shared expression saves one copy of four and needs expression plumbing the
+  projections still could not use. What the plan did not say is that **the copy has to round each
+  title as the projections do**, or the total drifts from the cards by a fraction of a minute a
+  title. The test's runtimes are chosen to catch that.
+- **The optimistic move.** Not in the plan. The count moves at once and the hours wait for the
+  refetch, because a card carries its length and not your hours.
+- **The segments' accessible name.** Hours under a segment's count change its name to
+  "Backlog 17~1,034 h", and `segment()` in `e2e/support/board.ts` matches on that name. One more
+  reason that option lost.
+- **"Without your hours" counts titles that have an estimate and none of your hours.** A title
+  with no estimate is counted as that instead, so the two counts never overlap.
+- **The spoken comparison first said "21 hours played"**, and the e2e suite caught it:
+  `getByLabel('Hours played')` matches an `aria-label` by substring, and found the header behind
+  the drawer instead of the drawer's input. It says "You played 21 hours" now. See `design.md`.
 
-### Frontend
+**For #4 and #5, which read this:**
 
-- Show the totals in `Column.tsx`'s header, the `<h2>` (line 169 at `df54a8b`), formatted with the
-  hobby's `formatLength`.
-- Show the Completed comparison only when the hobby's pass records hours
-  (`PassFields.hoursPlayed`). Never check the slug.
-
-### Tests first
-
-- Totals cover the whole column when it's paged (`pageSize=2` with three titles).
-- The Backlog total excludes unreleased titles.
-- The Completed total follows the year, including a game finished at 8pm on New Year's Eve.
-- A null HLTB figure never counts as 0.
-- Another user's hours never count.
-- On a phone (`windowOfWidth(390)`), the hours appear where the workshop put them.
+- The Backlog total is `hours.length` on the Backlog column's answer, over every title in it, with
+  the calendar's left out. #4's whole-backlog mode can read it from there.
+- The counting rules live in `LibraryService.HoursOfAsync`: a missing figure is counted, never
+  added as nought, and a comparison is over the titles that have both.
 
 ---
 
@@ -277,7 +288,7 @@ it starts from the hours already played.
 **The "anything similar" the user asked for:**
 - **Reverse:** "to finish by Nov 15, play about 1.2 h a day".
 - **Whole backlog:** "~1,300 h of backlog at 10 h a week is about 2.5 years", using #3's Backlog
-  total.
+  total. **Since #3 was built:** that is `hours.length` on the Backlog column's answer.
 
 **Decide at pickup (workshop both):**
 - an inline calculator in the drawer beside the estimates, or
@@ -337,7 +348,9 @@ the prototype refuses nothing in this test setup — see the CLAUDE.md trap.
     in `data-model.md`.
   - It could also appear on Backlog cards; pick at the workshop.
 - **You vs HLTB.** Recommended:
-  - use completed passes that have both figures, against All Styles (to match #3)
+  - use completed passes that have both figures, against All Styles (to match #3). **Since #3
+    was built:** Completed's header already does this for one column and one year, and its rules
+    are `LibraryService.HoursOfAsync`'s.
   - show an overall percentage
   - show the fastest and slowest titles relative to their estimate
 
@@ -600,6 +613,16 @@ for one key (Escape), and nothing else listens for `/`.
 ---
 
 ## Noted for the other hobbies (no plans, as the user asked)
+
+**Hours in the column headers on films, TV and anime.** #3 built them for games only, by the
+user's choice on 1 October 2026, and asked for the other hobbies' suggestions to be kept here.
+- The API already adds up every hobby's columns. Turning a hobby on is its `columnHours` block in
+  `frontend/src/hobbies/` and nothing else.
+- The wording proposed at the workshop: `23 h 40 m of film`, `~312 h of TV`, `~48 h of anime`. A
+  film's runtime is exact, so it has no tilde and is written as a card writes a runtime. **Not
+  *to watch***, which reads wrong on Watched, a column of things already watched.
+- None of them gets Completed's comparison: their passes record no hours
+  (`PassFields.hoursPlayed` is false).
 
 **Import a MAL list.**
 - MAL's list statuses map one-to-one onto the five columns, and MAL ids are exact.

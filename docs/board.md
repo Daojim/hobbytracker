@@ -27,7 +27,7 @@ routes are the only anonymous ones.
 | `GET PUT DELETE /api/log-entries/{id}` | |
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
 | `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date |
-| `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column |
+| `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column, **with the hours its header says over the whole column** |
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
 | `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, soonest first and the undated last. **Not paged** |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
@@ -35,7 +35,9 @@ routes are the only anonymous ones.
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours** |
 | `PUT /api/library/order` | store one column's manual ranking |
 
-List endpoints return `PagedResult<T>`; search returns a bare array capped by `limit`.
+List endpoints return `PagedResult<T>`; search returns a bare array capped by `limit`. A board
+column's is `LibraryPage`, which extends it with the column's hours — see **Hours in the column
+headers**.
 
 **Updates are `PUT`, not `PATCH`**: a field absent from the body is *cleared*. That is the whole
 reason for choosing PUT — PATCH cannot distinguish "clear the rating" from "leave it alone" without
@@ -610,6 +612,82 @@ announcement**.
 Playing rather than running the whole board. It shipped full width, which put a row's date a foot
 from its title. It is laid out on the board's own tracks rather than computed, so it follows the
 column count — five, or fewer with columns taken off. `docs/design.md`, **The board at every width**.
+
+### Hours in the column headers
+
+**Every column says how long its titles take, and Completed sets your hours against that.**
+Built on 1 October 2026, on the games board only. A muted line under each heading:
+
+| Column | Says |
+|---|---|
+| Backlog, Playing, On Hold, Dropped | `~1,034 h to beat · 1 with no estimate` |
+| Completed | `90 h played vs ~94 h to beat`, then `over 7 games · 2 without your hours` |
+
+Where the line sits, and why Playing says *to beat* rather than what is left, were picked from
+renders: **Hours in the column headers** in `docs/design.md`.
+
+**The figures are the whole column's, and the cards are one page of it.** `GET /api/library`
+answers with a `LibraryPage`, which is `PagedResult<LibraryItemDto>` plus `ColumnHours`, added up
+over the filtered column before the page is cut, exactly as `Total` is. A column of 140 has a
+header about 140. Backlog's leaves out the titles on the release calendar and Completed's follows
+the year, 8pm on New Year's Eve included, because the sum runs over the query the cards come
+from rather than a second one.
+
+**On the column's response rather than a route of its own**, as the plan recommended. Every move,
+add, remove and drawer write already settles the column's key, so a `'totals'` key would have been
+one more thing a move had to name. The phone's switcher reads every column's answer to count
+them, so it has the hours without asking again.
+
+**A title with no figure is left out and counted, never added as nought.** Each sum comes with
+how many titles it is over, and is null rather than zero over none. So a column where nothing has
+an estimate prints nothing rather than `0 h`, which is Dropped in the workshop's shots.
+**Completed compares only the titles that have both figures**: the two sides have to be about the
+same games, or a game with no hours logged reads as you having been quick. Your hours are the
+current pass's, the one the card shows, and they come through `Latest`, which is already yours.
+
+**Added up in C#, not SQL**, for `ActivityYearsAsync`'s reason: a column is a few hundred rows at
+most, and `HoursOfAsync` reads two numbers a title and states the rules above as what they are.
+A SQL `SUM` answers nought for nothing, which breaks the first of them.
+
+**The sum is a fourth copy of the `LengthHours` coalesce**, after the two terminal projections
+and `Sorted`'s Length arm. The plan offered a shared expression instead, and it would have saved
+one copy of four, because the projections cannot reuse one without an `Invoke`. So a test holds
+the copies together, as each hobby's length-sort test holds `Sorted`'s:
+`The_total_is_the_sum_of_what_the_cards_print_for_every_hobby`. **The sum rounds each title as
+the cards do.** 116 minutes is a card's 1.93 h, and a total of unrounded runtimes drifts from the
+cards above it by a fraction of a minute a title. The test's runtimes are chosen not to divide
+into hundredths for that reason.
+
+**After a move the count changes at once and the hours follow the refetch.** The optimistic write
+could patch the total with the card's length, and does not. A card carries its length and not
+your hours, so for that moment the total and Completed's comparison would be about different
+games.
+
+**Games only, as a choice in the hobby files rather than a branch.** The API adds up every
+hobby's columns and has no idea which board is asking. The client prints a line only where
+`HobbyDefinition.columnHours` gives it the words. Films, TV and anime set it to `null`, and the
+wording proposed for them is under **Noted for the other hobbies** in
+`docs/plans/games-board-next.md`. Completed's comparison also needs `PassFields.hoursPlayed`, so
+a hobby whose pass records no hours never compares, whatever words it has.
+
+**Checked by putting each fault back**, one at a time, against the finished feature:
+
+| Fault | What goes red |
+|---|---|
+| A missing figure added as nought | the three cases that have a title with no estimate |
+| Your hours against every estimate, rather than the titles with both | the two comparison cases |
+| The sum's copy unrounded | *the total is the sum of what the cards print*, at films |
+| Anime's arm left out of the sum | the same case, at anime |
+| The page added up instead of the column | *the total covers the whole column* |
+| The sum over a query of its own, by hobby and status alone | the year case and the calendar case |
+| Hours from whoever's pass is newest | *somebody else's hours never count* |
+| Every pass of yours added up | *your hours are the current pass's*, and the two comparison cases, because EF's `Sum` also turns no hours into nought |
+| On a phone, the line under the row, as side by side | the phone case in `BoardPage.test.tsx` |
+| Side by side, the line in the heading's row | the placement case in `Column.test.tsx` |
+| The comparison without `PassFields.hoursPlayed` | *never compares for a hobby whose pass records no hours* |
+| The comparison on every column | *compares on Completed alone* |
+| The games words on every board | the films case in `Column.test.tsx` |
+| No line at all | the case in `hltb.spec.ts`, end to end |
 
 ### Query keys, ordering, and the traps
 

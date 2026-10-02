@@ -7,6 +7,7 @@ import { Card } from './Card';
 import { SortSelect } from './SortSelect';
 import { type BoardColumn, hobbyDefinition } from '../hobbies';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
+import { columnHoursLines, type HoursLine } from './columnHours';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import type { LibrarySort, LogStatus } from '../api/types';
 
@@ -156,6 +157,11 @@ export function Column({
 
   const items = data?.items ?? [];
   const muted = status === 'Dropped';
+  const definition = hobbyDefinition(hobby);
+
+  // How long the column's titles take, which the server adds up over the whole column rather
+  // than this page of it. See columnHours.ts for what each column says.
+  const hours = data === undefined ? [] : columnHoursLines(definition, status, data);
 
   return (
     <section
@@ -165,32 +171,46 @@ export function Column({
         muted ? 'border-dropped/30 opacity-70' : 'border-line-soft'
       } ${isOver ? 'bg-drop' : 'bg-well'}`}
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h2
-          id={headingId}
-          className={`text-sm font-medium tracking-wide uppercase ${namedAbove ? 'sr-only' : ''}`}
-        >
-          {label} <span className="text-muted">{data?.total ?? 0}</span>
-        </h2>
-
-        {onToggleCollapse !== undefined && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="rounded px-1 text-xs text-muted hover:bg-hover"
+      <div className="mb-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2
+            id={headingId}
+            className={`text-sm font-medium tracking-wide uppercase ${namedAbove ? 'sr-only' : ''}`}
           >
-            {collapsed ? `Show ${label}` : `Hide ${label}`}
-          </button>
-        )}
+            {label} <span className="text-muted">{data?.total ?? 0}</span>
+          </h2>
 
-        <div className="ml-auto flex items-center gap-1">
-          <SortSelect
-            label={label}
-            lengthLabel={hobbyDefinition(hobby).lengthLabel}
-            value={sort}
-            onChange={onSortChange}
-          />
+          {/* On a phone the heading is off the screen and the switcher says its name, so the
+              hours take its place, beside the sort control. Picked over a line under each
+              segment's count, which made the pinned switcher taller on every column and had no
+              room for Completed's comparison. */}
+          {namedAbove && <HoursLines lines={hours} />}
+
+          {onToggleCollapse !== undefined && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="rounded px-1 text-xs text-muted hover:bg-hover"
+            >
+              {collapsed ? `Show ${label}` : `Hide ${label}`}
+            </button>
+          )}
+
+          <div className="ml-auto flex items-center gap-1">
+            <SortSelect
+              label={label}
+              lengthLabel={definition.lengthLabel}
+              value={sort}
+              onChange={onSortChange}
+            />
+          </div>
         </div>
+
+        {/* Side by side, a line of its own under the heading's row, which this leaves exactly as
+            it was. The two placements that shared the row, after the count or before the sort
+            control, put every column's sort control on a second line even at 1440px. Chosen
+            from screenshots on 1 October 2026. */}
+        {!namedAbove && <HoursLines lines={hours} className="mt-1" />}
       </div>
 
       {!collapsed && (
@@ -244,5 +264,27 @@ export function Column({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * A column's hours, one muted line each, or nothing at all.
+ *
+ * Each line reads aloud in words, as a card's length badge does: `~1,034 h` is a tilde and a
+ * letter to a screen reader. Kept out of the heading, which is what names the column's region.
+ */
+function HoursLines({ lines, className = '' }: { lines: HoursLine[]; className?: string }) {
+  if (lines.length === 0) {
+    return null;
+  }
+
+  return (
+    <p className={`text-xs text-muted tabular-nums ${className}`}>
+      {lines.map((line) => (
+        <span key={line.text} role="img" aria-label={line.spoken} className="block">
+          {line.text}
+        </span>
+      ))}
+    </p>
   );
 }

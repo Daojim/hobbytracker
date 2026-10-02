@@ -1,5 +1,5 @@
 import { discoverGames, getGame, searchGames, setGameGenre, setGameHltbId } from '../api/games';
-import { formatHours } from '../lib/hours';
+import { formatHours, totalHours } from '../lib/hours';
 import type { Game } from '../api/types';
 import type { DiscoverList, HobbyDefinition, SearchHit } from './types';
 
@@ -186,5 +186,23 @@ export const GAMES: HobbyDefinition = {
         'The games the most people have rated, of all time.',
       ),
     ],
+  },
+
+  // "To beat" is the sort control's word, for the sort control's reason: a bare "h" reads as
+  // hours you have put in. Your own hours carry no tilde, as the drawer writes them, which is what
+  // tells the two sides of Completed's comparison apart at a glance.
+  columnHours: {
+    total: (hours) => `~${totalHours(hours)} h to beat`,
+    describeTotal: (hours) => `About ${totalHours(hours)} hours to beat`,
+    compared: (played, length) =>
+      `${totalHours(played)} h played vs ~${totalHours(length)} h to beat`,
+    // "You played", not "hours played": that is the drawer's input's label, and an accessible
+    // name containing it answers to a search for the input — Playwright's getByLabel matches an
+    // aria-label by substring — as soon as the board behind the drawer compares anything.
+    describeCompared: (played, length) =>
+      `You played ${totalHours(played)} hours, against about ${totalHours(length)} hours to beat`,
+    over: (titles) => `over ${titles} ${titles === 1 ? 'game' : 'games'}`,
+    withoutPlayed: (titles) => `${titles} without your hours`,
+    withoutLength: (titles) => `${titles} with no estimate`,
   },
 };

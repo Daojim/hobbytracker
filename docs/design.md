@@ -26,6 +26,7 @@ the header.
 | Width | The board stops widening at 2000px and puts the pixels into the cards. **16px of gutter on a phone**, 24 from 768px |
 | Columns | **One at a time on a phone, two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
 | On a phone | **A segmented switcher pinned to the top of the screen**: every column's name over its count, the current one raised. Picked on 1 October 2026 from four layouts rendered at 390px. See **On a phone** |
+| Column hours | **A muted line of its own under each heading**, and on a phone beside the sort control, where the hidden heading was. Picked on 1 October 2026 from three placements rendered wide and two at 390px. See **Hours in the column headers** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
@@ -313,6 +314,36 @@ CSS and React could disagree, and `grid.test.ts` reads it out of Tailwind's own
 with its name on one line, and a 16px gutter on the board and on Discover's wall. The gestures
 are `board.spec.ts`'s, in its *on a phone* block. What happens when a card is carried onto a
 segment is in `docs/board.md`, under **A finger on a card**.
+
+### Hours in the column headers
+
+**A muted line of its own under the heading, and on a phone beside the sort control.** Picked on
+1 October 2026 from three placements rendered at 1440 and 1280, and two at 390. The renders are
+in a private workshop page linked from #3 in `docs/plans/games-board-next.md`. What the line says
+and how it is added up is `docs/board.md`'s.
+
+| Option | What the render showed |
+|---|---|
+| Beside the count, in the heading's row | Pushed every column's sort control onto a second line, even at 1440. Completed's comparison had to shrink to `90 h vs ~94 h`, which does not say which number is yours |
+| **A line under the heading** (picked) | Leaves the heading's row exactly as it was, and is the only option with room for words: *to beat*, *played*, how many titles have no estimate |
+| Beside the sort control | Wrapped the same way, and read as a setting next to the control rather than a fact about the column |
+| On a phone, under each segment's count | Every column's hours visible from any column, but the pinned switcher grew a line, a segment had room for one number, and each segment's accessible name became "Backlog 17~1,034 h" |
+| **On a phone, in the column's header** (picked) | Where the heading was before the switcher made it `sr-only`. A long line pushes the sort control under it |
+
+- **`text-xs text-muted tabular-nums`.** `index.css.test.ts` holds `muted` at 4.5:1 on `well`
+  on every theme. Dropped's well is `opacity-70`, and its line fades with its heading.
+- **Whole hours with the thousands marked, and a tenth under ten**: `totalHours` in
+  `lib/hours.ts`. A card's two places are right for one title and wrong for seventeen.
+- **The tilde marks an estimate and your own hours carry none**, as on a card and in the drawer.
+  That is what tells the two sides of Completed's comparison apart.
+- **Each line reads aloud in words**, with `role="img"` and an `aria-label`, as a card's length
+  badge does. It stays out of the `<h2>`, which names the column's region. Completed's says *You
+  played 21 hours*, not *21 hours played*. The drawer's input is labelled *Hours played*, and
+  Playwright's `getByLabel` matches an `aria-label` by substring, so `journal.spec.ts` found the
+  header behind the drawer instead of the input the moment the board compared anything.
+- **Left alone: at 1280, Backlog's sort control wraps once its count has two digits**, as
+  Completed's and Dropped's always have. The renders had 17 there. The line does not touch that
+  row.
 
 ### The hobby nav
 

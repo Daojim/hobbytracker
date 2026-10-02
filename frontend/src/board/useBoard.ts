@@ -15,7 +15,7 @@ import {
 } from './keys';
 import { BOARD_STATUSES } from '../hobbies';
 import { useBoardSensors } from './sensors';
-import type { LibraryItem, LibrarySort, LogStatus, PagedResult } from '../api/types';
+import type { LibraryItem, LibraryPage, LibrarySort, LogStatus } from '../api/types';
 
 export interface BoardView {
   hobby: string;
@@ -23,7 +23,7 @@ export interface BoardView {
   year: number | undefined;
 }
 
-type Column = PagedResult<LibraryItem>;
+type Column = LibraryPage;
 
 interface Move {
   mediaId: number;
@@ -127,6 +127,11 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // entry, which changes both the count and the dates the card shows. So both columns are
     // refetched rather than patched, and the optimistic write only has to hold for the moment
     // between letting go and the answer arriving.
+    //
+    // The headers' hours are left as they were for that moment, rather than patched with the
+    // card's length. A card carries its length and not your hours, so patching the total and not
+    // Completed's comparison would leave the comparison about one set of games and the total
+    // about another until the answer arrived. The count moves at once and the hours follow it.
     //
     // By the column *prefix*, not by `keyFor`. A column has one cache entry per sort and year,
     // and the exact key only reaches the one on screen — look at Backlog by title, drag a card

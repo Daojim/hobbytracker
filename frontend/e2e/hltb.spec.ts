@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { psql, resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitChecked, awaitEstimate, estimate } from './support/hltb';
-import { card, column, openJournal, seed, setSort, titlesIn } from './support/board';
+import { card, column, openJournal, seed, setSort, titlesIn, today } from './support/board';
 
 /**
  * How long a game takes, end to end.
@@ -264,4 +264,43 @@ test('Time to beat orders the shortest first, and the unestimated last', async (
     'Hollow Knight',
     'Stardew Valley',
   ]);
+});
+
+test("a column's header adds up its cards' estimates, and Completed sets your hours against them", async ({
+  page,
+}) => {
+  // The whole path at once, which no other layer can show: the stub's figures through the
+  // worker, the server's sum over the column, and the line under each heading. Stardew Valley is
+  // the title HowLongToBeat has never heard of, so the header counts it rather than adding it in
+  // as nothing.
+  const celeste = await seed(page.request, 'Celeste', 'Backlog');
+  const hades = await seed(page.request, 'Hades', 'Backlog');
+  const stardew = await seed(page.request, 'Stardew Valley', 'Backlog');
+  const wilds = await seed(page.request, 'Outer Wilds', 'Completed', {
+    // This year, because the board opens on the latest year there is and Completed follows it.
+    completedAt: `${today()}T12:00:00`,
+    hoursPlayed: 21,
+  });
+
+  await awaitEstimate(page.request, celeste);
+  await awaitEstimate(page.request, hades);
+  await awaitEstimate(page.request, wilds);
+  await awaitChecked(stardew);
+
+  await page.reload();
+
+  // Celeste's 20 and Hades's 42.
+  await expect(
+    column(page, 'Backlog').getByRole('img', {
+      name: 'About 62 hours to beat, 1 with no estimate',
+    }),
+  ).toHaveText('~62 h to beat · 1 with no estimate');
+
+  // Your 21 against the stub's 17 for Outer Wilds.
+  await expect(
+    column(page, 'Completed').getByRole('img', {
+      name: 'You played 21 hours, against about 17 hours to beat',
+    }),
+  ).toHaveText('21 h played vs ~17 h to beat');
+  await expect(column(page, 'Completed').getByRole('img', { name: 'over 1 game' })).toBeVisible();
 });

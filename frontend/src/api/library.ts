@@ -1,5 +1,12 @@
 import { apiJson, apiVoid } from './client';
-import type { LibraryItem, LibrarySort, LogStatus, PagedResult, ReorderColumn } from './types';
+import type {
+  LibraryItem,
+  LibraryPage,
+  LibrarySort,
+  LogStatus,
+  PagedResult,
+  ReorderColumn,
+} from './types';
 
 /**
  * The board: your collection, one column at a time.
@@ -20,8 +27,9 @@ export interface ColumnQuery {
   pageSize?: number;
 }
 
-export function listColumn(query: ColumnQuery): Promise<PagedResult<LibraryItem>> {
-  return apiJson<PagedResult<LibraryItem>>('/api/library', { query: { ...query } });
+/** One column: a page of its titles, and the hours its header says over the whole column. */
+export function listColumn(query: ColumnQuery): Promise<LibraryPage> {
+  return apiJson<LibraryPage>('/api/library', { query: { ...query } });
 }
 
 /**

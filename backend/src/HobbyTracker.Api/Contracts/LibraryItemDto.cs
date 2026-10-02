@@ -80,7 +80,8 @@ public sealed record LibraryItemDto(
     ///
     /// <b>This is also what <c>sort=length</c> orders on, and the two have to stay one field.</b>
     /// A column ordered by a figure none of its cards show reads as broken, and the surest way to
-    /// keep them together is to give them nothing to drift apart over.
+    /// keep them together is to give them nothing to drift apart over. The column's header adds
+    /// it up too — <see cref="ColumnHours.Length"/> — for the same reason.
     ///
     /// Hours rather than minutes because a game's estimate is stored in hours to two decimal
     /// places and this carries it through untouched; a film's runtime divides down exactly, and

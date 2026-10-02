@@ -5,7 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { BoardPage } from './BoardPage';
 import { hiddenColumnsKey } from './hiddenColumns';
 import { server } from '../test/server';
-import { boardServer, libraryItem } from '../test/library';
+import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
 import type { LibraryItem, LogStatus } from '../api/types';
 import { game, gameDetail, journalServer, logEntry, searchServer } from '../test/games';
 import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
@@ -65,7 +65,7 @@ function movingCard(item: LibraryItem) {
       const items =
         now !== null && (asked === null || asked === now) ? [{ ...item, currentStatus: now }] : [];
 
-      return HttpResponse.json({ items, total: items.length, page: 1, pageSize: 100 });
+      return HttpResponse.json(libraryPage(items));
     }),
 
     http.post('/api/library/:mediaId/status', async ({ request }) => {
@@ -657,6 +657,25 @@ describe('BoardPage, on a phone', () => {
     expect(screen.getByRole('radio', { name: 'Backlog 2' })).toBeChecked();
     expect(screen.getByRole('region', { name: 'Backlog 2' })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: /^Completed/ })).not.toBeInTheDocument();
+  });
+
+  it("puts a column's hours beside its sort control, where its heading would be", async () => {
+    // The switcher says the column's name and count, so the column's heading leaves the screen
+    // and its sort control is all that is left in the row. The workshop put the hours there,
+    // rather than under each segment's count, where Completed's comparison has no room.
+    boardServer({
+      columns: { Backlog: [libraryItem({ title: 'Celeste' }), libraryItem({ title: 'Hades' })] },
+      hours: { Backlog: { ...NO_HOURS, length: 61.82, lengthTitles: 2 } },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    const line = await screen.findByRole('img', { name: 'About 62 hours to beat' });
+    const sort = screen.getByRole('combobox', { name: 'Backlog order' });
+    expect(line.compareDocumentPosition(sort) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    // And not in the switcher, whose segments stay a name over a count.
+    expect(segments()).toContain('Backlog 2');
   });
 
   it('shows the column that is chosen, and only that one', async () => {

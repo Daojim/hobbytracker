@@ -53,6 +53,37 @@ export interface PagedResult<T> {
 }
 
 /**
+ * A board column's answer: a page of its titles, and what its header says about all of them.
+ *
+ * The hours are the whole column's and the items are one page of it, so a header reads these
+ * rather than adding up the cards it was handed. They come with the column, so everything that
+ * refreshes a column's cards refreshes its header too.
+ */
+export interface LibraryPage extends PagedResult<LibraryItem> {
+  hours: ColumnHours;
+}
+
+/**
+ * How long a column's titles take, and how long you took over the ones you logged hours for.
+ * The API's `ColumnHours`, which says why each is what it is.
+ *
+ * A title with no figure is left out and counted, never added as nought. So a sum is null rather
+ * than zero when no title has one, and a header with nothing to say prints nothing.
+ */
+export interface ColumnHours {
+  /** `lengthHours`, the figure each card prints, added up over the titles that have one. */
+  length: number | null;
+  /** How many titles `length` is over. The rest of the column has no figure. */
+  lengthTitles: number;
+  /** Your hours, from each title's current pass, over the titles that have both figures. */
+  played: number | null;
+  /** The lengths of those same titles: what `played` is read against. */
+  playedLength: number | null;
+  /** How many titles `played` and `playedLength` are over. */
+  playedTitles: number;
+}
+
+/**
  * One page of a Discover list, and where the next one starts.
  *
  * Not a `PagedResult`: a page number can only find its page by multiplying, and two of the lists
