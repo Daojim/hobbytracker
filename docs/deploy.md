@@ -188,6 +188,12 @@ ssh -o BatchMode=yes <host> 'cd <dir> && ./scripts/deploy.sh'
 - **Only a container whose image changed is recreated.** On 1 October 2026 a frontend-only change
   recreated Caddy, and the API kept the uptime it had. Later that day a backend-only one recreated
   the API and left Caddy running.
+- **An image can change when nothing of its own has.** The build checks every `FROM` tag against
+  its registry, so when Microsoft has published new `aspnet:10.0` and `sdk:10.0` images, the API is
+  rebuilt on them and recreated. #48 changed only the frontend on 2 October 2026, and the log
+  showed both base images downloaded and *api Recreated*. That is a .NET patch arriving
+  unannounced, which is usually what you want. It also means a frontend-only deploy is not
+  promised to leave the API's uptime alone.
 - **A change to both recreates the API first.** `caddy` has `depends_on: [api]`, and #46's log
   read *api Recreated, caddy Recreated, api Started, caddy Started*. So a bundle that reads
   something new from the API never meets the API from before it. The only mix is the other way
