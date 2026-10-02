@@ -31,6 +31,8 @@ the header.
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
+| Icon | **Two pieces of box art, the front one ticked off, on Shelf Light's paper.** The same drawing on a home screen and, simplified, in a tab. Picked on 2 October 2026 from four drawings on four grounds. See **The icon, and the bar above the page** |
+| The bar above the page | **Each theme's ground**, on Android in Chrome and in the installed app. System's follows the device's scheme. An iPhone ignores the tag |
 
 The user's own words on red, which is the principle the whole theme layer is shaped around:
 
@@ -47,8 +49,11 @@ available. A fact about the ground rather than a preference, and the contrast te
 
 ### How a theme works
 
-**`src/index.css` is the only file in the app that names a colour.** Each theme is one block of custom
-properties; `@theme inline` turns each into a utility. **The `inline` is the mechanism and not a
+**`src/index.css` is the only file in the app that names a colour.** The exceptions are things a
+browser reads before any stylesheet exists: the pre-paint script's bar colours and System's two
+`theme-color` tags in `index.html`, the web manifest's two colours, and the icon's drawings. Every copy
+that has to agree with this file is held to it by a test. See **The icon, and the bar above the
+page**. Each theme is one block of custom properties; `@theme inline` turns each into a utility. **The `inline` is the mechanism and not a
 detail**: without it a utility resolves to whatever the variable held at build time, so no attribute
 could change it at runtime. No component knows a colour, so **adding a theme is a block of values and
 a line in `src/theme/theme.ts`** — there is no provider, and a component test still renders without a
@@ -131,7 +136,10 @@ Each is invisible in development and each has a test that was checked by breakin
   is also how an unknown stored value falls back to the system palette. So a theme missing from that
   copy is offered, chosen, stored, and then repainted after the bundle mounts on every load: the
   flash the script exists to prevent, on the one theme nobody would test for it. `theme.test.ts`
-  reads `index.html` and holds it, as `index.css.test.ts` holds the palette block.
+  reads `index.html` and holds it, as `index.css.test.ts` holds the palette block. **That copy
+  carries each theme's ground too**, for the bar above the page, so a new theme's entry there
+  needs its `--sunken` as well. Leaving it out fails *gives the bar above the page each theme's
+  ground*.
 
   **The fourth was `PALETTES` in `index.css.test.ts`, and nothing checked it against the menu.** A
   theme left out of that hand-kept list arrived with *no contrast assertions at all* — on precisely
@@ -344,6 +352,85 @@ and how it is added up is `docs/board.md`'s.
 - **Left alone: at 1280, Backlog's sort control wraps once its count has two digits**, as
   Completed's and Dropped's always have. The renders had 17 there. The line does not touch that
   row.
+
+### The icon, and the bar above the page
+
+**Two pieces of box art, the front one ticked off, on Shelf Light's paper.** Picked on 2 October
+2026 from four drawings on four grounds. Each was rendered on iPhone and Android home screens with
+light and dark wallpapers, inside Android's masks, and in a browser tab at a true 16px. The
+workshop page is private: https://claude.ai/artifact/3qjCooCBbvsFa7QiqcNctF. The recommendation
+was the Shelf drawing, and the user picked Covers instead. Paper was the recommended ground, and it
+was picked.
+
+| Drawing | What the renders showed |
+|---|---|
+| Shelf: spines on a plank, one leaning | The easiest to explain, since the design is called Shelf. It reads as a bookshelf, and books are one hobby of six |
+| Board: three wells of cards | Washed out on paper until the wells were darkened, and the closest to every other kanban app |
+| **Covers: two pieces of box art, one ticked** (picked) | The clearest about what the app is for at home-screen size. Two blocks and a dot at 16px |
+| Monogram: an H of two spines and the plank | The clearest at 16px |
+
+Of the grounds, teal was the bold one. It would have made Shelf Light's accent a brand colour, and
+the table above says the app has none. Charcoal disappeared into a dark wallpaper, and blood red
+was the loudest thing on either.
+
+**Three drawings, because the places an icon goes want different things.**
+
+- `icons/icon.svg` is full bleed, for the platforms that round the corners themselves: an
+  iPhone's home screen, and a manifest icon of purpose `any`.
+- `icons/icon-maskable.svg` is the same drawing inside the circle, 80% of the width across, that
+  Android's launchers crop to.
+- `public/favicon.svg` drops the posters and grows the tick for 16px. It sits on a rounded tile,
+  because a browser draws a favicon exactly as it is.
+
+`npm run icons` renders the PNGs and the `.ico` from those with Playwright's Chromium. The outputs
+are committed, so neither a build nor the Docker image needs a browser. The file set is the one
+Evil Martians' favicon guide still recommends: a 32px `.ico` carrying `sizes="32x32"` so Chrome
+takes the SVG instead, the SVG, a 180px Apple touch icon, and 192, 512 and maskable 512 in the
+manifest.
+
+**The drawings' colours are copies, and that is the exception to this file's first rule.** An
+icon is drawn before any stylesheet exists. Its ground is held to Shelf Light's `--sunken` by
+`manifest.test.ts`, which is what makes the splash, the icon and the default theme one colour. The
+genre hues on the covers are art, listed in `icon.svg`'s header and not held.
+
+**The bar above the page follows the theme.** Chrome on Android colours its address bar from
+`<meta name="theme-color">`, and so does the installed app's status bar. Each theme's colour is its
+ground, `--sunken`:
+
+- **System's two tags are written into `index.html`** with media queries, one per scheme, and
+  nothing changes them. A phone switching to dark at sunset takes the bar with it.
+- **A chosen theme gets a third tag, ahead of them**, because a browser takes the first that
+  matches. The pre-paint script writes it on a load, from its own copy of each ground, which
+  `theme.test.ts` holds to `index.css`. `applyTheme` rewrites it when the theme changes, reading
+  `--sunken` back from the stylesheet, which by then is there to ask.
+- **The manifest's `theme_color` and `background_color` are Shelf Light's ground**: the bar
+  before the page has loaded, and the splash. A manifest cannot follow a stored setting.
+
+**An iPhone takes none of this.** Several developers report that Safari 26 ignores `theme-color`
+and takes its bars' colour from the page's own background, or from a fixed bar at the top. Nothing
+in the app paints the root, because each page's `<main>` paints the ground, so an iPhone probably
+shows white or black above a dark theme. Giving `html` the `--sunken` background would make the
+bars follow every theme from `index.css` alone. **Not built**: it is unmeasured, and nobody here has
+an iPhone to measure it on.
+
+What fails quietly here, each found while building it:
+
+- **XML refuses `--` inside a comment, and an SVG that is not XML is not drawn at all.** The first
+  `icon.svg` named `--sunken` in its header. Chromium answered *"The source image cannot be
+  decoded"*, naming no line. The header names the tokens without their hyphens.
+- **Playwright's default headless browser has none of Chrome's install machinery.** Asked through
+  `Page.getInstallabilityErrors`, it answered nothing at all for a manifest with `display:
+  "browser"` and for one with no usable icon. `e2e/install.spec.ts` pins `channel: 'chromium'`,
+  where both are reported, and expects exactly `in-incognito`, because every Playwright context is
+  incognito. It is the same trap as a scroll gesture headless Chromium accepts and never performs.
+- **Chrome is more lenient than its own criteria.** It installs with one plain icon of 144px or
+  more, where the criteria ask for 192 and 512. `manifest.test.ts` holds the criteria, not
+  today's leniency.
+- **jsdom has no `media` property on a `<meta>`.** Setting one creates a plain property that no
+  selector sees, so `theme.test.ts` sets the attribute.
+- **A missing icon is a 200.** Vite and Caddy both answer a path with no file by serving
+  `index.html`. Measured on the production image, `/no-such-icon.png` came back `200 text/html`.
+  Both test layers read the bytes rather than the status.
 
 ### The hobby nav
 
