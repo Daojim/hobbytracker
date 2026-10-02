@@ -16,7 +16,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 
 | # | Feature | Size | Status |
 |---|---|---|---|
-| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon were built on 2 October 2026.** Left: deploying them, then the Android checks in its section |
+| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon followed on 2 October 2026** (PR #48), deployed the same day. Left: the Android checks in its section |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | Planned |
@@ -27,7 +27,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | Planned |
 
-Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the runbook in
+Production runs `b213e27`, which was `main` on 2 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -108,7 +108,10 @@ Production runs `5780e34`, which was `main` on 1 October 2026. Deploying is the 
 
 ### The web manifest and the home-screen icon · built 2 October 2026
 
-**Built on the `home-screen-icon` branch; not yet merged or deployed.** Write-ups:
+**Shipped and deployed on 2 October 2026** (PR #48). Production serves the manifest as
+`application/manifest+json` and every icon as what it says, through the tunnel, and
+`icon-512.png` arrives as a real 512px PNG rather than the page. No migration and no new
+variable. Write-ups:
 `docs/design.md`, *The icon, and the bar above the page*, and `docs/deploy.md` for what Caddy
 serves.
 

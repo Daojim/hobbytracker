@@ -575,8 +575,8 @@ shuffled.
       picked up in any order:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
-        installs to a home screen. **What is left of it:** deploying that, then the Android
-        checks listed in its section
+        installs to a home screen (PR #48, deployed). **What is left of it:** the Android checks
+        listed in its section
       - [x] recording when a title changes column — `status_changes`, written by one
         interceptor rather than four services, with shuffles folded away on the way in
       - [x] hours in the column headers — a line under each heading adding up what its cards
