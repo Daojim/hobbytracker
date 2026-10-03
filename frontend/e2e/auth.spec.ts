@@ -81,6 +81,35 @@ test('the session survives a reload', async ({ page }) => {
   expect((await whoAmI(page.request))!.displayName).toBe('Jimmy Dao');
 });
 
+test('the session survives the browser restarting', async ({ page }) => {
+  // A reload keeps every cookie, so the test above passes for one with no expiry — and that is
+  // the kind a browser keeps only until it restarts. Chrome on Android deletes them at startup,
+  // and Android restarts it whenever it wants the memory back, so phones were signed out at
+  // random while a desktop browser that stays open for days never was. This is the restart: the
+  // cookies with a date on them are kept, and the rest are gone.
+  await signIn(page, { sub: 'google-1', name: 'Jimmy Dao' });
+
+  const context = page.context();
+  const kept = (await context.cookies()).filter((cookie) => cookie.expires !== -1);
+  await context.clearCookies();
+  await context.addCookies(kept);
+
+  expect((await whoAmI(page.request))?.displayName).toBe('Jimmy Dao');
+});
+
+test('the browser is told when the session ends', async ({ page }) => {
+  // SessionDays, thirty in appsettings.json. The ticket inside the cookie has always carried it;
+  // the cookie itself carried no date at all, which a browser reads as "until I restart".
+  await signIn(page, { sub: 'google-1' });
+
+  const session = (await page.context().cookies())
+    .find(({ name }) => name === 'hobbytracker.session');
+
+  // Playwright reports a cookie with no expiry as -1.
+  expect(session?.expires, 'when the session cookie expires').not.toBe(-1);
+  expect((session!.expires - Date.now() / 1000) / 86_400).toBeCloseTo(30, 0);
+});
+
 test('a sign-in cannot be pointed at somebody else’s site', async ({ page }) => {
   // returnUrl decides where the callback drops you, so an unchecked one is an open redirect
   // wearing a sign-in link.
