@@ -33,7 +33,7 @@ the header.
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
-| Icon | **Two pieces of box art, the front one ticked off, on Shelf Light's paper.** The same drawing on a home screen and, simplified, in a tab. Picked on 2 October 2026 from four drawings on four grounds. See **The icon, and the bar above the page** |
+| Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
 | The bar above the page | **Each theme's ground**, on Android in Chrome and in the installed app. System's follows the device's scheme. An iPhone ignores the tag |
 
 The user's own words on red, which is the principle the whole theme layer is shaped around:
@@ -429,22 +429,44 @@ numbers mean is `docs/stats.md`'s.
 
 ### The icon, and the bar above the page
 
-**Two pieces of box art, the front one ticked off, on Shelf Light's paper.** Picked on 2 October
-2026 from four drawings on four grounds. Each was rendered on iPhone and Android home screens with
-light and dark wallpapers, inside Android's masks, and in a browser tab at a true 16px. The
-workshop page is private: https://claude.ai/artifact/3qjCooCBbvsFa7QiqcNctF. The recommendation
-was the Shelf drawing, and the user picked Covers instead. Paper was the recommended ground, and it
-was picked.
+**A journal with three of the hobbies stuck on its cover, on Shelf Light's paper.** A controller
+for games, a television for films, TV and anime, and headphones for music, each a die-cut sticker
+on a black notebook with an orange elastic and a red ribbon. Picked on 3 October 2026 from eight
+drawings. Each was rendered on iPhone and Android home screens with light and dark wallpapers,
+inside Android's masks, and in a browser tab at a true 16px. The workshop page is private:
+https://claude.ai/artifact/9QSf3qz1S9oFh2pTtQTnt7. The user asked for the hobbies themselves in
+place of the tick: a controller, a TV, a book and headphones, not necessarily all in one icon. The
+recommendation was Telly, on a book, and the user picked Journal instead.
 
 | Drawing | What the renders showed |
 |---|---|
-| Shelf: spines on a plank, one leaning | The easiest to explain, since the design is called Shelf. It reads as a bookshelf, and books are one hobby of six |
-| Board: three wells of cards | Washed out on paper until the wells were darkened, and the closest to every other kanban app |
-| **Covers: two pieces of box art, one ticked** (picked) | The clearest about what the app is for at home-screen size. Two blocks and a dot at 16px |
-| Monogram: an H of two spines and the plank | The clearest at 16px |
+| Telly, on a book: a TV wearing headphones, a controller on its screen, on a book (recommended) | The only drawing with all four hobbies in one shape, so the shape stayed the largest on a home screen |
+| Shelf: books and headphones on one plank, the TV and a controller on another | Holds every hobby, where the first round's Shelf held only books. Each object came out small |
+| Quartet: one tile per hobby | The clearest in a tab, and the most like a folder of apps |
+| Stickers: the four as stickers, scattered | The most playful. Each sticker got about a quarter of the icon |
+| Stack: a TV on two books, headphones hung on its corner, a controller in front | The busiest at small sizes. Its first draft put the headphones on top of the set, where they read as a carrying handle |
+| Telly without the book | A size larger, with no book |
+| Couch: the TV and a controller on its cord | Exactly the hobbies the app has today |
+| **Journal: a notebook with hobbies stuck on it** (picked) | The journal half of the app as the object itself. Three stickers and no book, because the notebook stands in for one |
 
-Of the grounds, teal was the bold one. It would have made Shelf Light's accent a brand colour, and
-the table above says the app has none. Charcoal disappeared into a dark wallpaper, and blood red
+A ninth, a fan of four covers with one hobby on each, was drawn and left out: only the front card's
+art showed. All eight wear the same four genre colours, so the controller is Platform blue in
+whichever drawing it is in.
+
+**The first icon** was two pieces of box art, the front one ticked off. It was picked on 2 October
+2026 from four drawings on four grounds, at https://claude.ai/artifact/3qjCooCBbvsFa7QiqcNctF,
+where the user picked Covers over the recommended Shelf. What those renders showed is still worth
+knowing before a third drawing:
+
+- **Shelf, spines on a plank**, read as a bookshelf, and books are one hobby of six.
+- **Board, three wells of cards**, washed out on paper until the wells were darkened, and was the
+  closest to every other kanban app.
+- **Covers** was the clearest about what the app is for at home-screen size.
+- **Monogram, an H of two spines and the plank**, was the clearest at 16px.
+
+Paper was the recommended ground then and was kept for the journal. Of the grounds, teal was the
+bold one. It would have made Shelf Light's accent a brand colour, and the app has none (the
+*Accent* row at the top of this file). Charcoal disappeared into a dark wallpaper, and blood red
 was the loudest thing on either.
 
 **Three drawings, because the places an icon goes want different things.**
@@ -453,8 +475,16 @@ was the loudest thing on either.
   iPhone's home screen, and a manifest icon of purpose `any`.
 - `icons/icon-maskable.svg` is the same drawing inside the circle, 80% of the width across, that
   Android's launchers crop to.
-- `public/favicon.svg` drops the posters and grows the tick for 16px. It sits on a rounded tile,
-  because a browser draws a favicon exactly as it is.
+- `public/favicon.svg` keeps one sticker, the controller, drawn larger for 16px. It sits on a
+  rounded tile, because a browser draws a favicon exactly as it is.
+
+**A sticker's border is the object's own shapes stroked wide, not a filter.** The outline of a
+group of shapes is the outline of each one, so each object is drawn once in `<defs>` beside an
+`-outline` group of its shapes with no paint of their own, and a `<use>` with a wide stroke paints
+them as the border, then again as the shadow. The parts that are lines (the TV's ears, the
+headphones' band) are grown as wider lines instead, which is why they have ids of their own. A
+border is 15 units of the cover wide whatever the sticker's scale, so its stroke is 30 divided by
+that scale. `icon.svg`'s comments say the same beside the numbers.
 
 `npm run icons` renders the PNGs and the `.ico` from those with Playwright's Chromium. The outputs
 are committed, so neither a build nor the Docker image needs a browser. The file set is the one
@@ -465,7 +495,7 @@ manifest.
 **The drawings' colours are copies, and that is the exception to this file's first rule.** An
 icon is drawn before any stylesheet exists. Its ground is held to Shelf Light's `--sunken` by
 `manifest.test.ts`, which is what makes the splash, the icon and the default theme one colour. The
-genre hues on the covers are art, listed in `icon.svg`'s header and not held.
+genre hues on the stickers are art, listed in `icon.svg`'s header and not held.
 
 **The bar above the page follows the theme.** Chrome on Android colours its address bar from
 `<meta name="theme-color">`, and so does the installed app's status bar. Each theme's colour is its
@@ -505,6 +535,21 @@ What fails quietly here, each found while building it:
 - **A missing icon is a 200.** Vite and Caddy both answer a path with no file by serving
   `index.html`. Measured on the production image, `/no-such-icon.png` came back `200 text/html`.
   Both test layers read the bytes rather than the status.
+- **A drawing changed without `npm run icons` reaches only the tab.** `favicon.svg` is served as
+  it is, so a tab shows the new drawing while every PNG a phone installs keeps the old one, and
+  nothing else fails. `e2e/icons.spec.ts` holds each picture against its drawing, drawn by the
+  browser at the picture's size: measured on 3 October 2026, a picture of its own drawing differs
+  by more than 32 levels in at most 2 pixels in 10,000, and one of the drawing before it in 38 to
+  52 in 100. Checked red with the journal's drawings and the covers' PNGs.
+- **That check needs the headless shell, the browser `render.mjs` draws with.** Full Chromium,
+  which `install.spec.ts` pins for the reason above, draws a shape's edges differently: up to 8
+  pixels in 100 differed, and at 32px 14 in 1,000 by more than 32 levels, enough to fail a picture
+  that was right. So the check is a spec of its own: `channel` is a worker option, which Playwright
+  takes for a whole file or a whole project and refuses in a describe block.
+- **A `<use>` naming an id the file does not have draws nothing.** Each sticker is three to five
+  of them, so a misspelled id takes a border, a shadow or a whole object out of the tab and every
+  PNG alike. `manifest.test.ts` holds that every drawing names only parts it defines, checked red with
+  one id misspelled.
 
 ### The hobby nav
 
