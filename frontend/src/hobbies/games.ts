@@ -188,6 +188,12 @@ export const GAMES: HobbyDefinition = {
     ],
   },
 
+  // The Stats page. Your hours are set against HowLongToBeat's figures, the ones a card prints.
+  stats: {
+    noun: (count) => (count === 1 ? 'game' : 'games'),
+    against: 'HowLongToBeat',
+  },
+
   // "To beat" is the sort control's word, for the sort control's reason: a bare "h" reads as
   // hours you have put in. Your own hours carry no tilde, as the drawer writes them, which is what
   // tells the two sides of Completed's comparison apart at a glance.

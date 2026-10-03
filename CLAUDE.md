@@ -39,6 +39,7 @@ thing always known before an edit:
 | `frontend/src/journal/`, `LogEntryService`, `NoteService` | `docs/journal.md` |
 | `frontend/src/index.css`, `src/theme/`, `frontend/icons/`, `frontend/public/`, anything about colour, contrast or width | `docs/design.md` |
 | `AuthService`, `AuthController`, `Program.cs`'s auth block, `frontend/src/shell/` | `docs/auth.md` |
+| `StatsService`, `StatsController`, `HoursTally`, `frontend/src/stats/` | `docs/stats.md` |
 | `Dockerfile`, `deploy/`, `PublicOriginMiddleware`, **or being asked to deploy** | `docs/deploy.md` — the source of truth, runbook included |
 | **Picking up a feature from What is next** | `docs/plans/games-board-next.md` — its status table, its rules, then the feature's section |
 | `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
@@ -64,6 +65,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | | | |
 |---|---|---|
 | **The board** | Five columns, On Hold among them, and any but Backlog taken off in Settings. Drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board, and on games each column's hours under its heading. **Every search result and Discover tile adds straight to Backlog, Playing or Completed**, dated as a drag would date it | `docs/board.md` |
+| **Stats** | A page under the games board for a year at a time: four tiles of headline numbers, then every finish as a cover by month, your hours against HowLongToBeat game by game, your ratings point by point, and the backlog oldest first with how long each title has waited. **Every playthrough counts, where the board counts titles** | `docs/stats.md` |
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
@@ -235,6 +237,7 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── journal/      the drawer over the board
 │       ├── search/       the bar and result strip above the board, and the add both surfaces share
 │       ├── discover/     the Discover page: a wall of what is popular, one list at a time
+│       ├── stats/        the Stats page; stats.ts is its arithmetic, done in hundredths
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
 │       ├── theme/        the eight themes, two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
@@ -451,7 +454,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | | |
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
-| Scope | **`/board/:hobby` and `/board/:hobby/discover/:list`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. No detail or year-review page yet |
+| Scope | **`/board/:hobby`, `/board/:hobby/discover/:list` and `/board/:hobby/stats/:year`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. The Stats page is the year in review's starting point; there is no detail page yet |
 | Columns | Backlog · Playing · **On Hold** · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list; the board draws it less anything taken off in Settings, and hands *that* list to every card's menu. **No columns a person names themselves** — `LogStatus` is one shared vocabulary, and the year rules and the transitions depend on what each value means |
 | On Hold | **After Playing, a plain column, and exempt from the year like Backlog** — Playing with the controller put down, so it takes Playing's rule for the dates and keeps where you were in a show. A fifth `LogStatus` with **no migration**, because `status` is unconstrained text. Position, look and width were each picked from rendered screenshots on 17 September 2026. `docs/board.md` |
 | Hiding a column | **Any but Backlog, per board, per browser, from a Columns group of checkboxes in Settings.** Not rendered, not fetched, not a drop target, not offered in a card's menu — and nothing written, so its titles are there when it comes back. Backlog stays because search adds to it. `docs/board.md` |
@@ -467,6 +470,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Column hours | **A muted line under each heading, games only for now**: what the column's titles take to beat, added up over the whole column rather than the page, and on Completed your hours against that, over the games that have both. **Playing says *to beat*, not what is left.** On a phone it sits beside the sort control rather than in the switcher. Each was picked from renders on 1 October 2026. `docs/board.md`, `docs/design.md` |
 | How long | **A quiz behind a link under a game's estimates**, not a calculator always open: how much you play, how you will play it, then a date. Remembered per board and per browser, so the next game is one press; a card's `⋯` menu opens it as *How long for me?*. Backlog, Playing and On Hold only. **Backlog's header gains a second line at your pace.** The user's own idea, picked over the recommendation from renders on 2 October 2026. `docs/journal.md`, `docs/design.md` |
 | Saving a pass | **The pass writes itself and there is no Save button.** A change arms a 500ms timer; the timer checks the rules and sends every field. Leaving a field deliberately does *not* send it — that would be a write per stop while tabbing, and would write "season 2, no episode" on the way to naming one — but **closing the drawer does**, which is the one hole a form like this opens. A refused value stops the write and stays on screen to be corrected. `docs/journal.md` |
+| Stats | **A dashboard under the board, one year at a time** — `/all` for every year — that counts **every playthrough rather than every title**: a finish replayed since still counts in its year, so the Completed column can show a different count. Completion is the share of what was *started* in the year, finished. Games only, from `HobbyDefinition.stats`. All twelve choices — four before any render, eight from renders on 2 October 2026 — were the recommendations. `docs/stats.md`, `docs/design.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
 | What counts as coming | **Asked a provider and got no date at all is *TBA* on the calendar**, whatever shape the nothing arrived in — that is *Stellar Blade: Blood Rain*, and it read as released until 12 September 2026. **A title the provider calls a rumour is not**, because it was never announced, and it stays in the Backlog column. Measured both ways round in `docs/games-igdb.md` |
@@ -499,7 +503,7 @@ here**.
 | | |
 |---|---|
 | **Project board rows with member-init, not a positional record.** EF can decompose `new BoardRow { A = … }` and push a later `Where`/`OrderBy` into SQL; a positional record is opaque to it and every filter on the projected latest entry fails to translate — **surfacing as an empty library, not an error** | `docs/board.md` |
-| **TPT downcasts live in the two terminal DTO projections only, never in `BoardQuery`.** Every `Where` and `OrderBy` is pushed through `BoardQuery`, so a downcast that stops translating there **empties the whole board with no error** | `docs/board.md` |
+| **TPT downcasts live in terminal projections only, never in `BoardQuery`.** Every `Where` and `OrderBy` is pushed through `BoardQuery`, so a downcast that stops translating there **empties the whole board with no error** | `docs/board.md` |
 | **Validation attributes go on record primary-constructor parameters**, not `[property:]` targets — MVC throws `InvalidOperationException` rather than skipping them | `docs/board.md` |
 | **The sort and the year belong in the query key**, not only in the request. Left out, the cache serves the previous ordering and corrects itself only on the next refetch — a board showing one order while claiming another. A move invalidates the column *prefix* and `'years'`, never the fully-qualified key | `docs/board.md` |
 | **Two cards with one media id leave the survivor permanently undraggable.** dnd-kit keys its draggables by id, so the second mount overwrites the first and its unmount deletes the entry the *other* one is now using — after which no sensor ever activates on it. The card is visible, in the right column, and stuck until a reload. It needs no bug of its own to happen: a stale cache entry rendered for one frame while it refetches is enough, which is why a move **removes** the inactive views of both columns rather than only marking them stale | `docs/board.md` |
@@ -598,7 +602,12 @@ shuffled.
       - [x] "how long will it take me?" — a quiz under a game's estimates that answers with a
         date, remembered per board; a card's menu opening it; and Backlog's header at your pace.
         The user's own idea, picked from renders over the recommendation (PR #50, deployed)
-      - stats
+      - [x] stats — a page under the board, a year at a time, counting every playthrough:
+        what you finished as covers by month, your hours against HowLongToBeat game by game,
+        your ratings, the share of what you started that you finished, and how long each title
+        has waited in the backlog — the column history's first reader. Every choice was the
+        recommendation, twelve of them, eight from renders. Built on the branch `stats`; not
+        yet merged or deployed
       - searching your notes
       - export to a spreadsheet
       - deleting an account

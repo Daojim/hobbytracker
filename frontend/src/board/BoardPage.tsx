@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useParams } from 'react-router';
+import { Link, Navigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { activityYears } from '../api/library';
@@ -17,8 +17,8 @@ import { YearPicker } from './YearPicker';
 import { yearFor, yearsKey } from './keys';
 import { BOARD_GAP, SIDE_BY_SIDE, boardTracks } from './grid';
 import { useHiddenColumns } from './hiddenColumns';
-import { columnsFor } from '../hobbies';
-import { DEFAULT_HOBBY, boardPath, isReadyHobby } from '../shell/hobbies';
+import { columnsFor, hobbyDefinition } from '../hobbies';
+import { DEFAULT_HOBBY, boardPath, isReadyHobby, statsPath } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
 import type { LibrarySort, LogStatus } from '../api/types';
 
@@ -54,6 +54,8 @@ export function BoardPage() {
  * on the others — and what lets a column taken off in Settings cost nothing at all.
  */
 function Board({ hobby }: { hobby: Hobby }) {
+  const definition = hobbyDefinition(hobby);
+
   // Per column, not board-wide: Completed is worth reading by rating while Backlog stays in the
   // order you put it in.
   const [sorts, setSorts] = useState<Record<LogStatus, LibrarySort>>(ALL_MANUAL);
@@ -186,8 +188,26 @@ function Board({ hobby }: { hobby: Hobby }) {
         {years !== undefined && (
           <>
             {/* Above the board and outside every column, because it narrows three of them. It
-                lived in the Completed header while completed_at was the only date it meant. */}
-            <div className="mb-3 flex items-center justify-end">
+                lived in the Completed header while completed_at was the only date it meant.
+
+                The way to the Stats page shares its row: beside the year it is about, and taking
+                that year there. Picked from renders on 2 October 2026 over a link in the header,
+                which is about the app rather than one board, and a button by the picker, which
+                read as a second control. The row is there on a phone too. */}
+            <div
+              className={`mb-3 flex items-center gap-4 ${
+                definition.stats === null ? 'justify-end' : 'justify-between'
+              }`}
+            >
+              {definition.stats !== null && (
+                <Link
+                  to={statsPath(hobby, year ?? 'all')}
+                  className="text-sm font-medium text-accent hover:underline"
+                >
+                  {`Stats for ${year ?? 'all years'}`}
+                  <span aria-hidden="true"> →</span>
+                </Link>
+              )}
               <YearPicker
                 years={years}
                 value={year}

@@ -148,4 +148,8 @@ export const MOVIES: HobbyDefinition = {
   // built on games first. The proposed wording is in docs/plans/games-board-next.md. See
   // HobbyDefinition.columnHours.
   columnHours: null,
+
+  // No Stats page yet, for the same reason: built on the games board first. The API already
+  // answers for every hobby. See HobbyDefinition.stats.
+  stats: null,
 };

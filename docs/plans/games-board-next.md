@@ -20,7 +20,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
-| 5 | Stats | M–L | Planned, after #2, using #3's sums |
+| 5 | Stats | M–L | **Built 2 October 2026** on the branch `stats`, after a workshop the same day. Not yet merged or deployed. See its section |
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
 | 8 | Delete my account | S–M | Planned. Workshop it with #7 |
@@ -438,58 +438,63 @@ turned red exactly the tests that name it:
 
 ---
 
-## 5. Stats · M–L (after #2, sharing #3's sums)
+## 5. Stats · built
 
-**What the user asked for:**
-- "X was added to your backlog Y days ago"
-- the user's completion time vs HLTB
-- completion rate
-- and was open to more
+**Built on 2 October 2026, on the branch `stats`.** Not yet merged or deployed. The write-up is
+`docs/stats.md`, a new area file: what each number means, why the page counts playthroughs, the
+two routes, and every fault planted. The look is `docs/design.md`, **Stats**. The workshop page
+is private: https://claude.ai/artifact/Cb1T1pYGFvdi35ULXn3Pq2.
 
-**Decide at pickup:**
-- **Where it lives.** Recommended: `/board/:hobby/stats`, on Discover's pattern. The year in review
-  can grow from it. This changes CLAUDE.md's Settled **Scope** row. **Render it at 390px as well
-  as wide**, and give its `<main>` the board's `p-4 md:p-6`, as Discover now has.
-- **What completion rate means.** Recommended: of the titles started in the year, the share
-  finished, shown beside finished vs dropped. With nothing started, show *no data*, not 0%.
-- **Backlog age.**
-  - "In your backlog since" is exact from #2's history.
-  - Older passes fall back to the pass's `logged_at`, labelled so it doesn't overclaim. **Since #2
-    was built:** an older pass is one with no made-row (`from_status` null). See *A pass's history*
-    in `data-model.md`.
-  - It could also appear on Backlog cards; pick at the workshop.
-- **You vs HLTB.** Recommended:
-  - use completed passes that have both figures, against All Styles (to match #3). **Since #3
-    was built:** Completed's header already does this for one column and one year, and its rules
-    are `LibraryService.HoursOfAsync`'s.
-  - show an overall percentage
-  - show the fastest and slowest titles relative to their estimate
+**What the user asked for**, kept because everything below answers it: "X was added to your
+backlog Y days ago", the user's completion time against HowLongToBeat, and completion rate — and
+was open to more.
 
-**More to offer:**
-- finished per month
-- rating distribution and average
-- genres among what was finished
-- platforms played on
-- oldest title still in Playing
-- backlog hours at the user's pace (#4)
+**Decided before the renders**, with the user, all four as recommended:
+- **Where:** a page under the board, `/board/:hobby/stats/:year`. Settled **Scope** changed with it.
+- **What:** the three asks, plus finished per month and ratings. Genres and platforms, the
+  oldest in Playing and the backlog at your pace were offered and not taken.
+- **Completion rate:** of the passes started in the year, the share finished, beside finished,
+  still going and dropped. A finish with no start counts as started when it finished.
+- **Counting:** every playthrough, so a year's numbers never change because of a later replay.
+  The Completed column can then show a different count, because it shows each title once.
 
-Use the `dataviz` skill for any charts, and render the page for a pick first.
+**Decided at the workshop, from renders**, all eight as recommended:
+- **A dashboard**: four tiles (finished, completion, against HowLongToBeat, rating), then
+  panels two across in the board's wells. The report layout, one centred sheet, was 1,937px tall
+  at 1440 against the dashboard's 1,140px.
+- **Completion is a bar**: finished in the accent, still going a lighter step of it, dropped
+  apart, with a legend in words. It sits inside its tile.
+- **Finished each month is covers**, a stack per month, capped at six with "+N". On a phone, a
+  row per month.
+- **Against HowLongToBeat is a bar per timed game either side of the estimate**, sorted, so the
+  quickest and slowest are the two ends. Six of each in a busy year, with Show all.
+- **Ratings are a column per whole point, 1 to 10**, in the tones a card's rating wears.
+- **The backlog is a list, oldest first**: six, then Show all. "In your backlog N days" when the
+  history knows when a title last arrived there, "added N days ago" when it does not.
+- **No age on Backlog cards, for now.** It added a line to every card at desktop widths.
+- **The way in is "Stats for 2026 →" on the year's row** of the board, carrying the year.
 
-### Backend
+**One departure from the renders:** the months still to come are not dimmed. The renders faded
+them with an opacity, which takes `text-muted` under 4.5:1. See `docs/design.md`.
 
-- `GET /api/stats?hobby=&year=`: aggregates scoped to the user.
-- Turn the year into `SpanOf`'s instant range. Never use `EXTRACT`.
-- Return instants, and let the client turn them into days with `lib/time.ts`. That's the UI, which
-  is already one of the four zone places.
-- If the server counts days itself, that's a **fifth** zone place, and `data-model.md`'s tripwire
-  sentence has to change.
+**Built.**
+- `GET /api/stats` and `GET /api/stats/years`, in `StatsService` and `StatsController`. The
+  backlog is `LibraryService.BacklogAsync`, through the board's own query.
+- `IJournalClock.SpanOf` and `YearsOf`, moved out of `LibraryService`, and `HoursTally`, moved
+  out of `HoursOfAsync` — each now one method called from two routes.
+- `frontend/src/stats/`: the page, its four panels, and `stats.ts`, the arithmetic, done in
+  hundredths. `HobbyDefinition.stats` holds the words, games only. `journalMonth` in
+  `lib/time.ts` and `ratingFill` in `lib/rating.ts`.
 
-### Tests first
+**Tests.** `StatsEndpointTests` has 28 and `JournalClockTests` gained 2; the frontend gained 50,
+across `stats.test.ts`, `StatsPage.test.tsx`, `time.test.ts`, `rating.test.ts` and
+`BoardPage.test.tsx`; `e2e/stats.spec.ts` has 3. Forty faults were planted one at a time, nineteen
+behind the API and twenty-one in front of it, and the tables are in `docs/stats.md`. One went red on
+nothing the first time — a guard written twice — and one was planted badly; both are written up
+there.
 
-- Scoping: user B never appears in user A's stats.
-- Each definition's edge cases.
-- Missing HLTB figures are excluded, not counted as 0.
-- Year boundaries.
+**What the plan got wrong, or left out** is in `docs/stats.md` under the same heading: the
+aggregates that became facts, the years the page needed of its own, and a year out of range.
 
 ---
 

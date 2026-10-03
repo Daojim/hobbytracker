@@ -200,6 +200,7 @@ builder.Services.AddScoped<IAnimeCatalogService, AnimeCatalogService>();
 builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
+builder.Services.AddScoped<IStatsService, StatsService>();
 
 // -------------------------------------------------- the app's public address
 // What the outside world reaches this app at, for when a proxy in front means that is not what

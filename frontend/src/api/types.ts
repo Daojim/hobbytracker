@@ -64,6 +64,58 @@ export interface LibraryPage extends PagedResult<LibraryItem> {
 }
 
 /**
+ * A year of one hobby, for the Stats page. The API's `StatsDto`, which says why each is what it
+ * is: every playthrough rather than every title, and instants rather than days.
+ */
+export interface Stats {
+  /** Every pass finished in the year, oldest first; with no year, every one, undated last. */
+  finished: Finish[];
+  /** Your hours against the estimates over `finished`, by the column header's rules. */
+  hours: ColumnHours;
+  /** The passes started in the year, by where each is now. */
+  completion: Completion;
+  /** Your Backlog column as the board draws it, oldest first. The same for every year. */
+  backlog: BacklogTitle[];
+}
+
+/** One finished pass. */
+export interface Finish {
+  mediaId: number;
+  /** The name a card leads with. */
+  title: string;
+  coverUrl: string | null;
+  /** An instant. Render it through `lib/time`. Null for a pass finished with its date cleared. */
+  completedAt: string | null;
+  rating: number | null;
+  /** How long this pass took you. */
+  hoursPlayed: number | null;
+  /** How long the title takes, as its card prints it — `LibraryItem.lengthHours`. */
+  lengthHours: number | null;
+}
+
+/**
+ * What became of the passes started in the year. The share finished is worked out here rather
+ * than sent, because none started has no share at all.
+ */
+export interface Completion {
+  finished: number;
+  /** Playing and On Hold. */
+  going: number;
+  dropped: number;
+}
+
+/** A title in your Backlog column, and how long it has waited. */
+export interface BacklogTitle {
+  mediaId: number;
+  title: string;
+  coverUrl: string | null;
+  /** When the pass was made: when this title went on your board, this time round. */
+  loggedAt: string;
+  /** When it last arrived in Backlog, from the column history. Null when the history does not say. */
+  inBacklogSince: string | null;
+}
+
+/**
  * How long a column's titles take, and how long you took over the ones you logged hours for.
  * The API's `ColumnHours`, which says why each is what it is.
  *

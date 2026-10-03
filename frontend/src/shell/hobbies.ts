@@ -46,6 +46,17 @@ export const boardPath = (slug: Hobby): string => `/board/${slug}`;
 export const discoverPath = (slug: Hobby, list?: string): string =>
   list === undefined ? `${boardPath(slug)}/discover` : `${boardPath(slug)}/discover/${list}`;
 
+/**
+ * Where a hobby's Stats page lives, and which year — `all` for every year. With none named, the
+ * page opens on the latest year there is.
+ *
+ * Under the board's address for Discover's reason. The year is in the path rather than held by
+ * the page, so a year's stats are an address to come back to, which is what the year in review
+ * will grow from.
+ */
+export const statsPath = (slug: Hobby, year?: number | 'all'): string =>
+  year === undefined ? `${boardPath(slug)}/stats` : `${boardPath(slug)}/stats/${year}`;
+
 /** Where an unknown or unbuilt slug is sent. Games is the board that exists. */
 export const DEFAULT_HOBBY: Hobby = 'games';
 

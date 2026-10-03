@@ -28,6 +28,7 @@ the header.
 | On a phone | **A segmented switcher pinned to the top of the screen**: every column's name over its count, the current one raised. Picked on 1 October 2026 from four layouts rendered at 390px. See **On a phone** |
 | Column hours | **A muted line of its own under each heading**, and on a phone beside the sort control, where the hidden heading was. Picked on 1 October 2026 from three placements rendered wide and two at 390px. See **Hours in the column headers** |
 | How long | **A quiz behind a link under the estimates**, not a calculator always open — two questions, then a sentence with a date in it. Picked on 2 October 2026 from three options rendered in the drawer, the modal and at 390px. See **How long will it take me?** |
+| Stats | **Four tiles of numbers, then panels two across in the board's wells**: covers by month, a column per rating, a bar per game either side of its estimate, and the backlog oldest first. Picked on 2 October 2026 from eight choices rendered at 1440 and 390px. See **Stats** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
@@ -387,6 +388,44 @@ their own idea over the recommendation. What it asks and answers is `docs/journa
   above keep HowLongToBeat's blue, as they always did.
 - **On a phone the drawer is the whole screen**, and the panel takes its width. Nothing about it
   changes at 390px, which the renders were taken at to make sure of.
+
+### Stats
+
+**A dashboard: the headline numbers once, in four tiles across the top, and the detail under them
+in panels.** Picked on 2 October 2026, with seven other choices, from renders of the real app's
+stylesheet at 1440 and 390px in Shelf Light and Shelf Dark. The workshop page is private:
+https://claude.ai/artifact/Cb1T1pYGFvdi35ULXn3Pq2. All eight recommendations were taken. What the
+numbers mean is `docs/stats.md`'s.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| Layout | **Tiles, then panels two across** — 1,140px tall at 1440 | One centred sheet, read down — 1,937px. The same length on a phone |
+| Completion | **A bar**: finished in the accent, still going a lighter step of it, dropped apart, with a legend in words | The counts in a sentence |
+| Finished each month | **Covers, a stack per month**, six and then "+N" | A column of counts per month. Covers are 578px on a phone against 241 |
+| Against HowLongToBeat | **A bar per game either side of the estimate**, sorted, six of each end in a busy year | The three quickest and three slowest, with covers. 518px on a phone against 361 |
+| Ratings | **A column per whole point**, 1 to 10 | One bar in three bands, which puts an 8.0 and a 9.5 together |
+| Backlog | **Oldest first**, six and then *Show all* | How many have waited under a month, 1–3 months and so on |
+| Age on Backlog cards | **Not now** | A line under every Backlog card: the 14-card column grew from 1,666px to 1,847px at 1440 |
+| The way in | **"Stats for 2026 →" on the board's year row** | *Stats* in the header; a *Stats* button beside the year picker |
+
+- **Tiles are paper and panels are wells.** A tile is `bg-surface shadow-card`, raised as a card is,
+  and a panel is `bg-well`, the board's column. Four tiles across from 1280px, two from 640, and
+  one a row on a phone, where they stack above the panels as the renders showed.
+- **One colour per chart, and the accent.** The comparison's bars are all the accent, because the
+  side a bar is on already says which way it went and its label says it in words. The ratings'
+  columns are the exception, coloured as a card's rating at that point is — `ratingFill` in
+  `lib/rating.ts`, beside `ratingTone` and on the same boundaries.
+- **Still going is `bg-accent/30`**, a lighter step of finished's colour, because it is on its way
+  there; dropped is `bg-dropped`, the Dropped column's own.
+- **The months still to come are not dimmed**, which the renders showed with an opacity. A month's
+  label is `text-muted`, held at 4.5:1 on every theme by `index.css.test.ts`, and an opacity takes
+  it under — the hobby nav's reason, under **The hobby nav**. They are simply empty, and a phone
+  leaves them off.
+- **On a phone the months are rows**, the label and then the covers in a line, from the same list
+  that is twelve stacks across a wider screen. The comparison's titles take 9rem and its bars the
+  rest, so a long name is cut rather than the chart.
+- **The hours behind each bar show on hover and on keyboard focus**, in a small label above the row
+  in `bg-fg` and `text-sunken` — the page's own ink and ground swapped, so it reads on every theme.
 
 ### The icon, and the bar above the page
 

@@ -44,6 +44,13 @@ public interface ILibraryService
     Task<IReadOnlyList<LibraryItemDto>> UpcomingAsync(
         string? hobby, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Your Backlog column as the board draws it, oldest first, with when each title arrived in
+    /// it — what the Stats page lists as waiting.
+    /// </summary>
+    Task<IReadOnlyList<BacklogTitleDto>> BacklogAsync(
+        string? hobby, CancellationToken cancellationToken);
+
     Task<bool> HobbyExistsAsync(string hobby, CancellationToken cancellationToken);
 
     /// <summary>
@@ -120,12 +127,6 @@ public sealed class LibraryService(
         public LogEntry Latest { get; set; } = null!;
     }
 
-    /// <summary>
-    /// The instants a calendar year spans here. Half-open, [From, To), so the boundary belongs
-    /// to exactly one year however the clocks moved during it.
-    /// </summary>
-    private readonly record struct YearSpan(DateTimeOffset From, DateTimeOffset To);
-
     public Task<bool> HobbyExistsAsync(string hobby, CancellationToken cancellationToken) =>
         db.Hobbies.AnyAsync(h => h.Name == hobby, cancellationToken);
 
@@ -156,6 +157,50 @@ public sealed class LibraryService(
             cancellationToken);
 
         return page.Items;
+    }
+
+    public async Task<IReadOnlyList<BacklogTitleDto>> BacklogAsync(
+        string? hobby, CancellationToken cancellationToken)
+    {
+        // The column exactly as the board draws it, through the board's own query: the current
+        // pass decides the column, and the titles waiting on the release calendar are not in it.
+        // Unpaged, because the whole column is the answer and a backlog is hundreds at most.
+        var titles = await Filtered(
+                BoardQuery().AsNoTracking(), hobby, LogStatus.Backlog, year: null,
+                LibraryPartition.Default, clock.Today)
+            .Select(row => new BacklogTitleDto(
+                row.Media.Id,
+
+                // The name a card leads with, as both board projections build it. A third copy of
+                // that coalesce, terminal like the others and so nowhere near BoardQuery.
+                (row.Media as Anime)!.EnglishTitle ?? row.Media.Title,
+
+                row.Media.CoverUrl,
+                row.Latest.LoggedAt,
+
+                // When it last arrived in Backlog: the pass's latest row in the column history,
+                // if that row says Backlog. The latest row and not the latest Backlog row —
+                // when the last move the history knows of went somewhere else, a write around the
+                // recorder brought it back, and an older arrival would claim a wait that was
+                // interrupted. Null for a pass with no rows, which is one made before recording
+                // began on 1 October 2026 and never moved since.
+                db.StatusChanges
+                    .Where(change => change.LogEntryId == row.Latest.Id)
+                    .OrderByDescending(change => change.ChangedAt)
+                    .ThenByDescending(change => change.Id)
+                    .Select(change => change.ToStatus == LogStatus.Backlog
+                        ? (DateTimeOffset?)change.ChangedAt
+                        : null)
+                    .FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+
+        // Oldest first, by the best date there is for each.
+        return
+        [
+            .. titles
+                .OrderBy(title => title.InBacklogSince ?? title.LoggedAt)
+                .ThenBy(title => title.MediaId),
+        ];
     }
 
     public async Task<LibraryPage> ListAsync(
@@ -307,12 +352,10 @@ public sealed class LibraryService(
     /// added up, and your own hours against it over the titles that have both.
     ///
     /// <para>
-    /// <b>Two numbers a title are read out and added up here</b>, rather than summed in SQL, for
-    /// <c>ActivityYearsAsync</c>'s reason: a column is a few hundred rows at most at the scale a
-    /// personal catalogue reaches, and the rules that matter — a title with no figure is left out
-    /// and counted rather than added as nought, and a comparison is over one set of titles — read
-    /// as what they are. A SQL <c>SUM</c> answers nought for nothing, which is the first of them
-    /// broken.
+    /// <b>Two numbers a title are read out here and added up by <see cref="HoursTally"/></b>,
+    /// rather than summed in SQL: a column is a few hundred rows at most at the scale a personal
+    /// catalogue reaches, and the rules read as what they are there. The Stats page adds up a
+    /// year's finishes by the same ones.
     /// </para>
     /// </summary>
     private static async Task<ColumnHours> HoursOfAsync(
@@ -349,15 +392,7 @@ public sealed class LibraryService(
             })
             .ToListAsync(cancellationToken);
 
-        var timed = titles.Where(title => title.Length is not null).ToList();
-        var compared = timed.Where(title => title.HoursPlayed is not null).ToList();
-
-        return new ColumnHours(
-            Length: timed.Count == 0 ? null : timed.Sum(title => title.Length!.Value),
-            LengthTitles: timed.Count,
-            Played: compared.Count == 0 ? null : compared.Sum(title => title.HoursPlayed!.Value),
-            PlayedLength: compared.Count == 0 ? null : compared.Sum(title => title.Length!.Value),
-            PlayedTitles: compared.Count);
+        return HoursTally.Of(titles.Select(title => (title.Length, title.HoursPlayed)));
     }
 
     public async Task<IReadOnlyList<int>> ActivityYearsAsync(
@@ -376,17 +411,9 @@ public sealed class LibraryService(
             .Select(row => new { row.Latest.StartedAt, row.Latest.CompletedAt })
             .ToListAsync(cancellationToken);
 
-        // The instant becomes a year here rather than in SQL. Postgres can only localise a
-        // timestamptz through AT TIME ZONE, which is STABLE rather than IMMUTABLE — it will not
-        // go in an index or a generated column — and a bare date_part would read whatever
-        // timezone the session was opened with. At the size a personal catalogue reaches this is
-        // a few hundred rows, which is a cheap price for the zone staying explicit.
-        return [.. activity
-            .SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt })
-            .Where(instant => instant is not null)
-            .Select(instant => clock.DayOf(instant!.Value).Year)
-            .Distinct()
-            .OrderByDescending(year => year)];
+        // The instants become years in C# rather than in SQL, by the clock's rule — see
+        // IJournalClock.YearsOf, which the Stats page's years go through as well.
+        return clock.YearsOf(activity.SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt }));
     }
 
     public async Task<LibraryItemDto?> TransitionAsync(
@@ -591,20 +618,8 @@ public sealed class LibraryService(
             .ThenByDescending(entry => entry.Id);
     }
 
-    /// <summary>
-    /// Turns a calendar year into the instants that bound it here. The offset is asked of the
-    /// zone at each boundary rather than assumed, so a year is the right length even though one
-    /// of its days is 23 hours and another is 25.
-    /// </summary>
-    private YearSpan? SpanOf(int? year) => year is { } chosen
-        ? new YearSpan(FirstInstantOf(chosen), FirstInstantOf(chosen + 1))
-        : null;
-
-    private DateTimeOffset FirstInstantOf(int year)
-    {
-        var midnight = new DateTime(year, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
-        return new DateTimeOffset(midnight, clock.Zone.GetUtcOffset(midnight)).ToUniversalTime();
-    }
+    /// <summary>The instants a year asked for spans here, or null for every year.</summary>
+    private YearSpan? SpanOf(int? year) => year is { } chosen ? clock.SpanOf(chosen) : null;
 
     private static IQueryable<BoardRow> Filtered(
         IQueryable<BoardRow> query,

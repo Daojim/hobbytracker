@@ -131,8 +131,10 @@ EF's back would make a future `DROP CONSTRAINT` fail.
 edits the pass in place, so until 1 October 2026 the moment of it was lost; `logged_at` says only
 when the pass was made. One row per arrival, `from_status` → `to_status` at `changed_at`, and
 **`from_status` is null when the pass was made**: by an add, by `POST /api/log-entries`, or by the
-replay a move out of Completed starts. Nothing reads it yet. It was recorded ahead of stats and the
-year in review because it is the one thing neither of them could backfill.
+replay a move out of Completed starts. It was recorded ahead of stats and the year in review
+because it is the one thing neither of them could backfill. **Its first reader is the Stats page**,
+since 2 October 2026: how long a title has waited in Backlog is its pass's latest row, when that
+row says Backlog — see **How long a title has waited** in `docs/stats.md`.
 
 - **Written by `StatusHistoryRecorder`, an EF `SaveChangesInterceptor`, and by no service.** It
   sees every `LogEntry` a save adds and every one whose `Status` differs from what was loaded, so
@@ -189,9 +191,17 @@ hour hole in every day the app is actually used.
 
 **The rule that keeps the rest simple: an instant is stored as an instant, a day is stored as a
 day, and the zone is applied only where one of them has to be compared with the other.** The zone
-is applied in exactly four places: `?year=`, `GET /api/library/years`, the UI, and **the release
+is applied in exactly four places: **a year asked for** (`?year=` on the board and on the Stats
+page, both through `IJournalClock.SpanOf`), **the lists of years** (`GET /api/library/years` and
+`GET /api/stats/years`, both through `IJournalClock.YearsOf`), the UI, and **the release
 calendar's idea of today** — `IJournalClock.Today` on the server, mirrored by `todayHere()` in
 `lib/time.ts`.
+
+**The Stats page added routes to the first two places and no fifth.** A second service needed the
+year's span and the years list, so both moved onto the clock rather than being copied: each of
+those places is now one method, called from two routes. The months a finish is filed under are the
+UI's, through `journalMonth` in `lib/time.ts`, because the server sends instants and leaves the
+filing to the client.
 
 **The fourth is the one that is not an instant, and that is the whole of why it is worth counting
 separately.** A release date is a calendar day a publisher announced. It belongs to no timezone,
@@ -231,11 +241,12 @@ still valid, but `LogEntryService` sets it explicitly on every insert it makes.
 - **The year filter is a range, not an `EXTRACT`.** `date_part('year', completed_at)` on a
   `timestamptz` reads the *session's* timezone, so the same query answers differently depending on
   how the connection was opened, and a game finished at 8pm on New Year's Eve counts toward the
-  following year. `LibraryService.SpanOf` turns a year into `[Jan 1 here, next Jan 1 here)` and
-  compares instants, which is both correct and index-friendly. `ActivityYearsAsync` cannot do
-  that — it needs a year per row — so it selects the instants and groups them in C#: Postgres can
-  only localise a `timestamptz` through `AT TIME ZONE`, which is `STABLE` rather than `IMMUTABLE`
-  and so cannot be indexed or put in a generated column. A few hundred rows, at this scale.
+  following year. `IJournalClock.SpanOf` turns a year into `[Jan 1 here, next Jan 1 here)` and
+  the queries compare instants, which is both correct and index-friendly. A list of years cannot
+  do that — it needs a year per row — so `IJournalClock.YearsOf` is handed the instants and files
+  them in C#: Postgres can only localise a `timestamptz` through `AT TIME ZONE`, which is `STABLE`
+  rather than `IMMUTABLE` and so cannot be indexed or put in a generated column. A few hundred
+  rows, at this scale. Both lived in `LibraryService` until the Stats page needed them too.
 
 - **A day written to `timestamptz` moves.** Npgsql accepts it, the journal zone renders it, and a
   26 September release becomes the 25th. The four `media.release_*` columns are `date`, and the
