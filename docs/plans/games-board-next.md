@@ -119,7 +119,8 @@ serves.
 https://claude.ai/artifact/3qjCooCBbvsFa7QiqcNctF.
 - **The icon is Covers, on warm paper**: two pieces of box art, the front one ticked off, on Shelf
   Light's ground. Four drawings were rendered on four grounds. The user picked Covers over the
-  recommended Shelf, and took the recommended paper.
+  recommended Shelf, and took the recommended paper. *Redrawn on 3 October 2026 as a journal with
+  the hobbies stuck on its cover, on the same paper. See `design.md`.*
 - **The bar above the page follows the theme**, as recommended. Each theme's bar is its ground.
 - **The user's phone is Android**, which decides the checks below.
 
