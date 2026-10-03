@@ -19,7 +19,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon followed on 2 October 2026** (PR #48), deployed the same day. Left: the Android checks in its section |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
-| 4 | "How long will it take me?" | S–M | **Built 2 October 2026** on `how-long-will-it-take-me`, after a workshop the same day. See its section |
+| 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
 | 5 | Stats | M–L | Planned, after #2, using #3's sums |
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
@@ -27,7 +27,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | Planned |
 
-Production runs `b213e27`, which was `main` on 2 October 2026. Deploying is the runbook in
+Production runs `8cac01a`, which was `main` on 2 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -326,9 +326,10 @@ The table is in `docs/board.md`.
 
 ## 4. "How long will it take me?" · built
 
-**Built on 2 October 2026**, on the branch `how-long-will-it-take-me`, after a workshop the same
-day. Not merged or deployed yet. No migration, no new variable, and nothing on the server.
-Write-ups: `docs/journal.md`, *How long will it take me?*, for the drawer; `docs/board.md`, under
+**Shipped and deployed on 2 October 2026** (PR #50), after a workshop the same day. Production
+serves a new bundle carrying the quiz's words, each counted 0 in the old one, with no migration
+and no new variable. The API was recreated anyway, on new .NET base images, as `docs/deploy.md`
+says can happen. Write-ups: `docs/journal.md`, *How long will it take me?*, for the drawer; `docs/board.md`, under
 *Hours in the column headers* and the card menu, for the board; and `docs/design.md`, under the
 same name, for the look.
 

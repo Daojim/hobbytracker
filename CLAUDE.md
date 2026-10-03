@@ -597,8 +597,7 @@ shuffled.
         other hobbies' wording is noted in the plan
       - [x] "how long will it take me?" — a quiz under a game's estimates that answers with a
         date, remembered per board; a card's menu opening it; and Backlog's header at your pace.
-        The user's own idea, picked from renders over the recommendation. Built on 2 October
-        2026 on `how-long-will-it-take-me`, not merged yet
+        The user's own idea, picked from renders over the recommendation (PR #50, deployed)
       - stats
       - searching your notes
       - export to a spreadsheet
