@@ -12,7 +12,9 @@ namespace HobbyTracker.Api.Domain;
 ///
 /// A new value does need an arm in LibraryService.ApplyTransitionTimestamps, which is a switch
 /// statement with no default — a status without one compiles and silently stamps nothing — and
-/// a decision in LibraryService.InYear, whose default arm would otherwise answer for it.
+/// a decision in LibraryService.InYear, whose default arm would otherwise answer for it — and a
+/// third in StatsService.CompletionAsync, where a status in none of the three counts is silently
+/// left out of the completion rate.
 /// </summary>
 public enum LogStatus
 {

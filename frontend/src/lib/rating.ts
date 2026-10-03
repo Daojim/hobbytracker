@@ -32,3 +32,21 @@ export function ratingTone(rating: number): RatingTone {
 
   return 'text-rating-high';
 }
+
+export type RatingFill = 'bg-rating-low' | 'bg-rating-mid' | 'bg-rating-high';
+
+/**
+ * A bar's fill for a rating, in {@link ratingTone}'s bands — the Stats page's ratings chart, so a
+ * bar at 6 is the orange a 6.0 wears on a card. Whole class names, for the same reason.
+ */
+export function ratingFill(rating: number): RatingFill {
+  if (rating < LOW) {
+    return 'bg-rating-low';
+  }
+
+  if (rating < HIGH) {
+    return 'bg-rating-mid';
+  }
+
+  return 'bg-rating-high';
+}

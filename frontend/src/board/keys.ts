@@ -106,3 +106,17 @@ export const libraryStatusesKey = (hobby: string) => ['library', hobby, 'statuse
  * board, and where, comes from {@link libraryStatusesKey}.
  */
 export const discoverKey = (hobby: string, list: string) => ['discover', hobby, list] as const;
+
+/**
+ * A year of one hobby on the Stats page, `undefined` for every year.
+ *
+ * Not under `['library', ...]` either, and nothing on the board settles it. The page is never
+ * on screen while the board is, and a query mounting on a new page refetches anything stale —
+ * which, at the default stale time of nought, is everything. So a move can never leave the page
+ * showing the board as it was.
+ */
+export const statsKey = (hobby: string, year: number | undefined) =>
+  ['stats', hobby, { year }] as const;
+
+/** The years the Stats page offers. See `statsYears` for why they are not the board's. */
+export const statsYearsKey = (hobby: string) => ['stats', hobby, 'years'] as const;

@@ -60,6 +60,20 @@ export function journalYear(instant: string): number {
 }
 
 /**
+ * The calendar month an instant belongs to here, 1 to 12 — what the Stats page files a finish
+ * under. {@link journalYear}'s rule, and for its reason: an evening at the end of a month is
+ * already the next one in UTC.
+ */
+export function journalMonth(instant: string): number {
+  const month = new Intl.DateTimeFormat('en-US', {
+    timeZone: JOURNAL_TIME_ZONE,
+    month: 'numeric',
+  }).format(new Date(instant));
+
+  return Number(month);
+}
+
+/**
  * The day an instant fell on here, as `YYYY-MM-DD` for an `<input type="date">`.
  *
  * Deliberately not `toISOString().slice(0, 10)`, which reads UTC: an evening here is already

@@ -181,6 +181,51 @@ describe('BoardPage', () => {
     expect(board.queriesFor('OnHold')[0]?.has('year')).toBe(false);
   });
 
+  it('offers the stats of the year it is showing, on the year\'s own row', async () => {
+    // Picked from renders on 2 October 2026: beside the year it is about, carrying that year to
+    // the page, and on a phone too, where the row already is.
+    boardServer({ years: [2026, 2024] });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    expect(await screen.findByRole('link', { name: 'Stats for 2026' })).toHaveAttribute(
+      'href',
+      '/board/games/stats/2026',
+    );
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Year' }), '2024');
+
+    expect(screen.getByRole('link', { name: 'Stats for 2024' })).toHaveAttribute(
+      'href',
+      '/board/games/stats/2024',
+    );
+  });
+
+  it('offers every year\'s stats under All years', async () => {
+    boardServer({ years: [2026] });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: 'Year' }),
+      'All years',
+    );
+
+    expect(screen.getByRole('link', { name: 'Stats for all years' })).toHaveAttribute(
+      'href',
+      '/board/games/stats/all',
+    );
+  });
+
+  it('offers no stats on a board whose hobby has no Stats page yet', async () => {
+    // HobbyDefinition.stats decides it, rather than a branch on the slug.
+    boardServer({ hobby: 'movies', years: [2026] });
+
+    renderWithProviders(<BoardPage />, { route: '/board/movies', path: '/board/:hobby' });
+    await screen.findByRole('combobox', { name: 'Year' });
+
+    expect(screen.queryByRole('link', { name: /^Stats/ })).not.toBeInTheDocument();
+  });
+
   it('takes the year off every request when All years is chosen', async () => {
     const board = boardServer({ years: [2026, 2024] });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ratingTone } from './rating';
+import { ratingFill, ratingTone } from './rating';
 
 describe('ratingTone', () => {
   it('paints a poor score as the low tone', () => {
@@ -34,5 +34,16 @@ describe('ratingTone', () => {
     for (const tone of [ratingTone(3), ratingTone(6.5), ratingTone(9)]) {
       expect(tone).toMatch(/^text-rating-(low|mid|high)$/);
     }
+  });
+});
+
+describe('ratingFill', () => {
+  it('fills a bar in the band its rating is in, by the same boundaries as the text', () => {
+    // The Stats page's ratings chart is coloured as a card's rating is, so a 6 there is the orange
+    // of a 6.0 on a card. One set of boundaries, read twice.
+    expect(ratingFill(5.9)).toBe('bg-rating-low');
+    expect(ratingFill(6)).toBe('bg-rating-mid');
+    expect(ratingFill(7.9)).toBe('bg-rating-mid');
+    expect(ratingFill(8)).toBe('bg-rating-high');
   });
 });

@@ -45,6 +45,35 @@ public sealed class JournalClockTests
             .ShouldBe(TimeSpan.FromHours(-5));
     }
 
+    [Fact]
+    public void A_year_runs_from_midnight_here_on_new_years_day_to_the_next_one()
+    {
+        // Half-open, and in instants: the year filter compares against these rather than asking
+        // Postgres for a year, which would read the session's zone instead of this one. January
+        // is always EST, so both ends are five hours after UTC's midnight.
+        var span = ClockAt("2026-08-20T16:00:00Z").SpanOf(2026);
+
+        span.From.ShouldBe(DateTimeOffset.Parse("2026-01-01T05:00:00Z"));
+        span.To.ShouldBe(DateTimeOffset.Parse("2027-01-01T05:00:00Z"));
+    }
+
+    [Fact]
+    public void The_years_some_instants_fall_in_are_the_ones_here_newest_first_and_once_each()
+    {
+        // 8pm on New Year's Eve here is 1am on New Year's Day in UTC, and it is the old year's.
+        // Nulls are the dates a pass does not have, and belong to no year.
+        var years = ClockAt("2026-08-20T16:00:00Z").YearsOf(
+        [
+            DateTimeOffset.Parse("2026-01-01T01:00:00Z"),
+            null,
+            DateTimeOffset.Parse("2024-06-01T16:00:00Z"),
+            DateTimeOffset.Parse("2026-03-01T16:00:00Z"),
+            DateTimeOffset.Parse("2024-07-01T16:00:00Z"),
+        ]);
+
+        years.ShouldBe([2026, 2025, 2024]);
+    }
+
     private static JournalClock ClockAt(string instant) => new(
         new FrozenTimeProvider { UtcNow = DateTimeOffset.Parse(instant) },
         Options.Create(new JournalOptions { TimeZone = "America/New_York" }));

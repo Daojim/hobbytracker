@@ -140,6 +140,26 @@ export interface HobbyDefinition {
   } | null;
 
   /**
+   * The Stats page's words, or null for a hobby whose board has no Stats page yet — which also
+   * takes the board's way in to it away.
+   *
+   * **Only games sets it, and that is the user's call rather than a fact about the data** — the
+   * {@link columnHours} rule. The API answers stats for every hobby and has no idea which board is
+   * asking. What was decided on 1 October 2026 was to build each feature on the games board first.
+   */
+  stats: {
+    /** What the page counts, by how many: `game`, `games`. */
+    noun(count: number): string;
+
+    /**
+     * Whose figures your hours are set against, by name: `HowLongToBeat`. The comparison also
+     * needs {@link PassFields.hoursPlayed} and {@link columnHours}' words, the column header's
+     * rule, so a hobby whose pass records no hours never compares, whatever it says here.
+     */
+    against: string;
+  } | null;
+
+  /**
    * What a column's header says about how long its titles take, or null for a hobby whose board
    * does not say yet.
    *

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatJournalDate, formatJournalDateTime, journalDateInput, journalYear } from './time';
+import {
+  formatJournalDate,
+  formatJournalDateTime,
+  journalDateInput,
+  journalMonth,
+  journalYear,
+} from './time';
 
 // The API hands back instants. Turning one into "what day was that" is a question about a
 // timezone, and the answer has to be the same one the server gives — otherwise the board says a
@@ -38,6 +44,14 @@ describe('journal time', () => {
   it('puts a new years eve completion in the year it happened here', () => {
     // 8pm on the 31st here is already the 1st in UTC. This must agree with the ?year= filter.
     expect(journalYear('2027-01-01T01:00:00+00:00')).toBe(2026);
+  });
+
+  it('puts an evening at the end of a month in that month here', () => {
+    // 7:30pm on the 31st of January here is already February in UTC. The Stats page files a
+    // finish under its month with this, and has to agree with the year it filed it under.
+    expect(journalMonth('2026-02-01T00:30:00+00:00')).toBe(1);
+    expect(journalMonth('2027-01-01T01:00:00+00:00')).toBe(12);
+    expect(journalMonth(thursdayEvening)).toBe(8);
   });
 
   it('passes a missing timestamp through rather than inventing one', () => {
