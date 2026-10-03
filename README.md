@@ -289,6 +289,13 @@ rather than an error. Sixteen query sites carry the predicate by hand, and twent
 tests were written red first, and each was checked afterwards by reverting one predicate at a
 time: every one fails exactly the tests that name it and nothing else.
 
+**The session cookie carries a date, and phones are the reason.** A browser keeps a cookie with no
+expiry only until it restarts, and Chrome on Android deletes those when it starts — which Android
+makes it do whenever it wants the memory back. For the app's first five weeks the thirty-day
+session was real on the server and invisible to the browser, so phones were signed out at random
+while a desktop browser, open for days, never was, and redeploys took the blame. One flag fixed it,
+and a test now restarts the browser to prove it.
+
 **A pass's history is written by an interceptor, which is the opposite of the scoping decision,
 on purpose.** A move edits the current pass in place, so when it happened would be lost without
 `status_changes`. Four services set a status, and none of them records it. One EF
