@@ -20,14 +20,14 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
-| 5 | Stats | M–L | **Built 2 October 2026** on the branch `stats`, after a workshop the same day. Not yet merged or deployed. See its section |
+| 5 | Stats | M–L | **Shipped 2 October 2026 and deployed on the 3rd** (PR #52), after a workshop the same day. See its section |
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
 | 8 | Delete my account | S–M | Planned. Workshop it with #7 |
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | Planned |
 
-Production runs `8cac01a`, which was `main` on 2 October 2026. Deploying is the runbook in
+Production runs `bf87b00`, which was `main` on 3 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -438,9 +438,12 @@ turned red exactly the tests that name it:
 
 ---
 
-## 5. Stats · built
+## 5. Stats · shipped
 
-**Built on 2 October 2026, on the branch `stats`.** Not yet merged or deployed. The write-up is
+**Shipped on 2 October 2026 and deployed just after midnight on the 3rd** (PR #52). No
+migration and no new variable. Both images were rebuilt and recreated, the API first, and the
+public site serves a new bundle carrying the page's words, each counted 0 in the one before it.
+Both new routes answered 404 before the deploy and 401 after it, without a session. The write-up is
 `docs/stats.md`, a new area file: what each number means, why the page counts playthroughs, the
 two routes, and every fault planted. The look is `docs/design.md`, **Stats**. The workshop page
 is private: https://claude.ai/artifact/Cb1T1pYGFvdi35ULXn3Pq2.

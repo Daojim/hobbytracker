@@ -6,8 +6,8 @@
 
 **What a year of a hobby added up to**, on a page of its own under the board:
 `/board/:hobby/stats/:year`, or `/all` for every year. Built on 2 October 2026 for #5 in
-`docs/plans/games-board-next.md`, on the games board only. The year in review is meant to grow
-from it.
+`docs/plans/games-board-next.md`, on the games board only, and deployed on the 3rd (PR #52). The
+year in review is meant to grow from it.
 
 | | |
 |---|---|
