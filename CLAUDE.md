@@ -606,8 +606,7 @@ shuffled.
         what you finished as covers by month, your hours against HowLongToBeat game by game,
         your ratings, the share of what you started that you finished, and how long each title
         has waited in the backlog — the column history's first reader. Every choice was the
-        recommendation, twelve of them, eight from renders. Built on the branch `stats`; not
-        yet merged or deployed
+        recommendation, twelve of them, eight from renders (PR #52, deployed)
       - searching your notes
       - export to a spreadsheet
       - deleting an account
