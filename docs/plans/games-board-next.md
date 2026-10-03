@@ -162,7 +162,9 @@ and `theme.spec.ts` gained 2. Each guard was checked by planting its fault:
   answers installability with nothing. See the rule under *Phone tests*.
 - **"Check Caddy's caching."** Nothing to change. The manifest and the icons already get
   `no-cache`, so a phone picks up a changed icon on its next request. That and the content types
-  were measured with the production image before deploying, not only after.
+  were measured with the production image before deploying, not only after. *True of Caddy and
+  not of the public origin, measured when the journal icon was deployed on 3 October 2026:
+  Cloudflare serves the icons with four hours. See `deploy.md`.*
 
 **Check on your phone after deploying (Android):**
 1. Install it from Chrome's menu. The launcher crops the icon to its shape without cutting into

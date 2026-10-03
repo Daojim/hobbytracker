@@ -436,7 +436,9 @@ drawings. Each was rendered on iPhone and Android home screens with light and da
 inside Android's masks, and in a browser tab at a true 16px. The workshop page is private:
 https://claude.ai/artifact/9QSf3qz1S9oFh2pTtQTnt7. The user asked for the hobbies themselves in
 place of the tick: a controller, a TV, a book and headphones, not necessarily all in one icon. The
-recommendation was Telly, on a book, and the user picked Journal instead.
+recommendation was Telly, on a book, and the user picked Journal instead. It was deployed the
+same day, in #56. A browser that held the old icon may show it for up to four hours after a
+change, because Cloudflare sends the icons with that long (`deploy.md`).
 
 | Drawing | What the renders showed |
 |---|---|

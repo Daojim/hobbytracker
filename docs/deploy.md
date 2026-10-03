@@ -131,6 +131,16 @@ else in the suite is quietly running against an origin it never mentioned.
   `/etc/mime.types`: `application/manifest+json`, `image/png`, `image/svg+xml` and
   `image/vnd.microsoft.icon`. **A file that is not there comes back `200 text/html`**, by
   `try_files`, so a missing icon looks like success to anything that checks only the status.
+- **Cloudflare turns the icons' `no-cache` into four hours.** Caddy sends `no-cache` for every
+  file outside `/assets`, and `index.html` and the manifest reach a browser that way. The PNGs,
+  `favicon.svg` and `favicon.ico` do not. Measured at `<origin>` on 3 October 2026, they arrive
+  with `Cache-Control: max-age=14400` and `cf-cache-status: REVALIDATED`, while the server's
+  loopback port still says `no-cache`. That is the zone's *Browser Cache TTL*, which overrides any
+  origin header shorter than itself, on the file types Cloudflare caches by default. The edge
+  revalidates with Caddy on every request, so a changed icon is served at once, which is what
+  #56's proof measured. **A browser that already fetched the old icon keeps it for up to four
+  hours.** The setting's other choice, *Respect Existing Headers*, would pass `no-cache` through.
+  It is in Cloudflare's dashboard, outside this repository, and has not been changed.
 
 ## Redeploying
 
@@ -235,6 +245,19 @@ serves the new build, so prove that from outside:
   <origin>/manifest.webmanifest` says `application/manifest+json`, and `curl -I
   <origin>/icon-512.png` says `image/png`. `text/html` means the file is missing and `try_files`
   answered with the page.
+- **A change to the icons alone is proved by their bytes.** The bundle keeps its name, which
+  proves nothing either way. Hash each icon `<origin>` serves against the committed file, before
+  the deploy and after it, for all six: `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
+  `apple-touch-icon.png`, `favicon.svg` and `favicon.ico`.
+
+  ```bash
+  curl -s <origin>/icon-512.png | sha256sum
+  git show <sha>:frontend/public/icon-512.png | sha256sum
+  ```
+
+  Before #56 all six hashed as the previous commit's files, and after it as the new ones. Read the
+  blob with `git show` rather than the working copy, where Git on Windows may have rewritten an
+  SVG's line endings.
 - **A new route answers 401.**
 - **A backend change with no new route and no migration is proved inside the container.** Nothing
   outside can tell the new API from the old one, and the bundle names prove nothing either way. So
