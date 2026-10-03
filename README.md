@@ -30,6 +30,11 @@ the hours you logged against them. Clicking the title opens the journal over the
 platform, dates, your hours beside HowLongToBeat's three estimates, dated notes, and every
 earlier pass with its own notes below it.
 
+A link on the board's year row opens that year's stats: what you finished, as covers under the
+month you finished them, your hours against HowLongToBeat game by game, your ratings, how much of
+what you started you finished, and how long each game in the backlog has waited. Stats count every
+playthrough where the board counts titles, so a year's numbers stay put when a game is replayed.
+
 Search sits above the board rather than on a screen of its own, so the column a title will land
 in is visible while you decide. Every result — and every cover on the Discover wall — adds
 straight to Backlog, Playing or Completed, and arrives with the dates a drag into that column would
@@ -137,6 +142,8 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls |
 | `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
 | `PUT /api/library/order` | store one column's manual ranking |
+| `GET /api/stats?hobby=&year=` | a year in numbers: every playthrough finished, your hours against the estimates, what became of what you started, and how long the backlog has waited |
+| `GET /api/stats/years?hobby=` | the years there is something to show for |
 
 ## Stack
 
@@ -464,6 +471,13 @@ to prevent something, the test for it is checked by reintroducing the thing.
       hundredths of an hour, because in floating point 2.1 hours at 0.7 a day is a fourth day
       nobody needs. Three designs were rendered in the drawer first, and the one picked was the
       user's own
+- [x] Stats, a year at a time. What you finished, as covers filed under the month you finished
+      them; your hours against HowLongToBeat's, game by game; your ratings; the share of what you
+      started that you finished; and how long each game has sat in the backlog, which is the
+      first thing to read the history of column changes recorded ahead of it. It counts every
+      playthrough rather than every title, so a game finished in March and replayed in June is
+      still a March finish, and a year's numbers never change because of something done later.
+      Twelve choices were settled first, four in words and eight from renders of the real app
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

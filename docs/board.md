@@ -34,6 +34,8 @@ routes are the only anonymous ones.
 | `POST /api/library/{mediaId}` | put a title on your board, in a column — what a tile's +, ▶ and ✓ call. **201** with the card; **409** when it is already on your board |
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours** |
 | `PUT /api/library/order` | store one column's manual ranking |
+| `GET /api/stats?hobby=&year=` | the Stats page's year: every finish in it, your hours against them, what became of what was started, and the Backlog column. Every playthrough, not every title. **400** for a year outside 1–9998. See `docs/stats.md` |
+| `GET /api/stats/years?hobby=` | the years the Stats page can show — every pass's, where the board's are its current passes' |
 
 List endpoints return `PagedResult<T>`; search returns a bare array capped by `limit`. A board
 column's is `LibraryPage`, which extends it with the column's hours — see **Hours in the column
@@ -514,10 +516,22 @@ value it has no option for renders blank — so the control would report no year
 its place rather than appended, and the list is not re-sorted: the API hands these over newest
 first and knows things the picker does not.
 
+**The year's row also holds the way to the Stats page**, on the games board: "Stats for 2026 →" at
+its left, carrying the year the board is showing, or every year under All years. Picked from
+renders on 2 October 2026 over a link in the header and a button beside the picker. A hobby with
+no `HobbyDefinition.stats` has no link, and the row keeps the picker alone at its right. See
+`docs/stats.md`.
+
 **The board renders nothing until the years arrive.** Deliberate rather than a missing loading state:
 it opens on the latest year, so painting before they are known is a board showing every year — briefly
 — with every column refetched on the way to the one it was always going to be. `YearPicker` is
 presentational, because the page has to hold that query to have anything to default to.
+
+**`?year=` has no bound, and `0` or `9999` is a 500.** A year becomes its span through
+`IJournalClock.SpanOf`, and `DateTime` cannot hold year 0, or the year after 9999. Found on
+2 October 2026 when the Stats page's route was given `[Range(1, 9998)]` and its test was checked by
+taking the attribute away, which answered 500 for both. Only a hand-typed address reaches it, so it
+was noted rather than fixed; the fix is the same attribute on `LibraryController`'s `year`.
 
 **One consequence worth knowing rather than fixing:** completing a game while reading a past year
 makes its card leave the board, since the completion is stamped *now*. That is the filter being honest.
@@ -657,12 +671,16 @@ an estimate prints nothing rather than `0 h`, which is Dropped in the workshop's
 same games, or a game with no hours logged reads as you having been quick. Your hours are the
 current pass's, the one the card shows, and they come through `Latest`, which is already yours.
 
-**Added up in C#, not SQL**, for `ActivityYearsAsync`'s reason: a column is a few hundred rows at
-most, and `HoursOfAsync` reads two numbers a title and states the rules above as what they are.
-A SQL `SUM` answers nought for nothing, which breaks the first of them.
+**Added up in C#, not SQL**, for the years list's reason: a column is a few hundred rows at
+most, and `HoursOfAsync` reads two numbers a title and hands them to `HoursTally.Of`, which states
+the rules above as what they are. A SQL `SUM` answers nought for nothing, which breaks the first of
+them. **`HoursTally` is shared with the Stats page**, which adds up a year's finishes by the same
+rules and says it in the same words — `columnHoursLines` with `'Completed'` — so the two cannot
+read differently about one comparison. See `docs/stats.md`.
 
 **The sum is a fourth copy of the `LengthHours` coalesce**, after the two terminal projections
-and `Sorted`'s Length arm. The plan offered a shared expression instead, and it would have saved
+and `Sorted`'s Length arm. The Stats page's finishes are a fifth, held to the cards the same way
+by `A_finish_carries_the_name_and_the_length_its_card_prints_for_every_hobby`. The plan offered a shared expression instead, and it would have saved
 one copy of four, because the projections cannot reuse one without an `Invoke`. So a test holds
 the copies together, as each hobby's length-sort test holds `Sorted`'s:
 `The_total_is_the_sum_of_what_the_cards_print_for_every_hobby`. **The sum rounds each title as
@@ -786,12 +804,14 @@ Traps, all of which have bitten already:
   `new BoardRow { A = ..., B = ... }` and push later `Where`/`OrderBy` into SQL; a positional record
   is opaque to it and every filter on the projected latest entry fails to translate. **It surfaces as
   an empty library, not an obvious error.**
-- **TPT downcasts live in the two terminal DTO projections only, never in `BoardQuery`.** `BoardQuery`
+- **TPT downcasts live in terminal projections only, never in `BoardQuery`.** `BoardQuery`
   is what every `Where` and `OrderBy` is pushed through, so a downcast that stops translating there
   empties the whole board with no error; confined to one place the worst case is that one thing
-  breaks. `sort=length` keeps its downcast **inside that one switch arm** in `LibraryService.Sorted`,
-  and `LibraryOrderingTests` asserts the column comes back **non-empty**, because emptiness is the
-  symptom.
+  breaks. The terminal ones are the two DTO projections, the Stats page's backlog in
+  `LibraryService.BacklogAsync`, and its finishes in `StatsService`, which reads passes rather than
+  board rows and so is nowhere near `BoardQuery` at all. `sort=length` keeps its downcast **inside
+  that one switch arm** in `LibraryService.Sorted`, and `LibraryOrderingTests` asserts the column
+  comes back **non-empty**, because emptiness is the symptom.
 - **Validation attributes go on record primary-constructor parameters**, not `[property:]` targets.
   MVC throws `InvalidOperationException` rather than skipping them.
 - **`LogStatus` needs `JsonStringEnumConverter`** (registered in `Program.cs`) to travel as
