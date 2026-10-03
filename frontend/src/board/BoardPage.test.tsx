@@ -441,6 +441,75 @@ describe('BoardPage', () => {
     expect(screen.getByRole('heading', { name: 'Backlog 1' })).toBeInTheDocument();
   });
 
+  it('opens the journal at the question when a card is asked how long', async () => {
+    boardServer({
+      columns: {
+        InProgress: [
+          libraryItem({
+            mediaId: 3003,
+            title: 'Hollow Knight',
+            currentStatus: 'InProgress',
+            lengthHours: 41.8,
+          }),
+        ],
+      },
+    });
+    journalServer({
+      detail: gameDetail({
+        hltbAllStylesHours: 41.8,
+        hltbMainStoryHours: 27,
+        logEntries: [logEntry({ id: 7, status: 'InProgress', hoursPlayed: 14 })],
+      }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Options for Hollow Knight' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'How long for me?' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByText('How much do you play?')).toBeInTheDocument();
+  });
+
+  it('opens the journal shut on the question from the title, after asking from the menu', async () => {
+    // Which door the drawer came through is said on every opening, not left over from the last.
+    boardServer({
+      columns: {
+        InProgress: [
+          libraryItem({
+            mediaId: 3003,
+            title: 'Hollow Knight',
+            currentStatus: 'InProgress',
+            lengthHours: 41.8,
+          }),
+        ],
+      },
+    });
+    journalServer({
+      detail: gameDetail({
+        hltbAllStylesHours: 41.8,
+        hltbMainStoryHours: 27,
+        logEntries: [logEntry({ id: 7, status: 'InProgress', hoursPlayed: 14 })],
+      }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Options for Hollow Knight' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'How long for me?' }));
+    await screen.findByText('How much do you play?');
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Hollow Knight' }));
+
+    expect(
+      await screen.findByRole('button', { name: 'How long will it take me?' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('How much do you play?')).not.toBeInTheDocument();
+  });
+
   it('refetches only the column whose sort changed', async () => {
     // Each column is its own request, which is the whole reason a sort or a year on one of them
     // costs nothing on the other three.

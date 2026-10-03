@@ -406,6 +406,55 @@ describe('Card', () => {
     expect(menu.onClose).toHaveBeenCalledOnce();
   });
 
+  it('asks how long a game will take from the menu, opening the journal at the question', async () => {
+    // Picked at the #4 workshop: the quiz opens from the drawer or from here. Shorter than the
+    // drawer's "How long will it take me?", which wraps in a menu this narrow.
+    const { onOpen, menu } = renderOpen(
+      libraryItem({ mediaId: 42, title: 'Celeste', currentStatus: 'InProgress', lengthHours: 20 }),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'How long for me?' }));
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(42, { askHowLong: true });
+    expect(menu.onClose).toHaveBeenCalledOnce();
+  });
+
+  it.each<LogStatus>(['Backlog', 'OnHold'])('asks how long on a %s game too', (status) => {
+    renderOpen(libraryItem({ title: 'Celeste', currentStatus: status, lengthHours: 20 }));
+
+    expect(screen.getByRole('button', { name: 'How long for me?' })).toBeInTheDocument();
+  });
+
+  it.each<LogStatus>(['Completed', 'Dropped'])(
+    'does not ask how long on a %s game, which has nothing left to finish',
+    (status) => {
+      renderOpen(libraryItem({ title: 'Celeste', currentStatus: status, lengthHours: 20 }));
+
+      expect(screen.queryByRole('button', { name: 'How long for me?' })).not.toBeInTheDocument();
+    },
+  );
+
+  it('does not ask how long about a game with no estimate', () => {
+    renderOpen(libraryItem({ title: 'Celeste', currentStatus: 'InProgress', lengthHours: null }));
+
+    expect(screen.queryByRole('button', { name: 'How long for me?' })).not.toBeInTheDocument();
+  });
+
+  it('does not ask how long about a film, though it has a length', () => {
+    // A film's length is its runtime, and its pass records no hours to count from. Gated on the
+    // pass's fields, never on the hobby's name.
+    renderOpen(
+      libraryItem({
+        title: 'Celeste',
+        hobby: 'movies',
+        currentStatus: 'InProgress',
+        lengthHours: 1.93,
+      }),
+    );
+
+    expect(screen.queryByRole('button', { name: 'How long for me?' })).not.toBeInTheDocument();
+  });
+
   it('reports where the title is going, and the title, not the position it was in', async () => {
     const { onMove } = renderOpen(
       libraryItem({ mediaId: 42, title: 'Celeste', currentStatus: 'Backlog' }),

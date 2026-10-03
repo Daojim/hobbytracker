@@ -42,6 +42,11 @@ export interface EntryDrawerProps {
   hobby: string;
   mediaId: number;
   onClose: () => void;
+  /**
+   * Opened from a card's *How long for me?* rather than its title, so "How long will it take me?"
+   * starts open. Said on every opening by the board, never left over from the one before.
+   */
+  askHowLong?: boolean;
 }
 
 /**
@@ -57,7 +62,7 @@ export interface EntryDrawerProps {
  * it is. Neither kind is a branch on the slug, and that is the point: `if (hobby === 'movies')`
  * would be six branches by the time books land.
  */
-export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
+export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: EntryDrawerProps) {
   const { columnLabel, genres, journal } = hobbyDefinition(hobby);
   const { title, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(hobby, mediaId);
   const titleId = useId();
@@ -343,6 +348,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
               // of DOM nodes and take the keyboard out of the field being typed into. The form
               // re-seeds from a changed pass instead — see passValues.
               key={current.id}
+              hobby={hobby}
               entry={current}
               fields={journal.fields}
               platforms={detail.platforms}
@@ -378,6 +384,7 @@ export function EntryDrawer({ hobby, mediaId, onClose }: EntryDrawerProps) {
                   {...deleteProps(current.id)}
                 />
               }
+              askHowLong={askHowLong}
             />
 
             {/* The pass ends and the writing about it begins. Same rule as the header's, and the

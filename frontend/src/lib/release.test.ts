@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addDays,
   daysBetween,
   describeDistance,
+  formatDayShort,
   formatGroup,
   formatRelease,
   releaseGroup,
@@ -84,6 +86,48 @@ describe('daysBetween', () => {
 
   it('counts across a leap day', () => {
     expect(daysBetween('2028-02-01', '2028-03-01')).toBe(29);
+  });
+});
+
+describe('addDays', () => {
+  it('moves a day forward by whole days', () => {
+    expect(addDays('2026-10-02', 7)).toBe('2026-10-09');
+    expect(addDays('2026-10-02', 0)).toBe('2026-10-02');
+  });
+
+  it('runs over the end of a month and a year', () => {
+    expect(addDays('2026-10-28', 4)).toBe('2026-11-01');
+    expect(addDays('2026-12-30', 3)).toBe('2027-01-02');
+    expect(addDays('2028-02-28', 1)).toBe('2028-02-29');
+  });
+
+  it('lands on the right day across the clock change on 1 November', () => {
+    // The day the clocks go back here is 25 hours long. Built from `new Date(day)` and read back
+    // through the journal zone, every answer is the day before, because midnight UTC is the
+    // evening before here; done in local time, the step across 1 November loses an hour and
+    // lands on the 1st. Done on the day's own parts in UTC, neither can happen.
+    expect(addDays('2026-10-31', 1)).toBe('2026-11-01');
+    expect(addDays('2026-10-31', 2)).toBe('2026-11-02');
+    expect(addDays('2026-10-25', 14)).toBe('2026-11-08');
+  });
+
+  it('agrees with daysBetween, so a day out and back is the same day', () => {
+    expect(daysBetween('2026-10-02', addDays('2026-10-02', 400))).toBe(400);
+  });
+});
+
+describe('formatDayShort', () => {
+  it('leaves the year off a day in this year', () => {
+    expect(formatDayShort('2026-10-09', '2026-10-02')).toBe('Oct 9');
+  });
+
+  it('says the year of a day in another one', () => {
+    expect(formatDayShort('2027-02-03', '2026-10-02')).toBe('Feb 3, 2027');
+  });
+
+  it('reads a day as itself rather than as an instant', () => {
+    // As formatRelease must: run through the journal zone, 1 November would print as 31 October.
+    expect(formatDayShort('2026-11-01', '2026-10-02')).toBe('Nov 1');
   });
 });
 

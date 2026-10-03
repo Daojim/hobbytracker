@@ -124,6 +124,12 @@ export function parseHltbId(input: string): ParsedRating {
 }
 
 export interface HltbTier {
+  /**
+   * Which figure this is, by the field it comes from. The label is for reading and may be
+   * reworded; this is what "How long will it take me?" keeps as the way you play, so it is the
+   * one part of a tier that has to hold still.
+   */
+  key: keyof HltbEstimates;
   label: string;
   hours: number;
 }
@@ -148,14 +154,16 @@ export interface HltbEstimates {
 }
 
 export function hltbTiers(game: HltbEstimates): HltbTier[] {
-  return [
+  const tiers: { key: keyof HltbEstimates; label: string; hours: number | null }[] = [
     // HowLongToBeat own name for it, and first because it is the figure the site leads with
     // and the one the card carries. The three below break it down.
-    { label: 'All play styles', hours: game.hltbAllStylesHours },
-    { label: 'Main story', hours: game.hltbMainStoryHours },
-    { label: 'Main + Extra', hours: game.hltbMainExtraHours },
-    { label: 'Completionist', hours: game.hltbCompletionistHours },
-  ].filter((tier): tier is HltbTier => tier.hours !== null);
+    { key: 'hltbAllStylesHours', label: 'All play styles', hours: game.hltbAllStylesHours },
+    { key: 'hltbMainStoryHours', label: 'Main story', hours: game.hltbMainStoryHours },
+    { key: 'hltbMainExtraHours', label: 'Main + Extra', hours: game.hltbMainExtraHours },
+    { key: 'hltbCompletionistHours', label: 'Completionist', hours: game.hltbCompletionistHours },
+  ];
+
+  return tiers.filter((tier): tier is HltbTier => tier.hours !== null);
 }
 /**
  * What to send for a date field.

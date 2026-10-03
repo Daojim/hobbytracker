@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -10,7 +10,9 @@ import { animeDetail, animeJournalServer } from '../test/anime';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { mediaKey } from '../board/keys';
+import { setPace, setPlayStyle } from '../lib/pace';
 import { AUTOSAVE_MS } from './fields';
+import type { LogStatus } from '../api/types';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Exact rating' });
 const slider = () => screen.getByRole('slider', { name: 'Rating' });
@@ -1849,5 +1851,142 @@ describe('EntryDrawer, on an anime', () => {
 
     await screen.findByText('Manga');
     expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+});
+
+/**
+ * "How long will it take me?", where it sits and when it is offered. What it says once asked is
+ * `HowLong.test.tsx`'s; these are about the drawer around it.
+ */
+describe('EntryDrawer, asking how long a game will take', () => {
+  const estimates = {
+    hltbAllStylesHours: 41.8,
+    hltbMainStoryHours: 27,
+    hltbMainExtraHours: 41.5,
+    hltbCompletionistHours: 65,
+  };
+
+  const playing = (overrides: Parameters<typeof logEntry>[0] = {}) =>
+    gameDetail({
+      ...estimates,
+      logEntries: [logEntry({ id: 7, status: 'InProgress', hoursPlayed: 14, ...overrides })],
+    });
+
+  const ask = () => screen.findByRole('button', { name: 'How long will it take me?' });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-10-02T16:00:00Z'));
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('asks under the estimates, on a pass with its finish still ahead', async () => {
+    journalServer({ detail: playing() });
+
+    open();
+
+    const button = await ask();
+    // Under the four figures it answers from, not in a band of its own.
+    const lastTier = screen.getByText('Completionist');
+    expect(lastTier.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it.each<LogStatus>(['Backlog', 'OnHold'])('asks on a %s pass too', async (status) => {
+    journalServer({ detail: playing({ status }) });
+
+    open();
+
+    expect(await ask()).toBeInTheDocument();
+  });
+
+  it.each<LogStatus>(['Completed', 'Dropped'])(
+    'does not ask on a %s pass, which has nothing left to finish',
+    async (status) => {
+      journalServer({ detail: playing({ status }) });
+
+      open();
+
+      await screen.findByText('Completionist');
+      expect(
+        screen.queryByRole('button', { name: 'How long will it take me?' }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it('does not ask about a game with no HowLongToBeat figures', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ status: 'InProgress' })] }) });
+
+    open();
+
+    await screen.findByText(/No HowLongToBeat estimate yet/);
+    expect(
+      screen.queryByRole('button', { name: 'How long will it take me?' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not ask about a film, whose pass records no hours', async () => {
+    // Follows the data rather than the hobby's name: a film's pass has no Hours played, and the
+    // question lives under it.
+    movieJournalServer({
+      detail: movieDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    renderWithProviders(<EntryDrawer hobby="movies" mediaId={4004} onClose={vi.fn()} />);
+
+    await screen.findByRole('heading', { name: 'Arrival' });
+    expect(
+      screen.queryByRole('button', { name: 'How long will it take me?' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('answers from the hours being typed, not the ones last saved', async () => {
+    setPace('games', { hours: 2, per: 'day' });
+    setPlayStyle('games', 'hltbMainStoryHours');
+    journalServer({ detail: playing() });
+
+    open();
+    await userEvent.click(await ask());
+    const hours = screen.getByRole('spinbutton', { name: 'Hours played' });
+    await userEvent.clear(hours);
+    await userEvent.type(hours, '20');
+
+    // 27 - 20 = 7 hours at 2 a day: 3.5, so 4 days.
+    expect(screen.getByText(/you'd finish around/)).toHaveTextContent(
+      "4 more days — you'd finish around Oct 6.",
+    );
+  });
+
+  it('leaves Saved alone while you answer it, because nothing about the pass changed', async () => {
+    // The question sits inside the pass's form, whose one onChange hears every field in it and
+    // takes "Saved" away. A pace is not a field of the pass, and nothing was written.
+    journalServer({ detail: playing() });
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8');
+    expect(await screen.findByRole('status', {}, autosaves)).toHaveTextContent('Saved');
+
+    await userEvent.click(await ask());
+    await userEvent.click(screen.getByRole('button', { name: 'Other…' }));
+    await userEvent.type(screen.getByRole('spinbutton', { name: 'Hours you play' }), '1.5');
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: 'A day or a week' }),
+      'week',
+    );
+
+    expect(screen.getByRole('status')).toHaveTextContent('Saved');
+  });
+
+  it('opens at the question when the card asked how long', async () => {
+    journalServer({ detail: playing() });
+
+    renderWithProviders(
+      <EntryDrawer hobby="games" mediaId={3003} onClose={vi.fn()} askHowLong />,
+    );
+
+    expect(await screen.findByText('How much do you play?')).toBeInTheDocument();
   });
 });

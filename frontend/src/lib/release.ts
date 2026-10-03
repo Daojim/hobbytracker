@@ -59,6 +59,48 @@ export function daysBetween(from: Day, to: Day): number | null {
 }
 
 /**
+ * The day this many days after another — when "How long will it take me?" says you would finish.
+ *
+ * Here rather than beside the pace arithmetic because it is this file's rule applied once more:
+ * the day's parts go into `Date.UTC`, which counts every day as the same length, and come out of
+ * the UTC getters, so no zone ever touches the day. `new Date(day)` read back through the journal
+ * zone would answer the day before every time, and a local `Date` would lose an hour stepping
+ * across 1 November and land on the wrong day.
+ */
+export function addDays(day: Day, days: number): Day {
+  const parts = partsOf(day);
+  if (parts === null) {
+    return day;
+  }
+
+  const then = new Date(Date.UTC(parts.year, parts.month - 1, parts.date + days));
+
+  return [
+    then.getUTCFullYear(),
+    String(then.getUTCMonth() + 1).padStart(2, '0'),
+    String(then.getUTCDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+/**
+ * A day as a finish date reads: `Oct 9`, with the year only when it is not this one.
+ *
+ * Not `formatRelease`, which always names the year because a release window is filed by it.
+ * A finish date is mostly weeks away, and "Oct 9, 2026" in October 2026 is a year nobody needed
+ * telling — until it is January's, which is when it says so.
+ */
+export function formatDayShort(day: Day, today: Day = todayHere()): string {
+  const parts = partsOf(day);
+  const now = partsOf(today);
+  if (parts === null) {
+    return day;
+  }
+
+  const short = `${MONTHS[parts.month - 1]} ${parts.date}`;
+  return now !== null && now.year === parts.year ? short : `${short}, ${parts.year}`;
+}
+
+/**
  * A release window, exactly as precisely as it was announced and never a word more.
  *
  * The precision is what stops this inventing a day. IGDB states "Q1 2027" as a date like any

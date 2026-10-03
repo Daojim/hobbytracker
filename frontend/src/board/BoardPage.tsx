@@ -109,6 +109,11 @@ function Board({ hobby }: { hobby: Hobby }) {
 
   // Which card it was opened from, so the keyboard can be handed back to it on the way out.
   const openedFrom = useRef<number | null>(null);
+  // Whether it was opened by a card's "How long for me?", so the question starts open. State
+  // rather than part of the history entry: Back is about whether the drawer is open, and nothing
+  // about which door it came through needs surviving a reload. Set on every opening, so a
+  // question asked from the menu is never still open for the next title opened by its name.
+  const [askHowLong, setAskHowLong] = useState(false);
 
   const { data: years } = useQuery({
     queryKey: yearsKey(hobby),
@@ -250,8 +255,9 @@ function Board({ hobby }: { hobby: Hobby }) {
                       onClose: () => setMenuFor(null),
                       columns,
                     }}
-                    onOpen={(mediaId) => {
+                    onOpen={(mediaId, options) => {
                       openedFrom.current = mediaId;
+                      setAskHowLong(options?.askHowLong ?? false);
                       openJournal(mediaId);
                     }}
                   />
@@ -294,13 +300,19 @@ function Board({ hobby }: { hobby: Hobby }) {
           columns={columns.length}
           onOpen={(mediaId) => {
             openedFrom.current = mediaId;
+            setAskHowLong(false);
             openJournal(mediaId);
           }}
         />
       </div>
 
       {journalFor !== null && (
-        <EntryDrawer hobby={hobby} mediaId={journalFor} onClose={closeJournal} />
+        <EntryDrawer
+          hobby={hobby}
+          mediaId={journalFor}
+          onClose={closeJournal}
+          askHowLong={askHowLong}
+        />
       )}
     </main>
   );
