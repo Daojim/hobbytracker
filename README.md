@@ -457,6 +457,13 @@ to prevent something, the test for it is checked by reintroducing the thing.
       your logged hours against HowLongToBeat's over the games that have both. A game with no
       estimate is counted rather than added in as nothing. Where the line sits was picked from
       renders at three widths
+- [x] "How long will it take me?" A question under a game's HowLongToBeat estimates asks how much
+      you play and how you will play it, then answers with a day: *7 more days — you'd finish
+      around Oct 9.* It is remembered, so the next game is one press, and the backlog's header
+      reads the same pace to say how long the whole queue would take. The arithmetic is done in
+      hundredths of an hour, because in floating point 2.1 hours at 0.7 a day is a fourth day
+      nobody needs. Three designs were rendered in the drawer first, and the one picked was the
+      user's own
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

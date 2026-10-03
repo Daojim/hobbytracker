@@ -225,6 +225,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── lib/useWheelStep.ts  a non-passive wheel listener; React's onWheel cannot cancel
 │       ├── lib/useOverlayHistory.ts  the drawer's openness as a history entry, so Back closes it
 │       ├── lib/storage.ts  localStorage that may refuse, read and written without throwing
+│       ├── lib/preferenceStore.ts  a stored preference two components share, with no provider
+│       ├── lib/pace.ts   how much you play: "How long will it take me?" and Backlog's line
 │       ├── hobbies/      ONE FILE PER HOBBY — every word a person reads, the genre list,
 │       │                 search dispatch, and which fields a pass of that kind has
 │       ├── board/        keys.ts owns every query key, sensors.ts the drag's activation
@@ -432,6 +434,16 @@ recur across four full-suite runs on 6 September**, including two while a build 
 is genuinely intermittent rather than steadily worsening — but the measurements above stand and
 this note stays until something explains them.
 
+**Run `journal.spec.ts` on its own and "a finished game dragged back to the backlog stays there"
+fails, every time so far.** Measured on 2 October 2026: it failed all four runs of the file
+alone, two on `main` and two on the #4 branch, and passed in both full-suite runs that day. After
+the reload the card is back in Completed, so the move did not persist. The likely cause, not yet
+proved, is that the spec reloads as soon as the optimistic move shows, which can abort the move's
+request. "Clicking away from the drawer" failed in one of those two full-suite runs, in two of
+the four lone runs of the file (one on each branch), and in none of ten runs of it alone. Neither
+is a reason to doubt a change that passes the full suite; both are reasons to read a lone run of
+that file with care.
+
 ## Settled — do not reopen
 
 Decided with the user. Each is a real decision with a cost that was accepted, not a default.
@@ -453,6 +465,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Adding from a tile | **+ ▶ ✓, one control in equal thirds, on every search result and Discover tile** — Backlog, Playing, Completed, and never On Hold or Dropped, less any column taken off in Settings; a title not out offers *Add to calendar* alone. **`POST /api/library/{mediaId}` names the column and the server dates the first pass by the drag's own rule**, so an add and a drag cannot disagree, and a title already on your board is a 409. A tile then names the column the title is in. Picked from rendered comparisons on 24 September 2026; what it says mid-add is still to be designed. `docs/board.md`, `docs/games-igdb.md` |
 | Note on a card | The last thing you wrote about a title, **across every pass**, clamped to two lines. Every other field on a card comes from the current pass; this one deliberately does not |
 | Column hours | **A muted line under each heading, games only for now**: what the column's titles take to beat, added up over the whole column rather than the page, and on Completed your hours against that, over the games that have both. **Playing says *to beat*, not what is left.** On a phone it sits beside the sort control rather than in the switcher. Each was picked from renders on 1 October 2026. `docs/board.md`, `docs/design.md` |
+| How long | **A quiz behind a link under a game's estimates**, not a calculator always open: how much you play, how you will play it, then a date. Remembered per board and per browser, so the next game is one press; a card's `⋯` menu opens it as *How long for me?*. Backlog, Playing and On Hold only. **Backlog's header gains a second line at your pace.** The user's own idea, picked over the recommendation from renders on 2 October 2026. `docs/journal.md`, `docs/design.md` |
 | Saving a pass | **The pass writes itself and there is no Save button.** A change arms a 500ms timer; the timer checks the rules and sends every field. Leaving a field deliberately does *not* send it — that would be a write per stop while tabbing, and would write "season 2, no episode" on the way to naming one — but **closing the drawer does**, which is the one hole a form like this opens. A refused value stops the write and stays on screen to be corrected. `docs/journal.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
@@ -582,7 +595,10 @@ shuffled.
       - [x] hours in the column headers — a line under each heading adding up what its cards
         print, and on Completed your hours against HowLongToBeat's. Games only for now; the
         other hobbies' wording is noted in the plan
-      - a how-long-will-it-take-me calculator
+      - [x] "how long will it take me?" — a quiz under a game's estimates that answers with a
+        date, remembered per board; a card's menu opening it; and Backlog's header at your pace.
+        The user's own idea, picked from renders over the recommendation. Built on 2 October
+        2026 on `how-long-will-it-take-me`, not merged yet
       - stats
       - searching your notes
       - export to a spreadsheet

@@ -19,7 +19,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon followed on 2 October 2026** (PR #48), deployed the same day. Left: the Android checks in its section |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
-| 4 | "How long will it take me?" | S–M | Planned |
+| 4 | "How long will it take me?" | S–M | **Built 2 October 2026** on `how-long-will-it-take-me`, after a workshop the same day. See its section |
 | 5 | Stats | M–L | Planned, after #2, using #3's sums |
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
@@ -324,51 +324,116 @@ The table is in `docs/board.md`.
 
 ---
 
-## 4. "How long will it take me?" · S–M, all client-side
+## 4. "How long will it take me?" · built
 
-**What.** The user said how many hours they play a day or a week, and which play style (a tier).
-The app says how many days that takes and roughly what date they'll finish. On a game in Playing,
-it starts from the hours already played.
+**Built on 2 October 2026**, on the branch `how-long-will-it-take-me`, after a workshop the same
+day. Not merged or deployed yet. No migration, no new variable, and nothing on the server.
+Write-ups: `docs/journal.md`, *How long will it take me?*, for the drawer; `docs/board.md`, under
+*Hours in the column headers* and the card menu, for the board; and `docs/design.md`, under the
+same name, for the look.
 
-**The "anything similar" the user asked for:**
-- **Reverse:** "to finish by Nov 15, play about 1.2 h a day".
-- **Whole backlog:** "~1,300 h of backlog at 10 h a week is about 2.5 years", using #3's Backlog
-  total. **Since #3 was built:** that is `hours.length` on the Backlog column's answer.
+**What the user asked for**, kept because everything below answers it: say how much you play a
+day or a week and which play style, and the app says how many days that takes and roughly when
+you'd finish, counting from the hours already played. And anything similar: the reverse, "to
+finish by Nov 15, play about 1.2 h a day", and the whole backlog, "~1,300 h of backlog at 10 h a
+week is about 2.5 years".
 
-**Decide at pickup (workshop both):**
-- an inline calculator in the drawer beside the estimates, or
-- the user's own idea: a little two-question quiz, opened from the drawer or the card's `⋯` menu.
+**Decided at the workshop, from renders.** The workshop page is private:
+https://claude.ai/artifact/N51sC3ibyABT34ErMf6Vk1.
+- **The quiz, the user's own idea, over the recommendation.** A link under the estimates, *How
+  long will it take me?*, asks *How much do you play?* (five quick picks, or *Other…*) and *How
+  will you play it?* (*Just the story*, *The story and some extras*, *Everything*, *However it
+  goes*, each beside its tier and figure). Then it answers: *7 more days — you'd finish around
+  Oct 9.* It is remembered per board and per browser, so the next game is one press to its
+  answer. A card's `⋯` menu opens it too, as *How long for me?*. The recommendation was every tier
+  answering with its own date under its chip, after asking the pace once. The plan's inline
+  calculator, a sentence of controls always under the estimates, was the third option rendered.
+- **The whole backlog is a second line under Backlog's hours**, as recommended: `about 17 months
+  at 2 h a day`, once a pace is known.
+- ***Finish by a date instead* stays**, as recommended. It turns the answer around: *To finish by
+  [date], play about 18 min a day.*
+- **Backlog, Playing and On Hold show it**, as recommended. A Completed or Dropped pass has nothing
+  left to finish.
+- **Two small departures from the renders**, both when you are past the estimate: the line under
+  the answer leaves the pace out, and there is no *Finish by a date instead*, because there is
+  nothing left to finish.
 
-### Frontend
+**Built.**
+- `lib/pace.ts`: the pace, the arithmetic and the words. It covers hours left, days to finish,
+  hours needed by a date, spans (`7 more days`, `about 17 months`), and the per-board store under
+  `hobbytracker.pace.<hobby>`.
+- `lib/preferenceStore.ts`: the `useSyncExternalStore` store that lived inside
+  `board/hiddenColumns.ts`, moved out when the pace became a second preference two components
+  share. Hidden columns use it with no change in behaviour, and their tests pass as before.
+- `lib/release.ts` gained `addDays`, and `formatDayShort`, which writes `Oct 9` and adds the year
+  only when it is not this one.
+- `journal/HowLong.tsx` is the quiz, rendered by `EntryForm` under the estimates. The tiers from
+  `hltbTiers` gained a `key`, the field each figure comes from, which is what the quiz remembers
+  as your play style.
+- `board/columnHours.ts` takes the pace, and `Column` reads it from the store. `Card`'s menu
+  offers *How long for me?*. `BoardPage` tells the drawer which door it came through on every
+  opening.
 
-**Pure functions in `journal/pace.ts`:**
-- `remaining = max(tier − hoursPlayed, 0)`
-- days = ⌈remaining ÷ hours per day⌉
-- the finish day is `todayHere()` plus that many days
+**Tests.** `lib/pace.test.ts` has 36 and `HowLong.test.tsx` 18. `release.test.ts` gained 7,
+`EntryDrawer.test.tsx` 10, `Card.test.tsx` 7, `columnHours.test.ts` 7, `BoardPage.test.tsx` 2,
+`Column.test.tsx` 1 and `fields.test.ts` 1, and two of `fields.test.ts`'s were updated for the
+key. `e2e/how-long.spec.ts` has 2. Every guard was checked by planting its fault, and each fault
+turned red exactly the tests that name it:
 
-**Add an `addDays` to `lib/release.ts`**, using its UTC day arithmetic. Never build a `Date` from a
-day string: `release.ts` exists to prevent that, and it moves the day across a DST change.
+| Fault planted | Red |
+|---|---|
+| Days divided in floating point | *is exact where floating point is not* |
+| Hours left subtracted in floating point | *is exact to the hundredth an hour is stored at* |
+| Months without the floor of two | *counts months once days stop meaning anything, and never one of them* |
+| A stored pace trusted | *trusts nothing it cannot read as a pace* |
+| `addDays` built from `new Date(day)` and read in the journal zone | all four `addDays` cases |
+| `addDays` in local time | *lands on the right day across the clock change on 1 November* |
+| The year on every finish date | `formatDayShort`'s two, and five of the quiz's answers |
+| No page copy when storage refuses | the refusal cases of the pace store, the quiz and the hidden columns |
+| The pace read once rather than subscribed to | the column's *hears a new one*, and the store's two |
+| Asked on every pass | *does not ask on a Completed pass*, and on a Dropped one |
+| The question's changes reaching the pass's form | *leaves Saved alone while you answer it* |
+| Focus left where the pressed button was | *keeps the keyboard in the question* |
+| Another style guessed for a game without yours | *offers only the ways to play that this game has a figure for* |
+| *More* on a game not begun | *counts a game not begun from the start* |
+| Nought days rather than past it | *says you are past it* |
+| Counted from today rather than tomorrow | six of the quiz's answers |
+| The drawer not passing the card's question on | *opens at the question when the card asked how long* |
+| The menu item without the pass's hours | *does not ask how long about a film* |
+| The menu item without an estimate | *does not ask how long about a game with no estimate* |
+| The menu item on every column | the Completed and Dropped cases |
+| The menu item opening the journal shut | the card's case and both of `BoardPage`'s |
+| The pace line on every column | *is Backlog's alone* |
+| The question left open for the next title | *opens the journal shut on the question from the title* |
+| The column not handing the pace on | the column's *hears a new one* |
 
-**Other details:**
-- The tiers come from `hltbTiers()` (`journal/fields.ts`).
-- Show the calculator only when the title has HLTB data (`TitleDetail.hltb`), so films never see it,
-  with no slug check.
-- Remember the pace per browser through `lib/storage.ts`.
-- When the user is past an estimate, say so — "past HLTB's Main Story, you're at 31 h" — rather than
-  showing 0 days.
+**What the plan got wrong, or left out:**
 
-### Tests first
-
-**The maths:**
-- rounding
-- per week vs per day
-- already past the estimate
-- no figures at all
-
-**`addDays` across the 1 Nov 2026 DST change.**
-
-**Storage refusing a write.** Spy on the instance with `vi.spyOn(localStorage, 'setItem')`. A spy on
-the prototype refuses nothing in this test setup — see the CLAUDE.md trap.
+- **"Pure functions in `journal/pace.ts`."** They are in `lib/pace.ts`. The Backlog line reads
+  the pace too, and `board/` should not reach into `journal/`, which is `lib/hours.ts`'s reason.
+- **"Remember the pace per browser."** Per board as well, as hidden columns are, because an
+  evening of anime is not an evening of games. The play style is remembered with it, which the
+  plan did not mention and the quiz needs.
+- **"Through `lib/storage.ts`."** Through a store, because the pace is given in the drawer over
+  the board and the Backlog line has to hear it then. That store already existed inside
+  `hiddenColumns.ts`, and it is shared now rather than copied.
+- **The arithmetic.** `⌈remaining ÷ hours per day⌉` is right, but not in floating point: 2.1 ÷ 0.7
+  is 3.0000000000000004 there, which rounds up to a fourth day nobody needs. It is done in
+  hundredths of an hour, the unit both figures are stored in.
+- **"`todayHere()` plus that many days"** means days count from tomorrow, which the workshop page
+  said out loud. 2 h left at 2 h a day finishes tomorrow, and the answer never promises a day
+  early.
+- **The pass's form hears the question.** The quiz sits inside `EntryForm`, whose one `onChange`
+  takes "Saved" away when anything inside it changes. The quiz stops its own changes there.
+- **Focus.** Each answer takes the button that gave it off the screen, and focus fell to the
+  board behind the drawer. The question takes the keyboard as it moves on.
+- **A play style this game has no figure for.** When the style you gave last time has no figure
+  here, the quiz asks the style again rather than guessing another tier.
+- **The ladder of spans.** Days, then months, then years is the release calendar's, which says
+  "in 1 months" at exactly 45 days. Here months start at two, and years go to the half.
+- **The space in a button's accessible name.** The style buttons were first written with the
+  switcher's `{' '}` between their halves. Measured, it is not needed: see *On a phone* in
+  `docs/design.md`.
 
 ---
 

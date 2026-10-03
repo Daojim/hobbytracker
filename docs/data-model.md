@@ -199,6 +199,11 @@ is stored as `date` / `DateOnly`, and is **never** run through the zone: convert
 `2026-09-26T00:00:00Z` into Eastern gives the 25th, a day nobody announced. The zone is applied
 only to learn what day it is *here*, so that an announced day can be compared against it.
 
+**A finish date from "How long will it take me?" reads the fourth place rather than adding a
+fifth.** It is `todayHere()` plus a whole number of days, and the days are added to the day's
+parts in UTC by `addDays` in `lib/release.ts`, so the zone is used to learn what day it is and for
+nothing else, exactly as the calendar uses it.
+
 *This sentence is still a tripwire. A fifth place — a year-in-review page is the likely one —
 updates it rather than quietly falsifying it.*
 
