@@ -72,7 +72,7 @@ dropped; `Url.IsLocalUrl` catches `//evil.example`, which passes a naive leading
 half a setting.** It limits the ticket *inside* the cookie. The cookie itself goes out with no
 expiry unless the sign-in is persistent, and a browser keeps a cookie with no expiry only until it
 restarts. For the app's first five weeks in production the thirty days were real on the server and
-invisible to every browser.
+invisible to every browser, until #54 was deployed on 3 October 2026.
 
 - **A desktop hides it.** The browser stays open for days, and desktop Chrome brings dateless
   cookies back when it is set to continue where you left off.
