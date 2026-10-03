@@ -17,6 +17,9 @@ import { groundOf } from './test/palette';
 const textOf = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 const publicFile = (href: string) => resolve(process.cwd(), 'public', href.replace(/^\//, ''));
 
+/** The three drawings every icon is rendered from. icons/render.mjs says why there are three. */
+const DRAWINGS = ['icons/icon.svg', 'icons/icon-maskable.svg', 'public/favicon.svg'];
+
 const head = () => new DOMParser().parseFromString(textOf('index.html'), 'text/html').head;
 const hrefOf = (selector: string) => head().querySelector(selector)?.getAttribute('href') ?? undefined;
 
@@ -150,9 +153,25 @@ describe('the manifest', () => {
     expect(manifest().theme_color).toBe(ground);
     expect(manifest().background_color).toBe(ground);
 
-    for (const drawing of ['icons/icon.svg', 'icons/icon-maskable.svg', 'public/favicon.svg']) {
+    for (const drawing of DRAWINGS) {
       expect(existsSync(resolve(process.cwd(), drawing)), `${drawing} does not exist`).toBe(true);
       expect(groundOfDrawing(drawing), drawing).toBe(ground);
+    }
+  });
+});
+
+describe('the drawings', () => {
+  it('name only parts they define', () => {
+    // Each object is drawn once in <defs> and placed with <use>, its outline painted twice more
+    // as a sticker's border and shadow. A <use> or a url() naming an id the file does not have
+    // draws nothing and says nothing: a sticker loses its border, or an object is not there, in
+    // the tab and in every PNG rendered from it alike.
+    for (const drawing of DRAWINGS) {
+      const svg = new DOMParser().parseFromString(textOf(drawing), 'image/svg+xml');
+      const defined = new Set([...svg.querySelectorAll('[id]')].map((element) => element.id));
+      const named = [...textOf(drawing).matchAll(/(?:href="#|url\(#)([\w-]+)/g)].map((m) => m[1]);
+
+      for (const id of named) expect(defined, `${drawing} names #${id}`).toContain(id);
     }
   });
 });
