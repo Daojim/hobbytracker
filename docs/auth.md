@@ -11,7 +11,7 @@ person who wrote it.
 
 | | |
 |---|---|
-| Session | **An httpOnly cookie**, self-contained and encrypted. Not a JWT, and no sessions table |
+| Session | **An httpOnly cookie with a date on it**, self-contained and encrypted — thirty days, sliding. Not a JWT, and no sessions table |
 | Mechanism | **The framework's generic `AddOAuth`**, not the `AddGoogle` package and not hand-rolled |
 | Providers | **Google and Discord**, both required at boot |
 | Accounts | **Anyone can sign up.** Real multi-user, one board each |
@@ -66,6 +66,38 @@ on the strength of its own answer. It is also **the Playwright readiness URL**, 
 reachable before anybody has signed in. `returnUrl` is a **400** when not local rather than quietly
 dropped; `Url.IsLocalUrl` catches `//evil.example`, which passes a naive leading-slash test.
 
+### The cookie carries a date, and phones are why
+
+**`IsPersistent` is set in the cookie scheme's `OnSigningIn`, and without it `ExpireTimeSpan` is
+half a setting.** It limits the ticket *inside* the cookie. The cookie itself goes out with no
+expiry unless the sign-in is persistent, and a browser keeps a cookie with no expiry only until it
+restarts. For the app's first five weeks in production the thirty days were real on the server and
+invisible to every browser.
+
+- **A desktop hides it.** The browser stays open for days, and desktop Chrome brings dateless
+  cookies back when it is set to continue where you left off.
+- **A phone shows it at random.** Chrome on Android never brings them back: at startup it loads
+  only the cookies with an expiry and deletes the rest, and Android restarts it whenever it wants
+  the memory, whenever Chrome updates and whenever the phone does. The home-screen app runs inside
+  Chrome, so it is the same. Read in Chromium's source on 3 October 2026:
+  `ProfileImpl::ShouldRestoreOldSessionCookies` takes Android's *default* startup type, which is
+  not *continue where you left off*.
+- **Deploys took the blame, and were innocent.** A deploy is when you pick the phone up to look,
+  long after Chrome was last open. The server's key ring held one key, made by the first deploy and
+  read by every one since, and the tunnel's log held no request that failed to reach the app — so
+  the key-ring trap in `docs/deploy.md` was checked, and it was not that.
+- **On the scheme rather than at the challenge**, so any way of signing in gets it. The ticket
+  records it, which is what makes each sliding renewal re-issue the cookie with a fresh expiry
+  rather than a dateless one.
+- **Sliding renews only past halfway.** At thirty days, under two weeks between visits never signs
+  you out and a month away always does; in between, it depends on when the last renewal fell.
+- **A session from before the change stays dateless until its next sign-in**, because a renewal
+  copies the ticket it was handed. Each device signs in once more, and that one lasts.
+- **`the session survives a reload` passed throughout**, because a reload keeps every cookie.
+  `the session survives the browser restarting` is the restart — it keeps the cookies with a date
+  and drops the rest, as Chrome on Android does — and it and `the browser is told when the session
+  ends` were both red before the change.
+
 ### Scoping: an injected `ICurrentUser`, and why not a query filter
 
 An EF `HasQueryFilter` would scope every read automatically, including the note queries that have no
@@ -116,6 +148,12 @@ puts the two maintenance refresh routes behind a session, accepted rather than w
 - **It renders nothing while the session is in flight rather than guessing.** Guessing "signed out"
   flashes the sign-in screen at a signed-in person on every reload; removing the guard fails three
   tests, not one.
+- **A probe that fails reads as signed out, which is a known gap rather than a decision.**
+  `useSession` turns anything short of an answer into `me === null` — a 502, or a server it cannot
+  reach, once the retries run out after about seven seconds — and `RequireSession` sends you to
+  `/signin`, which never asks whether your cookie still works. So a blip asks you to sign in again
+  on a session that was fine. Rare as things stand, since a deploy leaves `/api` down for about a
+  second. Fixing it wants a screen for *cannot reach the server*, picked from renders first.
 - **The session is a query, not a context.** There is no `createContext` anywhere in this codebase:
   the theme layer gets to be local state precisely because a component never asks what theme it is
   in, which is exactly what a session is not. TanStack dedupes, so the gate and the header asking

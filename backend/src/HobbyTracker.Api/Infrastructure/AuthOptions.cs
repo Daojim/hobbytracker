@@ -19,8 +19,9 @@ public sealed class AuthOptions
     public AuthProviderOptions Discord { get; set; } = new();
 
     /// <summary>
-    /// How long a session lasts. Sliding, so using the app renews it and only a month away
-    /// signs you out.
+    /// How long a session lasts, and so how long the browser keeps the cookie. Sliding, renewed
+    /// once more than half of it has gone: at thirty days, under two weeks between visits never
+    /// signs you out and a month away always does.
     /// </summary>
     [Range(1, 365)]
     public int SessionDays { get; set; } = 30;

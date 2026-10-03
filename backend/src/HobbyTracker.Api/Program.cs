@@ -251,6 +251,18 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.SlidingExpiration = true;
 
+        // Persistent, so the cookie carries the ticket's expiry. Without it ExpireTimeSpan limits
+        // only the ticket inside, and the cookie goes out with no date -- which a browser keeps
+        // only until it restarts. Chrome on Android deletes those at startup, and Android restarts
+        // it whenever it wants the memory back, so a thirty-day session ended whenever the phone
+        // got busy. On the scheme rather than at the challenge, so every sign-in gets it; the
+        // ticket records it, so each sliding renewal re-issues the cookie with a fresh expiry.
+        options.Events.OnSigningIn = context =>
+        {
+            context.Properties.IsPersistent = true;
+            return Task.CompletedTask;
+        };
+
         // Without these, an unauthenticated API call is answered with a 302 to a login page;
         // fetch follows it and the caller gets 200 and a lump of HTML, then fails while parsing
         // JSON, miles from the cause. This is an API, so it says so instead.
