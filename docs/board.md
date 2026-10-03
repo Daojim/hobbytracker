@@ -190,6 +190,16 @@ a silent no-op. It is called
 **it is offered in every sort mode**, unlike the drag: a menu move writes no ranking, so there is
 none for it to promise.
 
+**One item comes and goes: *How long for me?*,** under *Open journal*. Added on 2 October 2026 for
+#4, it opens the same drawer with "How long will it take me?" already asked — see
+`docs/journal.md`. It is offered where the drawer would ask: a pass that records hours
+(`PassFields.hoursPlayed`), a card with a length to count down, and a finish still ahead (Backlog,
+Playing or On Hold). All three are the data's say rather than the hobby's name, and the first is
+there because the second is not enough: a film's card has a length too, its runtime. **Which door
+the drawer came through is told to it on every opening** (`OpenJournal`'s `askHowLong`, held by
+`BoardPage`), so a question asked from the menu is never still open when the next title is
+opened by its name.
+
 **It replaced a `×` that meant *drop* on Playing and *remove* on Backlog and was absent on the other
 two.** What was wrong was letting the column choose which ending you got, and leaving half the board
 with no control at all. Dropping is still not removing. **Do not undo this.**
@@ -530,7 +540,9 @@ belongs on the server.
   is stamped on the root and nothing in React hears it change. A column taken off has to leave the
   grid, stop fetching, stop being a drop target and leave every card's menu — all in the board, a
   sibling of the header the menu is in. `board/hiddenColumns.ts` is a `useSyncExternalStore` store
-  both subscribe to, with no provider, so a component test still renders without a wrapper. Its
+  both subscribe to, with no provider, so a component test still renders without a wrapper — its
+  machinery in `lib/preferenceStore.ts` since 2 October 2026, when the pace you play at needed the
+  same and it was moved rather than copied. Its
   snapshot is the **raw stored string**, parsed after, because a fresh `Set` per read would re-render
   forever. Another tab's change arrives through the `storage` event.
 - **A hidden column is not rendered at all** — no request, no droppable, no track. `BoardPage` reads
@@ -663,6 +675,21 @@ could patch the total with the card's length, and does not. A card carries its l
 your hours, so for that moment the total and Completed's comparison would be about different
 games.
 
+**Backlog says how long the whole queue would take at your pace**, as a second line, once
+"How long will it take me?" has been told how much you play: `about 17 months at 2 h a day`, read
+aloud as *About 17 months at 2 hours a day*. Added on 2 October 2026 for #4, and picked at its
+workshop. Three things about it:
+
+- **It divides the line above it**, `hours.length`, the All Styles total that leaves out the titles
+  on the release calendar. It does not use the play style the quiz remembers, because the server
+  adds up one figure and that is the one the cards print.
+- **Backlog alone.** Playing's total at your pace would be a claim about hours you have already
+  spent, and the other columns are not a queue to work through.
+- **The pace comes from a store, not from the column's response.** It is told in the drawer, over
+  the board, and the line has to hear it then rather than at the next mount. `Column` reads
+  `usePace(hobby)` and hands it to `columnHoursLines`, which stays a function of what it is given.
+  The store is `lib/preferenceStore.ts`, the one hidden columns already used.
+
 **Games only, as a choice in the hobby files rather than a branch.** The API adds up every
 hobby's columns and has no idea which board is asking. The client prints a line only where
 `HobbyDefinition.columnHours` gives it the words. Films, TV and anime set it to `null`, and the
@@ -688,6 +715,8 @@ a hobby whose pass records no hours never compares, whatever words it has.
 | The comparison on every column | *compares on Completed alone* |
 | The games words on every board | the films case in `Column.test.tsx` |
 | No line at all | the case in `hltb.spec.ts`, end to end |
+| Backlog's pace line on every column | *is Backlog's alone* |
+| The pace read once rather than subscribed to | `Column.test.tsx`'s *hears a new one* |
 
 ### Query keys, ordering, and the traps
 

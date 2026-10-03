@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { columnHoursLines } from './columnHours';
 import { hobbyDefinition, type HobbyDefinition } from '../hobbies';
 import type { ColumnHours, LogStatus } from '../api/types';
+import type { Pace } from '../lib/pace';
 
 const GAMES = hobbyDefinition('games');
 
@@ -132,6 +133,76 @@ describe('columnHoursLines', () => {
     // proposed in docs/plans/games-board-next.md rather than built.
     expect(
       lines('Backlog', 2, hours({ length: 4.76, lengthTitles: 2 }), hobbyDefinition('movies')),
+    ).toEqual([]);
+  });
+});
+
+/**
+ * The whole backlog at your pace, picked at the #4 workshop on 2 October 2026: a second line
+ * under Backlog's, once the drawer has been told how much you play.
+ */
+describe('the backlog at your pace', () => {
+  const twoADay: Pace = { hours: 2, per: 'day' };
+
+  const atPace = (
+    status: LogStatus,
+    titles: number,
+    column: ColumnHours,
+    pace: Pace | null = twoADay,
+    definition: HobbyDefinition = GAMES,
+  ) => columnHoursLines(definition, status, { total: titles, hours: column }, pace);
+
+  it('says how long the backlog would take, under what it adds up to', () => {
+    // 1,034.47 hours at 2 a day is 518 days, which is said in months.
+    expect(atPace('Backlog', 23, hours({ length: 1034.47, lengthTitles: 20 }))).toEqual([
+      {
+        text: '~1,034 h to beat · 3 with no estimate',
+        spoken: 'About 1,034 hours to beat, 3 with no estimate',
+      },
+      { text: 'about 17 months at 2 h a day', spoken: 'About 17 months at 2 hours a day' },
+    ]);
+  });
+
+  it('counts days while they are few', () => {
+    // 61.82 hours at 2 a day: 30.9, so 31.
+    expect(atPace('Backlog', 2, hours({ length: 61.82, lengthTitles: 2 }))[1]).toEqual({
+      text: '31 days at 2 h a day',
+      spoken: '31 days at 2 hours a day',
+    });
+  });
+
+  it('reads a weekly pace as one', () => {
+    expect(
+      atPace('Backlog', 2, hours({ length: 61.82, lengthTitles: 2 }), { hours: 10, per: 'week' })[1]
+        ?.text,
+    ).toBe('44 days at 10 h a week');
+  });
+
+  it('says nothing more until it knows your pace', () => {
+    expect(atPace('Backlog', 20, hours({ length: 1034.47, lengthTitles: 20 }), null)).toHaveLength(1);
+  });
+
+  it("is Backlog's alone, the queue you work through", () => {
+    for (const status of ['InProgress', 'OnHold', 'Dropped'] as const) {
+      expect(atPace(status, 2, hours({ length: 84, lengthTitles: 2 }))).toHaveLength(1);
+    }
+    expect(
+      atPace(
+        'Completed',
+        2,
+        hours({ length: 40, lengthTitles: 2, played: 30, playedLength: 40, playedTitles: 2 }),
+      ),
+    ).toHaveLength(2);
+  });
+
+  it('says nothing for a backlog where nothing has an estimate', () => {
+    // No figure is not a figure of nought, and nought hours is not a moment's play.
+    expect(atPace('Backlog', 2, hours())).toEqual([]);
+  });
+
+  it('says nothing on a board whose hobby has no words for its hours', () => {
+    expect(
+      atPace('Backlog', 2, hours({ length: 4.76, lengthTitles: 2 }), twoADay, hobbyDefinition('movies')),
     ).toEqual([]);
   });
 });

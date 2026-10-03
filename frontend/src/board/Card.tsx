@@ -5,6 +5,7 @@ import { formatJournalDate } from '../lib/time';
 import { isRecentRelease } from '../lib/release';
 
 import { ratingTone } from '../lib/rating';
+import { hasFinishAhead } from '../lib/pace';
 import {
   type BoardColumn,
   genreStripe,
@@ -13,6 +14,15 @@ import {
   resolveGenre,
 } from '../hobbies';
 import type { LibraryItem, LogStatus } from '../api/types';
+
+/**
+ * Opens a title's journal — at "How long will it take me?" when the card's menu asked that.
+ *
+ * One function for both doors rather than a second prop, because they are one drawer. The board
+ * is told which door on every opening, so a question asked from the menu is never left open for
+ * the next title opened by its name.
+ */
+export type OpenJournal = (mediaId: number, options?: { askHowLong?: boolean }) => void;
 
 /**
  * A stable handle on the button that opens a title's journal.
@@ -94,7 +104,7 @@ export interface CardFaceProps {
   /** The options corner and its panel. Omitted by the drag preview, which offers nothing. */
   menu?: CardMenu;
   /** Opens the journal for this title. Omitted by the drag preview for the same reason. */
-  onOpen?: (mediaId: number) => void;
+  onOpen?: OpenJournal;
 }
 
 /** Everything a card shows. Shared with the drag preview, which must not be a second sortable. */
@@ -179,6 +189,15 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
   // "off your board" on its own reads like it is only losing a card. Deleting a single pass is
   // still possible; it is in the drawer, where the pass is named and dated.
   const warning = hobby.describeRemoval(item.title, item.entryCount);
+
+  // "How long will it take me?" from the board, picked at the #4 workshop. Offered where the
+  // drawer would ask it: a pass that records hours, a title with an estimate to count down, and a
+  // finish still ahead. Each is the data's say rather than the hobby's name — a film has a length
+  // too, its runtime, and no hours played to count from.
+  const asksHowLong =
+    hobby.journal.fields.hoursPlayed &&
+    item.lengthHours !== null &&
+    hasFinishAhead(item.currentStatus);
 
   return (
     <>
@@ -433,6 +452,21 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
                     Open journal
                   </button>
 
+                  {/* The same drawer, opened at the question. Shorter than the drawer's own
+                      "How long will it take me?", which wraps in a menu this narrow. */}
+                  {asksHowLong && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        menu.onClose();
+                        onOpen(item.mediaId, { askHowLong: true });
+                      }}
+                      className="rounded px-2 py-1 text-left text-sm hover:bg-hover"
+                    >
+                      How long for me?
+                    </button>
+                  )}
+
                   <hr className="my-1 border-line-soft" />
                 </>
               )}
@@ -519,7 +553,7 @@ export interface CardProps {
   onMove: (mediaId: number, to: LogStatus) => void;
   removal: CardRemoval;
   menu: CardMenu;
-  onOpen: (mediaId: number) => void;
+  onOpen: OpenJournal;
   /** False outside `manual` sort, where a drag would imply a ranking the API will not store. */
   draggable: boolean;
 }

@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { Column } from './Column';
 import { columnsFor } from '../hobbies';
+import { setPace } from '../lib/pace';
 import { server } from '../test/server';
 import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
 
@@ -161,6 +162,29 @@ describe('Column', () => {
     expect(
       screen.getByRole('img', { name: 'over 2 games, 1 without your hours' }),
     ).toHaveTextContent('over 2 games · 1 without your hours');
+  });
+
+  it('says how long the backlog would take at your pace, and hears a new one', async () => {
+    // The pace is given in a drawer, over the board, so the column has to hear it change rather
+    // than read it once: answering the question is what makes the line appear.
+    boardServer({
+      columns: { Backlog: [libraryItem({ title: 'Celeste' }), libraryItem({ title: 'Hades' })] },
+      hours: { Backlog: { ...NO_HOURS, length: 61.82, lengthTitles: 2 } },
+    });
+
+    try {
+      renderColumn({ status: 'Backlog', label: 'Backlog' });
+      await screen.findByRole('img', { name: 'About 62 hours to beat' });
+      expect(screen.queryByRole('img', { name: /a day/ })).not.toBeInTheDocument();
+
+      act(() => setPace('games', { hours: 2, per: 'day' }));
+
+      expect(
+        await screen.findByRole('img', { name: '31 days at 2 hours a day' }),
+      ).toHaveTextContent('31 days at 2 h a day');
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it('says nothing about hours on a board whose hobby has no words for them yet', async () => {

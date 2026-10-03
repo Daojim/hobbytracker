@@ -27,6 +27,7 @@ the header.
 | Columns | **One at a time on a phone, two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
 | On a phone | **A segmented switcher pinned to the top of the screen**: every column's name over its count, the current one raised. Picked on 1 October 2026 from four layouts rendered at 390px. See **On a phone** |
 | Column hours | **A muted line of its own under each heading**, and on a phone beside the sort control, where the hidden heading was. Picked on 1 October 2026 from three placements rendered wide and two at 390px. See **Hours in the column headers** |
+| How long | **A quiz behind a link under the estimates**, not a calculator always open — two questions, then a sentence with a date in it. Picked on 2 October 2026 from three options rendered in the drawer, the modal and at 390px. See **How long will it take me?** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
@@ -280,9 +281,14 @@ raised exactly as a card is, `bg-surface shadow-card`, and the rest are `text-mu
 rather than glimpsed through the gutter. All of that is `board/ColumnSwitcher.tsx`.
 
 - **A radio group, for the settings menu's reason**: a closed set where exactly one is current.
-  The space between the name and the count is in the markup on purpose. A flex container lays out
-  no whitespace between its items, so nobody sees it, and without it the accessible name is
-  "Backlog4" rather than "Backlog 4".
+  The markup puts a space between the name and the count, and it was written as what makes the
+  accessible name "Backlog 4" rather than "Backlog4". **Measured on 2 October 2026, it is not**:
+  with the space taken out, every phone spec in `board.spec.ts` and `layout.spec.ts` still found
+  each segment as "Backlog 4", and jsdom names it that too. The name and the count are flex items,
+  which are block-level, and an accessible name keeps block-level children apart whatever the
+  markup says. The space is harmless and stays. **jsdom cannot tell a name run together from one
+  kept apart**: it puts a space between child elements either way, so a check of an accessible
+  name's spacing belongs in Playwright.
 - **The column under it does not repeat its own name.** Its heading goes `sr-only` (the
   `namedAbove` prop), so the region keeps its name for a screen reader and the switcher says it
   once on screen. Its sort control stays.
@@ -352,6 +358,35 @@ and how it is added up is `docs/board.md`'s.
 - **Left alone: at 1280, Backlog's sort control wraps once its count has two digits**, as
   Completed's and Dropped's always have. The renders had 17 there. The line does not touch that
   row.
+
+### How long will it take me?
+
+**A link under the four estimates, and a quiz behind it.** Picked on 2 October 2026 from three
+options rendered in the drawer and the modal, on Shelf Light and Shelf Dark, and at 390px. The
+workshop page is private, and linked from #4 in `docs/plans/games-board-next.md`. The user picked
+their own idea over the recommendation. What it asks and answers is `docs/journal.md`'s.
+
+| Option | What the renders showed |
+|---|---|
+| A sentence of controls under the estimates, always there | The most direct, and three controls in every drawer for something set once. It wraps onto a second line in the drawer at every width. |
+| A date under every estimate, the pace asked once (recommended) | Every tier answered at a glance with nothing to press, about as tall as the sentence once answered. It puts a fact about you inside HowLongToBeat's grid. |
+| **The quiz** (picked) | One line at rest. Then two questions with large targets, and the answer as a sentence in the drawer's body size. One press per game, every time. |
+
+- **At rest it is a link**, `text-xs font-medium text-accent`, under the grid. Open, it is a panel
+  with `rounded-lg border border-line p-3`: the step (*1 of 2*) and *Hide* on top, the question in
+  `text-sm font-medium`, then the choices.
+- **The paces are pills and the play styles are rows.** A pace is a short phrase, so five fit
+  across the drawer in two lines; a play style is the words beside its tier and figure, which
+  needs a row each. The figure stays in HowLongToBeat's own words — *Main story · 27 h* — so the
+  translation is never taken on trust.
+- **The answer is `text-sm`, with the span and the day in `font-semibold`**, and neither may break
+  across a line (`whitespace-nowrap`). What it was worked out from sits under it in `text-xs
+  text-muted`, with *Change*.
+- **Every colour is the theme's**, and the three the text is set in — `fg`, `muted` and `accent` —
+  are the ones `index.css.test.ts` already holds at 4.5:1 on `surface`, on every theme. The chips
+  above keep HowLongToBeat's blue, as they always did.
+- **On a phone the drawer is the whole screen**, and the panel takes its width. Nothing about it
+  changes at 390px, which the renders were taken at to make sure of.
 
 ### The icon, and the bar above the page
 

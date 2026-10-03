@@ -123,10 +123,21 @@ describe('hltbTiers', () => {
     // The headline first, because it is the figure the site leads with and the one the card
     // carries; the three below it are the breakdown.
     expect(hltbTiers(game)).toEqual([
-      { label: 'All play styles', hours: 41.82 },
-      { label: 'Main story', hours: 27 },
-      { label: 'Main + Extra', hours: 41.59 },
-      { label: 'Completionist', hours: 65.6 },
+      { key: 'hltbAllStylesHours', label: 'All play styles', hours: 41.82 },
+      { key: 'hltbMainStoryHours', label: 'Main story', hours: 27 },
+      { key: 'hltbMainExtraHours', label: 'Main + Extra', hours: 41.59 },
+      { key: 'hltbCompletionistHours', label: 'Completionist', hours: 65.6 },
+    ]);
+  });
+
+  it('names each tier by the figure it comes from, so a choice of one can be remembered', () => {
+    // The label is for reading and may be reworded; the key is what "How long will it take
+    // me?" stores as the way you play, so it is the one thing here that must hold still.
+    expect(hltbTiers(game).map((tier) => tier.key)).toEqual([
+      'hltbAllStylesHours',
+      'hltbMainStoryHours',
+      'hltbMainExtraHours',
+      'hltbCompletionistHours',
     ]);
   });
 
@@ -134,9 +145,9 @@ describe('hltbTiers', () => {
     // Ordinary, not an error: an obscure game often has a main-story time and nothing else.
     // Rendering "Completionist —" would make missing data look like a broken row.
     expect(hltbTiers({ ...game, hltbCompletionistHours: null })).toEqual([
-      { label: 'All play styles', hours: 41.82 },
-      { label: 'Main story', hours: 27 },
-      { label: 'Main + Extra', hours: 41.59 },
+      { key: 'hltbAllStylesHours', label: 'All play styles', hours: 41.82 },
+      { key: 'hltbMainStoryHours', label: 'Main story', hours: 27 },
+      { key: 'hltbMainExtraHours', label: 'Main + Extra', hours: 41.59 },
     ]);
   });
 

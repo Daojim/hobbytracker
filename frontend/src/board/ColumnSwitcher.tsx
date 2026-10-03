@@ -156,9 +156,10 @@ function Segment({ status, label, total, current, onChoose }: SegmentProps) {
             : 'text-muted'
       }`}
     >
-      {/* The space between the two is what makes the accessible name "Backlog 4" rather than
-          "Backlog4". A flex container lays out no whitespace between its items, so nobody sees
-          it. */}
+      {/* A space between the two, which the name "Backlog 4" was once thought to need. Measured on
+          2 October 2026, it does not: the two are flex items, block-level, and an accessible name
+          keeps those apart whatever the markup says. Harmless, so it stays — see *On a phone* in
+          docs/design.md. */}
       <span className="text-[0.6875rem] leading-tight">{label}</span>{' '}
       <span className="text-sm leading-tight font-semibold">{total}</span>
     </button>

@@ -1,4 +1,5 @@
 import type { HobbyDefinition } from '../hobbies';
+import { daysToFinish, describePace, describeSpan, formatPace, type Pace } from '../lib/pace';
 import type { LibraryPage, LogStatus } from '../api/types';
 
 /** One line of a column's header: what it prints, and how that reads aloud. */
@@ -22,11 +23,17 @@ export interface HoursLine {
  *
  * Playing says how long its games take, like every other column, rather than how much is left.
  * Both were rendered for the user on 1 October 2026; see #3 in `docs/plans/games-board-next.md`.
+ *
+ * **Backlog adds a second line once it knows your pace**: how long the whole queue would take
+ * at it, `about 17 months at 2 h a day`. The pace is what "How long will it take me?" was told in
+ * the drawer, handed in rather than read here so this stays a function of what it is given. Picked
+ * at the #4 workshop on 2 October 2026.
  */
 export function columnHoursLines(
   definition: HobbyDefinition,
   status: LogStatus,
   { total, hours }: Pick<LibraryPage, 'total' | 'hours'>,
+  pace: Pace | null = null,
 ): HoursLine[] {
   const words = definition.columnHours;
   if (words === null) {
@@ -63,10 +70,24 @@ export function columnHoursLines(
     return [];
   }
 
+  const totalLine = {
+    text: [words.total(hours.length), ...leftOut].join(' · '),
+    spoken: [words.describeTotal(hours.length), ...leftOut].join(', '),
+  };
+
+  // The queue you work through, and only that: Playing is half played, so its total at your pace
+  // would be a claim about hours you have already spent. All play styles, because that is the
+  // figure the line above adds up and the one a card prints.
+  if (status !== 'Backlog' || pace === null) {
+    return [totalLine];
+  }
+
+  const span = describeSpan(daysToFinish(hours.length, pace));
   return [
+    totalLine,
     {
-      text: [words.total(hours.length), ...leftOut].join(' · '),
-      spoken: [words.describeTotal(hours.length), ...leftOut].join(', '),
+      text: `${span} at ${formatPace(pace)}`,
+      spoken: `${span.charAt(0).toUpperCase()}${span.slice(1)} at ${describePace(pace)}`,
     },
   ];
 }

@@ -178,6 +178,29 @@ Settled:
   doing. It used to be a fifth item among the estimates, which was fine while they were a row of
   spans and wrong the moment they became a block: it is a fact about you where those four are facts
   about the game.
+- **"How long will it take me?" is a link under the four estimates, and a two-question quiz behind
+  it.** It asks how much you play and how you will play this game, then answers with a day: *7
+  more days — you'd finish around Oct 9.* It was picked at the #4 workshop on 2 October 2026, the
+  user's own idea over a date under every chip, which is in `docs/plans/games-board-next.md`.
+  `journal/HowLong.tsx` holds it and `lib/pace.ts` the arithmetic. Five things it settles:
+  - **It costs the drawer one line until it is pressed**, on every game, even once it knows your
+    answers. That was the trade for the quiz: one press per game, against nothing on screen you
+    did not ask for.
+  - **What you said is kept per board and per browser**, under `hobbytracker.pace.<hobby>`, so
+    the next game is one press to its answer. Your play style is kept with your pace, by the
+    figure's field name (`HltbTier.key`) rather than its label, which may be reworded. A style
+    this game has no figure for is asked again rather than swapped for another tier.
+  - **It is offered on Backlog, Playing and On Hold only** (`hasFinishAhead`), because a Completed
+    or Dropped pass has nothing left to finish. Like the estimates, it is gated on the data and
+    never on the hobby's name: a film has no estimates and no Hours played to sit under.
+  - **It counts from the hours in the box, not the hours last saved**, so the answer moves as you
+    type rather than half a second later. And it counts from tomorrow: 2 h left at 2 h a day
+    finishes tomorrow, and nothing promises a day early. Past an estimate, it says *You're past
+    it* rather than nought days.
+  - **A card's `⋯` menu opens the drawer with the question already open**, as *How long for me?*
+    — shorter, because the drawer's wording wraps in a menu that narrow. The board says which door
+    the drawer came through on every opening, so a question asked from the menu is never still
+    open for the next title opened by its name.
 - **The estimate on a card is written `~42 h`**, announced as *About 42 hours to finish*. The tilde is
   doing real work: the drawer prints `31.5 h` for what a pass took *you*, so an unmarked number on a
   card would read as the same kind of claim. `formatHours` lives in `src/lib/hours.ts` so `board/`
@@ -300,6 +323,16 @@ Settled:
   started carrying the last thing you wrote. All three of `useNotes`' mutations move something on
   the board now. Both halves are scoped to the hobby, which they were not while the drawer knew
   only a media id — the board hands it down now.
+- **Anything placed inside the pass's form that is not a field of the pass must keep its changes
+  to itself.** `EntryForm`'s one `onChange` hears every change event below it, because React's
+  bubble, and takes "Saved" away when one arrives — which is right for a field and wrong for
+  "How long will it take me?", whose pace box and date write nothing to the pass. Left alone,
+  typing a pace makes a saved pass look unsaved. `HowLong` stops change events at its own root;
+  *leaves Saved alone while you answer it* in `EntryDrawer.test.tsx` goes red without that.
+- **A question that moves on takes the keyboard with it.** Each answer in the quiz takes the
+  button that gave it off the screen, and focus with it — to the body, outside the drawer, where
+  the next Tab walks the board behind an `aria-modal` dialog. `HowLong` moves focus to its own
+  group after each step, and back to its link when hidden.
 - **The genre select is labelled through `htmlFor`/`id` like every other field.** A wrapping `<label>`
   makes the select's accessible name absorb its own option text, which made `getByLabel('Platform')`
   match two controls.

@@ -1,6 +1,6 @@
-import { useMemo, useSyncExternalStore } from 'react';
+import { useMemo } from 'react';
 import { BOARD_STATUSES } from '../hobbies';
-import { readStored, writeStored } from '../lib/storage';
+import { preferenceStore } from '../lib/preferenceStore';
 import type { LogStatus } from '../api/types';
 
 /**
@@ -11,8 +11,8 @@ import type { LogStatus } from '../api/types';
  * it, which is why `useTheme` can hold its own state and there is exactly one menu. A hidden
  * column has to leave the grid, stop fetching, stop being a drop target and leave every card's
  * menu — all of it in the board, which is a sibling of the header the menu lives in. So both
- * subscribe here, through `useSyncExternalStore`, and neither needs a provider: a component test
- * still renders without a wrapper.
+ * subscribe to `lib/preferenceStore.ts`, which was written here and moved out when the pace you
+ * play at became a second preference two components share.
  *
  * Remembered per board and per browser, like the calendar's open-or-closed beside it
  * (`hobbytracker.coming-soon.<hobby>`), because a film is seldom put on hold and a game often is.
@@ -64,47 +64,15 @@ export function parseHidden(stored: string | null): ReadonlySet<LogStatus> {
 }
 
 /**
- * What this page was told while storage would not keep it, by key. Empty in any browser that
- * stores, and emptied again the first time a write succeeds.
- *
- * It exists because the snapshot below is read from storage: in a browser set to block site data
- * every write throws, and without this the checkbox would be a control that silently did nothing.
- * The theme survives the same browser by holding its choice in state; this is that, for a
- * preference two components share.
+ * The raw strings, and this page's copy of any storage would not keep — without which, in a
+ * browser set to block site data, the checkbox would be a control that silently did nothing.
  */
-const unsaved = new Map<string, string>();
-
-const listeners = new Set<() => void>();
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-
-  // Another tab changing it. The event fires only in *other* documents, which is why the setter
-  // below tells this one itself — and a null key is storage being cleared outright.
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === null || event.key.startsWith(PREFIX)) {
-      listener();
-    }
-  };
-  window.addEventListener('storage', onStorage);
-
-  return () => {
-    listeners.delete(listener);
-    window.removeEventListener('storage', onStorage);
-  };
-}
-
-/**
- * The raw stored string rather than the parsed set. `useSyncExternalStore` compares snapshots by
- * identity and re-renders whenever they differ, so a fresh Set on every read would re-render
- * forever; two equal strings are the same value.
- */
-const snapshotOf = (hobby: string): string | null =>
-  unsaved.get(hiddenColumnsKey(hobby)) ?? readStored(hiddenColumnsKey(hobby));
+const store = preferenceStore(PREFIX);
 
 /** The columns this board leaves off, kept current as they change here or in another tab. */
 export function useHiddenColumns(hobby: string): ReadonlySet<LogStatus> {
-  const stored = useSyncExternalStore(subscribe, () => snapshotOf(hobby));
+  // Parsed after, from the raw string: a fresh Set per read would re-render for ever.
+  const stored = store.useValue(hiddenColumnsKey(hobby));
   return useMemo(() => parseHidden(stored), [stored]);
 }
 
@@ -114,7 +82,8 @@ export function setColumnHidden(hobby: string, status: LogStatus, hidden: boolea
     return;
   }
 
-  const next = new Set(parseHidden(snapshotOf(hobby)));
+  const key = hiddenColumnsKey(hobby);
+  const next = new Set(parseHidden(store.read(key)));
   if (hidden) {
     next.add(status);
   } else {
@@ -122,16 +91,5 @@ export function setColumnHidden(hobby: string, status: LogStatus, hidden: boolea
   }
 
   // In board order, so what is stored reads the way the board does.
-  const key = hiddenColumnsKey(hobby);
-  const value = JSON.stringify(BOARD_STATUSES.filter((each) => next.has(each)));
-
-  if (writeStored(key, value)) {
-    unsaved.delete(key);
-  } else {
-    unsaved.set(key, value);
-  }
-
-  for (const listener of listeners) {
-    listener();
-  }
+  store.write(key, JSON.stringify(BOARD_STATUSES.filter((each) => next.has(each))));
 }

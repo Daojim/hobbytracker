@@ -13,7 +13,9 @@ import {
   valuesKey,
 } from './fields';
 import type { HltbEstimates } from './fields';
+import { HowLong } from './HowLong';
 import type { PassFields, TitleSeason } from '../hobbies';
+import { hasFinishAhead } from '../lib/pace';
 import { useWheelStep } from '../lib/useWheelStep';
 import type { LogEntry, UpdateLogEntry } from '../api/types';
 
@@ -23,6 +25,11 @@ const RATING_BOX_GRAIN = 0.1;
 const HOURS_GRAIN = 0.5;
 
 export interface EntryFormProps {
+  /**
+   * Whose pass this is, for "How long will it take me?" alone: the pace it remembers is kept per
+   * board. Nothing else in the form asks which hobby it is in, and nothing should.
+   */
+  hobby: string;
   entry: LogEntry;
   /**
    * Which of the six fields this hobby's pass has at all.
@@ -98,6 +105,8 @@ export interface EntryFormProps {
    * the row its own button sits on, which is the only thing a second action needed from it.
    */
   actions?: ReactNode;
+  /** Opened from a card's *How long for me?*, so the question under the estimates starts open. */
+  askHowLong?: boolean;
 }
 
 /**
@@ -112,6 +121,7 @@ export interface EntryFormProps {
  * the server — a second way in would need its own copy of all of it.
  */
 export function EntryForm({
+  hobby,
   entry,
   fields,
   platforms,
@@ -126,6 +136,7 @@ export function EntryForm({
   onSave,
   onEdit,
   actions,
+  askHowLong = false,
 }: EntryFormProps) {
   const ids = useId();
   const seed = passValues(entry);
@@ -559,7 +570,8 @@ export function EntryForm({
             {estimates === null ? null : tiers.length === 0 ? (
               <p className="text-xs text-muted">No HowLongToBeat estimate yet</p>
             ) : (
-              /*
+              <>
+              {/*
                * A grid off the dialog's own width, not the window's.
                *
                * These were four spans in a wrapping flex row, which is a layout with exactly one
@@ -581,7 +593,7 @@ export function EntryForm({
                * A <dl> because that is what these are — four names and their values. It also
                * gives each pair a wrapper to share, which is the whole fix: a reflow now moves a
                * label and its number together or moves neither.
-               */
+               */}
               <div className="@container">
                 <dl className="grid grid-cols-2 gap-x-3 gap-y-2 @lg:grid-cols-4">
                   {tiers.map((tier) => (
@@ -602,6 +614,21 @@ export function EntryForm({
                   ))}
                 </dl>
               </div>
+
+              {/* Under the four figures it answers from, and only while there is a finish ahead
+                  of the pass: a Completed or Dropped one has nothing left to finish. A status
+                  rather than a hobby, and the figures rather than the hobby's name decide whether
+                  this renders at all — a film has neither the estimates nor Hours played to sit
+                  under. Picked at the #4 workshop; see HowLong. */}
+              {hasFinishAhead(entry.status) && (
+                <HowLong
+                  hobby={hobby}
+                  estimates={estimates}
+                  played={mine}
+                  initiallyOpen={askHowLong}
+                />
+              )}
+              </>
             )}
           </div>
         </Field>

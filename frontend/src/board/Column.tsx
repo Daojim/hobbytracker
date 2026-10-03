@@ -3,12 +3,13 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { listColumn } from '../api/library';
-import { Card } from './Card';
+import { Card, type OpenJournal } from './Card';
 import { SortSelect } from './SortSelect';
 import { type BoardColumn, hobbyDefinition } from '../hobbies';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
 import { columnHoursLines, type HoursLine } from './columnHours';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
+import { usePace } from '../lib/pace';
 import type { LibrarySort, LogStatus } from '../api/types';
 
 /** The id a column droppable answers to, so a drop onto empty space still names a column. */
@@ -80,7 +81,7 @@ export interface ColumnProps {
   onMove: (mediaId: number, to: LogStatus) => void;
   removal: ColumnRemoval;
   menu: ColumnMenu;
-  onOpen: (mediaId: number) => void;
+  onOpen: OpenJournal;
 }
 
 export function Column({
@@ -160,8 +161,11 @@ export function Column({
   const definition = hobbyDefinition(hobby);
 
   // How long the column's titles take, which the server adds up over the whole column rather
-  // than this page of it. See columnHours.ts for what each column says.
-  const hours = data === undefined ? [] : columnHoursLines(definition, status, data);
+  // than this page of it. See columnHours.ts for what each column says. The pace is what the
+  // drawer's "How long will it take me?" was told — a store, because it is told over this column
+  // and the Backlog line has to hear it then rather than at the next mount.
+  const { pace } = usePace(hobby);
+  const hours = data === undefined ? [] : columnHoursLines(definition, status, data, pace);
 
   return (
     <section
