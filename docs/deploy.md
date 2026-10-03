@@ -170,7 +170,9 @@ Each check reads what `main` has gained since the commit the server is on:
   the `/assets/index-*.js` and `.css` that `<origin>/` names, and how many times a string the
   change adds appears in them: zero, now. For a new API route, record what its method answers
   anonymously: anything but 401 before — it was 405 for the add route — and 401 after, because
-  every route but sign-in is behind `[Authorize]`.
+  every route but sign-in is behind `[Authorize]`. For a backend change with neither a route nor
+  a migration, record the count under **Proving it**: a name the change adds, in the DLL that is
+  running.
 
 ### Running it
 
@@ -234,6 +236,20 @@ serves the new build, so prove that from outside:
   <origin>/icon-512.png` says `image/png`. `text/html` means the file is missing and `try_files`
   answered with the page.
 - **A new route answers 401.**
+- **A backend change with no new route and no migration is proved inside the container.** Nothing
+  outside can tell the new API from the old one, and the bundle names prove nothing either way. So
+  count a name the change adds in the DLL that is running, before the deploy and after it:
+
+  ```bash
+  ssh -o BatchMode=yes <host> 'cd <dir> && docker compose exec -T api grep -a -c set_IsPersistent /app/HobbyTracker.Api.dll'
+  ```
+
+  That said 0 before #54 and 1 after it. **Count a member name, never a string literal.** A
+  method or a type is in the DLL under its own name, and a property the change sets under `set_`
+  and its name, all as UTF-8. A literal is stored as UTF-16, so `grep` counts 0 for one that is
+  there, and 0 looks exactly like absent. Measured on 3 October 2026: `set_IsPersistent` is found
+  as UTF-8 and not as UTF-16, and the literal `"hobbytracker.session"` the other way round. Read
+  the number rather than the exit code, too: `grep -c` exits 1 when it counts 0.
 - **A new migration is the newest in production's history.** A backend-only deploy leaves the
   bundle names exactly as they were, which proves nothing either way, so ask the database. Use the
   container's own credentials, so none crosses a screen:
