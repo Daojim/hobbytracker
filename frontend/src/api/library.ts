@@ -1,5 +1,6 @@
 import { apiJson, apiVoid } from './client';
 import type {
+  ExportTitle,
   LibraryItem,
   LibraryPage,
   LibrarySort,
@@ -55,6 +56,18 @@ export function activityYears(hobby: string): Promise<number[]> {
  */
 export function upcoming(hobby: string): Promise<LibraryItem[]> {
   return apiJson<LibraryItem[]>('/api/library/upcoming', { query: { hobby } });
+}
+
+/**
+ * Everything on your board, for the spreadsheet: every title in every column — the calendar's
+ * too, and any column taken off in Settings — with every pass of yours and every note, in the
+ * board's order.
+ *
+ * Not paged, like `upcoming`, and for a stronger reason: a column stops at a page, and an export
+ * that did would quietly leave titles out of a file somebody keeps.
+ */
+export function exportLibrary(hobby: string): Promise<ExportTitle[]> {
+  return apiJson<ExportTitle[]>('/api/library/export', { query: { hobby } });
 }
 
 /**

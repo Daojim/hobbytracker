@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
-import { columnsFor } from '../hobbies';
+import { downloadSpreadsheet } from '../export/download';
+import { columnsFor, hobbyDefinition } from '../hobbies';
 import type { Hobby } from '../shell/hobbies';
 import { DENSITIES, JOURNAL_VIEWS, THEMES } from './theme';
 import { useTheme } from './useTheme';
@@ -11,7 +13,8 @@ export interface SettingsMenuProps {
 }
 
 /**
- * The one control in the header, holding the appearance preferences and the board's columns.
+ * The one control in the header, holding the appearance preferences, the board's columns, and the
+ * board as a spreadsheet to keep.
  *
  * One button rather than two controls side by side: the header would otherwise start collecting
  * them, and there would be nowhere obvious for the next one to go. They are usually set in the
@@ -31,6 +34,11 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
   const { theme, density, journalView, setTheme, setDensity, setJournalView } = useTheme();
   const hidden = useHiddenColumns(hobby);
   const [open, setOpen] = useState(false);
+
+  // Up here rather than inside the panel, so closing the panel while the file is being made
+  // neither loses the file nor the state the row comes back to.
+  const exportWords = hobbyDefinition(hobby).export;
+  const spreadsheet = useMutation({ mutationFn: () => downloadSpreadsheet(hobby) });
 
   const ids = useId();
   const button = useRef<HTMLButtonElement>(null);
@@ -230,6 +238,74 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
           <p id={`${ids}-columns-note`} className="px-2 pt-0.5 pb-1 text-xs text-muted">
             Backlog always shows, because search adds to it.
           </p>
+
+          {/* What you have, rather than how it looks: the board as a file you keep. Only on a
+              board whose hobby has words for one — HobbyDefinition.export — and with nothing
+              else in it yet, the group goes when the row does.
+
+              A row like every other in the panel, picked from renders over a bordered button
+              and over the file's own name, which the panel's width cut to
+              "hobbytracker-games-2…".
+
+              Held still while it works by aria-disabled rather than disabled: a real browser
+              takes focus off a control the moment it is disabled, which would leave the keyboard
+              at the top of the page with the file still coming. A press meanwhile is simply not
+              acted on. The line under it says what the file holds, and becomes the alert when
+              it fails — a new element, keyed, so it is announced as it arrives. */}
+          {exportWords !== null && (
+            <>
+              <hr className="my-2 border-line-soft" />
+
+              <p
+                id={`${ids}-data`}
+                className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
+              >
+                Your data
+              </p>
+              <div role="group" aria-labelledby={`${ids}-data`} className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!spreadsheet.isPending) {
+                      spreadsheet.mutate();
+                    }
+                  }}
+                  aria-disabled={spreadsheet.isPending || undefined}
+                  aria-describedby={`${ids}-spreadsheet`}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-hover aria-disabled:cursor-wait aria-disabled:text-muted aria-disabled:hover:bg-transparent"
+                >
+                  <svg
+                    aria-hidden="true"
+                    focusable="false"
+                    viewBox="0 0 16 16"
+                    className="size-3.5 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10" />
+                  </svg>
+                  {spreadsheet.isPending ? 'Preparing…' : 'Download a spreadsheet'}
+                </button>
+                {spreadsheet.isError ? (
+                  <p
+                    key="failed"
+                    id={`${ids}-spreadsheet`}
+                    role="alert"
+                    className="px-2 pt-0.5 pb-1 text-xs text-danger"
+                  >
+                    Couldn’t make the spreadsheet. Try again.
+                  </p>
+                ) : (
+                  <p key="holds" id={`${ids}-spreadsheet`} className="px-2 pt-0.5 pb-1 text-xs text-muted">
+                    {exportWords.holds}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
 
           <hr className="my-2 border-line-soft" />
 

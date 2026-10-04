@@ -31,6 +31,7 @@ the header.
 | Stats | **Four tiles of numbers, then panels two across in the board's wells**: covers by month, a column per rating, a bar per game either side of its estimate, and the backlog oldest first. Picked on 2 October 2026 from eight choices rendered at 1440 and 390px. See **Stats** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
+| Your data | **A row in Settings after Columns**: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
 | Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
@@ -426,6 +427,37 @@ numbers mean is `docs/stats.md`'s.
   rest, so a long name is cut rather than the chart.
 - **The hours behind each bar show on hover and on keyboard focus**, in a small label above the row
   in `bg-fg` and `text-sunken` — the page's own ink and ground swapped, so it reads on every theme.
+
+### Your data
+
+**A group in Settings after Columns, holding one row for now: *Download a spreadsheet*.** Picked on
+4 October 2026 from three forms rendered in the real panel — idle, preparing and failed, on Shelf
+Light and Shelf Dark, at 1440 and at 390px. The workshop page is private:
+https://claude.ai/artifact/DGc5UdVXGsyeDNBgbSsxSU. What the file holds is `docs/export.md`'s.
+
+| Form | What the renders showed |
+|---|---|
+| **A row** (picked) | The same row and hover as every other entry in the panel. With #8's tinted *Delete my account…* drawn under it as a placeholder, the group follows the card's `⋯` menu: plain rows do things, and the tinted one deletes |
+| A bordered button | Says "this does something" more loudly, and is a third button style in one small group, beside the tinted delete. On a phone it starts below the fold |
+| The file itself | A sheet glyph and the name the browser will save, which at the panel's 224px stopped at `hobbytracker-games-2…` and cut off the date, the only part that changes |
+
+- **Its values are the render's.** The heading is the panel's own group heading. The row is a
+  `button` with `gap-2 px-2 py-1 text-sm hover:bg-hover`, led by a 14px download glyph drawn in
+  `currentColor`, and the line under it is `px-2 pt-0.5 pb-1 text-xs text-muted`.
+- **While it works** the row reads *Preparing…* in `text-muted`, takes `cursor-wait` and loses its
+  hover. It is held by `aria-disabled` rather than `disabled`, which keeps the keyboard on it; see
+  `docs/export.md`.
+- **If it fails** the line under the row becomes `text-danger`: *Couldn't make the spreadsheet. Try
+  again.* `index.css.test.ts` holds `danger` and `muted` at 4.5:1 on `surface`, the panel's ground,
+  on every theme.
+- **#8's row is not built.** It was drawn into the renders so the group would be laid out once, and
+  its own choices are still open. Until it exists the group holds the export alone, and a board
+  whose hobby has no spreadsheet has no group.
+- **Measured in the built panel, as the workshop measured it.** At 1440×900 the group's heading
+  starts 744px down, so the row is on the first screen. The panel is 870px tall without #8's row,
+  where the workshop's was 902 with it. On a 390×844 phone the row is the last thing on the first
+  screen, 760 to 788px down, and the page scrolls to the credits. The pinned switcher stays behind
+  the panel.
 
 ### The icon, and the bar above the page
 

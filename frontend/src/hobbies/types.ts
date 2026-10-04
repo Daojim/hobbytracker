@@ -194,6 +194,30 @@ export interface HobbyDefinition {
     /** The titles any figure leaves out for having no length: `1 with no estimate`. */
     withoutLength(titles: number): string;
   } | null;
+
+  /**
+   * The spreadsheet a board downloads from Settings, in this hobby's words, or null for a hobby
+   * whose board does not offer one yet — which also takes the row out of Settings.
+   *
+   * **Only games sets it, and that is the user's call rather than a fact about the data** — the
+   * {@link stats} rule. The API answers the export for every hobby and has no idea which board is
+   * asking. What was decided on 1 October 2026 was to build each feature on the games board first.
+   *
+   * Words only. Which columns the sheets have follows what the hobby already says about itself:
+   * hours and a platform where {@link PassFields} has them, and HowLongToBeat's figures and link
+   * where {@link JournalSection.setHltbId} says it has something to correct. So a films block
+   * would bring films' words and none of a game's columns, with no condition added anywhere.
+   */
+  export: {
+    /** What the file holds, under the row that downloads it. */
+    holds: string;
+
+    /** The three sheets, each named for what it has a row per: `Games`, `Playthroughs`, `Notes`. */
+    sheets: { titles: string; passes: string; notes: string };
+
+    /** One pass, as the column that numbers a title's passes: `Playthrough`. */
+    pass: string;
+  } | null;
 }
 
 /**

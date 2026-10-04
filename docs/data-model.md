@@ -214,6 +214,13 @@ fifth.** It is `todayHere()` plus a whole number of days, and the days are added
 parts in UTC by `addDays` in `lib/release.ts`, so the zone is used to learn what day it is and for
 nothing else, exactly as the calendar uses it.
 
+**The spreadsheet reads the third place rather than adding a fifth**, though its plan expected a
+fifth. Its dates are instants turned into the day, or the day and the minute, they fell on here,
+by `journalDateInput` and `journalMinute` in `lib/time.ts` — the UI's, as the Stats page's months
+are — and written into the file as those wall-clock parts, because an Excel date has no zone. A
+release date goes in as the day it is and never meets the zone, and the file is named with
+`todayHere()`, the fourth place. See `docs/export.md`.
+
 *This sentence is still a tripwire. A fifth place — a year-in-review page is the likely one —
 updates it rather than quietly falsifying it.*
 

@@ -30,6 +30,7 @@ routes are the only anonymous ones.
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column, **with the hours its header says over the whole column** |
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
 | `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, soonest first and the undated last. **Not paged** |
+| `GET /api/library/export?hobby=` | everything on your board for the spreadsheet in Settings: every title in every column, the calendar's too, with every pass of yours and every note, in the board's order. **Not paged.** See `docs/export.md` |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
 | `POST /api/library/{mediaId}` | put a title on your board, in a column — what a tile's +, ▶ and ✓ call. **201** with the card; **409** when it is already on your board |
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours** |
@@ -70,12 +71,14 @@ completion it replaced — the card sprang back to Completed and every retry add
 entry. `id` breaks ties, which is not a footnote: fixtures on a stopped clock share one `logged_at`,
 so the tie-break carries the whole ordering in the test suite.
 
-**Four places order a title's entries and all four must agree**: `LibraryService.BoardQuery`,
-`LibraryService.LatestEntryFor`, `GameCatalogService.GetAsync`, and `HltbService.DetailAsync`.
-`GetAsync` used to order by `id DESC` alone, which meant the drawer could offer to edit one entry
-while the card reported another.
+**Every place that orders a title's entries must agree, and there are eight**:
+`LibraryService.BoardQuery`, `LibraryService.LatestEntryFor`, `LibraryService.ExportAsync`,
+`GameCatalogService.GetAsync`, `HltbService.DetailAsync`, and `EntriesFor` in the film, show and
+anime catalogues. `GetAsync` used to order by `id DESC` alone, which meant the drawer could offer
+to edit one entry while the card reported another.
 `LibraryEndpointTests.The_board_and_the_game_detail_agree_about_which_pass_is_current` pins it so a
-future drift fails loudly.
+future drift fails loudly, and `LibraryExportTests.A_titles_first_pass_is_the_one_its_card_shows`
+pins the spreadsheet's, which was the eighth, on 4 October 2026.
 
 **This was written down as three for months, and the fourth is the one that says so** —
 `HltbService.DetailAsync`'s own comment reads *"three places decide which pass is current"* while
@@ -808,8 +811,9 @@ Traps, all of which have bitten already:
   is what every `Where` and `OrderBy` is pushed through, so a downcast that stops translating there
   empties the whole board with no error; confined to one place the worst case is that one thing
   breaks. The terminal ones are the two DTO projections, the Stats page's backlog in
-  `LibraryService.BacklogAsync`, and its finishes in `StatsService`, which reads passes rather than
-  board rows and so is nowhere near `BoardQuery` at all. `sort=length` keeps its downcast **inside
+  `LibraryService.BacklogAsync`, the spreadsheet's titles in `LibraryService.ExportAsync`, and the
+  Stats page's finishes in `StatsService`, which reads passes rather than board rows and so is
+  nowhere near `BoardQuery` at all. `sort=length` keeps its downcast **inside
   that one switch arm** in `LibraryService.Sorted`, and `LibraryOrderingTests` asserts the column
   comes back **non-empty**, because emptiness is the symptom.
 - **Validation attributes go on record primary-constructor parameters**, not `[property:]` targets.

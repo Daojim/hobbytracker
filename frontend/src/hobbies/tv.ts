@@ -193,6 +193,10 @@ export const TV: HobbyDefinition = {
   // No Stats page yet, for the same reason: built on the games board first. The API already
   // answers for every hobby. See HobbyDefinition.stats.
   stats: null,
+
+  // No spreadsheet in Settings yet, for that reason again. The API already answers the export
+  // for every hobby. See HobbyDefinition.export.
+  export: null,
 };
 
 /**

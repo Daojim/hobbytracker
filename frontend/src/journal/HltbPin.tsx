@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { parseHltbId } from './fields';
+import { hltbGameUrl, parseHltbId } from './fields';
 
 export interface HltbPinProps {
   /** What is stored against the title, or null when nothing has matched it yet. */
@@ -104,7 +104,7 @@ export function HltbPin({ hltbId, saving, error, onPin }: HltbPinProps) {
 
         {hltbId !== null && (
           <a
-            href={`https://howlongtobeat.com/game/${hltbId}`}
+            href={hltbGameUrl(hltbId)}
             target="_blank"
             rel="noreferrer"
             className="underline hover:text-fg"

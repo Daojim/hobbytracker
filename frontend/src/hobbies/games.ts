@@ -211,4 +211,12 @@ export const GAMES: HobbyDefinition = {
     withoutPlayed: (titles) => `${titles} without your hours`,
     withoutLength: (titles) => `${titles} with no estimate`,
   },
+
+  // The spreadsheet in Settings. Each sheet is named for what it has a row per, which is why a
+  // films board would say Films and Viewings where this says Games and Playthroughs.
+  export: {
+    holds: 'Every game, playthrough and note on this board, as an Excel file.',
+    sheets: { titles: 'Games', passes: 'Playthroughs', notes: 'Notes' },
+    pass: 'Playthrough',
+  },
 };

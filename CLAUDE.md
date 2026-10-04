@@ -40,6 +40,7 @@ thing always known before an edit:
 | `frontend/src/index.css`, `src/theme/`, `frontend/icons/`, `frontend/public/`, anything about colour, contrast or width | `docs/design.md` |
 | `AuthService`, `AuthController`, `Program.cs`'s auth block, `frontend/src/shell/` | `docs/auth.md` |
 | `StatsService`, `StatsController`, `HoursTally`, `frontend/src/stats/` | `docs/stats.md` |
+| `frontend/src/export/`, `LibraryService.ExportAsync`, `ExportTitleDto`, the *Your data* group in Settings | `docs/export.md` |
 | `Dockerfile`, `deploy/`, `PublicOriginMiddleware`, **or being asked to deploy** | `docs/deploy.md` — the source of truth, runbook included |
 | **Picking up a feature from What is next** | `docs/plans/games-board-next.md` — its status table, its rules, then the feature's section |
 | `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
@@ -66,6 +67,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 |---|---|---|
 | **The board** | Five columns, On Hold among them, and any but Backlog taken off in Settings. Drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board, and on games each column's hours under its heading. **Every search result and Discover tile adds straight to Backlog, Playing or Completed**, dated as a drag would date it | `docs/board.md` |
 | **Stats** | A page under the games board for a year at a time: four tiles of headline numbers, then every finish as a cover by month, your hours against HowLongToBeat game by game, your ratings point by point, and the backlog oldest first with how long each title has waited. **Every playthrough counts, where the board counts titles** | `docs/stats.md` |
+| **The spreadsheet** | The games board as an Excel workbook, from a row in Settings: every title as its card shows it, every playthrough, every note. **Everything you have, not what the board is showing** — every column, every year, and the calendar's titles. Real dates and numbers, and nothing a formula | `docs/export.md` |
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
@@ -190,7 +192,7 @@ with everything a detail call would.
 |---|---|
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
-| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit |
+| Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit, and write-excel-file for the spreadsheet, loaded only when one is asked for |
 | External data | IGDB v4 (games) through Twitch; HowLongToBeat by scrape; TMDB v3 (**films and shows**, two source rows) on a static bearer; MAL v2 (anime) on a client id alone |
 
 Pinned: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
@@ -238,6 +240,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── search/       the bar and result strip above the board, and the add both surfaces share
 │       ├── discover/     the Discover page: a wall of what is popular, one list at a time
 │       ├── stats/        the Stats page; stats.ts is its arithmetic, done in hundredths
+│       ├── export/       the spreadsheet: sheets.ts builds the three sheets in the hobby's words,
+│       │                 download.ts loads the writer only when the row in Settings is pressed
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
 │       ├── theme/        the eight themes, two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
@@ -471,6 +475,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | How long | **A quiz behind a link under a game's estimates**, not a calculator always open: how much you play, how you will play it, then a date. Remembered per board and per browser, so the next game is one press; a card's `⋯` menu opens it as *How long for me?*. Backlog, Playing and On Hold only. **Backlog's header gains a second line at your pace.** The user's own idea, picked over the recommendation from renders on 2 October 2026. `docs/journal.md`, `docs/design.md` |
 | Saving a pass | **The pass writes itself and there is no Save button.** A change arms a 500ms timer; the timer checks the rules and sends every field. Leaving a field deliberately does *not* send it — that would be a write per stop while tabbing, and would write "season 2, no episode" on the way to naming one — but **closing the drawer does**, which is the one hole a form like this opens. A refused value stops the write and stays on screen to be corrected. `docs/journal.md` |
 | Stats | **A dashboard under the board, one year at a time** — `/all` for every year — that counts **every playthrough rather than every title**: a finish replayed since still counts in its year, so the Completed column can show a different count. Completion is the share of what was *started* in the year, finished. Games only, from `HobbyDefinition.stats`. All twelve choices — four before any render, eight from renders on 2 October 2026 — were the recommendations. `docs/stats.md`, `docs/design.md` |
+| Spreadsheet | **A three-sheet `.xlsx` of everything on the board** — Games as the cards show them, every playthrough, every note — from a row in a *Your data* group after Columns in Settings. Every column, every year and the calendar's titles, because the year control and Settings decide what you see, not what you have. ISO dates as real date cells, numbers as numbers, nothing a formula, and the HowLongToBeat link a plain address. **The server sends facts and the client writes the words**, through write-excel-file loaded when the row is pressed. Games only, from `HobbyDefinition.export`. Every choice but one was the recommendation, from renders on 4 October 2026; *All genres* and the link were the user's. `docs/export.md`, `docs/design.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
 | What counts as coming | **Asked a provider and got no date at all is *TBA* on the calendar**, whatever shape the nothing arrived in — that is *Stellar Blade: Blood Rain*, and it read as released until 12 September 2026. **A title the provider calls a rumour is not**, because it was never announced, and it stays in the Backlog column. Measured both ways round in `docs/games-igdb.md` |
@@ -608,7 +613,10 @@ shuffled.
         has waited in the backlog — the column history's first reader. Every choice was the
         recommendation, twelve of them, eight from renders (PR #52, deployed)
       - searching your notes
-      - export to a spreadsheet
+      - [x] export to a spreadsheet — a workbook of three sheets from a row in Settings: every
+        game as its card shows it, every playthrough and every note, whatever the board is
+        showing. Every choice but one was the recommendation, from renders. Built on the branch
+        `spreadsheet-export`; not yet merged or deployed
       - deleting an account
       - a read-only share link
       - [x] `/` to the search box — from anywhere on the board, except in a field, with the
@@ -679,9 +687,11 @@ being wrong. Both rows are marked below.
 - **`BoardPositions.TopOfColumnAsync` is scoped to `(status, user)` and not to hobby.** A film
   taking `min(position) - 1` lowers a floor the games board shares — and moves nothing, because
   only the *relative* order inside a column is ever read. Its own comment says so. Do not change it.
-- **A title's entries order `logged_at DESC, id DESC` at six call sites that must agree, with no
-  shared helper.** `MovieCatalogService.EntriesFor` was the fourth and `AnimeCatalogService`'s the
-  sixth. See **Library is not the catalog** in `docs/board.md`.
+- **A title's entries order `logged_at DESC, id DESC` at eight call sites that must agree, with
+  no shared helper**: three in `LibraryService`, one in each catalogue service, and
+  `HltbService.DetailAsync`. This line said six until the spreadsheet's made eight, and counting
+  them then found `HltbService`'s had been left out. Count with the grep in **Library is not the
+  catalog** in `docs/board.md` rather than trusting a number here.
 
 ### Small things, named so they are not rediscovered
 

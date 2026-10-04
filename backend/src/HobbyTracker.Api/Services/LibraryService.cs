@@ -51,6 +51,13 @@ public interface ILibraryService
     Task<IReadOnlyList<BacklogTitleDto>> BacklogAsync(
         string? hobby, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Everything on your board, for the spreadsheet: every title in every column, the
+    /// calendar's included, with every pass of yours and every note — in the board's order.
+    /// </summary>
+    Task<IReadOnlyList<ExportTitleDto>> ExportAsync(
+        string? hobby, CancellationToken cancellationToken);
+
     Task<bool> HobbyExistsAsync(string hobby, CancellationToken cancellationToken);
 
     /// <summary>
@@ -200,6 +207,101 @@ public sealed class LibraryService(
             .. titles
                 .OrderBy(title => title.InBacklogSince ?? title.LoggedAt)
                 .ThenBy(title => title.MediaId),
+        ];
+    }
+
+    public async Task<IReadOnlyList<ExportTitleDto>> ExportAsync(
+        string? hobby, CancellationToken cancellationToken)
+    {
+        var userId = user.Id;
+
+        // Every title on your board, through the board's own query with no column and no year
+        // named: nothing the board can narrow is narrowed, and the release partition — which
+        // applies only where a column is named — leaves the calendar's titles in. Which columns a
+        // browser has taken off in Settings the server never knew. Unpaged, because the whole
+        // board is the answer; a column stops at a page, and this must not.
+        //
+        // In the order the board ranks a column by hand, through the very arm it ranks one with.
+        // The column order itself is the client's — BOARD_STATUSES — so it lays these out column
+        // by column, and within a column they arrive already in place.
+        var titles = await Sorted(
+                Filtered(
+                    BoardQuery().AsNoTracking(), hobby, status: null, year: null,
+                    LibraryPartition.Default, clock.Today),
+                LibrarySort.Manual)
+            .Select(row => new
+            {
+                row.Media.Id,
+
+                // The name a card leads with and the genres it is painted from, as both board
+                // projections build them — copies, terminal like those, and so nowhere near
+                // BoardQuery. Every_hobbys_title_is_named_and_painted_as_its_card_is holds the
+                // copies to the board's answer.
+                Title = (row.Media as Anime)!.EnglishTitle ?? row.Media.Title,
+                Genres = (row.Media as Game)!.Genres ?? (row.Media as Movie)!.Genres
+                    ?? (row.Media as TvShow)!.Genres ?? (row.Media as Anime)!.Genres,
+                PrimaryGenre = (row.Media as Game)!.PrimaryGenre ?? (row.Media as Movie)!.PrimaryGenre
+                    ?? (row.Media as TvShow)!.PrimaryGenre ?? (row.Media as Anime)!.PrimaryGenre,
+
+                // What the games sheet prints and a card does not. A game's alone: the LEFT JOIN
+                // behind the downcast answers null for any other hobby, which is what the
+                // contract says rather than an empty list.
+                (row.Media as Game)!.Developers,
+
+                // Straight off `media`, as both projections read them. A day and how precisely
+                // it was announced; the client decides what each reads as.
+                row.Media.ReleaseDate,
+                row.Media.ReleasePrecision,
+
+                (row.Media as Game)!.HltbMainStoryHours,
+                (row.Media as Game)!.HltbMainExtraHours,
+                (row.Media as Game)!.HltbCompletionistHours,
+                (row.Media as Game)!.HltbAllStylesHours,
+                (row.Media as Game)!.HltbId,
+            })
+            .ToListAsync(cancellationToken);
+
+        var onBoard = titles.Select(title => title.Id).ToList();
+
+        // Every pass of yours against them, notes and all. Yours, and it has to say so here: the
+        // titles are shared, so a pass query keyed on the media ids alone reaches a stranger's
+        // replays of the same game — and puts one first when it is the newest.
+        //
+        // logged_at DESC, id DESC, the rule BoardQuery's Latest decides "current" by, so a
+        // title's first pass is the one its card shows and the sheet's row for it agrees with the
+        // board. One more site that orders a title's passes and has to agree with the others;
+        // A_titles_first_pass_is_the_one_its_card_shows is what says this one does.
+        var passes = await db.LogEntries
+            .AsNoTracking()
+            .Include(entry => entry.Media)
+            .Include(entry => entry.Notes)
+            .Where(entry => entry.UserId == userId && onBoard.Contains(entry.MediaId))
+            .OrderByDescending(entry => entry.LoggedAt)
+            .ThenByDescending(entry => entry.Id)
+            .ToListAsync(cancellationToken);
+
+        // A lookup keeps each title's passes in the order they were read in.
+        var passesOf = passes.ToLookup(entry => entry.MediaId);
+
+        return
+        [
+            .. titles.Select(title => new ExportTitleDto(
+                title.Id,
+                title.Title,
+                title.Genres,
+                title.PrimaryGenre,
+                title.Developers,
+                title.ReleaseDate,
+                title.ReleasePrecision,
+                title.HltbMainStoryHours,
+                title.HltbMainExtraHours,
+                title.HltbCompletionistHours,
+                title.HltbAllStylesHours,
+                title.HltbId,
+
+                // The journal's own shape for a pass, which also puts each pass's notes newest
+                // first — the one place that ordering is written down.
+                [.. passesOf[title.Id].Select(LogEntryDto.From)])),
         ];
     }
 

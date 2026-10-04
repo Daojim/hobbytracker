@@ -153,18 +153,42 @@ export interface HltbEstimates {
   hltbCompletionistHours: number | null;
 }
 
+/**
+ * HowLongToBeat's own name for each of its figures, by the field it comes from — what the
+ * drawer's estimates are labelled and what the spreadsheet's columns are headed, so a rename
+ * here is a rename in both.
+ */
+export const HLTB_TIER_LABELS: Readonly<Record<keyof HltbEstimates, string>> = {
+  hltbAllStylesHours: 'All play styles',
+  hltbMainStoryHours: 'Main story',
+  hltbMainExtraHours: 'Main + Extra',
+  hltbCompletionistHours: 'Completionist',
+};
+
 export function hltbTiers(game: HltbEstimates): HltbTier[] {
-  const tiers: { key: keyof HltbEstimates; label: string; hours: number | null }[] = [
-    // HowLongToBeat own name for it, and first because it is the figure the site leads with
-    // and the one the card carries. The three below break it down.
-    { key: 'hltbAllStylesHours', label: 'All play styles', hours: game.hltbAllStylesHours },
-    { key: 'hltbMainStoryHours', label: 'Main story', hours: game.hltbMainStoryHours },
-    { key: 'hltbMainExtraHours', label: 'Main + Extra', hours: game.hltbMainExtraHours },
-    { key: 'hltbCompletionistHours', label: 'Completionist', hours: game.hltbCompletionistHours },
+  // All play styles first, because it is the figure the site leads with and the one the card
+  // carries. The three below break it down.
+  const order: (keyof HltbEstimates)[] = [
+    'hltbAllStylesHours',
+    'hltbMainStoryHours',
+    'hltbMainExtraHours',
+    'hltbCompletionistHours',
   ];
 
-  return tiers.filter((tier): tier is HltbTier => tier.hours !== null);
+  return order
+    .map((key) => ({ key, label: HLTB_TIER_LABELS[key], hours: game[key] }))
+    .filter((tier): tier is HltbTier => tier.hours !== null);
 }
+
+/**
+ * A game's page on HowLongToBeat — where the drawer's *View on HowLongToBeat* goes, and what the
+ * spreadsheet writes beside the figures, so either is a way to check they belong to the game
+ * you meant.
+ */
+export function hltbGameUrl(hltbId: number): string {
+  return `https://howlongtobeat.com/game/${hltbId}`;
+}
+
 /**
  * What to send for a date field.
  *
