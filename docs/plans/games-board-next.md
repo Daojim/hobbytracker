@@ -22,13 +22,13 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
 | 5 | Stats | M–L | **Shipped 2 October 2026 and deployed on the 3rd** (PR #52), after a workshop the same day. See its section |
 | 6 | Search your notes | S–M | Planned |
-| 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
-| 8 | Delete my account | S–M | Planned. Workshop it with #7 |
+| 7 | Export the board to a spreadsheet | S–M | **Workshopped 4 October 2026** and ready to build: a three-sheet workbook. See its section |
+| 8 | Delete my account | S–M | Planned. Its row is already drawn into #7's *Your data* group; its own choices are open |
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 
-Production runs `bd570b2`, which was `main` on 4 October 2026. Deploying is the runbook in
-`docs/deploy.md`.
+Production runs `bd570b2`'s code, which was `main` on 4 October 2026. Everything merged since is
+docs. Deploying is the runbook in `docs/deploy.md`.
 
 ## Suggested order (any order works)
 
@@ -37,7 +37,8 @@ Production runs `bd570b2`, which was `main` on 4 October 2026. Deploying is the 
 - **#3 before #4's backlog mode and before #5.** Both reuse #3's server-side totals. **Shipped
   1 October 2026.**
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
-  time.
+  time. **#7 was workshopped alone on 4 October 2026**, with #8's row drawn into the group as a
+  placeholder, so the group's layout is settled and #8's own choices are not.
 - **#10 is the smallest** if a quick one is wanted. **Shipped 4 October 2026.**
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
   build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
@@ -541,49 +542,130 @@ so `notes/search` doesn't collide.
 
 ---
 
-## 7. Export the board to a spreadsheet · S–M
+## 7. Export the board to a spreadsheet · workshopped, S–M
 
-### Decide at pickup
+**Workshopped on 4 October 2026, in two rounds, and ready to build.** The workshop page is
+private: https://claude.ai/artifact/DGc5UdVXGsyeDNBgbSsxSU. Every choice below was the
+recommendation except one, which is marked.
 
-**Recommended: CSV, one row per title, as the board shows it.** Columns:
-- title
-- the column, in the hobby's own words
-- rating
-- hours played
-- platform
-- started and finished, as Eastern days
-- number of passes
-- the four HLTB figures
-- genre
-- developer
-- release date
-- latest note
+**What the workshop changed.** This section recommended CSV, one row per title, with extra files
+for passes and notes as an option. The workshop made it a workbook of three sheets. The export
+sits beside *Delete my account*, and one row per title would keep the latest note and lose every
+other one. XLSX carries three tables in one file, and its cells are typed, so the CSV traps this
+section used to list (the byte-order mark, formula injection) no longer arise.
 
-**Optional:** extra files for every pass and every note.
+### Decided before the renders
 
-**XLSX** (ClosedXML, MIT, added through `Directory.Packages.props`) is the alternative if Excel's CSV
-handling gets in the way.
+- **What it holds:** three sheets. Games has one row per title, as the board shows it.
+  Playthroughs has one row per pass, and Notes one row per note. Column history from
+  `status_changes` was offered as a fourth sheet and not taken.
+- **Format:** an Excel workbook, `.xlsx`.
+- **Which titles:** everything on the board. That is every year, every column including any taken
+  off in Settings, and the calendar's unreleased titles. The year control and Settings decide what
+  you see, not what you have.
+
+### Decided from the renders
+
+- **The button is a row in a *Your data* group after Columns**, the same as every other row in
+  the panel. It shows a download glyph and *Download a spreadsheet*, with *Every game, playthrough
+  and note on this board, as an Excel file.* under it in `text-muted`. While it works the row is
+  disabled and reads *Preparing…*. If it fails, the line under it becomes `role="alert"` in
+  `text-danger`: *Couldn't make the spreadsheet. Try again.* A bordered button and a row showing
+  the file name were rendered and not chosen. At 224px the file name was cut to
+  `hobbytracker-games-2…`.
+- **Dates are ISO**: `yyyy-mm-dd`, and `yyyy-mm-dd hh:mm` for a note's time. They are real date
+  cells either way. ISO lines up and is narrower. The app's own `Oct 4, 2026` was rendered beside
+  it.
+- **Every optional column goes on the Games sheet.** Latest note and Added were recommended. **All
+  genres and the HowLongToBeat link were added by the user, over the recommendation.**
+- **The link is a plain address**, `https://howlongtobeat.com/game/<hltb_id>`, written as text.
+  That was chosen over a `HYPERLINK` formula, and over a real hyperlink written by a custom writer
+  feature. The file holds no formulas at all.
+- **The writer is write-excel-file** (4.1.1, MIT, one dependency: fflate), loaded with a dynamic
+  `import()` when the row is pressed. It measured 20 KB gzipped. Its browser build compresses in a
+  `blob:` worker, and the app sets no CSP that would refuse one. The alternatives were our own
+  writer on fflate (4 KB, plus about 150 lines to own) and ExcelJS (4.4.0, nine dependencies, last
+  released October 2023, 252 KB).
+- **#8's row is drawn below the export** as a placeholder, in the card menu's tinted style
+  (`bg-danger/10`), so the group is laid out once. #8's own choices are still open.
+
+**Measured at the workshop.** With the group, the Settings panel is 902px tall, and the group's
+heading starts 744px down a 1440×900 window. The export row is on the first screen. #8's row and
+the credits are below the fold. On a 390×844 phone the export row is the last thing on the first
+screen, and the page scrolls to the rest. The pinned switcher stays behind the panel.
+
+### The workbook
+
+The file is `hobbytracker-games-<todayHere()>.xlsx`. Sheet names are the hobby's words: Games,
+Playthroughs, Notes. A films board would say Films and Viewings. The header row is bold and frozen,
+the Title column is frozen, and every column has a set width.
+
+| Sheet | Columns, in order |
+|---|---|
+| Games | Title, Status, Rating, Hours played, Platform, Started, Finished, Added, Playthroughs, Genre, All genres, Developers, Released, HLTB main story, HLTB main + extra, HLTB completionist, HLTB all play styles, HowLongToBeat, Latest note |
+| Playthroughs | Title, Playthrough, Status, Rating, Hours played, Platform, Started, Finished, Notes |
+| Notes | Title, Playthrough, Written, Note |
+
+- **Games are in board order**: the column order from `columnsFor`, then position within the
+  column.
+- **A Games row is its card.** It takes the current pass's status, rating, hours, platform and
+  dates. *Added* is the first pass's `logged_at`, *Genre* is `resolveGenre`, and *Status* is
+  `columnLabel`.
+- **Released is a date cell when the precision is `Day`**, and the calendar's words otherwise
+  (`2026`, `Q1 2027`, `TBA`). It is right-aligned so the column reads as one, and **blank for a
+  null precision**. See the traps.
+- **Numbers are numbers**: ratings, hours, the four figures and the counts. A missing figure is an
+  empty cell, never 0.
+- **Notes are newest first**, with their playthrough number. They are wrapped, and written exactly
+  as typed.
+- **The tier names in the headers are `hltbTiers`' own**: Main story, Main + Extra, Completionist,
+  All play styles.
+
+The sample workbooks and the scripts that wrote them are in the workshop session's scratchpad,
+which nothing protects. The workshop page holds the same sheets.
 
 ### How it's built: the server returns facts, the client writes words
 
-- `GET /api/library/export?hobby=` returns JSON rows with every field, including the ones the board
-  row lacks: hours, platform, both dates, the tiers.
-- The client builds the CSV:
-  - the hobby's words from `columnLabel` and `resolveGenre` in `hobbies/`
-  - the dates from `journalDateInput` in `lib/time.ts`
-- That keeps the hobby's words in `hobbies/` (a Settled rule) and the time zone in the UI, so it adds
-  no new zone place.
-- Download it as a `Blob` named `hobbytracker-games-<todayHere()>.csv`.
+- `GET /api/library/export?hobby=` returns every title with its passes and their notes. It is
+  scoped through `ICurrentUser` as the board is, and **unpaged**: no `MaxPageSize`, and not through
+  `ListAsync`'s pager. The shared catalogue fields come with it: genres, developers, the release
+  window and the four figures.
+- The client builds the sheets in a pure function, taking the hobby's words from `hobbies/` and
+  the dates through `lib/time.ts`, then hands them to write-excel-file. `HobbyDefinition` gains an
+  `export` block. It is null for films, TV and anime, the `stats` and `columnHours` rule.
+- The Settings row renders only for a hobby whose definition has that block.
 
 ### Traps
 
-- **Add a UTF-8 BOM**, or Excel shows *PokÃ©mon*.
-- **Formula injection.** Notes are free text, so any cell starting with `=`, `+`, `-`, `@`, a tab or
-  a carriage return gets a leading `'`. Quote every cell.
-- **Don't page the export.** Columns stop at 100, so the endpoint must return everything — no
-  `MaxPageSize`, and not through `ListAsync`'s pager.
+- **Text is text.** Never set `type: 'Formula'`. Every value a person typed goes in as a string,
+  and that is the whole of why a note beginning `=` or `-` is safe in this format.
+- **`formatRelease` answers *TBA* for a null precision.** The calendar never shows such a title,
+  so it is harmless there. In an export it would stamp every title from before the calendar *TBA*,
+  where null means *reads as released*. The export writes a blank cell for null, and *TBA* for
+  `Unknown`.
+- **A date cell is wall-clock parts written as UTC.** The writer reads a `Date` in UTC, and an
+  Excel date has no zone. So the Eastern day and time are built with `Date.UTC(...)` from the
+  journal zone's parts. Otherwise an evening completion lands on the next day.
+- **The Written column needs the date and the time in the journal zone.** `lib/time.ts` has the
+  date alone in this shape (`journalDateInput`). The helper goes beside it, and `data-model.md`'s
+  count of places the zone is applied is updated.
+- **Read back, 21:12 comes out as 21:11:59.999.** The stored serial is exact, and Excel shows
+  21:12. The drift is the reader's, so a test that reads the file compares to the minute.
+- **Notes are capped at 4,000 characters**, and a cell holds 32,767, so nothing is cut.
+- **Don't page the export.** Columns stop at 100. This route returns everything.
 
-**UI (workshop):** a *Your data* group in Settings, shared with #8.
+### Tests first
+
+- The export returns every title on the caller's board for the hobby, with every pass and every
+  note, and nothing of another user's.
+- More than 100 titles all come back.
+- An anonymous request gets 401.
+- The sheets: names and columns from the hobby; board order; a Games row from the current pass;
+  Released for each precision, null included; numbers as numbers; a note beginning `=` stays a
+  string; an evening in Eastern stays on its day.
+- Settings: the row is on the games board and not on films; it reads *Preparing…* while it works;
+  the alert shows when it fails, and the row works again.
+- e2e: pressing the row downloads `hobbytracker-games-<today>.xlsx` with three sheets.
 
 ---
 
