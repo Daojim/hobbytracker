@@ -147,6 +147,25 @@ a column**, below.
 
 - **Escape is handled on the search, not on `document`** — the journal drawer already listens there,
   and two listeners for one key is how they start disagreeing about which of them a press was for.
+- **`/` takes the keyboard to the box from anywhere on the board, and is never typed into it.**
+  Unlike Escape, it listens on the `document`, because the press it answers is made while the
+  keyboard is somewhere else. Escape's rule is about two listeners for one key, and nothing else
+  listens for this one. Without `preventDefault()` the keypress follows focus into the box. It
+  does nothing:
+  - **with Ctrl, Alt or Meta held.** Shift is allowed. `key` is already the character typed, and
+    German and French keyboards type `/` with Shift.
+  - **in a field**, the box included, so *Fate/stay night* can be searched for.
+  - **while anything is `aria-modal`**, which means the journal. This is asked of the document,
+    because focus can fall out of an open drawer onto the body.
+  - **while a card is being carried**, which the plan missed. A keyboard drag listens for Space,
+    Enter and the arrows at the document, wherever focus has gone. So typing "a b" after `/` left
+    "a": the space dropped the card, dnd-kit gave focus back to it, and the "b" went nowhere.
+    dnd-kit marks the sortable in hand `aria-pressed`, and that mark is what the bar reads.
+
+  An open menu stays open when `/` leaves it, as it does when Tab leaves it. One consequence:
+  with Settings open, an Escape pressed in the box clears the search **and** closes Settings,
+  because Settings catches Escape at the document. That was measured and is not fixed here. #10 in
+  `docs/plans/games-board-next.md` lists the faults planted and the cases left out.
 - **The clear × is a sibling of the `<label>`, never a child of it.** A wrapping label takes its text
   content as the input's accessible name, so a button inside makes the box announce itself as *Search
   games Clear search*, and the specs that locate it by name stop finding it.
@@ -169,10 +188,11 @@ a column**, below.
   debounced copy empty together, which is the honest description of what a hobby change means to
   this component.
 - **`BoardSearch` is tested on its own, never through `BoardPage`**, because a result's title and a
-  card's title are both an `<h3>`. **One case is the exception and has to be**: the box emptying on
-  a hobby change is the bar outliving the board it belongs to, which only the page can produce — it
-  asserts a box's value and what each provider was asked, and no `<h3>` anywhere. For the same
-  reason `e2e/support/board.ts`'s `card()` is scoped to `[data-board]` — it was a bare
+  card's title are both an `<h3>`. **The exceptions are the cases only the page can produce, and
+  none of them asserts an `<h3>`.** One is the box emptying on a hobby change: the bar outliving
+  the board it belongs to, asserted through a box's value and what each provider was asked. The
+  other is `/` meeting the open journal, which is the page's drawer over the page's bar. For the
+  same reason `e2e/support/board.ts`'s `card()` is scoped to `[data-board]` — it was a bare
   `getByRole('listitem')`, which a search result tile answers to.
 
 `/search` redirects to the games board rather than being dropped — the address outlived the page, and

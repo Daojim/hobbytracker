@@ -611,7 +611,9 @@ shuffled.
       - export to a spreadsheet
       - deleting an account
       - a read-only share link
-      - `/` to the search box
+      - [x] `/` to the search box — from anywhere on the board, except in a field, with the
+        journal open, or while a card is being carried. The plan missed that last one; Chromium
+        found it, because a space typed for the search dropped the card
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.

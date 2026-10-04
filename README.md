@@ -485,6 +485,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       playthrough rather than every title, so a game finished in March and replayed in June is
       still a March finish, and a year's numbers never change because of something done later.
       Twelve choices were settled first, four in words and eight from renders of the real app
+- [x] `/` to the search box, from anywhere on the board, without typing the slash into it. It
+      does nothing while you type in a field, so a note can say "7/9" and *Fate/stay night* can
+      be searched for, and nothing while a journal is open. It also waits while a card is being
+      carried by the keyboard, which the plan missed and a real browser found: the drag was still
+      listening, so the first space typed into the search dropped the card
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 
