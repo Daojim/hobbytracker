@@ -615,8 +615,7 @@ shuffled.
       - searching your notes
       - [x] export to a spreadsheet — a workbook of three sheets from a row in Settings: every
         game as its card shows it, every playthrough and every note, whatever the board is
-        showing. Every choice but one was the recommendation, from renders. Built on the branch
-        `spreadsheet-export`; not yet merged or deployed
+        showing. Every choice but one was the recommendation, from renders (PR #61, deployed)
       - deleting an account
       - a read-only share link
       - [x] `/` to the search box — from anywhere on the board, except in a field, with the
