@@ -35,6 +35,11 @@ month you finished them, your hours against HowLongToBeat game by game, your rat
 what you started you finished, and how long each game in the backlog has waited. Stats count every
 playthrough where the board counts titles, so a year's numbers stay put when a game is replayed.
 
+Settings downloads the board as a spreadsheet: an Excel workbook of every game as its card shows
+it, every playthrough, and every note. It holds everything you have rather than what the board is
+showing — every column, every year, and the games still waiting to come out — with real dates and
+numbers in it, and nothing a spreadsheet would evaluate.
+
 Search sits above the board rather than on a screen of its own, so the column a title will land
 in is visible while you decide. Every result — and every cover on the Discover wall — adds
 straight to Backlog, Playing or Completed, and arrives with the dates a drag into that column would
@@ -142,6 +147,7 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls |
 | `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
 | `PUT /api/library/order` | store one column's manual ranking |
+| `GET /api/library/export?hobby=` | everything on your board, every pass and every note, for the spreadsheet. Not paged |
 | `GET /api/stats?hobby=&year=` | a year in numbers: every playthrough finished, your hours against the estimates, what became of what you started, and how long the backlog has waited |
 | `GET /api/stats/years?hobby=` | the years there is something to show for |
 
@@ -490,6 +496,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       be searched for, and nothing while a journal is open. It also waits while a card is being
       carried by the keyboard, which the plan missed and a real browser found: the drag was still
       listening, so the first space typed into the search dropped the card
+- [x] A spreadsheet of the board, from a row in Settings: every game as its card shows it, every
+      playthrough and every note, whatever year or columns the board is showing. Its dates are
+      real dates, written as the day it was here, so a finish at 9pm stays on its evening rather
+      than becoming tomorrow in UTC. Whatever was typed goes in as text, so a note that begins
+      with `=` is a note. The row and the sheets were picked from renders of the real app
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 
