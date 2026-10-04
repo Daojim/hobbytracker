@@ -23,11 +23,11 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 5 | Stats | M–L | **Shipped 2 October 2026 and deployed on the 3rd** (PR #52), after a workshop the same day. See its section |
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | **Shipped and deployed 4 October 2026** (PR #61), the day it was workshopped: a three-sheet workbook from a row in Settings. See its section |
-| 8 | Delete my account | S–M | **Built 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. Not deployed yet. See its section |
+| 8 | Delete my account | S–M | **Shipped and deployed 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. See its section |
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 
-Production runs `a3c389a`'s code, which was `main` on 4 October 2026. Everything merged since is
+Production runs `c28548c`'s code, which was `main` on 4 October 2026. Everything merged since is
 docs. Deploying is the runbook in `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -39,7 +39,8 @@ docs. Deploying is the runbook in `docs/deploy.md`.
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time. **#7 was workshopped alone on 4 October 2026**, with #8's row drawn into the group as a
   placeholder, so the group's layout is settled and #8's own choices are not. **#7 was built and
-  deployed the same day. #8 was workshopped and built later that day**, into the row #7 drew.
+  deployed the same day. #8 was workshopped, built and deployed later that day**, into the row #7
+  drew.
 - **#10 is the smallest** if a quick one is wanted. **Shipped 4 October 2026.**
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
   build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
@@ -649,9 +650,12 @@ In full in `docs/export.md`, under the same heading. In short:
 
 ## 8. Delete my account · built
 
-**Built on 4 October 2026** (PR #63), the day it was workshopped. Not deployed yet. No migration
-and no new variable: the cascades it rests on have been in the schema since `user_id` became
-`NOT NULL`. The write-up is `docs/auth.md`, **Deleting an account**: the routes, the cascade, the
+**Shipped and deployed on 4 October 2026** (PR #63), the day it was workshopped. No migration and
+no new variable: the cascades it rests on have been in the schema since `user_id` became
+`NOT NULL`. Both images were rebuilt and recreated, the API first, and no base image had moved.
+The public site serves a new bundle carrying the warning's and the card's words, each counted 0
+in the one before it, and a stylesheet carrying the root's ground. `GET` and `DELETE
+/api/account` answer 401 without a session, where they answered 404. The write-up is `docs/auth.md`, **Deleting an account**: the routes, the cascade, the
 session check, and every fault planted. The look is `docs/design.md`, **Deleting your account**,
 and the page's ground is **The page's ground** beside it. The workshop page is private:
 https://claude.ai/artifact/8XuDTEL1gehXenA1CUiwFd. Every choice there was the recommendation.

@@ -622,7 +622,8 @@ shuffled.
         showing. Every choice but one was the recommendation, from renders (PR #61, deployed)
       - [x] deleting an account — a word to type in a tinted warning that counts every board and
         names the sign-in, one row deleted for the cascades to finish, and a session check that
-        signs every other device out. Every choice was the recommendation, from renders (PR #63)
+        signs every other device out. Every choice was the recommendation, from renders (PR #63,
+        deployed)
       - a read-only share link
       - [x] `/` to the search box — from anywhere on the board, except in a field, with the
         journal open, or while a card is being carried (PR #58, deployed). The plan missed that

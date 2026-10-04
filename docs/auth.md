@@ -145,7 +145,8 @@ worked around.
 
 ### Deleting an account
 
-Built on 4 October 2026 for #8 in `docs/plans/games-board-next.md`. What the warning looks like
+Built for #8 in `docs/plans/games-board-next.md` and deployed on 4 October 2026 (PR #63). What
+the warning looks like
 is `docs/design.md`'s, under **Your data**.
 
 | Route | |

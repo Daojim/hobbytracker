@@ -244,7 +244,10 @@ serves the new build, so prove that from outside:
   `index-NyjNnfbD.js` locally and `index-DHeXtV3C.js` on the server. **A chunk built from a
   dependency alone did keep its name**: #61's lazily loaded writer was `browser-CRI6s8R1.js` in
   both, so a new chunk can be asked for by name, and it should come back as JavaScript, not as
-  `try_files`' page.
+  `try_files`' page. **So did the stylesheet**: #63's was `index-DKBUuydD.css` locally and on the
+  server, where its script was `index-SogCWbbF.js` locally and `index-5RGySfEW.js` served. A CSS
+  change can be counted in the stylesheet the origin names, as #63's
+  `html{background-color:var(--sunken)}` was, 0 then 1.
 - **`<origin>/api/auth/me` answers 200**, with `null` when nobody is signed in.
 - **A change to the manifest or the icons is served as what it is.** `curl -I
   <origin>/manifest.webmanifest` says `application/manifest+json`, and `curl -I
