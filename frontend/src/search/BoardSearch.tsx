@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { hobbyDefinition } from '../hobbies';
@@ -36,6 +36,12 @@ export interface BoardSearchProps {
 /** Long enough that a typed word is one search, short enough that it does not feel stuck. */
 const SEARCH_DEBOUNCE_MS = 300;
 
+/** Where a slash is somebody's typing rather than a request for this box. */
+const FIELDS = 'input, textarea, select';
+
+/** dnd-kit's own mark for the card in hand: a sortable, pressed. */
+const CARRIED = '[aria-roledescription="sortable"][aria-pressed="true"]';
+
 export function BoardSearch({ hobby }: BoardSearchProps) {
   const definition = hobbyDefinition(hobby);
   const [term, setTerm] = useState('');
@@ -66,6 +72,49 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
     setTerm('');
     boxRef.current?.focus();
   };
+
+  // `/` brings the keyboard here from anywhere on the board. On the document rather than on the
+  // bar, because the press it answers is made while the keyboard is somewhere else. Escape's rule
+  // below is about two listeners for one key, and nothing else listens for this one.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      // Shift is left off deliberately. `key` is already the character the keyboard made, and on
+      // a German or French keyboard a slash is a shifted key, so counting Shift as a modifier
+      // would take the shortcut away from everybody typing on one. With Ctrl, Alt or Meta it is
+      // a different shortcut, and somebody else's.
+      if (event.key !== '/' || event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+
+      // A slash typed into a field is the field's: "7/9" in a note, or Fate/stay night in this
+      // box. That covers an IME as well, because composition only ever happens in a field.
+      if (event.target instanceof Element && event.target.matches(FIELDS)) {
+        return;
+      }
+
+      // The journal is aria-modal and traps Tab to keep that promise, and this would be a way out
+      // of it. Asked of the document rather than of where the keyboard is, because focus can fall
+      // out of an open drawer onto the body, and the board behind is no more this key's then.
+      if (document.querySelector('[aria-modal="true"]') !== null) {
+        return;
+      }
+
+      // Nor while a card is being carried. A drag by keyboard listens at the document for Space,
+      // Enter and the arrows wherever focus has gone, so moving the keyboard to the box would
+      // leave the card in hand: the first space typed drops it, dnd-kit hands focus back to the
+      // card, and the rest of the word goes nowhere.
+      if (document.querySelector(CARRIED) !== null) {
+        return;
+      }
+
+      // Or the keypress follows the focus into the box, and the search begins with a slash.
+      event.preventDefault();
+      boxRef.current?.focus();
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   // Whether there is anything worth taking room from the board for. An idle box is a bar and
   // nothing else; the strip arrives with results, with "nothing matched", or with a failure, and

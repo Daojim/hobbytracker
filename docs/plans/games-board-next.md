@@ -16,7 +16,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 
 | # | Feature | Size | Status |
 |---|---|---|---|
-| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon followed on 2 October 2026** (PR #48), deployed the same day. Left: the Android checks in its section |
+| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon followed on 2 October 2026** (PR #48), deployed the same day. **Installed on the user's Android phone, and reported working, on 4 October 2026.** Nothing left |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
@@ -25,7 +25,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
 | 8 | Delete my account | S–M | Planned. Workshop it with #7 |
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
-| 10 | `/` focuses the search box | S | Planned |
+| 10 | `/` focuses the search box | S | **Built 4 October 2026.** Not yet merged. See its section |
 
 Production runs `bf87b00`, which was `main` on 3 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -38,9 +38,9 @@ Production runs `bf87b00`, which was `main` on 3 October 2026. Deploying is the 
   1 October 2026.**
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time.
-- **#10 is the smallest** if a quick one is wanted.
+- **#10 is the smallest** if a quick one is wanted. **Built 4 October 2026.**
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
-  build. **Built on 2 October 2026.**
+  build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
 
 ## Rules every plan below follows
 
@@ -166,7 +166,8 @@ and `theme.spec.ts` gained 2. Each guard was checked by planting its fault:
   not of the public origin, measured when the journal icon was deployed on 3 October 2026:
   Cloudflare serves the icons with four hours. See `deploy.md`.*
 
-**Check on your phone after deploying (Android):**
+**Done on 4 October 2026.** The user installed it on their Android phone and reported it working.
+These are the checks they were given:
 1. Install it from Chrome's menu. The launcher crops the icon to its shape without cutting into
    the drawing.
 2. Open it from the icon. The splash is paper with the icon on it.
@@ -705,32 +706,74 @@ reviewer can't see anything without making an account.
 
 ---
 
-## 10. `/` focuses the search box · S
+## 10. `/` focuses the search box · built
 
-### Frontend
+**Built 4 October 2026.** `/` takes the keyboard to the search box from anywhere on the board, and
+the slash is not typed into it. Write-up: `docs/games-igdb.md`, *Search on the board*.
 
-In `BoardSearch.tsx`, which owns `boxRef` (`:42`, unchanged at `df54a8b`), add a `document`
-`keydown` listener for `/`.
+It is a `document` `keydown` listener in `BoardSearch.tsx`, which owns `boxRef`. It does nothing:
+- **with Ctrl, Alt or Meta held.** Shift is allowed. `key` is already the character the keyboard
+  made, and German and French keyboards type `/` with Shift.
+- **in an `input`, `textarea` or `select`.** That includes the box itself, so *Fate/stay night* can
+  be searched for.
+- **while anything is `aria-modal`**, which today means the journal. This is asked of the
+  document rather than of the focused element, because focus can fall out of an open drawer onto
+  the body.
+- **while a card is being carried.** dnd-kit marks the sortable in hand `aria-pressed`. This rule
+  was not in the plan; see below.
 
-**Ignore the key when:**
-- a modifier is held
-- an IME is composing (`isComposing`, read off the native event)
-- focus is in an `input`, `textarea`, `select` or `contenteditable` element
-- a modal dialog is open — the drawer is `aria-modal`, and its Tab trap must keep the keyboard
+Otherwise it calls `preventDefault()` and then focuses the box. Without `preventDefault()` the
+keypress follows focus into the box and types the slash there. **Nothing changes at 390px.** A
+phone types only into fields, and the rule leaves fields alone.
 
-**Otherwise** call `preventDefault()` so the `/` isn't typed, then focus the box.
+**Not built: the optional `/` hint in the placeholder.** How it looks is a visual choice, so it
+needs a workshop first. A phone has no `/` key to press, so a hint should only show on desktop.
 
-**A document listener is fine for this key.** The rule in `games-igdb.md` is about two listeners
-for one key (Escape), and nothing else listens for `/`.
+### Tests
 
-### Tests first (Vitest)
+`BoardSearch.test.tsx` gained 9, `BoardPage.test.tsx` 2, and `e2e/search.spec.ts` 1. The carried
+card's test is the Playwright one, because the drag gets a real browser. What it guards against is
+a dnd-kit drop and a dnd-kit focus restore, and both were measured in Chromium. A keyboard pick-up
+does start in jsdom, which a probe showed, so jsdom was not the obstacle. Each guard was checked by
+planting its fault:
 
-- `/` on the board focuses the search box.
-- `/` typed into a note still types a slash.
-- With the drawer open, focus doesn't move.
-- Ctrl+/ is ignored.
+| Fault planted | Red |
+|---|---|
+| No `preventDefault()` | the two that press `/` from the page; the box held `/` |
+| Shift counted as a modifier | *answers a slash typed with Shift held* |
+| Ctrl, Alt or Meta unchecked, each planted alone | that modifier's case, and no other |
+| No field rule | *types a slash into the box*, and the three *elsewhere on the page* |
+| `textarea` or `select` left off the list, each alone | that field's case, and no other |
+| No modal rule | *keeps / from taking the keyboard out of the journal*, while focus is in the drawer |
+| The modal rule asked of the focused element, not the document | the same test, once focus is on the body |
+| Neither the field rule nor the modal rule | those six, and *lets a note have its slashes* |
+| No carried-card rule | *`/` leaves the keyboard with a card that is being carried* |
+| The carried-card rule matching any card, not the one in hand | the same spec, once the card is put down |
 
-**Optional:** a `/` hint in the placeholder.
+### Where the build departed from the plan
+
+- **A carried card was missing from the plan, and it was the one real hole.** Measured in Chromium
+  against the first build: during a keyboard drag, `/` moved focus to the box with the card still
+  in hand. Typing "a b" left "a" in the box. The space dropped the card, dnd-kit gave focus back
+  to it, and the "b" went nowhere. **Tab cannot cause this.** dnd-kit counts Tab as a drop, so
+  focus stays on the card.
+- **Two things the plan listed are not in the code**, and neither could be given a test that means
+  anything:
+  - **`isComposing`.** An IME only composes in a field, and the field rule already refuses those.
+    The only event that would test the check alone is one no browser sends.
+  - **`contenteditable`.** Nothing in the app is editable that way, and jsdom has no
+    `isContentEditable`, so its test would pass without testing anything. If such an element is
+    ever added, it joins the list with a Playwright test.
+- **"A modifier is held"** became Ctrl, Alt and Meta. Shift is not on it, for the reason above.
+- **The plan's note test is held by two rules at once.** The journal is modal and the note is a
+  field, so it goes red only with both rules planted. Each rule also has a test of its own.
+
+**Measured in Chromium and left as it is.** `/` leaves an open `⋯` menu or the Settings panel
+open, as Tab off a menu's last item does: neither closes when the keyboard leaves it, only on a
+press elsewhere or Escape. That has one consequence worth knowing. With Settings open, an Escape
+pressed in the box clears the search **and** closes Settings, which sends focus to the Settings
+button. `Card.tsx` already notes that Settings catches Escape at the document, unlike the card
+menu. The fix would be to catch it on the panel's container, as the card menu does. Not done here.
 
 ---
 

@@ -592,8 +592,8 @@ shuffled.
       picked up in any order:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
-        installs to a home screen (PR #48, deployed). **What is left of it:** the Android checks
-        listed in its section
+        installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
+        working on 4 October 2026, which was the last of it
       - [x] recording when a title changes column — `status_changes`, written by one
         interceptor rather than four services, with shuffles folded away on the way in
       - [x] hours in the column headers — a line under each heading adding up what its cards
@@ -611,7 +611,9 @@ shuffled.
       - export to a spreadsheet
       - deleting an account
       - a read-only share link
-      - `/` to the search box
+      - [x] `/` to the search box — from anywhere on the board, except in a field, with the
+        journal open, or while a card is being carried. The plan missed that last one; Chromium
+        found it, because a space typed for the search dropped the card
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.

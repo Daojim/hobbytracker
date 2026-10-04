@@ -698,8 +698,8 @@ describe('BoardPage', () => {
     // provider, because the search is dispatched by hobby. Typing "hollow" on games and
     // clicking Movies asked TMDB about Hollow Knight.
     //
-    // Through BoardPage rather than in BoardSearch's own file, which is the one exception to the
-    // rule there: the defect is the bar outliving the hobby, and only the page can produce that.
+    // Through BoardPage rather than in BoardSearch's own file, which is an exception to the rule
+    // there: the defect is the bar outliving the hobby, and only the page can produce that.
     // Nothing here asserts an h3, which is what that rule is protecting.
     const igdb = searchServer({ results: [game({ title: 'Hollow Knight' })] });
     const tmdb = movieSearchServer({ results: [movie({ title: 'Arrival' })] });
@@ -721,6 +721,48 @@ describe('BoardPage', () => {
     // read too early passes whether or not it was going to stay empty.
     await userEvent.type(films, 'arriv');
     await waitFor(() => expect(tmdb.searches).toEqual(['arriv']));
+  });
+
+  it('keeps / from taking the keyboard out of the journal', async () => {
+    // The drawer is aria-modal and traps Tab to keep that promise, and `/` sending the keyboard
+    // to the search box behind it would be a way out the trap never sees. Through BoardPage for
+    // the reason the case above is: the drawer is the page's, and only the page can open one
+    // over the bar. Nothing here asserts an h3 either.
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] } });
+    journalServer({ detail: gameDetail({ title: 'Celeste' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    const drawer = await screen.findByRole('dialog');
+    await waitFor(() => expect(drawer).toHaveFocus());
+
+    await userEvent.keyboard('/');
+
+    expect(drawer).toHaveFocus();
+
+    // Nor from the body, which is where the keyboard lands when the control it was on unmounts.
+    // That is outside the drawer without being out of it: the drawer is still open over the
+    // board, so the board is still not the key's to hand the keyboard to.
+    act(() => drawer.blur());
+    await userEvent.keyboard('/');
+
+    expect(screen.getByRole('searchbox', { name: 'Search games' })).not.toHaveFocus();
+  });
+
+  it('lets a note have its slashes', async () => {
+    // The case a person meets. Both of the bar's rules hold it, because the journal is modal and
+    // the note is a field, so this goes red only when both go. It is here because "7/9" is about
+    // the most ordinary thing anybody writes in a journal.
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] } });
+    journalServer({ detail: gameDetail({ title: 'Celeste' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    const note = await screen.findByRole('textbox', { name: 'New note' });
+
+    await userEvent.type(note, 'Chapter 7/9');
+
+    expect(note).toHaveValue('Chapter 7/9');
   });
 });
 

@@ -268,4 +268,89 @@ describe('BoardSearch', () => {
     await waitFor(() => expect(strip()).not.toBeInTheDocument());
     expect(box()).toHaveValue('');
   });
+
+  it('takes the keyboard to the box on /, without typing the slash into it', async () => {
+    // From wherever the keyboard is on the board, which for the bar on its own is the document
+    // body. The slash is the half worth pinning: focus moved during a keydown takes the keypress
+    // with it, so without preventDefault every search begun this way would begin with one.
+    searchServer();
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await waitFor(() => expect(box()).toBeInTheDocument());
+
+    await userEvent.keyboard('/');
+
+    expect(box()).toHaveFocus();
+    expect(box()).toHaveValue('');
+  });
+
+  it('answers a slash typed with Shift held, which is how a German or French keyboard types one', async () => {
+    // `key` is the character the keyboard made, whatever it took to make it, so a rule about
+    // modifiers that counted Shift would take the shortcut away from every such keyboard. On a
+    // US one, Shift and that key make "?", which is a different key to this listener.
+    searchServer();
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await waitFor(() => expect(box()).toBeInTheDocument());
+
+    await userEvent.keyboard('{Shift>}/{/Shift}');
+
+    expect(box()).toHaveFocus();
+    expect(box()).toHaveValue('');
+  });
+
+  it.each(['Control', 'Alt', 'Meta'])(
+    'leaves %s+/ to whatever it is a shortcut for',
+    async (modifier) => {
+      searchServer();
+
+      renderWithProviders(<BoardSearch hobby="games" />);
+      await waitFor(() => expect(box()).toBeInTheDocument());
+
+      await userEvent.keyboard(`{${modifier}>}/{/${modifier}}`);
+
+      expect(box()).not.toHaveFocus();
+    },
+  );
+
+  it('types a slash into the box like any other character', async () => {
+    // The box is a field like any other, and the one a slash is likeliest to be typed into:
+    // Fate/stay night, and most of the series after it.
+    searchServer();
+
+    renderWithProviders(<BoardSearch hobby="games" />);
+    await userEvent.type(box(), 'fate/stay');
+
+    expect(box()).toHaveValue('fate/stay');
+  });
+
+  it.each([
+    ['a text box', <input aria-label="Elsewhere" />],
+    ['a text area', <textarea aria-label="Elsewhere" />],
+    [
+      'a select',
+      <select aria-label="Elsewhere">
+        <option>One</option>
+      </select>,
+    ],
+  ])('leaves a slash typed into %s elsewhere on the page where it was typed', async (_, field) => {
+    // Whatever else the page holds, now or later — a box of its own for searching notes is one
+    // of the plans. Stand-ins rather than the journal's note box, because the journal is modal
+    // and holds the key on its own, which is BoardPage's test and not this one.
+    searchServer();
+
+    renderWithProviders(
+      <>
+        <BoardSearch hobby="games" />
+        {field}
+      </>,
+    );
+    await waitFor(() => expect(box()).toBeInTheDocument());
+    const elsewhere = screen.getByLabelText('Elsewhere');
+    await userEvent.click(elsewhere);
+
+    await userEvent.keyboard('/');
+
+    expect(elsewhere).toHaveFocus();
+  });
 });
