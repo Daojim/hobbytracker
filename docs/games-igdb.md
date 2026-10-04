@@ -165,7 +165,8 @@ a column**, below.
   An open menu stays open when `/` leaves it, as it does when Tab leaves it. One consequence:
   with Settings open, an Escape pressed in the box clears the search **and** closes Settings,
   because Settings catches Escape at the document. That was measured and is not fixed here. #10 in
-  `docs/plans/games-board-next.md` lists the faults planted and the cases left out.
+  `docs/plans/games-board-next.md` lists the faults planted and the cases left out. It reached
+  production on 4 October 2026, in #58.
 - **The clear × is a sibling of the `<label>`, never a child of it.** A wrapping label takes its text
   content as the input's accessible name, so a button inside makes the box announce itself as *Search
   games Clear search*, and the specs that locate it by name stop finding it.

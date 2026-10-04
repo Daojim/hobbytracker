@@ -25,9 +25,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 7 | Export the board to a spreadsheet | S–M | Planned. Workshop it with #8 |
 | 8 | Delete my account | S–M | Planned. Workshop it with #7 |
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
-| 10 | `/` focuses the search box | S | **Built 4 October 2026.** Not yet merged. See its section |
+| 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 
-Production runs `bf87b00`, which was `main` on 3 October 2026. Deploying is the runbook in
+Production runs `bd570b2`, which was `main` on 4 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -38,7 +38,7 @@ Production runs `bf87b00`, which was `main` on 3 October 2026. Deploying is the 
   1 October 2026.**
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time.
-- **#10 is the smallest** if a quick one is wanted. **Built 4 October 2026.**
+- **#10 is the smallest** if a quick one is wanted. **Shipped 4 October 2026.**
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
   build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
 
@@ -706,10 +706,11 @@ reviewer can't see anything without making an account.
 
 ---
 
-## 10. `/` focuses the search box · built
+## 10. `/` focuses the search box · shipped
 
-**Built 4 October 2026.** `/` takes the keyboard to the search box from anywhere on the board, and
-the slash is not typed into it. Write-up: `docs/games-igdb.md`, *Search on the board*.
+**Shipped and deployed 4 October 2026** (PR #58). `/` takes the keyboard to the search box from
+anywhere on the board, and the slash is not typed into it. Write-up: `docs/games-igdb.md`, *Search
+on the board*.
 
 It is a `document` `keydown` listener in `BoardSearch.tsx`, which owns `boxRef`. It does nothing:
 - **with Ctrl, Alt or Meta held.** Shift is allowed. `key` is already the character the keyboard
