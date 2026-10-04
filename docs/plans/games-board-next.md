@@ -22,12 +22,12 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
 | 5 | Stats | M–L | **Shipped 2 October 2026 and deployed on the 3rd** (PR #52), after a workshop the same day. See its section |
 | 6 | Search your notes | S–M | Planned |
-| 7 | Export the board to a spreadsheet | S–M | **Workshopped and built 4 October 2026**: a three-sheet workbook from a row in Settings, on the branch `spreadsheet-export`, not yet merged or deployed. See its section |
+| 7 | Export the board to a spreadsheet | S–M | **Shipped and deployed 4 October 2026** (PR #61), the day it was workshopped: a three-sheet workbook from a row in Settings. See its section |
 | 8 | Delete my account | S–M | Planned. Its row goes in #7's *Your data* group, drawn there at the workshop; its own choices are open |
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 
-Production runs `bd570b2`'s code, which was `main` on 4 October 2026. Everything merged since is
+Production runs `a3c389a`'s code, which was `main` on 4 October 2026. Everything merged since is
 docs. Deploying is the runbook in `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -38,8 +38,8 @@ docs. Deploying is the runbook in `docs/deploy.md`.
   1 October 2026.**
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time. **#7 was workshopped alone on 4 October 2026**, with #8's row drawn into the group as a
-  placeholder, so the group's layout is settled and #8's own choices are not. **#7 was built the
-  same day**, and the group holds the export alone until #8 is.
+  placeholder, so the group's layout is settled and #8's own choices are not. **#7 was built and
+  deployed the same day**, and the group holds the export alone until #8 is.
 - **#10 is the smallest** if a quick one is wanted. **Shipped 4 October 2026.**
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
   build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
@@ -543,11 +543,13 @@ so `notes/search` doesn't collide.
 
 ---
 
-## 7. Export the board to a spreadsheet · built
+## 7. Export the board to a spreadsheet · shipped
 
-**Built on 4 October 2026**, on the branch `spreadsheet-export`; not yet merged or deployed. The
-write-up is `docs/export.md`, a new area file: the route, the three sheets, the traps, and every
-fault planted. The look is `docs/design.md`, **Your data**. The workshop page is private:
+**Shipped and deployed on 4 October 2026** (PR #61), the day it was workshopped. No migration and
+no new variable. Both images were rebuilt and recreated, the API first. The public site serves a
+new bundle carrying the row's words, each counted 0 in the one before it, and the route answers
+401 without a session where it answered 405. The write-up is `docs/export.md`, a new area file:
+the route, the three sheets, the traps, and every fault planted. The look is `docs/design.md`, **Your data**. The workshop page is private:
 https://claude.ai/artifact/DGc5UdVXGsyeDNBgbSsxSU. Every choice there was the recommendation except
 one, which is marked.
 

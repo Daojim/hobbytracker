@@ -241,7 +241,10 @@ serves the new build, so prove that from outside:
   escaped `\:` in a class name once matched nothing, and nothing matched looks exactly like
   absent. **Choose the strings from a local build**, which shows which ones survive minification
   whole. A local build does not predict the bundle's name, though: from the same source, #58 was
-  `index-NyjNnfbD.js` locally and `index-DHeXtV3C.js` on the server.
+  `index-NyjNnfbD.js` locally and `index-DHeXtV3C.js` on the server. **A chunk built from a
+  dependency alone did keep its name**: #61's lazily loaded writer was `browser-CRI6s8R1.js` in
+  both, so a new chunk can be asked for by name, and it should come back as JavaScript, not as
+  `try_files`' page.
 - **`<origin>/api/auth/me` answers 200**, with `null` when nobody is signed in.
 - **A change to the manifest or the icons is served as what it is.** `curl -I
   <origin>/manifest.webmanifest` says `application/manifest+json`, and `curl -I

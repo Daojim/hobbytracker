@@ -5,7 +5,8 @@
 > these files a change needs.
 
 **Everything on a board, as an Excel workbook you keep**, from one row in Settings. Built on
-4 October 2026 for #7 in `docs/plans/games-board-next.md`, on the games board only.
+4 October 2026 for #7 in `docs/plans/games-board-next.md`, on the games board only, and deployed
+the same day (PR #61).
 
 | | |
 |---|---|
