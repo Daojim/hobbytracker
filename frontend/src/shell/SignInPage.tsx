@@ -1,3 +1,6 @@
+import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router';
+import { wasDeleted } from '../account/useDeleteAccount';
 import { signInUrl } from '../api/auth';
 import { PROVIDERS } from './providers';
 
@@ -29,16 +32,43 @@ import { PROVIDERS } from './providers';
  * an app whose buttons are all outlines.
  */
 export function SignInPage() {
+  // Straight after an account is deleted the card says so, in the heading, because whether it
+  // worked is the question on your mind. Picked from renders on 4 October 2026 over a line in
+  // place of the intro and over a notice above it. Only the navigation from a delete carries
+  // this; signing out lands on the ordinary card.
+  const deleted = wasDeleted(useLocation().state);
+  const heading = useRef<HTMLHeadingElement>(null);
+
+  // The board the delete came from went from under the keyboard, which would otherwise be left
+  // on the document with nothing announced. The heading is where it goes instead.
+  useEffect(() => {
+    if (deleted) {
+      heading.current?.focus();
+    }
+  }, [deleted]);
+
   return (
     <main className="flex min-h-dvh items-center justify-center bg-sunken p-6 text-fg">
       <div className="flex w-full max-w-sm flex-col gap-6 rounded-xl border border-line bg-surface p-8 shadow-xl">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold">Sign in</h1>
-          <p className="text-sm text-muted">
-            Your backlog, your ratings and everything you have written about a game are yours
-            alone. Signing in is what makes them yours.
-          </p>
-        </div>
+        {deleted ? (
+          <div className="space-y-2">
+            <h1 ref={heading} tabIndex={-1} className="text-2xl font-semibold focus:outline-none">
+              Account deleted
+            </h1>
+            <p className="text-sm text-muted">
+              Everything on your boards went with it. Signing in again starts a new, empty
+              account.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <h1 className="text-2xl font-semibold">Sign in</h1>
+            <p className="text-sm text-muted">
+              Your backlog, your ratings and everything you have written about a game are yours
+              alone. Signing in is what makes them yours.
+            </p>
+          </div>
+        )}
 
         <div className="flex flex-col gap-3">
           {PROVIDERS.map(({ id, label, Mark }) => (

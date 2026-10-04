@@ -43,6 +43,7 @@ export const TV: HobbyDefinition = {
   // "Watches" rather than "viewings": a film is viewed and a series is watched, and a rewatch
   // of nineteen episodes is not a viewing of anything.
   countPasses: (count) => `${count} watches`,
+  titleNoun: (count) => (count === 1 ? 'show' : 'shows'),
 
   describeRemoval: (title, entryCount) =>
     entryCount > 1

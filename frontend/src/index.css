@@ -670,3 +670,20 @@
   --color-hltb: #1f6feb;
   --color-hltb-fg: #ffffff;
 }
+
+/*
+ * The theme's ground under the whole page, and not only under the board.
+ *
+ * `main` paints it and is at least a screen tall, which was enough until something ran past it.
+ * The Settings panel hangs from the header, and over a short board (an empty one, on a phone) it
+ * reaches below `main`, where the page showed the browser's own colour: white on the light
+ * themes, and on the dark ones a near-black that is not the theme's. Measured on 4 October 2026:
+ * 75px of it under an empty games board with the panel at its end, and 269px with the account's
+ * warning open. The root carries the ground as well, so there is nowhere for it to stop.
+ * `layout.spec.ts` holds it.
+ */
+@layer base {
+  html {
+    background-color: var(--sunken);
+  }
+}

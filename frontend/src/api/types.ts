@@ -579,3 +579,25 @@ export interface Me {
   id: number;
   displayName: string;
 }
+
+/**
+ * What deleting your account would take with it: `GET /api/account`.
+ *
+ * Facts, which `account/warning.ts` puts into words — the hobbies' own words for a title, from
+ * `hobbies/`. The provider rides here and not on {@link Me}, because the warning is the one
+ * thing that reads it.
+ */
+export interface Account {
+  /** The providers this account signs in with, in the order they were linked: `google`. */
+  signedInWith: string[];
+  /** Every board with anything on it, in the nav's order. An empty board is left out. */
+  boards: BoardTitles[];
+  /** Every note on every board. */
+  notes: number;
+}
+
+/** How many titles one board holds: each title once, however many passes it has had. */
+export interface BoardTitles {
+  hobby: string;
+  titles: number;
+}

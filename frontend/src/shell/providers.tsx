@@ -74,9 +74,11 @@ function DiscordMark() {
   );
 }
 
+// `name` is the provider as a sentence says it: the account's warning names the sign-in, since
+// the same person at Google and at Discord is two accounts.
 export const PROVIDERS = [
-  { id: 'google', label: 'Continue with Google', Mark: GoogleMark },
-  { id: 'discord', label: 'Continue with Discord', Mark: DiscordMark },
+  { id: 'google', name: 'Google', label: 'Continue with Google', Mark: GoogleMark },
+  { id: 'discord', name: 'Discord', label: 'Continue with Discord', Mark: DiscordMark },
 ] as const;
 
 export type Provider = (typeof PROVIDERS)[number]['id'];

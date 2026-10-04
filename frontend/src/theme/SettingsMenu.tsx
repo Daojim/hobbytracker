@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { DeleteAccount } from '../account/DeleteAccount';
+import { useDeleteAccount } from '../account/useDeleteAccount';
 import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
 import { downloadSpreadsheet } from '../export/download';
 import { columnsFor, hobbyDefinition } from '../hobbies';
@@ -13,8 +15,8 @@ export interface SettingsMenuProps {
 }
 
 /**
- * The one control in the header, holding the appearance preferences, the board's columns, and the
- * board as a spreadsheet to keep.
+ * The one control in the header, holding the appearance preferences, the board's columns, the
+ * board as a spreadsheet to keep, and the way to delete your account.
  *
  * One button rather than two controls side by side: the header would otherwise start collecting
  * them, and there would be nowhere obvious for the next one to go. They are usually set in the
@@ -36,9 +38,11 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
   const [open, setOpen] = useState(false);
 
   // Up here rather than inside the panel, so closing the panel while the file is being made
-  // neither loses the file nor the state the row comes back to.
+  // neither loses the file nor the state the row comes back to. The delete is held here for the
+  // same reason: a panel shut and opened again mid-delete finds it still going.
   const exportWords = hobbyDefinition(hobby).export;
   const spreadsheet = useMutation({ mutationFn: () => downloadSpreadsheet(hobby) });
+  const deletion = useDeleteAccount();
 
   const ids = useId();
   const button = useRef<HTMLButtonElement>(null);
@@ -239,30 +243,33 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
             Backlog always shows, because search adds to it.
           </p>
 
-          {/* What you have, rather than how it looks: the board as a file you keep. Only on a
-              board whose hobby has words for one — HobbyDefinition.export — and with nothing
-              else in it yet, the group goes when the row does.
+          {/* What you have, rather than how it looks: the board as a file you keep, and the
+              account you could delete. On every board, because an account is every board's.
 
-              A row like every other in the panel, picked from renders over a bordered button
-              and over the file's own name, which the panel's width cut to
+              The spreadsheet's row only where the board's hobby has words for one —
+              HobbyDefinition.export. A row like every other in the panel, picked from renders
+              over a bordered button and over the file's own name, which the panel's width cut to
               "hobbytracker-games-2…".
 
               Held still while it works by aria-disabled rather than disabled: a real browser
               takes focus off a control the moment it is disabled, which would leave the keyboard
               at the top of the page with the file still coming. A press meanwhile is simply not
               acted on. The line under it says what the file holds, and becomes the alert when
-              it fails — a new element, keyed, so it is announced as it arrives. */}
-          {exportWords !== null && (
-            <>
-              <hr className="my-2 border-line-soft" />
+              it fails — a new element, keyed, so it is announced as it arrives.
 
-              <p
-                id={`${ids}-data`}
-                className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
-              >
-                Your data
-              </p>
-              <div role="group" aria-labelledby={`${ids}-data`} className="flex flex-col">
+              The delete comes last and is tinted, as the card menu's Remove from board is: plain
+              rows do things, and the tinted one deletes. */}
+          <hr className="my-2 border-line-soft" />
+
+          <p
+            id={`${ids}-data`}
+            className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
+          >
+            Your data
+          </p>
+          <div role="group" aria-labelledby={`${ids}-data`} className="flex flex-col">
+            {exportWords !== null && (
+              <>
                 <button
                   type="button"
                   onClick={() => {
@@ -303,9 +310,11 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
                     {exportWords.holds}
                   </p>
                 )}
-              </div>
-            </>
-          )}
+              </>
+            )}
+
+            <DeleteAccount deletion={deletion} />
+          </div>
 
           <hr className="my-2 border-line-soft" />
 
