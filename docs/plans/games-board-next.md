@@ -16,7 +16,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 
 | # | Feature | Size | Status |
 |---|---|---|---|
-| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon followed on 2 October 2026** (PR #48), deployed the same day. Left: the Android checks in its section |
+| 1 | A board that works on a phone | S + M | **Shipped and deployed 1 October 2026** (PRs #41 and #42). **The manifest and the icon followed on 2 October 2026** (PR #48), deployed the same day. **Installed on the user's Android phone, and reported working, on 4 October 2026.** Nothing left |
 | 2 | Record when a title changes column | M | **Shipped and deployed 1 October 2026** (PR #44). See its section |
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
@@ -40,7 +40,7 @@ Production runs `bf87b00`, which was `main` on 3 October 2026. Deploying is the 
   time.
 - **#10 is the smallest** if a quick one is wanted.
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
-  build. **Built on 2 October 2026.**
+  build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
 
 ## Rules every plan below follows
 
@@ -166,7 +166,8 @@ and `theme.spec.ts` gained 2. Each guard was checked by planting its fault:
   not of the public origin, measured when the journal icon was deployed on 3 October 2026:
   Cloudflare serves the icons with four hours. See `deploy.md`.*
 
-**Check on your phone after deploying (Android):**
+**Done on 4 October 2026.** The user installed it on their Android phone and reported it working.
+These are the checks they were given:
 1. Install it from Chrome's menu. The launcher crops the icon to its shape without cutting into
    the drawing.
 2. Open it from the icon. The splash is paper with the icon on it.
