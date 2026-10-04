@@ -201,6 +201,7 @@ builder.Services.AddScoped<ILogEntryService, LogEntryService>();
 builder.Services.AddScoped<INoteService, NoteService>();
 builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 
 // -------------------------------------------------- the app's public address
 // What the outside world reaches this app at, for when a proxy in front means that is not what
@@ -262,6 +263,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
             context.Properties.IsPersistent = true;
             return Task.CompletedTask;
         };
+
+        // The cookie is self-contained, so deleting an account changes nothing about the cookie
+        // every other device holds. This looks the account up on each request and signs a
+        // session out once it is gone. See SessionValidator.
+        options.Events.OnValidatePrincipal = SessionValidator.ValidateAsync;
 
         // Without these, an unauthenticated API call is answered with a 302 to a login page;
         // fetch follows it and the caller gets 200 and a lump of HTML, then fails while parsing

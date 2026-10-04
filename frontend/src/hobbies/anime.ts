@@ -42,6 +42,9 @@ export const ANIME: HobbyDefinition = {
 
   countPasses: (count) => `${count} watches`,
 
+  // One anime, two anime: the word has no plural in English as people use it.
+  titleNoun: () => 'anime',
+
   describeRemoval: (title, entryCount) =>
     entryCount > 1
       ? `Takes ${title} off your board — all ${entryCount} watches, and their notes.`

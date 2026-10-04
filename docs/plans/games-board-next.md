@@ -23,7 +23,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 5 | Stats | M–L | **Shipped 2 October 2026 and deployed on the 3rd** (PR #52), after a workshop the same day. See its section |
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | **Shipped and deployed 4 October 2026** (PR #61), the day it was workshopped: a three-sheet workbook from a row in Settings. See its section |
-| 8 | Delete my account | S–M | Planned. Its row goes in #7's *Your data* group, drawn there at the workshop; its own choices are open |
+| 8 | Delete my account | S–M | **Built 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. Not deployed yet. See its section |
 | 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 
@@ -39,7 +39,7 @@ docs. Deploying is the runbook in `docs/deploy.md`.
 - **#7 and #8 together.** They share a *Your data* group in Settings, so workshop them at the same
   time. **#7 was workshopped alone on 4 October 2026**, with #8's row drawn into the group as a
   placeholder, so the group's layout is settled and #8's own choices are not. **#7 was built and
-  deployed the same day**, and the group holds the export alone until #8 is.
+  deployed the same day. #8 was workshopped and built later that day**, into the row #7 drew.
 - **#10 is the smallest** if a quick one is wanted. **Shipped 4 October 2026.**
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
   build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
@@ -615,7 +615,8 @@ panel.
   the drawer's estimates and *View on HowLongToBeat* now read too.
 - **write-excel-file 4.1.1 is a dependency**, in a chunk of its own. **read-excel-file 9.3.10 is
   a devDependency**, so the e2e spec can read the downloaded file back.
-- **#8's row is not built**, as asked. Until it is, the group holds the export alone.
+- **#8's row is not built**, as asked. Until it is, the group holds the export alone. It was built
+  later the same day; see #8.
 
 ### Tests
 
@@ -646,56 +647,97 @@ In full in `docs/export.md`, under the same heading. In short:
 
 ---
 
-## 8. Delete my account · S–M
+## 8. Delete my account · built
 
-### Backend
+**Built on 4 October 2026** (PR #63), the day it was workshopped. Not deployed yet. No migration
+and no new variable: the cascades it rests on have been in the schema since `user_id` became
+`NOT NULL`. The write-up is `docs/auth.md`, **Deleting an account**: the routes, the cascade, the
+session check, and every fault planted. The look is `docs/design.md`, **Deleting your account**,
+and the page's ground is **The page's ground** beside it. The workshop page is private:
+https://claude.ai/artifact/8XuDTEL1gehXenA1CUiwFd. Every choice there was the recommendation.
 
-**`DELETE /api/account` on a new `AccountController` with `[Authorize]`.**
-- **Not in `AuthController`.** That controller is `[AllowAnonymous]` at class level, and
-  `[AllowAnonymous]` overrides any `[Authorize]` on an action.
-- Test this: an anonymous DELETE gets 401.
+**What the workshop changed.** This section recommended an inline confirm with counts, in
+`ConfirmDelete`'s style: two presses. The workshop made it a word to type, because this is the one
+delete in the app that reaches past the board you are looking at, and the app cannot undo it.
 
-**Delete the `users` row and let the database cascade.**
-- It cascades to `log_entries`, from there to `notes` and `status_changes`, and to `auth_identities`.
-- The cascades are in `LogEntryConfiguration.cs:90`, `AuthIdentityConfiguration.cs:21` and
-  `NoteConfiguration.cs:24`.
-- Shared `media` and `games` rows stay.
-- Then call `SignOutAsync`.
+### Decided before the renders
 
-### Trap: the cookie outlives its user
+- **A word to type**: the filled button does nothing until the field says *delete*. Two presses,
+  as every other delete in the app works, was the alternative.
+- **The backups are mentioned**: *The nightly backups keep a copy for about two weeks, then that
+  goes too.* `BACKUP_RETAIN_DAYS` is 14 by default and the dumps are pruned with `-mtime +14`, so a
+  deleted account lasts in them 14 to 15 days, and the warning says *about two weeks* rather than
+  a number the server's `.env` can change.
+- **The sign-in screen says it is done**, and that signing in again starts a new, empty account.
 
-- The session cookie is self-contained and has no `OnValidatePrincipal` (`Program.cs:230`).
-- So another device stays signed in as a user id that no longer exists. Reads come back empty, and
-  writes 500 on the foreign key.
-- **Fix:** add an `OnValidatePrincipal` that looks the user up by primary key and calls
-  `RejectPrincipal()` if the row is gone.
+### Decided from the renders
 
-### Decide at pickup
+- **The warning is tinted**: the row keeps its name and its tint and opens into it. The warning in
+  the row's place on the panel's ground was rendered beside it.
+- **The counts are a sentence** in each hobby's word, *36 games, 9 films, 4 shows, 2 anime and 41
+  notes*, over a list a board a line.
+- **The sign-in is named**: *the account you signed in to with Google*, over *your account*. The
+  same person at Google and at Discord is two accounts.
+- **The sign-in card's heading reads *Account deleted*** (C), over the line in place of the intro
+  (A) and a notice above *Sign in* (B).
 
-- **The confirmation.** Recommended: inline, with counts, in `ConfirmDelete`'s style. It must say
-  **every board** — games, films, TV, anime — not just this one. That needs a small read for the
-  counts.
-- **Backups.** Whether to mention that nightly backups keep the data until they expire. They are
-  kept 14 days; see *Backups* in `docs/deploy.md`.
+### Built
 
-### Frontend
+- **`GET /api/account` and `DELETE /api/account`** on a new `[Authorize]` `AccountController`, in
+  `AccountService`. The summary is facts: each board's titles (a title once, however many passes),
+  every note, and the providers. The delete is one `ExecuteDelete` on `users`, and the database
+  cascades the rest.
+- **`SessionValidator`** on the cookie scheme's `OnValidatePrincipal`: one primary-key lookup per
+  request carrying a cookie, which rejects and signs out a session whose account is gone.
+- **`frontend/src/account/`**: `DeleteAccount.tsx` (the tinted row and its warning), `warning.ts`
+  (the sentence, a pure function) and `useDeleteAccount.ts` (the delete, held by the menu).
+  `HobbyDefinition.titleNoun` gives every hobby its word for a title, and `PROVIDERS` gained a
+  `name` for a sentence to use.
+- **The *Your data* group is on every board**, and the spreadsheet's row stays where its hobby
+  has an `export` block.
+- **The sign-in card reads *Account deleted*** when a delete brings it there, and takes the
+  keyboard.
+- **The page root carries the theme's ground.** Found in the renders; see below.
 
-On success, do what `SessionBadge`'s sign-out does: `setQueryData(sessionKey, null)`, then
-`clear()`. That lands the user on sign-in.
+### Tests
 
-**The row goes under the export in Settings' *Your data* group**, in the card menu's tinted
-style (`bg-danger/10`), as #7's workshop drew it. Since #7 the group renders only on a board whose
-hobby has an `export` block, which today is games. An account is every board's, so #8 makes the
-group render everywhere and keeps that condition on the export's row alone. See **The row** in
-`docs/export.md`.
+`AccountEndpointTests` has 11. On the frontend, `account/warning.test.ts` has 10 and
+`api/account.test.ts` 2. `theme/SettingsMenu.test.tsx` gained 14, and one spreadsheet case
+changed now that the group is on every board. `shell/SignInPage.test.tsx` gained 5, and
+`index.css.test.ts` 2 a palette. End to end, `e2e/account.spec.ts` has 4 and `layout.spec.ts`
+gained 1.
 
-### Tests first
+Every test was red first. The backend's were red on routes that did not exist, and the two
+stale-session cases then stayed red on the finished routes, for the plan's own reason: a read
+answered 200 and a write 500. The frontend's were red on modules that did not exist and a panel
+with no row. The e2e specs were red against `main`'s Settings panel, and the ground's against a
+root with no background. Then 38 faults were planted one at a time: 14 behind the API, 21 in front
+of it and 3 end to end. Each turned red exactly the tests that name it. The tables are in
+`docs/auth.md`.
 
-- Deleting user A removes all of A's rows and none of B's.
-- Shared catalogue rows survive.
-- A stale cookie gets 401 afterwards.
-- An anonymous DELETE gets 401.
-- e2e: sign in, add a title, delete the account, sign in again, see an empty board.
+### What the plan got wrong, or left out
+
+- **"Recommended: inline, with counts, in ConfirmDelete's style."** A word to type, from round one.
+- **"A stale cookie gets 401" needed a host that reads cookies.** The backend suite signs in by
+  header and never reaches the cookie scheme's events, so `AccountEndpointTests.CookieHost` puts
+  the cookie scheme back as the default and seals a ticket with the host's own format.
+- **`/api/auth/me` already answered null for a deleted account**, because `MeAsync` finds no row.
+  A second device that reloads lands on sign-in with or without the session check; only its API
+  calls show the difference, so the tests assert on those.
+- **The counts needed words the hobbies did not have.** "A small read for the counts" became
+  `HobbyDefinition.titleNoun` on all four hobbies, and a name on each provider.
+- **The page's ground stopped where the board did.** Over a short board the Settings panel ran
+  past `main` onto the browser's own colour: 75px of white under an empty games board on a phone
+  before this feature, 269px with the warning open. The root carries `--sunken` now.
+- **`danger` on the tint measured 4.24:1 on Dusk**, so the failure line sits under the warning on
+  the panel's ground, where the renders had it inside. `index.css.test.ts` holds the text that
+  does sit on the tint.
+- **The counts arrive after the warning has scrolled into view**, and their two lines pushed the
+  buttons back under a 900px window's fold. It scrolls again when they land. The first e2e test
+  missed it, because an empty account's sentence is about as long as the one without numbers.
+- **"Do what `SessionBadge`'s sign-out does"** is close but not exact. The delete navigates first,
+  carrying `{ accountDeleted: true }` so the card can say so, then clears the cache and writes the
+  session as null, in that order, so the cache is left holding the truth.
 
 ---
 

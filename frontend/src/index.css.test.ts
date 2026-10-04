@@ -17,6 +17,20 @@ function contrast(a: string, b: string): number {
 }
 
 /**
+ * One colour laid over another at an opacity, as `bg-danger/10` is painted over the panel: the
+ * browser composites in sRGB's encoded channels, so the mix is taken there rather than in linear
+ * light. The result is a ground no token names.
+ */
+function over(top: string, bottom: string, opacity: number): string {
+  const channels = (hex: string) =>
+    [0, 2, 4].map((at) => Number.parseInt(hex.trim().replace('#', '').slice(at, at + 2), 16));
+  const [t, b] = [channels(top), channels(bottom)];
+  const mixed = t.map((channel, i) => Math.round(channel * opacity + b[i]! * (1 - opacity)));
+
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
  * Every block that defines a full palette, by the name a person would call it.
  *
  * Derived from THEMES rather than written out, and that is a repair rather than tidying.
@@ -82,6 +96,16 @@ describe('contrast', () => {
         // Its label sits on `danger` as a fill, not on the surface — the one pair in the palette
         // where both halves move together, and so the one that is easiest to get backwards.
         expect(on('danger-fg', 'danger')).toBeGreaterThanOrEqual(4.5);
+      });
+
+      it.each(['fg', 'muted'])('%s reads on the account warning’s tint', (token) => {
+        // The warning in Settings is `bg-danger/10` over the panel, a ground none of the pairs
+        // above reach. Its words are `fg` and its backups line `muted`, and muted is thin there:
+        // 4.57:1 on Dusk. The failure line is `danger`, which measured 4.24:1 on Dusk's tint, so
+        // it sits under the tint on the panel's own ground instead, and is not asked about here.
+        const tint = over(value('danger'), value('surface'), 0.1);
+
+        expect(contrast(value(token), tint)).toBeGreaterThanOrEqual(4.5);
       });
     });
   }

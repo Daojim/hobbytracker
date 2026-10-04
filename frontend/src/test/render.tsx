@@ -34,6 +34,9 @@ import { useBoardSensors } from '../board/sensors';
  * the one a card's second column comes from. A test about what the cache is left holding has to
  * ask for the real thing; everything else is better off without it, since a query outliving its
  * test is a test that passes because of the one before it.
+ *
+ * `routeState` arrives with the route, as `navigate(to, { state })` sends it, for a page that
+ * reads how it was reached: the sign-in screen, after an account is deleted.
  */
 export function renderWithProviders(
   ui: ReactElement,
@@ -42,7 +45,14 @@ export function renderWithProviders(
     route = '/board/games',
     path,
     keepsCache = false,
-  }: { dnd?: boolean; route?: string; path?: string; keepsCache?: boolean } = {},
+    routeState,
+  }: {
+    dnd?: boolean;
+    route?: string;
+    path?: string;
+    keepsCache?: boolean;
+    routeState?: unknown;
+  } = {},
 ) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -54,7 +64,9 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: ReactNode }) {
     const sensors = useBoardSensors();
     const routed = (
-      <MemoryRouter initialEntries={[route]}>
+      <MemoryRouter
+        initialEntries={[routeState === undefined ? route : { pathname: route, state: routeState }]}
+      >
         {path === undefined ? (
           children
         ) : (

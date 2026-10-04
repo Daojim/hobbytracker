@@ -40,6 +40,11 @@ it, every playthrough, and every note. It holds everything you have rather than 
 showing — every column, every year, and the games still waiting to come out — with real dates and
 numbers in it, and nothing a spreadsheet would evaluate.
 
+Settings can also delete your account, every board of it at once. The warning names the sign-in
+the account belongs to, counts what is on each board in that hobby's own words, says the nightly
+backups keep a copy for about two weeks, and does nothing until you type *delete*. Every other
+device signed in to the account is signed out on its next request.
+
 Search sits above the board rather than on a screen of its own, so the column a title will land
 in is visible while you decide. Every result — and every cover on the Discover wall — adds
 straight to Backlog, Playing or Completed, and arrives with the dates a drag into that column would
@@ -150,6 +155,8 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `GET /api/library/export?hobby=` | everything on your board, every pass and every note, for the spreadsheet. Not paged |
 | `GET /api/stats?hobby=&year=` | a year in numbers: every playthrough finished, your hours against the estimates, what became of what you started, and how long the backlog has waited |
 | `GET /api/stats/years?hobby=` | the years there is something to show for |
+| `GET /api/account` | what deleting your account would take: each board's titles, every note, and which sign-in it is |
+| `DELETE /api/account` | delete your account and everything that is yours, and sign this browser out. The catalogue stays |
 
 ## Stack
 
@@ -301,6 +308,14 @@ makes it do whenever it wants the memory back. For the app's first five weeks th
 session was real on the server and invisible to the browser, so phones were signed out at random
 while a desktop browser, open for days, never was, and redeploys took the blame. One flag fixed it,
 and a test now restarts the browser to prove it.
+
+**A session is checked against its account on every request.** The cookie is self-contained, so
+deleting an account changes nothing about the cookie every other device holds, and for up to
+thirty days that device would carry on as a user with no row: reading an empty board, and failing
+every write with a 500. Looking the user up by primary key on each request costs one indexed read
+and closes the window completely, where checking only every so often would leave it open for the
+interval. The backend suite signs in by header, so the test of this builds a host that reads real
+cookies, and was red first for exactly that pair of symptoms.
 
 **A pass's history is written by an interceptor, which is the opposite of the scoping decision,
 on purpose.** A move edits the current pass in place, so when it happened would be lost without
@@ -501,6 +516,10 @@ to prevent something, the test for it is checked by reintroducing the thing.
       real dates, written as the day it was here, so a finish at 9pm stays on its evening rather
       than becoming tomorrow in UTC. Whatever was typed goes in as text, so a note that begins
       with `=` is a note. The row and the sheets were picked from renders of the real app
+- [x] Deleting your account, from Settings on any board: a warning that names the sign-in and
+      counts every board, a word to type before anything happens, and every other device signed
+      out at its next request. The renders also found the page's ground stopping where a short
+      board did, with the browser's white below it, and the root carries the ground now
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

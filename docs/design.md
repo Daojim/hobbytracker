@@ -32,6 +32,7 @@ the header.
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
 | Your data | **A row in Settings after Columns**: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
+| Deleting your account | **A tinted row under it, on every board, that opens into the warning**: what it takes in each hobby's words, a word to type, and a filled button. Afterwards the sign-in card reads *Account deleted*. Picked on 4 October 2026 in two rounds. See **Deleting your account** |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
 | Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
@@ -430,10 +431,12 @@ numbers mean is `docs/stats.md`'s.
 
 ### Your data
 
-**A group in Settings after Columns, holding one row for now: *Download a spreadsheet*.** Picked on
-4 October 2026 from three forms rendered in the real panel — idle, preparing and failed, on Shelf
-Light and Shelf Dark, at 1440 and at 390px. The workshop page is private:
-https://claude.ai/artifact/DGc5UdVXGsyeDNBgbSsxSU. What the file holds is `docs/export.md`'s.
+**A group in Settings after Columns, on every board: *Download a spreadsheet* where the board has
+one, then *Delete my account…*.** The spreadsheet's row was picked on 4 October 2026 from three
+forms rendered in the real panel — idle, preparing and failed, on Shelf Light and Shelf Dark, at
+1440 and at 390px. The workshop page is private:
+https://claude.ai/artifact/DGc5UdVXGsyeDNBgbSsxSU. What the file holds is `docs/export.md`'s. The
+delete row is under **Deleting your account**.
 
 | Form | What the renders showed |
 |---|---|
@@ -450,14 +453,80 @@ https://claude.ai/artifact/DGc5UdVXGsyeDNBgbSsxSU. What the file holds is `docs/
 - **If it fails** the line under the row becomes `text-danger`: *Couldn't make the spreadsheet. Try
   again.* `index.css.test.ts` holds `danger` and `muted` at 4.5:1 on `surface`, the panel's ground,
   on every theme.
-- **#8's row is not built.** It was drawn into the renders so the group would be laid out once, and
-  its own choices are still open. Until it exists the group holds the export alone, and a board
-  whose hobby has no spreadsheet has no group.
+- **The group is on every board**, because an account is every board's. The spreadsheet's row is
+  only where the board's hobby has an `export` block, so on the other boards the group holds the
+  delete alone. #8's row was drawn into these renders as a placeholder so the group would be laid
+  out once, and it was built that way.
 - **Measured in the built panel, as the workshop measured it.** At 1440×900 the group's heading
-  starts 744px down, so the row is on the first screen. The panel is 870px tall without #8's row,
-  where the workshop's was 902 with it. On a 390×844 phone the row is the last thing on the first
-  screen, 760 to 788px down, and the page scrolls to the credits. The pinned switcher stays behind
-  the panel.
+  starts 744px down. The panel is 902px tall with #8's row, as the workshop's was, and 870 without
+  it. The spreadsheet's row is 768 to 796px down and the delete row 854 to 882, so both are on the
+  first screen and the warning the row opens is not, which is why it scrolls. On a 390×844 phone
+  the spreadsheet's row is the last thing on the first screen, 760 to 788px down, and the delete
+  row starts just under it at 846. The pinned switcher stays behind the panel.
+
+### Deleting your account
+
+**The tinted row opens into the warning: its own name as a heading, then what deleting takes, a
+word to type and a filled button.** Picked on 4 October 2026 in two rounds: three choices of
+meaning first, in words, then four from renders of the real panel at 1440 and 390px on Shelf
+Light, Shelf Dark and Ember, with the sign-in card. The workshop page is private:
+https://claude.ai/artifact/8XuDTEL1gehXenA1CUiwFd. Every recommendation was taken. What it
+deletes, and how, is `docs/auth.md`'s.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| How deliberate | **Type *delete***, then press a filled button | Two presses, as the plan suggested and as every other delete in the app works |
+| The backups | **Said**, under the warning | Left out, as the server's business |
+| Afterwards | **A line on the sign-in card** | The card exactly as after *Sign out* |
+| The warning's shape | **Tinted**: the row keeps its name and its tint and opens into the warning. 272px | Plain: the warning in the row's place on the panel's ground. 240px, with the filled button and the bold line the only signs of danger |
+| The counts | **A sentence**, in each hobby's word: *36 games, 9 films, 4 shows, 2 anime and 41 notes* | A list, a board a line. 56px taller, and a list of one row for an account on one board |
+| Which account | **Named by the sign-in**: *the account you signed in to with Google* | *Your account*. Naming it costs 16px |
+| The sign-in card | **C, *Account deleted* as its heading.** 266px | A, the line in place of the intro, 266px; B, a notice above *Sign in* with the intro kept, 378px |
+
+- **Its values are the render's.** The box is `rounded bg-danger/10 px-2 pt-1 pb-2 text-xs` with
+  `gap-2` between lines, and its name is `text-sm`. *It can’t be undone.* is `font-semibold`, and
+  the backups line `text-muted`. The field is the note box's, `rounded border border-line
+  bg-surface px-2 py-1 text-sm`. The button is ConfirmDelete's fill, `bg-danger text-danger-fg
+  font-semibold`, at half opacity until the field says delete.
+- **Cancel sits on `bg-surface`.** On the dark themes the tint and `--line` are nearly one colour,
+  and a bordered button on the tint read as plain text in the first renders.
+- **Nothing in it wears the accent**, so on Ember, whose accent is red as well, the red of a link
+  never sits beside the delete.
+- **The failure line sits under the tint, not inside it, which the renders did not show.** The
+  tint is a ground no token names, so the contrast was measured rather than argued: `danger` on
+  `bg-danger/10` is **4.24:1 on Dusk**, under the 4.5 this app holds text to, where the panel's
+  own ground gives it 5.05. So *Couldn’t delete your account. Try again.* is the spreadsheet's
+  failure line, `px-2 pt-0.5 pb-1 text-xs text-danger`, under the box. The text that stays on the
+  tint is `fg` and `muted`, and muted is thin there, 4.57:1 on Dusk. `index.css.test.ts` holds
+  both on the tint for every theme, mixing the colours in encoded sRGB as a browser composites
+  them; a Dusk muted of `#b4bfcc`, which still clears the panel at 5.22, turns that case red.
+- **A number never wraps away from its word.** The first render broke *board: 36* from *games* at
+  the end of a line. Each number and its word are joined by a non-breaking space, written ` `
+  in `account/warning.ts` rather than as the character itself, which nobody reading the source
+  can see.
+- **It scrolls itself into view, twice.** The panel is taller than a 900px window and the row is
+  at its foot, so opening the warning scrolls its nearest edge into view, with `scroll-mb-4`
+  leaving 16px under the buttons: 242px of scroll at 1440 × 900 in the renders, and 290px on a
+  390px phone. **It scrolls again when the counts arrive**, because they add two lines to the
+  sentence after the first scroll has happened. Measured in the built panel before that second
+  scroll existed, the buttons ended back under the fold, Cancel 65% on screen. The first version
+  of the test missed it: its account was empty, and an empty account's sentence is about as long
+  as the one without numbers. `account.spec.ts` now seeds two boards and holds both buttons wholly
+  on screen once the counts are in.
+- **The sign-in card's heading takes the keyboard**, so it is `focus:outline-none`: the page puts
+  focus there, and a ring round a heading nobody tabbed to reads as a fault.
+
+### The page's ground
+
+**The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at
+least a screen tall, which was enough until something ran past it. The Settings panel hangs from
+the header, and over a short board (an empty one, on a phone) it reaches below `main`. There the
+page showed the browser's own colour: white on the light themes, and on the dark ones a
+near-black that is not the theme's. It was found in #8's renders and measured on 4 October 2026:
+75px of it under an empty games board with the panel scrolled to its end, before #8, and 269px
+with the warning open. `html` gets `var(--sunken)` too, in `index.css`'s base layer, so there is
+nowhere for the ground to stop. *Paints the theme’s ground under the whole page* in
+`layout.spec.ts` compares the root's computed colour with `main`'s, and was red first.
 
 ### The icon, and the bar above the page
 

@@ -43,6 +43,13 @@ export interface HobbyDefinition {
   /** How a card counts more than one pass: playthroughs, viewings. */
   countPasses(count: number): string;
 
+  /**
+   * What one of this board's titles is called, by how many: `game`, `games`. The word alone,
+   * because whoever counts decides how the number is written — the account's warning keeps
+   * each number on the same line as its word.
+   */
+  titleNoun(count: number): string;
+
   /** How the remove confirmation names what it would take with it. */
   describeRemoval(title: string, entryCount: number): string;
 

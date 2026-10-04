@@ -44,4 +44,42 @@ describe('SignInPage', () => {
       'Continue with Discord',
     ]);
   });
+
+  it('is the ordinary card when nothing was deleted', () => {
+    expect(screen.queryByText(/deleted/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('SignInPage, after an account is deleted', () => {
+  beforeEach(() => {
+    renderWithProviders(<SignInPage />, { route: '/signin', routeState: { accountDeleted: true } });
+  });
+
+  it('says the account is gone, in the heading', () => {
+    // Straight after something that cannot be undone, whether it worked is the question on
+    // your mind, and the heading is where the answer goes. Picked from renders on 4 October 2026.
+    expect(screen.getByRole('heading', { level: 1, name: 'Account deleted' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /sign in/i })).not.toBeInTheDocument();
+  });
+
+  it('says what signing in again does now', () => {
+    expect(
+      screen.getByText(
+        'Everything on your boards went with it. Signing in again starts a new, empty account.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('puts the keyboard on the heading, so it is the first thing read', () => {
+    // The board the delete came from has gone from under the focus, which would otherwise be
+    // left on the document with nothing announced.
+    expect(screen.getByRole('heading', { level: 1, name: 'Account deleted' })).toHaveFocus();
+  });
+
+  it('still offers both providers', () => {
+    expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
+      'Continue with Google',
+      'Continue with Discord',
+    ]);
+  });
 });

@@ -17,6 +17,7 @@ person who wrote it.
 | Accounts | **Anyone can sign up.** Real multi-user, one board each |
 | Scoping | **An injected `ICurrentUser`**, not an EF global query filter |
 | Existing data | **Discarded** when `user_id` became `NOT NULL`. The catalogue rows stayed |
+| Deleting | **`DELETE /api/account` deletes one `users` row and the database cascades the rest.** Every other device is signed out at its next request, because the session is checked against the account on every one. See **Deleting an account** |
 
 ### A provider is a config block
 
@@ -137,9 +138,138 @@ throughout: whether somebody else's pass exists is itself their business.
 reverting **one** predicate at a time so every one fails exactly the tests that name it. **A scoping
 test that was never red proves nothing.**
 
-**`[Authorize]` is on all four controllers, `GamesController` included** — the catalogue is shared but
-not public, and an anonymous search is free IGDB traffic plus an unbounded write into `media`. That
-puts the two maintenance refresh routes behind a session, accepted rather than worked around.
+**`[Authorize]` is on every controller but `AuthController`, `GamesController` included** — the
+catalogue is shared but not public, and an anonymous search is free IGDB traffic plus an unbounded
+write into `media`. That puts the maintenance refresh routes behind a session, accepted rather than
+worked around.
+
+### Deleting an account
+
+Built on 4 October 2026 for #8 in `docs/plans/games-board-next.md`. What the warning looks like
+is `docs/design.md`'s, under **Your data**.
+
+| Route | |
+|---|---|
+| `GET /api/account` | what deleting would take: the titles on each board with anything on it, in `hobby_lu`'s order, every note, and which providers the account signs in with |
+| `DELETE /api/account` | deletes the account and everything that is yours, and clears this browser's cookie. **204** |
+
+**`AccountController`, not two actions on `AuthController`.** That controller is
+`[AllowAnonymous]` at class level, and `[AllowAnonymous]` beats any `[Authorize]` on an action, so
+a delete there would reach `ICurrentUser` with nobody signed in: a 500 where it means a 401.
+
+**One statement, and the database takes the rest.** `AccountService.DeleteAsync` is an
+`ExecuteDelete` on the `users` row, and the cascades do everything else: `users` to
+`auth_identities` and `log_entries`, and `log_entries` to `notes` and `status_changes`. Nothing is
+loaded into memory, and no list kept in the service can miss a table. The catalogue stays, a
+HowLongToBeat id somebody pinned included, because it is everybody's. `ExecuteDelete` passes the
+change tracker by, and `StatusHistoryRecorder` with it, which is `docs/data-model.md`'s trap for
+*writing* a status and does not apply here: a deleted pass takes its history with it.
+
+**A title counts once, however many passes it has had.** The warning says what you would lose as
+the board shows it, so the count is `COUNT(DISTINCT media_id)` per board rather than passes. The
+providers come in the order they were linked, and they are on this contract rather than on
+`MeDto` because the warning is the one thing that reads them. The same person at Google and at
+Discord is two accounts, and the provider is what tells them apart.
+
+**The session is checked against the account on every request**, by `SessionValidator` on the
+cookie scheme's `OnValidatePrincipal`. The cookie is self-contained, so deleting the account
+changes nothing about the cookie every other device holds, and for as long as it lasts (thirty
+days, renewed while used) that device would carry on as a user with no row. Its reads come back
+empty, which looks like a board you emptied yourself, and its writes fail on the foreign key as a
+500. The validator looks the user up by primary key and, when the row is gone, rejects the
+principal and signs the session out, so the request answers as anybody signed out does (401 on an
+`[Authorize]` route, null from `/api/auth/me`) and the browser is told to drop the cookie.
+
+- **One lookup per request that carries a cookie, deliberately.** The security stamp's shape,
+  looking again only every so often, leaves the window open for as long as the interval, writes
+  500ing all the while. At this scale the lookup is not worth saving.
+- **`/api/auth/me` already said null for a deleted account**, because `MeAsync` finds no row. So a
+  second device that reloads lands on sign-in with or without the validator, and only its API
+  calls show the difference. Both stale-session tests assert on an API call for that reason.
+
+**The backend suite reaches the cookie scheme for the first time here.** It signs in by header
+(`TestAuthHandler`), which never consults the cookie scheme or its events, so a test of
+`OnValidatePrincipal` needs a host that reads cookies. `AccountEndpointTests.CookieHost` derives one
+with `WithWebHostBuilder`, setting `DefaultScheme` back to the cookie scheme, and seals a ticket with
+that host's own `TicketDataFormat`: the claim the sign-in puts there, persistent as every sign-in
+is. Its client sends the cookie whatever a response says, which is what a second device does. The
+response that clears the cookie goes to the device that deleted the account.
+
+The two stale-session tests were red against the finished routes before the validator existed, for
+exactly the trap the plan named: a read answered 200 and a write 500.
+
+**Checked by putting each fault back**, one at a time against the finished feature.
+`AccountEndpointTests` has 11 cases:
+
+| Fault planted | Red |
+|---|---|
+| Titles not scoped to you | *counts nothing of anybody else's* |
+| Notes not scoped to you | the same |
+| Sign-ins not scoped to you | *says which sign-in the account is* |
+| Sign-ins in name order | the same |
+| Passes counted as titles | *counts the titles on every board and every note* |
+| Boards in name order | the same. Anime is in the test because it is last in the nav and first by name |
+| An empty board sent as nought | the three counting cases |
+| Everybody deleted | *leaves everybody else's alone* |
+| Only the passes deleted | *takes everything it owns*, and both stale-session cases |
+| This browser not signed out | *signs this browser out* |
+| Open to anybody | *nobody signed in can count or delete anything*, which got a 500 from `ICurrentUser` |
+| No session check | both stale-session cases |
+| Refused but not signed out | *a session whose account is gone is signed out* |
+| Any account will do | the same. A second user exists in that test for this fault |
+
+`e2e/account.spec.ts` signs a second browser in through the real flow and finds it refused after
+the first deletes the account. With no session check, that case and only that case goes red.
+
+#### The app's half
+
+`frontend/src/account/`: the row and its warning (`DeleteAccount.tsx`), the sentence
+(`warning.ts`, a pure function), and the delete itself (`useDeleteAccount.ts`).
+
+- **A word to type, not a second press.** It is the one delete in the app that reaches past the
+  board you are looking at, and the app cannot undo it. Any case and spaces either side count,
+  since a phone capitalises a field's first letter, and Enter deletes once it matches.
+- **The counts are asked for each time the warning opens, and kept for none of them**
+  (`staleTime: 0, gcTime: 0`). The app holds an answer for five minutes by default, so a warning
+  reopened in that time would print the first count however much had been added since. Until the
+  answer arrives, and if it never does, the sentence goes without numbers. It never shows a wrong
+  number.
+- **The delete is held by the menu**, as the spreadsheet's mutation is, so a panel shut and
+  opened again mid-delete finds it still going rather than the row. Where it lands needs none of
+  that: callbacks given to `useMutation` run whatever is still mounted.
+- **Done, it goes to `/signin` with `{ accountDeleted: true }`**, replacing the board's history
+  entry, then clears the cache and writes the session as null, which is now true. The card reads
+  *Account deleted* and takes the keyboard, because the board it came from went from under it.
+  Router state rides on the history entry, so reloading that page shows the same card (checked in
+  a browser on 4 October 2026), and signing out still lands on the ordinary one.
+- **The field is read-only and the buttons are held by `aria-disabled`** while it works, for the
+  spreadsheet's measured reason: a real browser takes focus off a control the moment it is
+  disabled.
+
+Checked the same way, against `account/warning.test.ts` (10 cases), the 14 in
+`theme/SettingsMenu.test.tsx`'s *deleting your account* and the five added to
+`shell/SignInPage.test.tsx`:
+
+| Fault planted | Red |
+|---|---|
+| A plain space between a number and its word | eight of the ten sentence cases |
+| No thousands mark | *marks the thousands* |
+| Nought notes counted | five sentence cases |
+| A board with no words of its own called games | *calls a title on a board with no words of its own yet a title* |
+| The comma whether or not a sign-in is named | *says your account when there is no sign-in to name* |
+| Nought guessed while counting | that case, and the menu's *goes without numbers* and *counts afresh* |
+| Any word will do | *does nothing until the field says delete* |
+| Case matters, or spaces matter | *takes delete in any case and with spaces around it* |
+| A count kept from last time | *counts afresh every time it opens* |
+| The keyboard left on the row | *puts the keyboard in the field* |
+| Cancel keeps the keyboard | *closes on Cancel, gives the keyboard back to the row* |
+| Cancel works while deleting, or a second press while deleting | *reads Deleting… while it works* |
+| The delete held by the warning | *is still deleting when the panel is shut and opened again* |
+| The cache left as it was, or the session not written as nobody | *lands on the sign-in screen …* |
+| No word to the sign-in screen | the four cases that land there |
+| The group only where there is a spreadsheet | *is offered on every board* |
+| The heading left unfocused | the sign-in page's *puts the keyboard on the heading*, and the menu's landing case |
+| No scroll into view, or a scroll only as it opens (end to end, at 1440 × 900) | *the warning scrolls itself into view, buttons and all, once the counts are in* |
 
 ### The frontend
 
@@ -183,7 +313,7 @@ search away. Two things had to change with the column:
 
 - **`DeleteBehavior.SetNull` became `Cascade`.** EF refuses `SetNull` against a non-nullable foreign
   key and fails **model validation at boot**, not at runtime. Deleting an account now takes its
-  journal with it, which is the honest reading.
+  journal with it, which is the honest reading, and it is what **Deleting an account** rests on.
 - **The scaffolded `defaultValue: 0` was removed from the migration.** It would have emitted an
   `UPDATE` turning every unowned pass into user 0 *and* left a `DEFAULT 0` behind, so an insert
   omitting the owner would silently claim to be somebody. Without it the migration is a bare
@@ -196,7 +326,9 @@ search away. Two things had to change with the column:
 division is deliberate: they are about authorization and scoping, and the OAuth dance that decides
 *who you are* is proved end to end against the stub instead. `DatabaseTestBase` creates a user after
 the reset and signs `Client` in as them, which is why the tests that predate ownership needed no
-edit; `ClientFor(userId)` gives a second person and `AnonymousClient` none.
+edit; `ClientFor(userId)` gives a second person and `AnonymousClient` none. **The one exception is
+`AccountEndpointTests.CookieHost`**, a host that reads a real session cookie, because the trap it
+covers lives in the cookie scheme's events. See **Deleting an account**.
 
 **`e2e/support/google-stub.mjs` is a provider, not an endpoint** — authorize, token and user-info,
 with the real handler running against it unmodified — and it **enforces the protocol rather than

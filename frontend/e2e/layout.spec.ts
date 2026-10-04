@@ -342,6 +342,30 @@ test.describe('on a phone, at 390px', () => {
     }
   });
 
+  test('paints the theme’s ground under the whole page, however far down Settings reaches', async ({
+    page,
+  }) => {
+    // An empty board ends where the screen does, and the Settings panel runs on below it. When
+    // only the board painted the ground, the page under the panel was the browser's own: 75px of
+    // white with the panel scrolled to its end, measured on 4 October 2026, and 269px with the
+    // account's warning open.
+    await page.goto('/board');
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.getByRole('button', { name: 'Delete my account…' }).click();
+
+    const board = await boxOf(page.locator('main'), 'the board');
+    const reach = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(reach, 'the panel reaches past the board, or this proves nothing').toBeGreaterThan(
+      board.y + board.height,
+    );
+
+    const [root, ground] = await page.evaluate(() => [
+      getComputedStyle(document.documentElement).backgroundColor,
+      getComputedStyle(document.querySelector('main')!).backgroundColor,
+    ]);
+    expect(root).toBe(ground);
+  });
+
   test('leaves a 16px gutter at either side of the board', async ({ page }) => {
     // 24px of page padding and 12px inside the column put a phone's cards 36px in from each edge.
     await seed(page.request, 'Celeste', 'Backlog');

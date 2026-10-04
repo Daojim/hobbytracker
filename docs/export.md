@@ -137,8 +137,10 @@ is the API's `developers`, which only a game has.
 
 ## The row
 
-`SettingsMenu`'s *Your data* group, rendered only for a hobby with an `export` block, and with
-nothing else in it yet, the whole group goes with the row. The look is `docs/design.md`'s.
+`SettingsMenu`'s *Your data* group. The row is rendered only for a hobby with an `export` block.
+The group itself is on every board since #8 put *Delete my account…* under the row, because an
+account is every board's (`docs/auth.md`, **Deleting an account**). The look is
+`docs/design.md`'s.
 
 - **A `useMutation`, held by the menu rather than the panel**, so closing the panel while the file
   is being made loses neither the file nor the state the row comes back to.

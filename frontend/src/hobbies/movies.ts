@@ -29,6 +29,9 @@ export const MOVIES: HobbyDefinition = {
 
   countPasses: (count) => `${count} viewings`,
 
+  // "Film", the word the search box and the pass already use, though the nav says Movies.
+  titleNoun: (count) => (count === 1 ? 'film' : 'films'),
+
   describeRemoval: (title, entryCount) =>
     entryCount > 1
       ? `Takes ${title} off your board — all ${entryCount} viewings, and their notes.`
