@@ -122,6 +122,38 @@ test('the box clears from its own corner, and keeps the keyboard', async ({ page
   await expect(page.getByRole('region', { name: 'Search results' })).toHaveCount(0);
 });
 
+test('/ leaves the keyboard with a card that is being carried', async ({ page }) => {
+  // A card carried by the keyboard listens at the document for Space, Enter and the arrows,
+  // wherever focus has gone. So `/` taking the keyboard to the box left it carried: the first
+  // space typed dropped it, dnd-kit handed focus back to the card, and the rest of the word went
+  // nowhere — "a b" left the box holding "a", measured on 4 October 2026. Here rather than in
+  // Vitest because it is the drag, and the drag gets a real browser: what this guards against is
+  // dnd-kit's drop and dnd-kit's focus, and that is where they were measured.
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+  const celeste = card(page, 'Celeste');
+  const box = page.getByRole('searchbox', { name: 'Search games' });
+
+  await celeste.focus();
+  await page.keyboard.press('Space');
+  // dnd-kit's own mark for the card in hand, and the one the bar reads.
+  await expect(celeste).toHaveAttribute('aria-pressed', 'true');
+
+  await page.keyboard.press('/');
+
+  await expect(celeste).toBeFocused();
+  await expect(box).toHaveValue('');
+
+  // Put down, it is a card like any other again, and `/` goes to the box from it.
+  await page.keyboard.press('Escape');
+  await expect(celeste).not.toHaveAttribute('aria-pressed');
+  await expect(celeste).toBeFocused();
+
+  await page.keyboard.press('/');
+
+  await expect(box).toBeFocused();
+});
+
 test('the results give the board back when the search is cleared', async ({ page }) => {
   const results = page.getByRole('region', { name: 'Search results' });
 
