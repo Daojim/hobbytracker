@@ -100,6 +100,34 @@ public class LibraryController(ILibraryService library) : ControllerBase
     }
 
     /// <summary>
+    /// Everything on your board, for the spreadsheet the Settings panel downloads: every title,
+    /// with every pass of yours and every note, and what the catalogue says about each.
+    ///
+    /// <para>
+    /// Everything means what you have rather than what the board is showing: every column, every
+    /// year, and the calendar's titles too. And it is not paged, which a board column is — a
+    /// column stops at a page, and an export that did would quietly leave titles behind.
+    /// </para>
+    ///
+    /// Facts rather than words: which column a status is called, which day an instant falls on
+    /// here and what a release window reads as are all the client's, which already says each of
+    /// them on the board. See <see cref="ExportTitleDto"/>.
+    /// </summary>
+    [HttpGet("export")]
+    [ProducesResponseType<IReadOnlyList<ExportTitleDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<IReadOnlyList<ExportTitleDto>>> Export(
+        [FromQuery] string? hobby, CancellationToken cancellationToken)
+    {
+        if (await RejectUnknownHobbyAsync(hobby, cancellationToken) is { } problem)
+        {
+            return problem;
+        }
+
+        return Ok(await library.ExportAsync(hobby, cancellationToken));
+    }
+
+    /// <summary>
     /// Moves a title to a board column — what dragging a card does.
     ///
     /// The caller names only the target column. Whether that edits the current entry or starts

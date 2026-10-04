@@ -512,6 +512,39 @@ export interface LogEntry {
   loggedAt: string;
 }
 
+/**
+ * One title on your board as the spreadsheet export reads it: what the catalogue says about it,
+ * and every pass of yours with every note. The API's `ExportTitleDto`, which says why each is
+ * there.
+ *
+ * Facts rather than words — the column a status is called, the genre a title is painted as, what
+ * a release window reads as and which day an instant fell on here are all worked out on this
+ * side, by the code that says each of them on the board.
+ */
+export interface ExportTitle {
+  mediaId: number;
+  /** The name a card leads with. */
+  title: string;
+  genres: string[] | null;
+  /** The genre you chose for it, or null for the automatic pick. */
+  primaryGenre: string | null;
+  /** A game's developers. Null for a title of a hobby with no such idea. */
+  developers: string[] | null;
+  /** A day, never an instant. Read with `releasePrecision`, where null means nobody has asked. */
+  releaseDate: string | null;
+  releasePrecision: ReleasePrecision | null;
+  hltbMainStoryHours: number | null;
+  hltbMainExtraHours: number | null;
+  hltbCompletionistHours: number | null;
+  hltbAllStylesHours: number | null;
+  hltbId: number | null;
+  /**
+   * Every pass of yours, newest first — `logged_at DESC, id DESC`, the rule the board decides
+   * "current" by, so the first is the one the card shows. Taken as given rather than re-sorted.
+   */
+  passes: LogEntry[];
+}
+
 /** Note the absence of `loggedAt`: it is the server's to decide, not a caller's to claim. */
 export interface CreateLogEntry {
   mediaId: number;

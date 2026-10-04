@@ -85,6 +85,33 @@ export function journalDateInput(instant: string | null): string {
   return instant === null ? '' : inputDateFormat.format(new Date(instant));
 }
 
+const minuteFormat = new Intl.DateTimeFormat('en-CA', {
+  timeZone: JOURNAL_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+/**
+ * The day and the minute an instant fell on here, as `YYYY-MM-DD HH:mm` on a clock that starts
+ * the day at nought — {@link journalDateInput}'s day, with the time beside it.
+ *
+ * What the spreadsheet's Written column is built from: an Excel date has no zone, so the
+ * export writes the wall-clock parts here and nothing else. Assembled from the parts rather than
+ * taken whole, because `en-CA` puts a comma between the day and the time, and which punctuation
+ * a locale uses is not something to build on.
+ */
+export function journalMinute(instant: string): string {
+  const parts = Object.fromEntries(
+    minuteFormat.formatToParts(new Date(instant)).map((part) => [part.type, part.value]),
+  );
+
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+}
+
 /**
  * Today, here, as `YYYY-MM-DD`.
  *

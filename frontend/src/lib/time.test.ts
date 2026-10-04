@@ -3,6 +3,7 @@ import {
   formatJournalDate,
   formatJournalDateTime,
   journalDateInput,
+  journalMinute,
   journalMonth,
   journalYear,
 } from './time';
@@ -68,5 +69,18 @@ describe('journal time', () => {
 
   it('has nothing to put in the input when there is no timestamp', () => {
     expect(journalDateInput(null)).toBe('');
+  });
+
+  it('gives the day and the minute an instant fell on here, on a 24-hour clock', () => {
+    // What the spreadsheet's Written column is built from. The evening of the 20th, not the small
+    // hours of the 21st — and in January too, which is an hour further out.
+    expect(journalMinute(thursdayEvening)).toBe('2026-08-20 21:30');
+    expect(journalMinute('2026-01-15T04:30:00+00:00')).toBe('2026-01-14 23:30');
+  });
+
+  it('starts the day at nought', () => {
+    // A clock that ran 1 to 24 would print five past midnight as 24:05, which a spreadsheet
+    // reads as the next day.
+    expect(journalMinute('2026-08-21T04:05:00+00:00')).toBe('2026-08-21 00:05');
   });
 });
