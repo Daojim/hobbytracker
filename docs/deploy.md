@@ -239,7 +239,9 @@ serves the new build, so prove that from outside:
   new names, and `index.html` is never cached, so this is what a browser is handed.
 - **The string recorded beforehand is in them now.** Count it with `grep -F`, never a regex. An
   escaped `\:` in a class name once matched nothing, and nothing matched looks exactly like
-  absent.
+  absent. **Choose the strings from a local build**, which shows which ones survive minification
+  whole. A local build does not predict the bundle's name, though: from the same source, #58 was
+  `index-NyjNnfbD.js` locally and `index-DHeXtV3C.js` on the server.
 - **`<origin>/api/auth/me` answers 200**, with `null` when nobody is signed in.
 - **A change to the manifest or the icons is served as what it is.** `curl -I
   <origin>/manifest.webmanifest` says `application/manifest+json`, and `curl -I
