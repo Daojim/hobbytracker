@@ -31,7 +31,9 @@ the header.
 | Stats | **Four tiles of numbers, then panels two across in the board's wells**: covers by month, a column per rating, a bar per game either side of its estimate, and the backlog oldest first. Picked on 2 October 2026 from eight choices rendered at 1440 and 390px. See **Stats** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
-| Your data | **A row in Settings after Columns**: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
+| Sharing | **A Sharing group after Columns, holding one row that opens a dialog**: the address and Copy, the columns beside the rest, and *Stop sharing*, which asks first in the delete tint. Picked on 4 October 2026 in two rounds, and four of its states on the 5th. See **Sharing a board** |
+| A share | **A banner across the top, then the board under the owner's name** when they ticked it, which is never in the banner. Picked over the recommended heading. **A share addresses nobody**: twelve phrases written to the owner have a second form. See **Sharing a board** |
+| Your data | **A row in Settings after Columns**, and after Sharing where a board can be shared: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
 | Deleting your account | **A tinted row under it, on every board, that opens into the warning**: what it takes in each hobby's words, a word to type, and a filled button. Afterwards the sign-in card reads *Account deleted*. Picked on 4 October 2026 in two rounds. See **Deleting your account** |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
@@ -429,10 +431,93 @@ numbers mean is `docs/stats.md`'s.
 - **The hours behind each bar show on hover and on keyboard focus**, in a small label above the row
   in `bg-fg` and `text-sunken` — the page's own ink and ground swapped, so it reads on every theme.
 
+### Sharing a board
+
+**A Sharing group in Settings opens a dialog, and a share is the board under a banner.** Picked at
+the #9 workshop on 4 October 2026 in two rounds. The first was questions of meaning: four, then
+four more when the user's note on one pick ("what you can choose to show, like I selected for
+columns") changed the model. The second was renders of the real components at 1440 and 390px. The
+workshop page is private: https://claude.ai/artifact/XF8FycrBBp5tE6bqkLaTUj. Four states it never
+drew were rendered from the built app on 5 October and picked there:
+https://claude.ai/artifact/Ud6QkNxqDzfAXQnKJxmeY3. Every recommendation was taken but one, which
+is marked. What a share is and why it is safe are `docs/auth.md`'s.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| The top of a share | **C, a banner** across the top: *A board shared from HobbyTracker. It's read-only.* and *Make your own →*. **The user's pick, over the recommended heading, A** | A, the owner's name as the page's heading with the read-only note under it |
+| The owner's name | **Once, heading the board under the banner**: *Jimmy Dao's games* with it ticked, *Games* without. Settled after the renders | C with the name in the banner as well, which read it twice |
+| Where it is made | **A Sharing group after Columns, one row, *Share this board…*, opening a dialog** | The boxes kept open in the panel, a second Columns list straight under its own: 1337px tall. Opened from a row inside the panel: 1413px |
+| Stopping | **Asks first**, *Stop sharing? The link stops working for everyone who has it.*, in the delete tint and in the footer's place | |
+| The hand-made order on a share | ***Board order***, with the sort control kept | *My order* |
+| A link that opens nothing | **One card for unknown and stopped alike**, *This link doesn't open a board*. Rendered and not asked about | |
+| The credits | **At a share's foot**, because a visitor has no Settings | |
+| The twelfth phrase | **Reworded on a share**, by the table's own rule (5 October) | The note left off a share |
+| A write that fails | **The spreadsheet row's failure line**, naming what failed, and a box springs back (5 October) | Saying nothing |
+| While a write works | ***Making the link…* and *Stopping…*** (5 October) | The same words, only dimmed |
+| A share that cannot be reached | **The dead link's card saying so**, *This board didn't load*, with *Try again* (5 October) | The app's red error line on an empty page |
+
+**A share addresses nobody.** Eleven phrases on the board and the Stats page are written to the
+owner, and the twelfth was found under the Stats page's backlog on 5 October. A share uses one set
+of words whether the name is on it or not. Each phrase is a `Voiced` pair in `lib/voice.ts`'s
+sense, both forms side by side where the phrase is written, so a pair missing one is a type error,
+and a page takes its voice and hands it down rather than each component asking where it is:
+
+| On your board | On a share |
+|---|---|
+| My order | Board order |
+| of the 8 games you started in 2026 | of the 8 games started in 2026 |
+| over 6 games you logged hours for | over 6 games with hours logged |
+| You and HowLongToBeat | Hours against HowLongToBeat |
+| over the 6 you rated | over the 6 rated |
+| in your backlog 42 days | in the backlog 42 days |
+| 1 without your hours | 1 without hours logged |
+| Back to your board | Back to the board |
+| Nothing to compare yet: log your hours on a game you finish. | Nothing to compare yet. |
+| Nothing on your board is waiting to come out. | Nothing on this board is waiting to come out. |
+| Read aloud: *You played 213 hours, against about 218 hours to beat* | *213 hours played, against about 218 hours to beat* |
+| "Added" is the day a title went on your board… says "in your backlog" for those. | "Added" is the day a title went on the board… says "in the backlog" for those. |
+
+**When a page is shown to somebody other than its owner, check every word for *you*, *your* and
+*my*.** The renders found most of these, and the tests hold the rest: a share's board and its Stats
+page are each read whole for *you*, *your*, *yours* and *my*, accessible labels included.
+
+- **The dialog is the journal's shape at the spreadsheet row's scale.** 448px across
+  (`max-w-md`), `rounded-xl border border-line bg-surface p-5 shadow-xl`, high on the screen
+  (`pt-[12vh]`, 108px down a 900px window), over the journal's `bg-scrim`, and with its keyboard:
+  `lib/useModalPanel.ts`. The
+  boxes are the Columns group's checkboxes, tinted with the accent, Columns on the left and the rest
+  on the right, with *Backlog, always* where Backlog's box would be and the display name printed
+  under *My name*. The address is `bg-sunken`, the whole of it, scheme included, which is exactly
+  what Copy copies; Copy reads *✓ Copied* for two seconds.
+- **Stopping wears `ConfirmDelete`'s fill**, `bg-danger text-danger-fg font-semibold`, on the
+  account warning's `bg-danger/10`, with Cancel on `bg-surface`, for the account warning's reason:
+  on the dark themes a bordered button on the tint reads as plain text.
+- **A failure line is `text-xs text-danger` with `role="alert"`, on the dialog's surface** above
+  the footer, never inside the tint, where `danger` measured 4.24:1 on Dusk for #8. `danger` on
+  `surface` is held at 4.5:1 on every theme.
+- **The banner is a strip of `well`** with a `line-soft` rule under it, edge to edge but with its
+  words on the board's own edges, and outside `<main>`, so it is the page's banner landmark. Its
+  sentence is `text-muted`, held on `well` already, and *Make your own →* is the first accent ink
+  on that ground: measured on 5 October 2026 at 5.37:1 at its lowest, on Ember, and held since by
+  `index.css.test.ts` beside accent on `sunken`, the year row's link, at 5.24 on Shelf Light.
+- **The dead link's card and the unreachable one are the sign-in screen's card** on the page's
+  ground, with a bordered way on where the sign-in card has its providers.
+- **The credits are `text-[11px] text-muted`** under a `line-soft` rule: *Shared from HobbyTracker.
+  Game data from IGDB, and estimates from HowLongToBeat.*
+
+**Measured in the built app on 5 October 2026**, as the workshop measured its mock. The dialog is
+448 × 402 before a link exists, 448 × 394 once shared and 448 × 450 while it asks, and on a
+390 × 844 phone 358 across and 442, 414 and 470 tall. The workshop's figures were 402, 394 and
+414, so the built dialog is the one that was picked. A share's first card starts 226px down at
+1440 × 900, where the mock's started at 206, and 295px down at 390 × 844, as the mock's did. The
+banner is 37px tall at 1440, and 61px on a phone, where its link wraps under its sentence. What the
+Sharing group does to the panel is under **Your data**.
+
 ### Your data
 
 **A group in Settings after Columns, on every board: *Download a spreadsheet* where the board has
-one, then *Delete my account…*.** The spreadsheet's row was picked on 4 October 2026 from three
+one, then *Delete my account…*.** On a board that can be shared, the Sharing group sits between
+Columns and this one. The spreadsheet's row was picked on 4 October 2026 from three
 forms rendered in the real panel — idle, preparing and failed, on Shelf Light and Shelf Dark, at
 1440 and at 390px. The workshop page is private:
 https://claude.ai/artifact/DGc5UdVXGsyeDNBgbSsxSU. What the file holds is `docs/export.md`'s. The
@@ -463,6 +548,13 @@ delete row is under **Deleting your account**.
   first screen and the warning the row opens is not, which is why it scrolls. On a 390×844 phone
   the spreadsheet's row is the last thing on the first screen, 760 to 788px down, and the delete
   row starts just under it at 846. The pinned switcher stays behind the panel.
+- **The Sharing group moved both rows down 107px**, measured on 5 October 2026 on the games board.
+  The panel is 1009px tall at both widths, and the Share row now sits where the spreadsheet's did,
+  768 to 796px down at 1440×900. **The spreadsheet's row ends 3px under that window's fold**, 875
+  to 903, and the delete row is wholly under it, 961 to 989. On a 390×844 phone the Share row is
+  the last thing on the first screen, 760 to 788, and both of these are below. The other boards
+  have no Sharing group and are as they were. Nothing about either row's working depends on the
+  first screen: the page scrolls to them, and the warning still scrolls itself into view.
 
 ### Deleting your account
 

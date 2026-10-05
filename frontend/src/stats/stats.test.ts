@@ -153,23 +153,38 @@ describe('waited', () => {
   it('says how long a title has been in the backlog when the history knows', () => {
     const arrived = (instant: string) => backlogTitle({ inBacklogSince: instant });
 
-    expect(waited(arrived('2026-10-02T14:00:00Z'), '2026-10-02')).toBe('in your backlog since today');
-    expect(waited(arrived('2026-10-01T14:00:00Z'), '2026-10-02')).toBe('in your backlog 1 day');
-    expect(waited(arrived('2026-09-12T14:00:00Z'), '2026-10-02')).toBe('in your backlog 20 days');
+    expect(waited(arrived('2026-10-02T14:00:00Z'), 'own', '2026-10-02')).toBe('in your backlog since today');
+    expect(waited(arrived('2026-10-01T14:00:00Z'), 'own', '2026-10-02')).toBe('in your backlog 1 day');
+    expect(waited(arrived('2026-09-12T14:00:00Z'), 'own', '2026-10-02')).toBe('in your backlog 20 days');
   });
 
   it('says when it was added when that is all there is', () => {
     const added = (instant: string) => backlogTitle({ loggedAt: instant, inBacklogSince: null });
 
-    expect(waited(added('2026-10-02T14:00:00Z'), '2026-10-02')).toBe('added today');
-    expect(waited(added('2026-10-01T14:00:00Z'), '2026-10-02')).toBe('added 1 day ago');
-    expect(waited(added('2025-11-03T17:00:00Z'), '2026-10-02')).toBe('added 333 days ago');
+    expect(waited(added('2026-10-02T14:00:00Z'), 'own', '2026-10-02')).toBe('added today');
+    expect(waited(added('2026-10-01T14:00:00Z'), 'own', '2026-10-02')).toBe('added 1 day ago');
+    expect(waited(added('2025-11-03T17:00:00Z'), 'own', '2026-10-02')).toBe('added 333 days ago');
+  });
+
+  it('says the backlog on a share, which is nobody’s to call yours', () => {
+    const arrived = (instant: string) => backlogTitle({ inBacklogSince: instant });
+    const added = (instant: string) => backlogTitle({ loggedAt: instant, inBacklogSince: null });
+
+    expect(waited(arrived('2026-10-02T14:00:00Z'), 'shared', '2026-10-02')).toBe(
+      'in the backlog since today',
+    );
+    expect(waited(arrived('2026-09-12T14:00:00Z'), 'shared', '2026-10-02')).toBe(
+      'in the backlog 20 days',
+    );
+
+    // "Added" is about nobody in particular already, so it reads the same in both voices.
+    expect(waited(added('2026-10-01T14:00:00Z'), 'shared', '2026-10-02')).toBe('added 1 day ago');
   });
 
   it('counts the days here, so 11:30pm yesterday is yesterday', () => {
     // 11:30pm on 1 October here is already the 2nd in UTC.
     const title = backlogTitle({ inBacklogSince: '2026-10-02T03:30:00Z' });
 
-    expect(waited(title, '2026-10-02')).toBe('in your backlog 1 day');
+    expect(waited(title, 'own', '2026-10-02')).toBe('in your backlog 1 day');
   });
 });

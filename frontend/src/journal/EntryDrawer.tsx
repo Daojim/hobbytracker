@@ -1,5 +1,6 @@
-import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useId, useRef, useState, type ReactNode } from 'react';
 import { formatJournalDate } from '../lib/time';
+import { useModalPanel } from '../lib/useModalPanel';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm } from './EntryForm';
 import { HltbPin } from './HltbPin';
@@ -27,11 +28,6 @@ type ColumnLabel = Record<LogStatus, string>;
  * "Earlier passes" already wears, which is the app's one way of saying "a section starts here".
  */
 const BAND_HEADING = 'text-xs font-medium tracking-wide text-muted uppercase';
-
-/** What Tab can land on. Mirrors the browser's own idea of it closely enough for one panel. */
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
-  'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export interface EntryDrawerProps {
   /**
@@ -80,46 +76,10 @@ export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: Ent
   // unmounts when it closes, so opening another title starts with nothing claimed.
   const [saved, setSaved] = useState(false);
 
-  // The keyboard follows the drawer in. Without this the focus is still on the board behind,
-  // and the first Tab walks the columns rather than the form that just opened.
-  useEffect(() => {
-    panel.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        onClose();
-        return;
-      }
-
-      if (event.key !== 'Tab' || panel.current === null) {
-        return;
-      }
-
-      // aria-modal below promises a screen reader that the board is inert while this is open.
-      // Letting Tab walk out onto it would make that promise false for anyone who reads by
-      // tabbing, so the two are kept honest together.
-      const stops = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
-      const first = stops[0];
-      const last = stops[stops.length - 1];
-      if (first === undefined || last === undefined) {
-        return;
-      }
-
-      const here = document.activeElement;
-      if (event.shiftKey && (here === first || here === panel.current)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && here === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  // The keyboard follows the drawer in and stays there, and Escape closes it: aria-modal below
+  // promises a screen reader that the board is inert while this is open, and the two are kept
+  // honest together. Shared with the share dialog, which makes the same promise.
+  useModalPanel(panel, onClose);
 
   const detail = title.data;
   // The API orders entries logged_at DESC, id DESC — the same rule the board decides "current"

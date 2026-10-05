@@ -208,7 +208,9 @@ Settled:
 - **It is a real dialog** — `role="dialog"`, `aria-modal`, `aria-labelledby`, closed by the backdrop
   or Escape, focus moved in on open. Tab is contained on purpose: `aria-modal` already tells a screen
   reader the board behind is inert, and letting the keyboard walk out onto it would make that promise
-  false for anyone who reads by tabbing.
+  false for anyone who reads by tabbing. **That keyboard is `lib/useModalPanel.ts`**, moved out of
+  `EntryDrawer` on 5 October 2026 when the share dialog in Settings needed the same promise kept,
+  so the two cannot drift. Planting Escape-does-nothing there turns both dialogs' tests red.
 - **The phone's Back closes it, which is why the drawer's openness is a history entry.** Android has
   one Back button and it means *out of this*; over an open drawer it took the board, which on a phone
   is the whole app. Opening pushes an entry so the press has something of its own to pop, and closing

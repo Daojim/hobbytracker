@@ -154,7 +154,10 @@ export const GAMES: HobbyDefinition = {
     addAction: 'Add to calendar',
     describeAdd: (title) => `Add ${title} to your release calendar`,
     noDateHeading: 'No date yet',
-    empty: 'Nothing on your board is waiting to come out.',
+    empty: {
+      own: 'Nothing on your board is waiting to come out.',
+      shared: 'Nothing on this board is waiting to come out.',
+    },
     newBadge: 'New',
   },
 
@@ -203,13 +206,23 @@ export const GAMES: HobbyDefinition = {
     describeTotal: (hours) => `About ${totalHours(hours)} hours to beat`,
     compared: (played, length) =>
       `${totalHours(played)} h played vs ~${totalHours(length)} h to beat`,
-    // "You played", not "hours played": that is the drawer's input's label, and an accessible
-    // name containing it answers to a search for the input — Playwright's getByLabel matches an
-    // aria-label by substring — as soon as the board behind the drawer compares anything.
-    describeCompared: (played, length) =>
-      `You played ${totalHours(played)} hours, against about ${totalHours(length)} hours to beat`,
+    describeCompared: {
+      // "You played", not "hours played": that is the drawer's input's label, and an accessible
+      // name containing it answers to a search for the input — Playwright's getByLabel matches
+      // an aria-label by substring — as soon as the board behind the drawer compares anything.
+      own: (played, length) =>
+        `You played ${totalHours(played)} hours, against about ${totalHours(length)} hours to beat`,
+
+      // A share has no drawer behind it, so the trap above cannot spring there, and "you" would
+      // be the person reading. The #9 workshop's words.
+      shared: (played, length) =>
+        `${totalHours(played)} hours played, against about ${totalHours(length)} hours to beat`,
+    },
     over: (titles) => `over ${titles} ${titles === 1 ? 'game' : 'games'}`,
-    withoutPlayed: (titles) => `${titles} without your hours`,
+    withoutPlayed: {
+      own: (titles) => `${titles} without your hours`,
+      shared: (titles) => `${titles} without hours logged`,
+    },
     withoutLength: (titles) => `${titles} with no estimate`,
   },
 
@@ -219,5 +232,16 @@ export const GAMES: HobbyDefinition = {
     holds: 'Every game, playthrough and note on this board, as an Excel file.',
     sheets: { titles: 'Games', passes: 'Playthroughs', notes: 'Notes' },
     pass: 'Playthrough',
+  },
+
+  // A read-only link to the board, from Settings, picked at the #9 workshop on 4 October 2026.
+  // The heading names the owner once, when they ticked it, and the banner above it never does.
+  // The credits are the providers this board's data comes from, which on your own board sit in
+  // Settings — and a visitor has no Settings.
+  share: {
+    heading: (name) => (name === null ? 'Games' : `${name}’s games`),
+    explains:
+      'Anyone with the link sees your games, read-only. You choose what’s on it, and your notes never are.',
+    credits: 'Game data from IGDB, and estimates from HowLongToBeat.',
   },
 };

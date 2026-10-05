@@ -22,7 +22,7 @@ const lines = (
   titles: number,
   column: ColumnHours,
   definition: HobbyDefinition = GAMES,
-) => columnHoursLines(definition, status, { total: titles, hours: column });
+) => columnHoursLines(definition, status, { total: titles, hours: column }, 'own');
 
 describe('columnHoursLines', () => {
   it('adds up what the cards print, and says what the sum is', () => {
@@ -150,7 +150,7 @@ describe('the backlog at your pace', () => {
     column: ColumnHours,
     pace: Pace | null = twoADay,
     definition: HobbyDefinition = GAMES,
-  ) => columnHoursLines(definition, status, { total: titles, hours: column }, pace);
+  ) => columnHoursLines(definition, status, { total: titles, hours: column }, 'own', pace);
 
   it('says how long the backlog would take, under what it adds up to', () => {
     // 1,034.47 hours at 2 a day is 518 days, which is said in months.
@@ -204,5 +204,41 @@ describe('the backlog at your pace', () => {
     expect(
       atPace('Backlog', 2, hours({ length: 4.76, lengthTitles: 2 }), twoADay, hobbyDefinition('movies')),
     ).toEqual([]);
+  });
+});
+
+/**
+ * A share's header, which addresses nobody: the person reading it is not the one who logged the
+ * hours. Two phrases differ, both Completed's, and the rest is the board's own. The words are the
+ * #9 workshop's table, in `docs/plans/games-board-next.md`.
+ */
+describe('on a share', () => {
+  const completed = hours({
+    length: 260,
+    lengthTitles: 7,
+    played: 213,
+    playedLength: 218,
+    playedTitles: 6,
+  });
+
+  it('says the hours were logged, never whose they are', () => {
+    expect(columnHoursLines(GAMES, 'Completed', { total: 8, hours: completed }, 'shared')).toEqual([
+      {
+        text: '213 h played vs ~218 h to beat',
+        spoken: '213 hours played, against about 218 hours to beat',
+      },
+      {
+        text: 'over 6 games · 1 without hours logged · 1 with no estimate',
+        spoken: 'over 6 games, 1 without hours logged, 1 with no estimate',
+      },
+    ]);
+  });
+
+  it('adds up every other column as the board does', () => {
+    expect(
+      columnHoursLines(GAMES, 'Backlog', { total: 17, hours: hours({ length: 1034.47, lengthTitles: 16 }) }, 'shared'),
+    ).toEqual(
+      columnHoursLines(GAMES, 'Backlog', { total: 17, hours: hours({ length: 1034.47, lengthTitles: 16 }) }, 'own'),
+    );
   });
 });

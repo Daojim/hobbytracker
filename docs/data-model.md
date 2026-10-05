@@ -40,8 +40,10 @@ the column in `media` too and leaves the base table with no `id` at all.
   columns a person names themselves were ruled out when On Hold was added. Text rather than an
   int ordinal so reordering `LogStatus` can never silently reinterpret existing rows — and so a
   new value needs **no migration**: the column is `varchar(20)` with no check constraint on what
-  it holds. What a new value *does* need is two switch arms, both of which fail silently when
-  missing; see **Board semantics** in `docs/board.md`.
+  it holds. What a new value *does* need is a decision in each place `LogStatus`'s doc comment
+  lists, four since the share link, and every one of them fails silently when it is missing; see
+  **Board semantics** in `docs/board.md`. This line said two from the day Stats made it three, on
+  3 October 2026, until the share link made it four.
 - **`platforms` and `developers` are Postgres `text[]`.** IGDB returns arrays for both; a single
   column would drop data. Npgsql maps `List<string>` natively — no join tables, no converter.
 - **`log_entries.platform` is free text, not a foreign key to that array.** It is what you played
@@ -119,6 +121,22 @@ the column in `media` too and leaves the base table with no `id` at all.
   the constraint exists to forbid.
 - **Only `igdb` and `manual` are seeded.** `tmdb`/`mal` get added when their integrations ship —
   a source row with no client behind it reads like a working feature.
+- **`board_shares.parts` lists what a share shows, not what it hides**, which is the opposite of
+  the hidden columns' rule, for the opposite reason. A column taken off in Settings is the owner's
+  own view, so a column added later belongs on it the day it ships. A share is somebody else's view
+  of the owner's board, so a part added later stays off every existing share until its owner ticks
+  it, where a list of what is hidden would publish it on every share the day it shipped. It is a
+  `text[]` of `SharePart` names, for `status`'s reasons, with no check constraint, for the same
+  ones. Backlog is not a part, because every share shows it. `OpenShare.Shows` answers off for a
+  column with no part of its own, which is the fourth place a new `LogStatus` needs a decision.
+- **One share per board, and stopping deletes it.** Unique on `(user_id, hobby_id)`, and sharing
+  again makes a new row with a new token, so nothing can bring an old address back. It cascades
+  from `users`, so deleting an account kills its shares, and restricts to `hobby_lu`.
+- **`board_shares.token` is kept in plain text**, decided by the user on 4 October 2026, so
+  Settings can show the address again. Sixteen random bytes in base64url, `varchar(22)`, unique.
+  Anyone who can read it out of the database can already read the board there. Encrypting it with
+  the Data Protection keys, which the nightly dump does not hold, beside a hash to look it up by,
+  was offered and not taken.
 
 **One cosmetic quirk, left alone deliberately.** The two TPT tables get `PK_media` / `PK_games`
 while every other primary key is snake_case; `EFCore.NamingConventions` does not rewrite key names

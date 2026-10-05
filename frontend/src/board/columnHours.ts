@@ -1,6 +1,7 @@
 import type { HobbyDefinition } from '../hobbies';
 import { daysToFinish, describePace, describeSpan, formatPace, type Pace } from '../lib/pace';
 import type { LibraryPage, LogStatus } from '../api/types';
+import type { Voice } from '../lib/voice';
 
 /** One line of a column's header: what it prints, and how that reads aloud. */
 export interface HoursLine {
@@ -27,12 +28,17 @@ export interface HoursLine {
  * **Backlog adds a second line once it knows your pace**: how long the whole queue would take
  * at it, `about 17 months at 2 h a day`. The pace is what "How long will it take me?" was told in
  * the drawer, handed in rather than read here so this stays a function of what it is given. Picked
- * at the #4 workshop on 2 October 2026.
+ * at the #4 workshop on 2 October 2026. A share is handed none: the pace is the reader's, about
+ * their own board.
+ *
+ * **On a share it addresses nobody**: Completed's comparison is *hours played* rather than *you
+ * played*, and the titles it leaves out are *without hours logged*. The rest reads the same.
  */
 export function columnHoursLines(
   definition: HobbyDefinition,
   status: LogStatus,
   { total, hours }: Pick<LibraryPage, 'total' | 'hours'>,
+  voice: Voice,
   pace: Pace | null = null,
 ): HoursLine[] {
   const words = definition.columnHours;
@@ -52,14 +58,14 @@ export function columnHoursLines(
     const unplayed = hours.lengthTitles - hours.playedTitles;
     const over = [
       words.over(hours.playedTitles),
-      ...(unplayed > 0 ? [words.withoutPlayed(unplayed)] : []),
+      ...(unplayed > 0 ? [words.withoutPlayed[voice](unplayed)] : []),
       ...leftOut,
     ];
 
     return [
       {
         text: words.compared(hours.played, hours.playedLength),
-        spoken: words.describeCompared(hours.played, hours.playedLength),
+        spoken: words.describeCompared[voice](hours.played, hours.playedLength),
       },
       // Nothing in this line needs a spoken form of its own: it is counts and words.
       { text: over.join(' · '), spoken: over.join(', ') },

@@ -6,6 +6,7 @@ import { BackButton, renderWithProviders } from './test/render';
 import { boardServer, libraryItem } from './test/library';
 import { gameDetail, journalServer } from './test/games';
 import { authServer } from './test/auth';
+import { TOKEN, sharedServer } from './test/share';
 
 /**
  * The routes, and the gate in front of them.
@@ -35,6 +36,17 @@ describe('App', () => {
     renderWithProviders(<App />, { route: '/board' });
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
+  });
+
+  it('opens a share with nobody signed in, and never asks who is', async () => {
+    // A share is the one board outside the gate. Its fixture serves no /api/auth/me, so a share
+    // page that asked who was signed in would fail on an unhandled request.
+    sharedServer({ years: [2026] });
+
+    renderWithProviders(<App />, { route: `/share/${TOKEN}` });
+
+    expect(await screen.findByRole('banner')).toHaveTextContent('A board shared from HobbyTracker.');
+    expect(screen.queryByRole('heading', { name: /sign in/i })).not.toBeInTheDocument();
   });
 
   it('does not flash the sign-in screen while it is still asking', () => {

@@ -49,6 +49,11 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     public DbSet<User> Users => Set<User>();
     public DbSet<AuthIdentity> AuthIdentities => Set<AuthIdentity>();
 
+    /// <summary>
+    /// Read-only links to somebody's board, one per board. Child of users, cascade deleted.
+    /// </summary>
+    public DbSet<BoardShare> BoardShares => Set<BoardShare>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Mapping lives in one IEntityTypeConfiguration<T> per entity under

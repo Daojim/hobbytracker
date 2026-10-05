@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { ComingSoon } from './ComingSoon';
+import { ComingSoon, upcomingQuery } from './ComingSoon';
 import { boardServer, libraryItem } from '../test/library';
+import { TOKEN, sharedServer } from '../test/share';
+import { sharedUpcomingQuery } from '../share/queries';
 import { renderWithProviders } from '../test/render';
 import type { LibraryItem } from '../api/types';
 
@@ -35,7 +37,14 @@ function renderCalendar(upcoming: LibraryItem[], hobby = 'games') {
 
   // Five, as the board draws with nothing taken off. The count only decides how many tracks the
   // section is laid out on, which jsdom cannot measure; layout.spec.ts is where that is checked.
-  return renderWithProviders(<ComingSoon hobby={hobby as 'games'} columns={5} onOpen={vi.fn()} />, {
+  return renderWithProviders(<ComingSoon
+      hobby={hobby as 'games'}
+      columns={5}
+      query={upcomingQuery(hobby)}
+      voice="own"
+      remembers
+      onOpen={vi.fn()}
+    />, {
     route: `/board/${hobby}`,
     path: '/board/:hobby',
   });
@@ -165,7 +174,7 @@ describe('ComingSoon', () => {
 
     renderCalendar([]);
 
-    expect(await screen.findByText(GAMES.releases!.empty)).toBeInTheDocument();
+    expect(await screen.findByText(GAMES.releases!.empty.own)).toBeInTheDocument();
   });
 
   it('folds away, and stays folded on the next visit', async () => {
@@ -208,7 +217,14 @@ describe('ComingSoon', () => {
     boardServer({ upcoming: [upcomingItem('Silksong II', '2026-11-03')] });
 
     const onOpen = vi.fn();
-    renderWithProviders(<ComingSoon hobby="games" columns={5} onOpen={onOpen} />, {
+    renderWithProviders(<ComingSoon
+        hobby="games"
+        columns={5}
+        query={upcomingQuery('games')}
+        voice="own"
+        remembers
+        onOpen={onOpen}
+      />, {
       route: '/board/games',
       path: '/board/:hobby',
     });
@@ -227,5 +243,66 @@ describe('ComingSoon', () => {
 
     expect(container.querySelector('[data-board]')).toBeNull();
     expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(1);
+  });
+});
+
+/**
+ * The calendar on a share: the owner's, read by its token, in words written to nobody, and with
+ * no journal behind its titles.
+ */
+describe('ComingSoon on a share', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(TODAY);
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function renderShared(upcoming: LibraryItem[]) {
+    // No boardServer: a share's calendar asking the signed-in board for its titles would be an
+    // unhandled request, and that is the failure this is here to see.
+    sharedServer({ upcoming });
+
+    return renderWithProviders(
+      <ComingSoon
+        hobby="games"
+        columns={4}
+        query={sharedUpcomingQuery(TOKEN)}
+        voice="shared"
+        remembers={false}
+      />,
+      { route: `/share/${TOKEN}` },
+    );
+  }
+
+  it('reads the share’s calendar and names its titles without offering to open them', async () => {
+    renderShared([upcomingItem('Silksong II', '2026-11-03')]);
+
+    expect(await screen.findByText('Silksong II')).toBeInTheDocument();
+
+    // A share has no journal, so a title is text rather than a button that leads nowhere.
+    expect(screen.queryByRole('button', { name: 'Silksong II' })).not.toBeInTheDocument();
+  });
+
+  it('says nothing is waiting on this board, not on yours', async () => {
+    renderShared([]);
+
+    expect(
+      await screen.findByText('Nothing on this board is waiting to come out.'),
+    ).toBeInTheDocument();
+  });
+
+  it('folds for the visitor without folding their own board’s calendar', async () => {
+    // Remembered per board on your own board. On a share the choice is about somebody else's,
+    // and the board's key would fold the visitor's own calendar along with it.
+    renderShared([upcomingItem('Silksong II', '2026-11-03')]);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Hide Coming soon' }));
+
+    expect(await screen.findByRole('button', { name: 'Show Coming soon' })).toBeInTheDocument();
+    expect(localStorage.length).toBe(0);
   });
 });

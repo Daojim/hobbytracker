@@ -4,6 +4,18 @@ import type { LibrarySort, LogStatus } from '../api/types';
 export const COLUMN_PAGE_SIZE = 100;
 
 /**
+ * Every column in the order it was put in by hand, which is how a board opens — yours, and a
+ * share of somebody's, where the same order is called Board order.
+ */
+export const ALL_MANUAL: Readonly<Record<LogStatus, LibrarySort>> = {
+  Backlog: 'manual',
+  InProgress: 'manual',
+  OnHold: 'manual',
+  Completed: 'manual',
+  Dropped: 'manual',
+};
+
+/**
  * One cache entry per column *view*.
  *
  * The sort and the year are part of the key, not just of the request. Leaving them out was fine
@@ -120,3 +132,38 @@ export const statsKey = (hobby: string, year: number | undefined) =>
 
 /** The years the Stats page offers. See `statsYears` for why they are not the board's. */
 export const statsYearsKey = (hobby: string) => ['stats', hobby, 'years'] as const;
+
+/**
+ * Your board's share link, as Settings shows it — or null, which is "No link yet".
+ *
+ * Not under `['library', ...]`: nothing on the board changes it, and it changes nothing on the
+ * board. The dialog's writes settle it themselves.
+ */
+export const shareKey = (hobby: string) => ['share', hobby] as const;
+
+/**
+ * Everything a share answers, under its token, and nothing under `['library', ...]`.
+ *
+ * A share is somebody else's board read by its link, so nothing you do on your own board settles
+ * it, and nothing it reads can land in your board's cache: an owner opening their own link in the
+ * tab they work in reads the share's answers, which leave out the note your cards carry, and
+ * those must never be what your board draws. The shape after the token is the board's, so each
+ * reads as its counterpart does.
+ */
+export const sharedKey = (token: string) => ['shared', token] as const;
+
+export const sharedColumnKey = (
+  token: string,
+  status: LogStatus,
+  sort: LibrarySort,
+  year: number | undefined,
+) => ['shared', token, status, { sort, year }] as const;
+
+export const sharedYearsKey = (token: string) => ['shared', token, 'years'] as const;
+
+export const sharedUpcomingKey = (token: string) => ['shared', token, 'upcoming'] as const;
+
+export const sharedStatsKey = (token: string, year: number | undefined) =>
+  ['shared', token, 'stats', { year }] as const;
+
+export const sharedStatsYearsKey = (token: string) => ['shared', token, 'stats', 'years'] as const;

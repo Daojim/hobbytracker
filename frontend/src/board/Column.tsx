@@ -1,5 +1,5 @@
-import { useEffect, useId, useState } from 'react';
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { listColumn } from '../api/library';
@@ -9,11 +9,21 @@ import { type BoardColumn, hobbyDefinition } from '../hobbies';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
 import { columnHoursLines, type HoursLine } from './columnHours';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
-import { usePace } from '../lib/pace';
-import type { LibrarySort, LogStatus } from '../api/types';
+import { usePace, type Pace } from '../lib/pace';
+import type { Voice } from '../lib/voice';
+import type { LibraryItem, LibraryPage, LibrarySort, LogStatus } from '../api/types';
 
 /** The id a column droppable answers to, so a drop onto empty space still names a column. */
 export const droppableId = (status: LogStatus) => `column:${status}`;
+
+/**
+ * Where one column's answer comes from: your board's library, or a share's. Whichever it is, the
+ * column and anything else that needs its answer share it — the phone's switcher counts from it.
+ */
+export interface ColumnRequest {
+  queryKey: QueryKey;
+  queryFn: () => Promise<LibraryPage>;
+}
 
 /**
  * One column's request, for the column and for anything else that needs its answer.
@@ -28,11 +38,10 @@ export const columnQuery = (
   status: LogStatus,
   sort: LibrarySort,
   year: number | undefined,
-) =>
-  queryOptions({
-    queryKey: columnKey(hobby, status, sort, year),
-    queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
-  });
+): ColumnRequest => ({
+  queryKey: columnKey(hobby, status, sort, year),
+  queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
+});
 
 /**
  * Removing a title, as the whole column sees it: which card is currently asking, and what to do
@@ -84,6 +93,7 @@ export interface ColumnProps {
   onOpen: OpenJournal;
 }
 
+/** A column of your own board: a drop target, and a stack of cards you can carry and open. */
 export function Column({
   hobby,
   status,
@@ -99,31 +109,6 @@ export function Column({
   menu,
   onOpen,
 }: ColumnProps) {
-  const headingId = useId();
-
-  // Until when this column is willing to keep asking about a title HowLongToBeat has not
-  // answered for yet. Zero means it is not waiting for anything. See estimates.ts.
-  const [pollUntil, setPollUntil] = useState(0);
-
-  const { data, isPending, error } = useQuery({
-    ...columnQuery(hobby, status, sort, year),
-
-    // A function rather than a number, and that is load-bearing. TanStack calls this to schedule
-    // each next ask, so the budget is re-read against the clock every time — where a number
-    // computed during render would be read once and never reconsidered, because a refetch that
-    // changes nothing does not re-render and so never revises it.
-    refetchInterval: () => (Date.now() < pollUntil ? ESTIMATE_POLL_MS : false),
-  });
-
-  const waiting = waitingOn(data?.items);
-
-  // A fresh budget whenever the set of waiting titles changes, so a title added while the last
-  // one is still being looked up is not left on the tail end of somebody else's clock. When the
-  // set empties, the budget goes to zero and the asking stops on the next evaluation.
-  useEffect(() => {
-    setPollUntil(waiting === '' ? 0 : Date.now() + ESTIMATE_POLL_BUDGET_MS);
-  }, [waiting]);
-
   // The ref goes on the section, and it has to. It used to hang off the card list below, which
   // is not rendered while the column is collapsed — so a closed Dropped column had no rect at
   // all, `closestCorners` could never pick it, and a card let go over that corner of the board
@@ -156,24 +141,158 @@ export function Column({
   const { over } = useDndContext();
   const isOver = (over?.data.current as { status?: LogStatus } | undefined)?.status === status;
 
+  // What the drawer's "How long will it take me?" was told — a store, because it is told over
+  // this column and the Backlog line has to hear it then rather than at the next mount.
+  const { pace } = usePace(hobby);
+
+  return (
+    <ColumnFrame
+      hobby={hobby}
+      status={status}
+      label={label}
+      sort={sort}
+      onSortChange={onSortChange}
+      collapsed={collapsed}
+      onToggleCollapse={onToggleCollapse}
+      namedAbove={namedAbove}
+      request={columnQuery(hobby, status, sort, year)}
+      voice="own"
+      pace={pace}
+      dropRef={setNodeRef}
+      tinted={isOver}
+    >
+      {(items) => (
+        <SortableContext
+          items={items.map((item) => item.mediaId)}
+          strategy={verticalListSortingStrategy}
+        >
+          <ul className="flex flex-col gap-cardgap">
+            {items.map((item) => (
+              <Card
+                key={item.mediaId}
+                item={item}
+                onMove={onMove}
+                removal={{
+                  confirming: removal.mediaId === item.mediaId,
+                  onAsk: () => removal.onAsk(item.mediaId),
+                  onCancel: removal.onCancel,
+                  onConfirm: () => removal.onConfirm(item.mediaId),
+                }}
+                menu={{
+                  open: menu.mediaId === item.mediaId,
+                  onOpen: () => menu.onOpen(item.mediaId),
+                  onClose: menu.onClose,
+                  columns: menu.columns,
+                }}
+                onOpen={onOpen}
+                // Every other mode is a read-only view. Offering a drag there would promise a
+                // ranking the API is not going to store.
+                draggable={sort === 'manual'}
+              />
+            ))}
+          </ul>
+        </SortableContext>
+      )}
+    </ColumnFrame>
+  );
+}
+
+export interface ColumnFrameProps {
+  hobby: string;
+  status: LogStatus;
+  label: string;
+  sort: LibrarySort;
+  onSortChange: (sort: LibrarySort) => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  namedAbove?: boolean;
+
+  /** Where the column's answer comes from: your board's library, or a share's. */
+  request: ColumnRequest;
+
+  /** Who the header's words are to: the board's owner, or — on a share — nobody. */
+  voice: Voice;
+
+  /**
+   * How much the reader plays, for Backlog's second line — the reader's own pace, about their
+   * own board, so a share is handed none.
+   */
+  pace: Pace | null;
+
+  /** The droppable this column is on your board. Absent on a share, where nothing lands. */
+  dropRef?: (element: HTMLElement | null) => void;
+
+  /** Whether a card held over the board would land here, which tints the well. */
+  tinted?: boolean;
+
+  /** The cards, drawn from this page of the column. */
+  children: (items: LibraryItem[]) => ReactNode;
+}
+
+/**
+ * Everything a column is apart from its cards: the well, the heading and its count, the hours
+ * under it, the fold, the sort control, and what it says while loading or with nothing in it.
+ *
+ * One frame for your board's columns and for a share's, so the two cannot drift: a share's
+ * column is this, around faces with nothing in their hands. The cards are the caller's, because
+ * that is where the two differ.
+ */
+export function ColumnFrame({
+  hobby,
+  status,
+  label,
+  sort,
+  onSortChange,
+  collapsed = false,
+  onToggleCollapse,
+  namedAbove = false,
+  request,
+  voice,
+  pace,
+  dropRef,
+  tinted = false,
+  children,
+}: ColumnFrameProps) {
+  const headingId = useId();
+
+  // Until when this column is willing to keep asking about a title HowLongToBeat has not
+  // answered for yet. Zero means it is not waiting for anything. See estimates.ts.
+  const [pollUntil, setPollUntil] = useState(0);
+
+  const { data, isPending, error } = useQuery({
+    ...request,
+
+    // A function rather than a number, and that is load-bearing. TanStack calls this to schedule
+    // each next ask, so the budget is re-read against the clock every time — where a number
+    // computed during render would be read once and never reconsidered, because a refetch that
+    // changes nothing does not re-render and so never revises it.
+    refetchInterval: () => (Date.now() < pollUntil ? ESTIMATE_POLL_MS : false),
+  });
+
+  const waiting = waitingOn(data?.items);
+
+  // A fresh budget whenever the set of waiting titles changes, so a title added while the last
+  // one is still being looked up is not left on the tail end of somebody else's clock. When the
+  // set empties, the budget goes to zero and the asking stops on the next evaluation.
+  useEffect(() => {
+    setPollUntil(waiting === '' ? 0 : Date.now() + ESTIMATE_POLL_BUDGET_MS);
+  }, [waiting]);
+
   const items = data?.items ?? [];
   const muted = status === 'Dropped';
   const definition = hobbyDefinition(hobby);
 
   // How long the column's titles take, which the server adds up over the whole column rather
-  // than this page of it. See columnHours.ts for what each column says. The pace is what the
-  // drawer's "How long will it take me?" was told — a store, because it is told over this column
-  // and the Backlog line has to hear it then rather than at the next mount.
-  const { pace } = usePace(hobby);
-  const hours = data === undefined ? [] : columnHoursLines(definition, status, data, pace);
+  // than this page of it. See columnHours.ts for what each column says.
+  const hours = data === undefined ? [] : columnHoursLines(definition, status, data, voice, pace);
 
   return (
     <section
-      ref={setNodeRef}
+      ref={dropRef}
       aria-labelledby={headingId}
       className={`flex min-h-24 flex-col rounded-xl border p-3 transition-colors ${
         muted ? 'border-dropped/30 opacity-70' : 'border-line-soft'
-      } ${isOver ? 'bg-drop' : 'bg-well'}`}
+      } ${tinted ? 'bg-drop' : 'bg-well'}`}
     >
       <div className="mb-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -206,6 +325,7 @@ export function Column({
               lengthLabel={definition.lengthLabel}
               value={sort}
               onChange={onSortChange}
+              voice={voice}
             />
           </div>
         </div>
@@ -226,36 +346,7 @@ export function Column({
             </p>
           )}
 
-          <SortableContext
-            items={items.map((item) => item.mediaId)}
-            strategy={verticalListSortingStrategy}
-          >
-            <ul className="flex flex-col gap-cardgap">
-              {items.map((item) => (
-                <Card
-                  key={item.mediaId}
-                  item={item}
-                  onMove={onMove}
-                  removal={{
-                    confirming: removal.mediaId === item.mediaId,
-                    onAsk: () => removal.onAsk(item.mediaId),
-                    onCancel: removal.onCancel,
-                    onConfirm: () => removal.onConfirm(item.mediaId),
-                  }}
-                  menu={{
-                    open: menu.mediaId === item.mediaId,
-                    onOpen: () => menu.onOpen(item.mediaId),
-                    onClose: menu.onClose,
-                    columns: menu.columns,
-                  }}
-                  onOpen={onOpen}
-                  // Every other mode is a read-only view. Offering a drag there would promise a
-                  // ranking the API is not going to store.
-                  draggable={sort === 'manual'}
-                />
-              ))}
-            </ul>
-          </SortableContext>
+          {children(items)}
 
           {data !== undefined && items.length === 0 && (
             <p className="text-sm text-muted">Nothing here yet.</p>

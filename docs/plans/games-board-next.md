@@ -2,7 +2,8 @@
 
 Written 1 October 2026 at the user's request. A feature is built on the **games board first** and
 taken to the other hobbies afterwards. The ten below are planned so a session can pick up **any
-one, in any order**, when the user names it. CLAUDE.md's **What is next** points here.
+one, in any order**, when the user names it. An eleventh, a bug in the release calendar, was added
+on 4 October 2026. CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -24,8 +25,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | **Shipped and deployed 4 October 2026** (PR #61), the day it was workshopped: a three-sheet workbook from a row in Settings. See its section |
 | 8 | Delete my account | S–M | **Shipped and deployed 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. See its section |
-| 9 | A read-only share link | M | Planned. Gained a phone question; see its section |
+| 9 | A read-only share link | M | **Built 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. Not deployed yet. See its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
+| 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
 
 Production runs `c28548c`'s code, which was `main` on 4 October 2026. Everything merged since is
 docs. Deploying is the runbook in `docs/deploy.md`.
@@ -76,6 +78,10 @@ docs. Deploying is the runbook in `docs/deploy.md`.
     there whatever the manifest says. See `e2e/install.spec.ts`.
 - **A column's request is `columnQuery` in `Column.tsx`.** Anything else that needs a column's
   answer shares it — the switcher's counts already do — rather than asking again under another key.
+- **A word on the board or the Stats page that addresses the owner takes a voice.** A share shows
+  both pages to somebody else, so a new phrase with *you*, *your* or *my* in it is a `Voiced` pair
+  (`lib/voice.ts`), with a share's form beside it. `SharedBoardPage.test.tsx` and
+  `SharedStatsPage.test.tsx` read each page whole for those words. See #9.
 - **A new drop target goes through `boardCollisions`** (`board/collisions.ts`). If it is pinned, or
   does not otherwise scroll with the page, it has to be measured live as the switcher's segments
   are. dnd-kit moves every target it measured by however far the page scrolls. See
@@ -745,75 +751,219 @@ of it and 3 end to end. Each turned red exactly the tests that name it. The tabl
 
 ---
 
-## 9. A read-only share link · M
+## 9. A read-only share link · built
 
-**What.** One revocable link to the games board, for friends and for portfolio reviewers. Today a
-reviewer can't see anything without making an account.
+**What.** One revocable link to the games board, for friends and for portfolio reviewers, who
+until now could see nothing without making an account.
 
-### Decide at pickup
+**Built on 5 October 2026** (PR #65), the day after it was workshopped. Not deployed yet. **One
+migration**, `AddBoardShares`: a new table, with nothing to backfill because no board is shared
+until its owner makes a link. No new variable. The write-up is `docs/auth.md`, **Sharing a
+board**: the routes, why the anonymous half is safe, and every fault planted. The look and the
+words are `docs/design.md`, **Sharing a board**. A shared column and its years are
+`docs/board.md`, **A share of the board**, Stats on a share is `docs/stats.md`, **On a share**,
+and the table is in `docs/data-model.md`. The workshop page is private:
+https://claude.ai/artifact/XF8FycrBBp5tE6bqkLaTUj, and so is the page of four states rendered from
+the built app on 5 October: https://claude.ai/artifact/Ud6QkNxqDzfAXQnKJxmeY3. Every choice was
+the recommendation except the top of a shared page, which is marked.
 
-**What a share shows.**
-- Recommended: covers, titles, columns, ratings and progress.
-- **Leave note previews out**: `LatestNotePreview` is null on the share path, because notes are a
-  private journal.
+**What the workshop changed.** This section offered a fixed share: covers, titles, columns,
+ratings and progress, the URL shown once, and no Stats. The user asked to choose what a share
+shows, as Settings chooses a board's columns, so every part but Backlog became a box. The link
+became copyable at any time, and Stats went on.
 
-**Which columns.** Hidden columns are a per-browser setting the server never sees. Either:
-- show all five, with Dropped collapsed, or
-- store a column list on the share.
+### Decided before the renders
 
-**Whether the share offers the year picker.**
+- **What a share is:** the board, Coming soon and Stats, read-only. No search, no Discover, no
+  journal and no Settings.
+- **Every part but Backlog is a box**, stored with the share: Playing, On Hold, Completed, Dropped,
+  Coming soon and Stats. Backlog always shows. **Stats is whole.** It shows every finish and counts
+  what was dropped, as a number with no titles, whichever columns are ticked.
+- **Notes never**, whatever is ticked. No route a share reaches selects from `notes`, and a test
+  holds that.
+- **Your name is a box, off until ticked**, with the name printed beside it. It is
+  `users.display_name`: fixed at first sign-in, and the part of an email before the @ when the
+  provider sent no name.
+- **The year control**, opening on the latest year, as the board's does.
+- **One link per board, copyable from Settings at any time.** Stopping kills the address, and
+  sharing again makes a new one.
+- **The visitor's own theme.** A share has no theme menu, and nothing about the owner's theme is
+  stored.
 
-### Backend
+### Decided from the renders
 
-**Table `board_shares`:**
-- `id`
-- `user_id` — cascade on delete
-- `hobby_id`
-- `token_hash` — unique; the SHA-256 of 16 random bytes. The URL carries the raw token, base64url.
-- `created_at`
-- `revoked_at`
+- **The top of a share is a banner, C. The user picked it over the recommended heading, A.** A
+  strip across the top reads *A board shared from HobbyTracker. It's read-only.*, with *Make your
+  own →* at its end. Under it, the heading is *Jimmy Dao's games* with the name ticked and *Games*
+  without. **The banner never carries the name**, so it appears once. That was settled after the
+  renders, because C with the name in both read it twice. The first card sits 206px down at
+  1440 × 900 and 295px down at 390 × 844.
+- **Settings gets a Sharing group after Columns, holding one row that opens a dialog.** The row
+  reads *Share this board…*.
+  - **Before a link exists**, the dialog shows *No link yet*, the boxes and *Make the link*.
+    Opening it makes nothing. The boxes start from what this browser's board shows, with Coming
+    soon and Stats on and the name off.
+  - **Once shared**, it shows the address and Copy, the columns beside the rest, *Stop sharing*
+    and *Done*. A box writes as it is ticked, with no Save.
+  - It is 448 × 402 before a link exists and 448 × 394 after, and 414px tall on a phone.
+  - The alternatives put a second Columns list straight under the panel's own. Kept open in the
+    panel, they made it 1337px tall; opened from a row, 1413px.
+- **Stopping asks first**: *Stop sharing? The link stops working for everyone who has it.*, in the
+  delete tint, with a filled *Stop sharing* and Cancel. In the dialog it takes the footer's place.
+- **A shared column keeps its sort control**, and the manual order is called *Board order* there,
+  since it is not the visitor's.
+- **A share addresses nobody.** Eleven phrases on the board and the Stats page are written to the
+  owner, and a share uses one set of words whether the name is on it or not:
 
-**Owner routes (`[Authorize]`):**
-- create — the URL is shown once
-- list
-- revoke
+  | On your board | On a share |
+  |---|---|
+  | My order | Board order |
+  | of the 8 games you started in 2026 | of the 8 games started in 2026 |
+  | over 6 games you logged hours for | over 6 games with hours logged |
+  | You and HowLongToBeat | Hours against HowLongToBeat |
+  | over the 6 you rated | over the 6 rated |
+  | in your backlog 42 days | in the backlog 42 days |
+  | 1 without your hours | 1 without hours logged |
+  | Back to your board | Back to the board |
+  | Nothing to compare yet: log your hours on a game you finish. | Nothing to compare yet. |
+  | Nothing on your board is waiting to come out. | Nothing on this board is waiting to come out. |
+  | Read aloud: *You played 213 hours, against about 218 hours to beat* | *213 hours played, against about 218 hours to beat* |
 
-**Anonymous routes**, on their own `[AllowAnonymous]` controller:
-- `GET /api/shared/{token}/library`, `/years` and `/upcoming`.
-- An unknown token and a revoked token give the same 404.
+- **A link that doesn't work** gets one card for unknown and stopped alike: *This link doesn't open
+  a board*, *Whoever shared it may have stopped sharing, or part of the address may be missing.*
+  and *Make your own board*. Rendered and not asked about.
+- **The data credits sit at the foot of a share**, because a visitor has no Settings.
 
-**Keep scoping visible at the call site.**
-- Refactor `LibraryService`'s *read* paths so `BoardQuery` takes an explicit owner id. The signed-in
-  methods pass `user.Id`; the share passes the token's user.
-- **Never swap `ICurrentUser` for the share request.** Any write path it could reach would then act
-  *as* the owner.
-- `ICurrentUser.Id` throwing when nobody is signed in is the backstop.
+### Found while rendering
 
-### Frontend
+- **`ColumnSwitcher` renders outside a `DndContext`**, on dnd-kit's defaults, which answers this
+  section's open question. With no drag context there is nothing on a share to drop onto. Its counts
+  still come from `columnQuery`, which reads the signed-in library, so the share needs its own query
+  for them.
+- **The release calendar says "276 days ago" for a title that isn't out.** This is older than #9.
+  A window stored at year, quarter or month precision begins on its first day, and `UpcomingRow`
+  measures the distance from `releaseDate` without checking the precision. On 4 October 2026,
+  Witchbrook (*2026*, stored as 1 January to 31 December) read *2026 · 276 days ago* with its wait
+  bar full. It shows on a board and on a share alike. It is #11.
 
-- A route at `/share/:token`, outside `RequireSession`.
-- Read-only columns render `CardFace` with no handlers, exactly as the drag preview does today.
-- No search, no drawer, no Discover.
-- In Settings: *Share this board* — create, copy, revoke. Workshop the look.
-- **On a phone, since #1:** a shared board needs the same one-column-at-a-time layout: the
-  `SIDE_BY_SIDE` media query and `ColumnSwitcher`. **A share must offer no drop target.** The
-  switcher's segments call `useDroppable`, so check at pickup whether it renders sensibly outside
-  a `DndContext` — dnd-kit's contexts have defaults — or needs a variant without droppables. Its
-  counts come from `columnQuery`, which reads the signed-in library, so the share needs its own
-  query for them.
+### Decided from renders of the built app
 
-### Tests first
+Four states the workshop never drew, rendered from the built app on 5 October 2026 and picked
+there. All four were the recommendation.
 
-- The share shows only the owner's titles.
-- No notes appear.
-- A revoked or unknown token gives 404.
-- The anonymous controller has no write routes.
-- Deleting the account kills the share.
-- At 390px, the share is one column at a time and nothing on it can be dragged.
+1. **A twelfth phrase written to the owner**, which the table of eleven missed: the note under
+   the Stats page's backlog. On a share: *"Added" is the day a title went on the board. Since 1
+   October 2026 the board records when a title arrives in Backlog, and says "in the backlog" for
+   those.* Picked over leaving it off a share.
+2. **A write in the dialog that fails** says so in the spreadsheet row's failure line, `text-xs
+   text-danger` and `role="alert"`, above the footer: *Couldn’t make the link. Try again.*,
+   *Couldn’t change what the link shows. Try again.* or *Couldn’t stop sharing. Try again.* A box
+   that fails springs back to what the link shows. Picked over saying nothing.
+3. **While they work**, the buttons read *Making the link…* and *Stopping…*, held by
+   `aria-disabled`. Picked over buttons that only dim.
+4. **A share that cannot be reached** (a 5xx or no connection, not the 404) gets the dead link's
+   card with *This board didn’t load*, *HobbyTracker couldn’t be reached just now. The link itself
+   may be fine.* and *Try again*, which asks again. Picked over the app's red error line on an
+   empty page.
 
-**Docs to update:**
-- `auth.md`: the deliberate anonymous route, and why it's safe.
-- CLAUDE.md's Settled **Scope** and **Sessions** rows.
+**Taken from this section's words over the workshop's mock**, and shown on the same page under
+*As built*: the address field shows the whole address, scheme included, which is exactly what Copy
+copies; Dropped starts ticked when this browser's board shows it; Backlog's *at your pace* line is
+left off a share, because the pace is the visitor's; and a share's Coming soon does not remember
+being folded, or it would fold the visitor's own too.
+
+### Built
+
+- **`board_shares`**, migration `20261005053507_AddBoardShares`. `parts` is a `text[]` of
+  `SharePart` names (`InProgress`, `OnHold`, `Completed`, `Dropped`, `Upcoming`, `Stats`; Backlog
+  is not a part). It is unique on `token`, which is `varchar(22)`, and on `(user_id, hobby_id)`. It
+  cascades from `users` and restricts to `hobby_lu`.
+- **`ShareService`**, which is both `IShareService` (the owner's, through `ICurrentUser`) and
+  `IShareLookup`. `FindAsync(token)` answers an `OpenShare` with its name chosen in the query:
+  `share.ShowsName ? DisplayName : null`. `OpenShare.Shows(column)` answers off for a column added
+  later.
+- **`ShareController`**, `[Authorize]`, at `/api/share?hobby=`. `GET` answers a `JsonResult` that
+  can be `null`. `POST` answers 201, or 409 when the insert's 23505 names
+  `ix_board_shares_user_id_hobby_id`. `PUT` and `DELETE` answer 404 when the board has no link.
+- **`SharedController`**, `[AllowAnonymous]`, at `/api/shared/{token}`, with `library`, `years`,
+  `upcoming`, `stats` and `stats/years`. `library` requires `status`, and it and `stats` bound
+  `year` to 1–9998. Every refusal is the same `NotFound()`. It holds `IShareLookup`,
+  `ISharedLibrary` and `ISharedStats`, and nothing else.
+- **`LibraryService`**: `BoardQuery(int ownerId)`, with the signed-in methods passing `user.Id`.
+  The column's projection is `CardsWith(note)`, spliced by a `Rebind` visitor, with
+  `LatestNoteOf(ownerId)` in the slot for a board and `NoNote`, a constant null, for a share.
+  `ItemAsync` keeps its own copy, so the docs' count of projections holds. `BacklogAsync(ownerId,
+  hobby)` and `YearsOfAsync(ownerId, hobby, columns?)`. `ISharedLibrary`'s three reads are explicit
+  interface implementations.
+- **`StatsService`** is both `IStatsService` and `ISharedStats`, with the owner explicit through
+  `Passes(ownerId, hobby)`.
+- **`Program.cs`** registers each class under both of its interfaces, and **`LogStatus.cs`** names
+  `OpenShare.Shows` as a fourth place a new status needs a decision.
+- **`lib/voice.ts`**: `Voice = 'own' | 'shared'` and `Voiced<T>`. All twelve phrases are pairs,
+  side by side: `SortSelect`'s *My order*; games' `columnHours.withoutPlayed` and
+  `describeCompared`, and `releases.empty`; `StatsPage`'s `WORDS`; `RatingSpread`'s line, `waited`
+  in `stats.ts`, and `BacklogList`'s note.
+- **`HobbyDefinition.share`**, for games only: the heading, what the dialog says sharing does, and
+  the credits at a share's foot.
+- **`board/Column.tsx`** is split into `Column` (yours) and `ColumnFrame` (the frame both wear),
+  with `ColumnRequest`. `ColumnSwitcher` takes `requestFor`. `ComingSoon` takes `query`, `voice`,
+  `remembers` and an optional `onOpen`, and exports `upcomingQuery`. `ALL_MANUAL` and the share's
+  query keys are in `board/keys.ts`.
+- **`lib/useModalPanel.ts`**, moved out of `EntryDrawer`: the keyboard follows the panel in, Tab
+  stays inside, and Escape closes it.
+- **`api/share.ts`**, **`api/shared.ts`**, and **`share/`**: `paths.ts` and `queries.ts`;
+  `SharedFrame` (the banner, the heading and the credits) and `DeadLink`; `SharedColumn`;
+  `SharedBoardPage`, with `Unreachable` and `isNotFound`, and `SharedStatsPage`; `SharingRow`; and
+  `ShareDialog`, which writes one box at a time and sends the latest boxes next.
+- **The routes** are in `App.tsx`, outside `RequireSession`, and Settings holds the row and the
+  dialog. `e2e/support/database.ts` names `board_shares` in its TRUNCATE.
+
+### Tests
+
+`ShareEndpointTests` has 16 and `SharedBoardTests` 15, with `Infrastructure/SqlRecorder.cs` to
+assert on what a route read: 750 backend tests, from 719. On the frontend `share/` has 52
+(`ShareDialog.test.tsx` 22, `SharedBoardPage.test.tsx` 21, `SharedStatsPage.test.tsx` 9),
+`SortSelect`, `columnHours`, `stats`, `ComingSoon` and `App` gained 8 between them, and
+`index.css.test.ts` two rows a palette: 1034 frontend tests, from 956. End to end,
+`e2e/share.spec.ts` has 4, and the whole suite of 190 passed.
+
+The backend's tests were red first, on routes that did not exist, as were the frontend's first
+cases, on modules that did not. The cases for the four states picked on 5 October were written
+after their code, because the code had to exist to be rendered, so each was checked red by
+planting the alternative that was not picked. Then every guard was checked by putting its fault
+back, one at a time against the finished feature: 35 behind the API, 45 in front of it and 4 end
+to end, each red on exactly the tests that name it, bar one that was rightly red on nothing. The
+tables are in `docs/auth.md`, under **Sharing a board**.
+
+### What the plan got wrong, or left out
+
+- **"The dialog: making a link, a box written as it is ticked, Copy, and Stop asking first."**
+  Four states were in neither the plan nor the workshop: a twelfth phrase written to the owner, a
+  write that fails, a write on its way, and a share that cannot be reached. Rendered from the
+  built app and picked on 5 October.
+- **The switcher had to be told where a column's answer comes from.** It took `columnQuery`
+  itself, which reads the signed-in library, so it takes `requestFor` now. And `columnQuery`
+  returns a plain `ColumnRequest`, because TanStack types `queryFn` against the exact key and a
+  `queryOptions` result will not widen to a request type two sources share.
+- **EF 10 prunes a conditional on a captured value before writing SQL.** So `showNotes ? note :
+  null`, with the flag captured, sends no `notes` at all, and planting it turned nothing red, as it
+  should not. The version of that fault that reaches the database is a condition on the row, and
+  only the SQL recorder sees it, because the answers are identical. `NoNote` does not rely on the
+  pruning.
+- **Two faults the plan's list of tests did not cover turned nothing red** when they were planted:
+  a share's calendar remembering its fold, which would fold the visitor's own calendar, and a
+  share's answers cached under the board's keys, which an owner following *Make your own* would
+  see as note-less cards on their own board. Each has a test now.
+- **The phone case end to end measured only what a gesture did.** A card made carriable, with
+  nothing to hear the drop, moves nothing, so it passed. It now counts what dnd-kit registers on a
+  share, which is nothing.
+- **The Sharing group moved *Your data* down 107px.** On a 1440 × 900 window the spreadsheet's
+  row now ends 3px under the fold and the delete row is below it, where #7 and #8 measured both on
+  the first screen. Measured in the built panel; see `docs/design.md`, **Your data**.
+- **The banner's link was the first accent ink on `well`.** Measured on every theme at 5.37:1 at
+  its lowest, on Ember, and `index.css.test.ts` holds it now, with accent on `sunken`.
+- **A fourth place a new `LogStatus` needs a decision**, `OpenShare.Shows`, and two docs' counts
+  of those places were already stale: `docs/board.md` and `docs/data-model.md` both said two.
 
 ---
 
@@ -886,6 +1036,58 @@ press elsewhere or Escape. That has one consequence worth knowing. With Settings
 pressed in the box clears the search **and** closes Settings, which sends focus to the Settings
 button. `Card.tsx` already notes that Settings catches Escape at the document, unlike the card
 menu. The fix would be to catch it on the panel's container, as the card menu does. Not done here.
+
+---
+
+## 11. A release window that has begun · S
+
+**What.** The *Coming soon* calendar under the board says how far off each title is. For a title
+announced only as a year, a quarter or a month, it measures from the window's first day. Once that
+day has passed, the row says the title came out days ago, though it isn't out. Found on
+4 October 2026 while rendering #9: Witchbrook, announced for *2026*, read *2026 · 276 days ago*,
+with its wait bar full.
+
+**Why it happens.**
+- `ReleaseWindow.For` turns a vague date into the whole window, and `GameCatalogService` writes
+  its first day to `media.release_date` (`ReleaseDate = window.Start`) and its last to
+  `release_end`. That is right, and nothing stored needs to change: whether a title is out is
+  decided from the last day, by `ReleaseWindow.NotOutOn`.
+- `UpcomingRow` in `board/ComingSoon.tsx` hands `item.releaseDate` to `describeDistance` and
+  `releaseProgress` and never tells either the precision. The label (`formatRelease`) and the group
+  heading (`releaseGroup`) do read it, which is why *2026* is right and the distance beside it is
+  not.
+- So every vague window whose first day has passed reads *N days ago*, with a full bar. *2026*
+  does all year, *Q4 2026* from 1 October, and *October 2026* from the 1st.
+- **No test caught it, because the fixture has a shape the API never sends.** `upcomingItem` in
+  `ComingSoon.test.tsx` sets `releaseEnd` to the same day as `releaseDate`, and its quarter case
+  passes `'2027-03-31'`, the window's *last* day. The API sends the first.
+
+**Where it shows:** the calendar on your board, and a share's calendar once #9 is built.
+
+### Decide at pickup
+
+These are words people read, so render them before picking.
+- **What a begun window says in place of a distance.** Recommended: nothing. The label alone,
+  *2026*, already says what is known. The alternatives are the window in words (*due this year*,
+  *this quarter*, *this month*) or a count to the window's last day, which is a day nobody
+  announced.
+- **What its bar shows.** Recommended: no bar. The bar says how far along a wait is, and for a
+  begun window nobody knows. A full bar says it is over.
+- **Whether a window not yet begun keeps counting to its first day.** *Q1 2027 · in 3 months* is
+  when the window opens, not when the game comes out.
+
+### Tests first
+
+- **Fix the fixture first.** `upcomingItem` builds the window the API sends: `releaseDate` the
+  first day of the unit, and `releaseEnd` the last, by precision. The quarter case becomes
+  1 January to 31 March 2027. The existing cases have to stay green on the corrected shape, or one
+  of them was passing on the wrong one.
+- A year, a quarter and a month whose window has begun never print *ago*, and show what the pick
+  says. Red before the fix.
+- A day-precision title still reads *in 12 days*, *tomorrow* and *today*.
+- A window not yet begun reads what the pick says.
+- **Put the fault back.** With the distance read off `releaseDate` alone again, the begun cases
+  go red.
 
 ---
 

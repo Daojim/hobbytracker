@@ -203,6 +203,16 @@ builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 
+// A share link, which two kinds of request reach. The owner's routes take IShareService and act
+// as whoever is signed in. The anonymous controller takes the three interfaces after it and
+// nothing else: a token lookup, and reads whose owner the caller names. Each of those classes
+// already implements the signed-in half, so the second registration is the same class with a
+// narrower face — and the narrowness is the point. See SharedController.
+builder.Services.AddScoped<IShareService, ShareService>();
+builder.Services.AddScoped<IShareLookup, ShareService>();
+builder.Services.AddScoped<ISharedLibrary, LibraryService>();
+builder.Services.AddScoped<ISharedStats, StatsService>();
+
 // -------------------------------------------------- the app's public address
 // What the outside world reaches this app at, for when a proxy in front means that is not what
 // Kestrel sees. Absent in development and in both test harnesses, where the request already

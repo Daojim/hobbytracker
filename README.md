@@ -45,6 +45,12 @@ the account belongs to, counts what is on each board in that hobby's own words, 
 backups keep a copy for about two weeks, and does nothing until you type *delete*. Every other
 device signed in to the account is signed out on its next request.
 
+Settings also makes a read-only link to the games board, for a friend or a portfolio reviewer,
+who can then see it without an account: the board, its release calendar and its Stats page, under
+a banner that says it is shared. Every part but Backlog is a box in the dialog, and so is the
+owner's name, off until ticked. Notes are never on it, and its words address nobody, so the
+visitor is not told about "your backlog". Stopping kills the address for everyone who has it.
+
 Search sits above the board rather than on a screen of its own, so the column a title will land
 in is visible while you decide. Every result — and every cover on the Discover wall — adds
 straight to Backlog, Playing or Completed, and arrives with the dates a drag into that column would
@@ -119,7 +125,8 @@ as UTC.
 ### Endpoints
 
 Everything below `/api/auth` needs a session and answers **401** without one — which is where
-the `-b jar` above comes from. See [Running it](#running-it-locally) for how to fill it.
+the `-b jar` above comes from — except a share's reads, which anybody holding its link can make.
+See [Running it](#running-it-locally) for how to fill it.
 
 | | |
 |---|---|
@@ -157,6 +164,8 @@ the `-b jar` above comes from. See [Running it](#running-it-locally) for how to 
 | `GET /api/stats/years?hobby=` | the years there is something to show for |
 | `GET /api/account` | what deleting your account would take: each board's titles, every note, and which sign-in it is |
 | `DELETE /api/account` | delete your account and everything that is yours, and sign this browser out. The catalogue stays |
+| `GET POST PUT DELETE /api/share?hobby=` | your board's read-only link: see it, make it, change what it shows, stop it |
+| `GET /api/shared/{token}`, and `library`, `years`, `upcoming`, `stats`, `stats/years` under it | a share, read with nobody signed in, for the token's owner. Reads only, and every refusal is one 404 |
 
 ## Stack
 
@@ -316,6 +325,15 @@ every write with a 500. Looking the user up by primary key on each request costs
 and closes the window completely, where checking only every so often would leave it open for the
 interval. The backend suite signs in by header, so the test of this builds a host that reads real
 cookies, and was red first for exactly that pair of symptoms.
+
+**A share link is the one board read by nobody, so whose board it is gets said at every read.**
+The anonymous controller holds three narrow interfaces, a lookup by token and reads that take
+their owner from the caller, and nothing that writes or asks who is signed in. The easy
+alternative, making a share's request look as though its owner had signed in, would have handed
+every write path to anybody with the link. No route a share reaches selects from `notes`, and a
+test proves that on the SQL rather than the JSON, because a note read and thrown away looks
+exactly like a note never read. Another reads the routing table, so a route anywhere that forgets
+`[Authorize]` changes a list that is asserted.
 
 **A pass's history is written by an interceptor, which is the opposite of the scoping decision,
 on purpose.** A move edits the current pass in place, so when it happened would be lost without
@@ -520,6 +538,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       counts every board, a word to type before anything happens, and every other device signed
       out at its next request. The renders also found the page's ground stopping where a short
       board did, with the browser's white below it, and the root carries the ground now
+- [x] A read-only share link to the board, for friends and portfolio reviewers: one per board,
+      from Settings, with a box for each part it shows and the owner's name off until ticked. The
+      visitor needs no account and gets the board, its calendar and its Stats, never a note, in
+      words written to nobody. The user picked a banner across the top over the recommended
+      heading, and the renders of the built app found a twelfth phrase still written to the owner
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

@@ -116,6 +116,10 @@ export function boardServer(
   server.use(
     http.get('/api/library/years', () => HttpResponse.json(years)),
 
+    // The board's share link, which Settings asks after when its panel opens on a board that can
+    // be shared. None, unless a test says otherwise with shareServer from test/share.ts.
+    http.get('/api/share', () => HttpResponse.json(null)),
+
     // Before the bare /api/library handler, because MSW matches in order and that one would
     // otherwise swallow this path and answer a paged envelope where the calendar expects a list.
     http.get('/api/library/upcoming', ({ request }) => {

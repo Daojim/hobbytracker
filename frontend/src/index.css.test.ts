@@ -85,6 +85,11 @@ describe('contrast', () => {
         ['rating-high', 'surface'],
         ['muted', 'well'],
         ['muted', 'sunken'],
+        // A share's banner is a strip of `well` with Make your own on it, the first accent ink on
+        // that ground. And the year row's way to Stats is accent on the page's own ground, on your
+        // board and on a share's. The lowest on 5 October 2026: 5.37 on Ember, 5.24 on Shelf Light.
+        ['accent', 'well'],
+        ['accent', 'sunken'],
         // A tile's + ▶ ✓ under the cursor: the symbol turns the accent, on the hover fill. Held
         // to text's bar rather than the 3:1 a symbol needs, because every theme clears it.
         ['accent', 'hover'],

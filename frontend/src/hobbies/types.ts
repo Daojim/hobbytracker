@@ -1,5 +1,6 @@
 import type { DiscoverListPage, LogEntry, LogStatus, ReleasePrecision } from '../api/types';
 import type { HltbEstimates } from '../journal/fields';
+import type { Voiced } from '../lib/voice';
 import type { Hobby } from '../shell/hobbies';
 
 /**
@@ -119,8 +120,8 @@ export interface HobbyDefinition {
     /** The heading over the titles nobody has announced a date for. */
     noDateHeading: string;
 
-    /** What the section says when there is nothing waiting. */
-    empty: string;
+    /** What the section says when there is nothing waiting: on your board, and on a share. */
+    empty: Voiced<string>;
 
     /** The badge a card wears for a title that came out in the last few weeks. */
     newBadge: string;
@@ -189,14 +190,20 @@ export interface HobbyDefinition {
     /** Your hours against the estimate, on Completed: `90 h played vs ~94 h to beat`. */
     compared(played: number, length: number): string;
 
-    /** How that reads aloud. */
-    describeCompared(played: number, length: number): string;
+    /**
+     * How that reads aloud — to you, *You played 90 hours*, and on a share, where the person
+     * listening did not play anything, *90 hours played*.
+     */
+    describeCompared: Voiced<(played: number, length: number) => string>;
 
     /** How many titles a comparison is over: `over 7 games`. */
     over(titles: number): string;
 
-    /** The titles a comparison leaves out for having none of your hours: `2 without your hours`. */
-    withoutPlayed(titles: number): string;
+    /**
+     * The titles a comparison leaves out for having no hours logged: `2 without your hours`, and
+     * on a share `2 without hours logged`.
+     */
+    withoutPlayed: Voiced<(titles: number) => string>;
 
     /** The titles any figure leaves out for having no length: `1 with no estimate`. */
     withoutLength(titles: number): string;
@@ -224,6 +231,28 @@ export interface HobbyDefinition {
 
     /** One pass, as the column that numbers a title's passes: `Playthrough`. */
     pass: string;
+  } | null;
+
+  /**
+   * A read-only link to this board, and the words only a share says, or null for a board that
+   * cannot be shared yet — which also takes the Sharing group out of its Settings.
+   *
+   * **Only games sets it, and that is the user's call rather than a fact about the data** — the
+   * {@link stats} rule. The API makes and answers a share of any board. What was decided on
+   * 1 October 2026 was to build each feature on the games board first.
+   *
+   * The phrases a share says *in place of* the board's are not here: those are {@link Voiced}
+   * pairs beside the board's own, so the two are read against each other.
+   */
+  share: {
+    /** A shared board's heading: `Jimmy Dao’s games` with the name ticked, `Games` without. */
+    heading(name: string | null): string;
+
+    /** What the dialog says sharing does, in this board's word for what is on it. */
+    explains: string;
+
+    /** The data credits at a share's foot — in Settings on your board, which a visitor has not got. */
+    credits: string;
   } | null;
 }
 

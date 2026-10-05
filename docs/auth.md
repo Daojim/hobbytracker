@@ -18,6 +18,7 @@ person who wrote it.
 | Scoping | **An injected `ICurrentUser`**, not an EF global query filter |
 | Existing data | **Discarded** when `user_id` became `NOT NULL`. The catalogue rows stayed |
 | Deleting | **`DELETE /api/account` deletes one `users` row and the database cascades the rest.** Every other device is signed out at its next request, because the session is checked against the account on every one. See **Deleting an account** |
+| Sharing | **One read-only link per board, read by nobody.** `SharedController` is the one anonymous controller besides sign-in, and every read it makes names the token's owner rather than asking the session. See **Sharing a board** |
 
 ### A provider is a config block
 
@@ -112,6 +113,13 @@ injection lets a path that needs no user simply never ask.
 `[Authorize]`, so reaching it anonymously is a wiring mistake, and a 500 naming it beats a board
 quietly scoped to nobody. `IsSignedIn` exists for the background paths.
 
+**Since the share link, the board's and the Stats page's reads take their owner as a parameter.**
+`LibraryService.BoardQuery(ownerId)` and `StatsService.Passes(ownerId, hobby)` no longer read the
+session inside, and every signed-in method passes `user.Id` at its call site, where a reviewer
+reads it. That is the query-filter argument above carried one step further: a share passes its
+token's owner instead, and nothing about the share ever touches `ICurrentUser`. See **Sharing a
+board**.
+
 **The rule: `log_entries` and `notes` are yours; `media`, `games` and the lookup tables are shared and
 must stay shared.** Two people searching "Hollow Knight" get the same row — that is the point of the
 upsert, and of `hltb_id` being stored once rather than per account.
@@ -138,10 +146,11 @@ throughout: whether somebody else's pass exists is itself their business.
 reverting **one** predicate at a time so every one fails exactly the tests that name it. **A scoping
 test that was never red proves nothing.**
 
-**`[Authorize]` is on every controller but `AuthController`, `GamesController` included** — the
-catalogue is shared but not public, and an anonymous search is free IGDB traffic plus an unbounded
-write into `media`. That puts the maintenance refresh routes behind a session, accepted rather than
-worked around.
+**`[Authorize]` is on every controller but `AuthController` and `SharedController`,
+`GamesController` included** — the catalogue is shared but not public, and an anonymous search is
+free IGDB traffic plus an unbounded write into `media`. That puts the maintenance refresh routes
+behind a session, accepted rather than worked around. `SharedController` is the deliberate
+exception, six reads and no writes: see **Sharing a board**.
 
 ### Deleting an account
 
@@ -272,6 +281,228 @@ Checked the same way, against `account/warning.test.ts` (10 cases), the 14 in
 | The heading left unfocused | the sign-in page's *puts the keyboard on the heading*, and the menu's landing case |
 | No scroll into view, or a scroll only as it opens (end to end, at 1440 × 900) | *the warning scrolls itself into view, buttons and all, once the counts are in* |
 
+### Sharing a board
+
+Built for #9 in `docs/plans/games-board-next.md` on 5 October 2026 (PR #65). Not deployed yet.
+What the banner and the dialog look like is `docs/design.md`'s, under **Sharing a board**. The
+read-only columns and what a share's years are counted from are `docs/board.md`'s, and Stats on a
+share is `docs/stats.md`'s.
+
+| Route | |
+|---|---|
+| `GET /api/share?hobby=` | this board's link: its token, what it shows, and whether it shows your name. Or **200 and a literal `null`**, which is *No link yet* |
+| `POST /api/share?hobby=` | make the link. **201**, or **409** when the board has one already |
+| `PUT /api/share?hobby=` | rewrite what it shows, every box at once. The address does not change. **404** with no link |
+| `DELETE /api/share?hobby=` | stop sharing: the row goes, and the address with it. **204**, or **404** with no link |
+| `GET /api/shared/{token}` | anonymous: which board, what it shows, and the owner's name only when ticked |
+| `GET /api/shared/{token}/library?status=&year=&sort=` | anonymous: one column as the owner's board draws it, less the note. `status` is required and `year` is 1–9998 |
+| `GET /api/shared/{token}/years` | anonymous: the year control's years, from the columns it shows |
+| `GET /api/shared/{token}/upcoming` | anonymous: the release calendar, when it is shown |
+| `GET /api/shared/{token}/stats?year=` | anonymous: a year of the owner's Stats page, whole, when it is shown. `year` is 1–9998 |
+| `GET /api/shared/{token}/stats/years` | anonymous: the Stats page's own years, when it is shown |
+
+**The owner's half is like every other route.** `ShareController` is `[Authorize]` and addressed
+by hobby, never by an id, so "this board's link" can only mean your own, and `ShareService` scopes
+by `ICurrentUser`. One link per board is the unique index on `(user_id, hobby_id)`. It also settles
+two tabs pressing *Make the link* at once: the second insert fails with a 23505 naming that index,
+and answers 409. The token is sixteen random bytes in base64url, twenty-two characters, kept in
+plain text so Settings can show the address again. That was the user's call; see
+`docs/data-model.md`.
+
+**The visitor's half is the one deliberately anonymous controller besides sign-in, and what keeps
+it safe is its constructor.** `SharedController` is `[AllowAnonymous]` and holds three interfaces
+and nothing else:
+
+- **`IShareLookup`**, which finds a share by its token. It is `ShareService`'s second face, and
+  cannot reach the four owner's methods, every one of which acts as whoever is signed in.
+- **`ISharedLibrary` and `ISharedStats`**, whose every read takes its owner from the caller. They
+  are `LibraryService`'s and `StatsService`'s second faces, implemented explicitly beside the
+  signed-in methods and sharing their private reads.
+
+None of them writes, and none asks `ICurrentUser`. Every action finds the share, checks the part,
+and passes `share.OwnerId` where it can be read. `Program.cs` registers each class under both of
+its interfaces, so the narrowness costs a registration rather than a second class.
+
+**Never swap `ICurrentUser` for a share's request.** The tempting shortcut, a middleware that makes
+a share's request look as though its owner were signed in, would let any write a share could reach
+act *as* the owner. Reads that name their owner make it unnecessary. `ICurrentUser.Id` throwing
+with nobody signed in is the backstop rather than the design: a share's read that reached the
+session would be a 500. `SharedBoardTests` reads most cases anonymously for that reason, and its
+first as a signed-in stranger with a board of their own, where the same mistake would quietly
+answer with theirs.
+
+**Every refusal is the same 404.** A token nobody holds, a share that was stopped and a part
+switched off all answer `NotFound()`, compared word for word in *an unknown link, a stopped one and
+a part switched off answer alike*. Whether a link ever existed, and what its owner chose not to
+show, are the owner's business. A stopped share is a deleted row, so unknown and stopped cannot be
+told apart even in the code.
+
+**No route a share reaches reads a note, and the SQL is where that is shown.** A share's cards come
+through the board's own projection with the note's slot filled by a constant null, `NoNote`, so its
+SQL never names `notes` (see `docs/board.md`, **Library is not the catalog**). A response cannot
+tell a note never read from a note read and dropped: `CASE WHEN … THEN (SELECT … FROM notes …)`
+gives the same JSON. So `Infrastructure/SqlRecorder.cs` records every command a host sends, and *no
+route a share reaches reads a note* asserts on the commands, after first proving on the owner's own
+board that the recorder can see a note being read.
+
+- **EF 10 prunes a conditional on a captured value before it writes any SQL.** A share's
+  `showNotes ? note : null`, with the flag captured, sends no `notes` either, and planting it
+  turned nothing red, correctly. The version of the fault that reaches the database is a condition
+  on the row, and only the recorder sees it. `NoNote` does not rely on the pruning.
+
+**The name is chosen in the query.** `FindAsync` selects `share.ShowsName ? DisplayName : null`,
+so the name never leaves the database for a share that does not show it, and only
+`GET /api/shared/{token}` carries it.
+
+**The routing table says which routes are open to nobody.** *The only routes open to nobody are
+signing in and reading a share* reads `EndpointDataSource` rather than the controllers, so a write
+on the share's controller, or a new controller with no `[Authorize]`, changes its list:
+`GET api/auth/me`, `GET api/auth/{provider}/start`, `POST api/auth/logout`, and the share's six
+`GET`s. *A share answers reads and nothing else* sends POST, PUT, PATCH and DELETE to every one of
+them and gets 405.
+
+**Deleting the account kills the share**, through the cascade from `users`, as it takes every pass.
+
+**Checked by putting each fault back**, one at a time against the finished feature.
+`ShareEndpointTests` has 16 cases and `SharedBoardTests` 15. Each row turned red exactly the tests
+named, out of those 31; a row that says *then* is two forms planted in turn:
+
+| Fault planted | Red |
+|---|---|
+| A share's column read as whoever is signed in | *shows its owner's board and nobody else's*, quietly as the visitor's own Backlog with a 200, and six anonymous cases as 500s |
+| A share's years read as whoever is signed in | that case, *years come only from the columns it shows*, and three anonymous |
+| Its calendar read as whoever is signed in | *the calendar is on a share only when ticked*, and three anonymous |
+| Its Stats read as whoever is signed in | *shows its owner's board*, *Stats … whichever columns*, and three anonymous |
+| Its Stats years read as whoever is signed in | *Stats … whichever columns*, and three anonymous |
+| The owner's note on a share's cards | *the owner's column less the note*, *no route a share reaches reads a note* |
+| The note behind a condition on a captured flag | nothing, and correctly: EF 10 evaluates the flag and prunes the branch before writing any SQL. A probe showed no `notes` in the query |
+| The note behind a condition on the row | *no route … reads a note*, on the SQL alone. Every answer was identical |
+| The owner's note on the calendar | *no route … reads a note* |
+| The name sent whether ticked or not | *the name is in no answer unless…*, *says which board it is*, *somebody else's link is not yours* |
+| A column switched off still answered | *one 404*, *Backlog shows on every share…* |
+| The calendar's part unchecked | those two, and *the calendar … only when ticked* |
+| The Stats part unchecked, then the Stats years' | *one 404*, *Backlog shows…*, each |
+| A part switched off answered with a 404 of its own | *one 404* alone |
+| The years counted from every column | *years come only from…* |
+| A share's Stats counting no drops | *Stats … whichever columns* |
+| A write route on the anonymous controller | *answers reads and nothing else*, *the only routes open to nobody* |
+| The owner's routes open to anybody | *nobody signed in can see, make, change or stop*, *the only routes open to nobody* |
+| No cascade from `users` (Restrict, in the migration) | *deleting the account kills its share*, and none of `AccountEndpointTests`' 11 |
+| No unique index on owner and hobby | *a board has one link* |
+| The token stored hashed | *making a link…*, *kept as it was handed out*, *a board has one link*, *ticking a box…*: every case that reads the address back |
+| Eight bytes, eleven characters | *making a link…* |
+| Parts kept as ticked | *what was ticked, once each…* |
+| A change merged into what was there | *ticking a box…* |
+| A change handing out a new address | *ticking a box…*, and three that hold an address across a change |
+| The owner's `GET` unscoped, then change and stop unscoped | *somebody else's link…*, each |
+| Stopping that keeps the row | *stopping kills its address*, *sharing again…*, *one 404* |
+| No bound on a shared column's year, then on its Stats year | *named and its year has a span*, each |
+| A column that need not be named | the same |
+| An unknown hobby made | *a hobby nobody has heard of* |
+| Parts that need not be sent | *what a link shows has to be said* |
+| "No link" answered as a 204 | four cases that read `null` |
+| Backlog a part like the others | *Backlog shows on every share…* |
+| The 409 bound to an index name that does not exist | *a board has one link*, as a 500 |
+| The board's own note unscoped, through the refactor | `UserScopingTests`' *someone else's note never reaches my card*, alone of 51 |
+
+**How they were planted:** snapshot the source, plant with `perl -0pi`, run the two classes, copy
+the file back, and diff against the snapshot. The working tree is CRLF (`core.autocrlf`), so a
+substitution that spans lines needs `\r?\n`.
+
+#### The app's half
+
+`frontend/src/share/`: the two pages (`SharedBoardPage`, `SharedStatsPage`), the frame they wear
+(`SharedFrame`), a column with nothing in its hands (`SharedColumn`), the dead link's card, the row
+in Settings and the dialog it opens, and the share's requests (`queries.ts`, `paths.ts`). The
+share's words are `lib/voice.ts`; see `docs/design.md`.
+
+- **The pages sit outside `RequireSession` and ask nothing of the session.** Every request goes to
+  the share's own routes, and none to `/api/library` or `/api/auth/me`. `test/share.ts` serves
+  neither, so a page that asked would fail on MSW's unhandled request rather than quietly drawing
+  somebody's board.
+- **Everything a share reads is cached under `['shared', token, …]`, never under
+  `['library', …]`.** An owner who opens their own link and follows *Make your own* lands on their
+  board in the same app, holding the same cache, and a share's columns leave the note out. Kept
+  under the board's keys, they would be what that board draws until something refetched it.
+- **A dead link and an unreachable one are different cards.** A 404 is *This link doesn't open a
+  board*. A 5xx, or no connection, is *This board didn't load* with *Try again*, because the link
+  may be fine. As everywhere in the app, a 4xx is not retried and a 5xx is, three times.
+- **The dialog writes one box at a time**, each write carrying whatever the boxes say when it goes,
+  so two writes can never land in the wrong order. A write that fails says so, and the box springs
+  back to what the link shows. *Make the link* and *Stop sharing* read *Making the link…* and
+  *Stopping…* while they work, held by `aria-disabled`. A 409 shows the link another tab made.
+- **Its keyboard is the journal's.** `lib/useModalPanel.ts`, moved out of `EntryDrawer`: the
+  keyboard follows the panel in, Tab stays inside, and Escape closes it. Closing hands the keyboard
+  back to the Settings button, since the row went with the panel.
+
+Checked the same way, against `share/ShareDialog.test.tsx` (22), `share/SharedBoardPage.test.tsx`
+(21) and `share/SharedStatsPage.test.tsx` (9), the share cases added to `SortSelect.test.tsx` (1),
+`columnHours.test.ts` (2), `stats.test.ts` (1), `ComingSoon.test.tsx` (3) and `App.test.tsx` (1),
+and two rows a palette in `index.css.test.ts`. The first sixteen were written after the code, for
+four states rendered and picked on 5 October 2026, so each was checked red by planting the
+alternative that was not picked, or the fault, rather than by deleting code:
+
+| Fault planted | Red |
+|---|---|
+| A link that could not be made says nothing | *says so when the link could not be made…* |
+| A box that could not be written says nothing | *says so when a box could not be written…* |
+| A box that could not be written stays ticked | the same |
+| Sharing that could not be stopped says nothing | *says so when sharing could not be stopped…* |
+| *Make the link* keeps its words while it works | *reads Making the link…* |
+| A second press makes a second link | the same |
+| *Stop sharing* keeps its words while it works | *reads Stopping…* |
+| A second press stops twice | the same |
+| Cancel takes the question back while stopping | the same |
+| An unreachable share shown as a dead link | *says a board that could not be reached is not a dead link…* |
+| *Try again* asks nothing | the same |
+| The app's red error line instead of the card | the same |
+| The same two on the Stats page | its *says a board it could not reach the way the board does*, each |
+| The note on *added* in the owner's words | *says what "added" means in the board's words…*, *says every number to nobody* |
+| The note left off a share | *says what "added" means…* alone |
+| *My order* on a share | `SortSelect`'s *calls the hand-made order Board order on a share*, and the page's *keeps a sort control…* and *addresses nobody* |
+| A column's header handed the owner's voice | *addresses nobody* |
+| The calendar handed the owner's voice | *addresses nobody* |
+| The Stats panels handed the owner's voice | *says every number to nobody*, *says there is nothing to compare*, *says what "added" means* |
+| The Stats heading handed the owner's voice | the first two of those, and *sits under the share's banner and heading* |
+| Backlog's *at your pace* line on a share | *addresses nobody* |
+| A share's card the board's `Card` | *shows each title as its card does, with nothing to press and no note*, *has nothing on it to carry anywhere* |
+| The note printed | *shows each title … no note* |
+| A share's column asking `/api/library` | ten of the page's cases, on unhandled requests |
+| The switcher counting the owner's columns | *shows one column at a time under the switcher, counted from the share's own answers* |
+| This browser's hidden columns applied to a share | *takes nothing from this browser's own Settings* |
+| The banner carrying the name | *heads the board with the owner's name … only there*, and the Stats page's *sits under the share's banner* |
+| The calendar's fold remembered | **nothing, the first time.** ComingSoon's own test passes `remembers={false}` itself, so nothing held the page to it. Now *folds for the visitor without remembering it* |
+| A share's columns cached under the board's keys | **nothing, the first time.** Now *keeps what it reads under its token, and nothing in your own board's cache* |
+| Its calendar cached under the board's key | that case |
+| A box not written as it is ticked | *writes a box as it is ticked*, *sends the latest boxes…*, *says so when a box could not be written* |
+| Two writes in flight | *sends the latest boxes once a write lands, rather than racing it* |
+| Opening the dialog makes a link | eight cases, *makes nothing by being opened* among them |
+| Copy writes a path rather than the whole address | *copies the whole address* |
+| One press stops sharing | *asks before it stops sharing*, and the two cases that stop |
+| Escape not closing | the dialog's *closes on Escape…*, and the journal's *closes on Escape*, because they share the hook |
+| Closing leaves the keyboard nowhere | *closes on Escape, and hands the keyboard back to Settings* |
+| The row on every board | *is offered on a board that can be shared, and on no other yet* |
+| The boxes starting from every column, not this browser's board | *starts from what this browser's board shows…* |
+| The name ticked to start with | that case, and *makes the link with what the boxes say* |
+| The row saying nothing once shared | *says so once the board is shared* |
+| A 409 treated as a failure | *shows the link another tab made, rather than making a second* |
+| Ember's `--well`, then its `--sunken`, a red near its accent | *accent reads on well* and *muted reads on well*, then the same two on `sunken` |
+
+**Two of those were planted badly first.** A bare `'Make the link'` in JSX renders its quotes, so
+the two label faults first turned four and three tests red for the wrong reason, on buttons whose
+names now had quote marks in them. Planted as `{'Make the link'}`, each turns its own case alone.
+
+End to end, `e2e/share.spec.ts` has 4, the visitor in a second browser context with no cookie. All
+four passed on their first full run but the first, which failed on its own locator: *Finished*
+also matches *Finished each month*, so it asks with `exact: true`, as `stats.spec.ts` does.
+
+| Fault planted | Red |
+|---|---|
+| Copy writes a path rather than the whole address | *copies the whole address* |
+| One press stops sharing | *a box changes what the link shows … stopping asks first* |
+| A share's column asking `/api/library`, which a visitor with no session is refused | three of the four |
+| A share's card made carriable: the board's `Card`, inside the board's drag context and sensors | *a link made in Settings opens the board* (a card had buttons), and the phone case **once it counted what dnd-kit registers**. Before that the phone case passed: a card lifted with nothing to hear the drop moves nothing, so the gesture alone cannot see it |
+
 ### The frontend
 
 - **The gate is a route wrapper**, `RequireSession`, not a check inside `BoardPage` — without one the
@@ -330,6 +561,12 @@ the reset and signs `Client` in as them, which is why the tests that predate own
 edit; `ClientFor(userId)` gives a second person and `AnonymousClient` none. **The one exception is
 `AccountEndpointTests.CookieHost`**, a host that reads a real session cookie, because the trap it
 covers lives in the cookie scheme's events. See **Deleting an account**.
+
+**`Infrastructure/SqlRecorder.cs` is a host that records every command it sends**, beside the
+interceptors production has, for a promise a response cannot keep: that a route did *not* read
+something. A note left out by a `CASE` around the subquery that reads it gives the same JSON as one
+never read. It is the share's, and see **Sharing a board** for the test that proves it can see a
+read before trusting it to see none.
 
 **`e2e/support/google-stub.mjs` is a provider, not an endpoint** — authorize, token and user-info,
 with the real handler running against it unmodified — and it **enforces the protocol rather than

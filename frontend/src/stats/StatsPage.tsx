@@ -9,6 +9,7 @@ import { statsKey, statsYearsKey } from '../board/keys';
 import { columnHoursLines } from '../board/columnHours';
 import { hobbyDefinition, type HobbyDefinition } from '../hobbies';
 import { ratingTone } from '../lib/rating';
+import type { Voice, Voiced } from '../lib/voice';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby, statsPath, type Hobby } from '../shell/hobbies';
 import { againstEstimate, averageRating, completionPercent } from './stats';
 import { AgainstChart } from './AgainstChart';
@@ -17,10 +18,35 @@ import { FinishedCovers } from './FinishedCovers';
 import { RatingSpread } from './RatingSpread';
 import { Figure, Nothing, Panel, Tile, Under } from './Section';
 
-/** A year as the address gives it: a year, every year, none named, or something that is neither. */
-type Asked = number | 'all' | undefined | 'neither';
+/**
+ * The page's words that address the board's owner, each beside what a share says in its place.
+ * A share addresses nobody: the person reading it did not start, log or rate any of it. The #9
+ * workshop's table, in `docs/plans/games-board-next.md`.
+ */
+const WORDS = {
+  back: { own: 'Back to your board', shared: 'Back to the board' },
+  started: {
+    own: (titles: string, during: string) => `of the ${titles} you started${during}`,
+    shared: (titles: string, during: string) => `of the ${titles} started${during}`,
+  },
+  withHours: {
+    own: (titles: string) => `over ${titles} you logged hours for`,
+    shared: (titles: string) => `over ${titles} with hours logged`,
+  },
+  againstPanel: {
+    own: (against: string) => `You and ${against}`,
+    shared: (against: string) => `Hours against ${against}`,
+  },
+  nothingToCompare: {
+    own: 'Nothing to compare yet: log your hours on a game you finish.',
+    shared: 'Nothing to compare yet.',
+  },
+} satisfies Record<string, Voiced<unknown>>;
 
-function askedFor(segment: string | undefined): Asked {
+/** A year as the address gives it: a year, every year, none named, or something that is neither. */
+export type Asked = number | 'all' | undefined | 'neither';
+
+export function askedFor(segment: string | undefined): Asked {
   if (segment === undefined) {
     return undefined;
   }
@@ -136,13 +162,7 @@ function Frame({ hobby, picker, children }: FrameProps) {
       <div className="mx-auto max-w-board">
         <AppHeader title="HobbyTracker" hobby={hobby} />
 
-        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-          <h2 className="text-lg font-semibold">Stats</h2>
-          <Link to={boardPath(hobby)} className="text-sm text-muted hover:text-fg">
-            <span aria-hidden="true">← </span>
-            Back to your board
-          </Link>
-        </div>
+        <StatsHeading back={boardPath(hobby)} voice="own" />
 
         {picker !== null && <div className="mb-4">{picker}</div>}
 
@@ -152,11 +172,24 @@ function Frame({ hobby, picker, children }: FrameProps) {
   );
 }
 
-function Loading() {
+/** The page's own heading, and the way back to the board it is the Stats page of. */
+export function StatsHeading({ back, voice }: { back: string; voice: Voice }) {
+  return (
+    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <h2 className="text-lg font-semibold">Stats</h2>
+      <Link to={back} className="text-sm text-muted hover:text-fg">
+        <span aria-hidden="true">← </span>
+        {WORDS.back[voice]}
+      </Link>
+    </div>
+  );
+}
+
+export function Loading() {
   return <p className="text-sm text-muted">Loading…</p>;
 }
 
-function Failed({ error }: { error: Error }) {
+export function Failed({ error }: { error: Error }) {
   return (
     <p role="alert" className="text-sm text-danger">
       {error.message}
@@ -174,16 +207,26 @@ function Year({ hobby, year, definition }: { hobby: Hobby; year: number | undefi
     return <Failed error={error} />;
   }
 
-  return data === undefined ? <Loading /> : <Dashboard stats={data} year={year} definition={definition} />;
+  return data === undefined ? (
+    <Loading />
+  ) : (
+    <Dashboard stats={data} year={year} definition={definition} voice="own" />
+  );
 }
 
 interface DashboardProps {
   stats: Stats;
   year: number | undefined;
   definition: HobbyDefinition;
+  /** Who the numbers are said to: the board's owner, or — on a share — nobody. */
+  voice: Voice;
 }
 
-function Dashboard({ stats, year, definition }: DashboardProps) {
+/**
+ * The numbers themselves, from a year's stats: the tiles, then the panels. Shared with a share's
+ * Stats page, which is this page whole, in its own voice.
+ */
+export function Dashboard({ stats, year, definition, voice }: DashboardProps) {
   const words = definition.stats!;
   const noun = words.noun;
   const { finished, hours, completion, backlog } = stats;
@@ -218,7 +261,7 @@ function Dashboard({ stats, year, definition }: DashboardProps) {
           ) : (
             <>
               <CompletionBar {...completion} />
-              <Under>{`of the ${started} ${noun(started)} you started${during}`}</Under>
+              <Under>{WORDS.started[voice](`${started} ${noun(started)}`, during)}</Under>
             </>
           )}
         </Tile>
@@ -233,7 +276,9 @@ function Dashboard({ stats, year, definition }: DashboardProps) {
             ) : (
               <>
                 <Figure value={againstEstimate(hours.played, hours.playedLength).words} />
-                <Under>{`over ${hours.playedTitles} ${noun(hours.playedTitles)} you logged hours for`}</Under>
+                <Under>
+                  {WORDS.withHours[voice](`${hours.playedTitles} ${noun(hours.playedTitles)}`)}
+                </Under>
               </>
             )}
           </Tile>
@@ -254,17 +299,17 @@ function Dashboard({ stats, year, definition }: DashboardProps) {
         </Panel>
 
         <Panel label="Ratings">
-          <RatingSpread finished={finished} year={year} />
+          <RatingSpread finished={finished} year={year} voice={voice} />
         </Panel>
 
         {compares && (
-          <Panel label={`You and ${words.against}`}>
-            <Compared stats={stats} definition={definition} />
+          <Panel label={WORDS.againstPanel[voice](words.against)}>
+            <Compared stats={stats} definition={definition} voice={voice} />
           </Panel>
         )}
 
         <Panel label="Backlog">
-          <BacklogList backlog={backlog} noun={noun} />
+          <BacklogList backlog={backlog} noun={noun} voice={voice} />
         </Panel>
       </div>
     </div>
@@ -313,14 +358,22 @@ function CompletionBar({ finished, going, dropped }: Stats['completion']) {
  * Your hours against the estimates, in the words Completed's header uses for the same thing —
  * the same function draws both, so the two can never read differently — and then each game.
  */
-function Compared({ stats, definition }: { stats: Stats; definition: HobbyDefinition }) {
+function Compared({
+  stats,
+  definition,
+  voice,
+}: {
+  stats: Stats;
+  definition: HobbyDefinition;
+  voice: Voice;
+}) {
   const { finished, hours } = stats;
 
   if (hours.played === null) {
-    return <Nothing>Nothing to compare yet: log your hours on a game you finish.</Nothing>;
+    return <Nothing>{WORDS.nothingToCompare[voice]}</Nothing>;
   }
 
-  const lines = columnHoursLines(definition, 'Completed', { total: finished.length, hours });
+  const lines = columnHoursLines(definition, 'Completed', { total: finished.length, hours }, voice);
 
   return (
     <>

@@ -196,7 +196,7 @@ describe('StatsPage', () => {
       renderYear('2026', stats({ finished, hours }));
 
       const panel = await section('You and HowLongToBeat');
-      const header = columnHoursLines(hobbyDefinition('games'), 'Completed', { total: 16, hours });
+      const header = columnHoursLines(hobbyDefinition('games'), 'Completed', { total: 16, hours }, 'own');
 
       expect(header.map((line) => line.text)).toEqual([
         '221 h played vs ~212 h to beat',

@@ -5,6 +5,8 @@ import { useDeleteAccount } from '../account/useDeleteAccount';
 import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
 import { downloadSpreadsheet } from '../export/download';
 import { columnsFor, hobbyDefinition } from '../hobbies';
+import { ShareDialog } from '../share/ShareDialog';
+import { SharingRow } from '../share/SharingRow';
 import type { Hobby } from '../shell/hobbies';
 import { DENSITIES, JOURNAL_VIEWS, THEMES } from './theme';
 import { useTheme } from './useTheme';
@@ -15,8 +17,9 @@ export interface SettingsMenuProps {
 }
 
 /**
- * The one control in the header, holding the appearance preferences, the board's columns, the
- * board as a spreadsheet to keep, and the way to delete your account.
+ * The one control in the header, holding the appearance preferences, the board's columns, a
+ * read-only link to the board, the board as a spreadsheet to keep, and the way to delete your
+ * account.
  *
  * One button rather than two controls side by side: the header would otherwise start collecting
  * them, and there would be nowhere obvious for the next one to go. They are usually set in the
@@ -31,6 +34,10 @@ export interface SettingsMenuProps {
  * The Columns group is the exception on both counts: each column is on or off independently, so
  * they are checkboxes rather than radios; and it is the one setting that is not CSS, so it is read
  * from a store the board subscribes to as well — see `board/hiddenColumns.ts`.
+ *
+ * The Sharing group holds one row and none of its settings. What a link shows is a second list of
+ * columns, and laid open here it would sit under the board's own and look just like it, so the
+ * row opens a dialog instead, and the panel shuts as it does — see `share/SharingRow.tsx`.
  */
 export function SettingsMenu({ hobby }: SettingsMenuProps) {
   const { theme, density, journalView, setTheme, setDensity, setJournalView } = useTheme();
@@ -43,6 +50,11 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
   const exportWords = hobbyDefinition(hobby).export;
   const spreadsheet = useMutation({ mutationFn: () => downloadSpreadsheet(hobby) });
   const deletion = useDeleteAccount();
+
+  // The share dialog, held here because the row that opens it is in the panel and the panel shuts
+  // as it opens: the dialog is then the one thing open. Only on a board that can be shared.
+  const shareable = hobbyDefinition(hobby).share !== null;
+  const [sharing, setSharing] = useState(false);
 
   const ids = useId();
   const button = useRef<HTMLButtonElement>(null);
@@ -243,6 +255,20 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
             Backlog always shows, because search adds to it.
           </p>
 
+          {/* A read-only link to this board, after Columns and before Your data: one row, which
+              opens a dialog with room for the address and what the link shows. See SharingRow
+              for what it was picked over. */}
+          {shareable && (
+            <SharingRow
+              hobby={hobby}
+              ids={ids}
+              onOpen={() => {
+                setOpen(false);
+                setSharing(true);
+              }}
+            />
+          )}
+
           {/* What you have, rather than how it looks: the board as a file you keep, and the
               account you could delete. On every board, because an account is every board's.
 
@@ -334,6 +360,17 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
             by TMDB.
           </p>
         </div>
+      )}
+
+      {/* Closing hands the keyboard back here: the row it was opened from went with the panel. */}
+      {sharing && (
+        <ShareDialog
+          hobby={hobby}
+          onClose={() => {
+            setSharing(false);
+            button.current?.focus();
+          }}
+        />
       )}
     </div>
   );
