@@ -180,9 +180,12 @@ Each check reads what `main` has gained since the commit the server is on:
   the `/assets/index-*.js` and `.css` that `<origin>/` names, and how many times a string the
   change adds appears in them: zero, now. For a new API route, record what its method answers
   anonymously: anything but 401 before — it was 405 for the add route — and 401 after, because
-  every route but sign-in is behind `[Authorize]`. For a backend change with neither a route nor
-  a migration, record the count under **Proving it**: a name the change adds, in the DLL that is
-  running.
+  every route but sign-in and a share's reads is behind `[Authorize]`. **A new anonymous route can
+  answer 404 before and after**, as a share's does for a token nobody holds, so record its body as
+  well. An unmatched route's 404 is empty, and a controller's `NotFound()` is
+  `application/problem+json`: that is how #65's `GET /api/shared/{token}` was told apart. For a
+  backend change with neither a route nor a migration, record the count under **Proving it**: a
+  name the change adds, in the DLL that is running.
 
 ### Running it
 
@@ -245,9 +248,10 @@ serves the new build, so prove that from outside:
   dependency alone did keep its name**: #61's lazily loaded writer was `browser-CRI6s8R1.js` in
   both, so a new chunk can be asked for by name, and it should come back as JavaScript, not as
   `try_files`' page. **So did the stylesheet**: #63's was `index-DKBUuydD.css` locally and on the
-  server, where its script was `index-SogCWbbF.js` locally and `index-5RGySfEW.js` served. A CSS
-  change can be counted in the stylesheet the origin names, as #63's
-  `html{background-color:var(--sunken)}` was, 0 then 1.
+  server, where its script was `index-SogCWbbF.js` locally and `index-5RGySfEW.js` served, and
+  #65's was `index-JCQtRzc9.css` in both while its script went `index-T4_-6EBh.js` and
+  `index-CG2bcehz.js`. A CSS change can be counted in the stylesheet the origin names, as #63's
+  `html{background-color:var(--sunken)}` was, 0 then 1, and #65's `padding-top:12vh`.
 - **`<origin>/api/auth/me` answers 200**, with `null` when nobody is signed in.
 - **A change to the manifest or the icons is served as what it is.** `curl -I
   <origin>/manifest.webmanifest` says `application/manifest+json`, and `curl -I
@@ -266,7 +270,8 @@ serves the new build, so prove that from outside:
   Before #56 all six hashed as the previous commit's files, and after it as the new ones. Read the
   blob with `git show` rather than the working copy, where Git on Windows may have rewritten an
   SVG's line endings.
-- **A new route answers 401.**
+- **A new route answers 401**, and a new anonymous one its controller's 404, with a body, where
+  there was an empty one.
 - **A backend change with no new route and no migration is proved inside the container.** Nothing
   outside can tell the new API from the old one, and the bundle names prove nothing either way. So
   count a name the change adds in the DLL that is running, before the deploy and after it:
