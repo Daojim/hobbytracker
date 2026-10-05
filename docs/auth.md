@@ -283,7 +283,7 @@ Checked the same way, against `account/warning.test.ts` (10 cases), the 14 in
 
 ### Sharing a board
 
-Built for #9 in `docs/plans/games-board-next.md` on 5 October 2026 (PR #65). Not deployed yet.
+Built for #9 in `docs/plans/games-board-next.md` and deployed on 5 October 2026 (PR #65).
 What the banner and the dialog look like is `docs/design.md`'s, under **Sharing a board**. The
 read-only columns and what a share's years are counted from are `docs/board.md`'s, and Stats on a
 share is `docs/stats.md`'s.

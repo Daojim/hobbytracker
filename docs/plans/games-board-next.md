@@ -25,11 +25,11 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 6 | Search your notes | S–M | Planned |
 | 7 | Export the board to a spreadsheet | S–M | **Shipped and deployed 4 October 2026** (PR #61), the day it was workshopped: a three-sheet workbook from a row in Settings. See its section |
 | 8 | Delete my account | S–M | **Shipped and deployed 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. See its section |
-| 9 | A read-only share link | M | **Built 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. Not deployed yet. See its section |
+| 9 | A read-only share link | M | **Shipped and deployed 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. See its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 | 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
 
-Production runs `c28548c`'s code, which was `main` on 4 October 2026. Everything merged since is
+Production runs `7b2d3f9`'s code, which was `main` on 5 October 2026. Everything merged since is
 docs. Deploying is the runbook in `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -751,14 +751,21 @@ of it and 3 end to end. Each turned red exactly the tests that name it. The tabl
 
 ---
 
-## 9. A read-only share link · built
+## 9. A read-only share link · shipped
 
 **What.** One revocable link to the games board, for friends and for portfolio reviewers, who
 until now could see nothing without making an account.
 
-**Built on 5 October 2026** (PR #65), the day after it was workshopped. Not deployed yet. **One
+**Shipped and deployed on 5 October 2026** (PR #65), the day after it was workshopped. **One
 migration**, `AddBoardShares`: a new table, with nothing to backfill because no board is shared
-until its owner makes a link. No new variable. The write-up is `docs/auth.md`, **Sharing a
+until its owner makes a link. No new variable. Both images were rebuilt and recreated, the API
+first, and no base image had moved. The migration applied itself as the new API started, so
+production's newest is `AddBoardShares` where it was `AddStatusChanges`. The public site serves a
+new bundle carrying the share's words, each counted 0 in the one before it, and a stylesheet
+carrying the dialog's `padding-top:12vh`. `GET /api/share` answers 401 without a session, where it
+answered 404, and `GET /api/shared/{token}` answers the controller's own 404,
+`application/problem+json`, where it answered an unmatched route's empty one. The write-up is
+`docs/auth.md`, **Sharing a
 board**: the routes, why the anonymous half is safe, and every fault planted. The look and the
 words are `docs/design.md`, **Sharing a board**. A shared column and its years are
 `docs/board.md`, **A share of the board**, Stats on a share is `docs/stats.md`, **On a share**,

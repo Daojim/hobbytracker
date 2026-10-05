@@ -635,7 +635,7 @@ shuffled.
       - [x] a read-only share link — one per board, from a row in Settings that opens a dialog of
         boxes, read with nobody signed in: the board, its calendar and its Stats, under a banner,
         in words written to nobody, and never a note. The user picked the banner over the
-        recommended heading; every other choice was the recommendation (PR #65)
+        recommended heading; every other choice was the recommendation (PR #65, deployed)
       - [x] `/` to the search box — from anywhere on the board, except in a field, with the
         journal open, or while a card is being carried (PR #58, deployed). The plan missed that
         last one; Chromium found it, because a space typed for the search dropped the card
