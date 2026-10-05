@@ -6,8 +6,10 @@
 
 ## The board and its API
 
-**Everything below `/api/auth` requires a session and answers 401 without one.** The four sign-in
-routes are the only anonymous ones.
+**Everything below `/api/auth` requires a session and answers 401 without one, except a share's
+reads.** Those six, under `/api/shared/{token}`, answer for the token's owner with nobody signed
+in. They and the sign-in routes are the only anonymous ones, and `SharedBoardTests` reads the list
+off the routing table; see **Sharing a board** in `docs/auth.md`.
 
 | Route | |
 |---|---|
@@ -37,6 +39,8 @@ routes are the only anonymous ones.
 | `PUT /api/library/order` | store one column's manual ranking |
 | `GET /api/stats?hobby=&year=` | the Stats page's year: every finish in it, your hours against them, what became of what was started, and the Backlog column. Every playthrough, not every title. **400** for a year outside 1–9998. See `docs/stats.md` |
 | `GET /api/stats/years?hobby=` | the years the Stats page can show — every pass's, where the board's are its current passes' |
+| `GET POST PUT DELETE /api/share?hobby=` | your board's read-only link: see it, make it, change what it shows, stop it. Addressed by hobby, never by an id. See **Sharing a board** in `docs/auth.md` |
+| `GET /api/shared/{token}`, and `library`, `years`, `upcoming`, `stats`, `stats/years` under it | **anonymous**: a share, read by its link, answering for its owner. Reads only, and every refusal is one 404. See **A share of the board** |
 
 List endpoints return `PagedResult<T>`; search returns a bare array capped by `limit`. A board
 column's is `LibraryPage`, which extends it with the column's hours — see **Hours in the column
@@ -98,6 +102,14 @@ you said the first time round. Two consequences, both load-bearing:
 - **It lives in the two terminal DTO projections and nowhere near `BoardQuery`.** A terminal subquery
   that fails to translate throws and names itself, where the same thing in `BoardQuery` empties the
   board and says nothing. `ItemAsync` needs its own copy, or a move answers with a null note.
+- **Since the share link, the column's projection takes its note from the caller.** It is
+  `CardsWith(note)`: one card for your board and a share of it, with `LatestNoteOf(ownerId)` in the
+  slot for a board and `NoNote`, a constant null, for a share, so a share's SQL never names `notes`.
+  A condition inside the projection would not do: it is a `CASE` around the subquery, and the
+  subquery still runs. The note is spliced in by a `Rebind` visitor swapping the lambda's second
+  parameter for the note's body, `ReleaseWindow.NotOutOn`'s trick, because EF cannot translate an
+  `Invoke`. `ItemAsync` keeps its own copy, so there are still two terminal projections, and the
+  calendar reads through the column's.
 
 Cut to `LibraryService.NotePreviewLength` (200) on the wire — far enough out that what a reader sees
 cut is always the client's two-line clamp, which is what lets the cut answer to the card's width and
@@ -155,11 +167,15 @@ It was added on 17 September 2026 as a fifth `LogStatus`, **with no migration**:
 `varchar(20)` text with no check constraint on what it holds, which `dotnet ef migrations
 has-pending-model-changes` confirmed rather than anybody assuming.
 
-**A new status fails silently in two places, and both are now said out loud.**
+**A new status needs a decision in four places, and each fails silently without one.**
 `ApplyTransitionTimestamps` is a `switch` *statement* with no default, so a status with no arm
 compiles and stamps nothing — On Hold's first red run was exactly that, three `StartedAt` nulls.
 And `InYear` is a switch *expression* whose `_` arm answers "either date", so a status left out of
-it looks almost right. `LogStatus.cs` names both for the next one.
+it looks almost right. Stats added a third, `StatsService.CompletionAsync`, where a status in none
+of its three counts is left out of the completion rate, and the share link a fourth,
+`OpenShare.Shows`, whose default keeps a new column off every share until it has a part of its own
+to tick. `LogStatus.cs` names all four for the next one. This paragraph said two until 5 October
+2026.
 
 **Dropped sits last, and this board has had it both ways.** `BOARD_STATUSES` in
 `frontend/src/hobbies/index.ts` is the one list the order comes from, so a hobby can rename a
@@ -391,7 +407,8 @@ under the finger by then. The approach still scrolls, which is right: it is how 
 reordered from a phone.
 
 **Every column's count comes from that column's own query.** `columnQuery` in `Column.tsx` is the
-request and key both. The switcher observes every drawn column's current view, so when a move
+request and key both. The switcher takes it as `requestFor`, so a share hands it
+`sharedColumnQuery` and counts from the share's own answers, never the signed-in board's. The switcher observes every drawn column's current view, so when a move
 writes the cached answers optimistically the counts change at once. Those views also count as
 active, so a move's `removeQueries({ type: 'inactive' })` leaves them alone and drops only the
 other sorts and years of the two columns, as before.
@@ -534,7 +551,9 @@ presentational, because the page has to hold that query to have anything to defa
 `IJournalClock.SpanOf`, and `DateTime` cannot hold year 0, or the year after 9999. Found on
 2 October 2026 when the Stats page's route was given `[Range(1, 9998)]` and its test was checked by
 taking the attribute away, which answered 500 for both. Only a hand-typed address reaches it, so it
-was noted rather than fixed; the fix is the same attribute on `LibraryController`'s `year`.
+was noted rather than fixed; the fix is the same attribute on `LibraryController`'s `year`. **A
+share's column route has it**, because there the hand-typing is a stranger's, so the hole is the
+signed-in route's alone.
 
 **One consequence worth knowing rather than fixing:** completing a game while reading a past year
 makes its card leave the board, since the completion is stamped *now*. That is the filter being honest.
@@ -739,6 +758,52 @@ a hobby whose pass records no hours never compares, whatever words it has.
 | Backlog's pace line on every column | *is Backlog's alone* |
 | The pace read once rather than subscribed to | `Column.test.tsx`'s *hears a new one* |
 
+### A share of the board
+
+**A share is the board, read-only, by somebody holding its link:** `/share/:token`, outside the
+session gate. Built on 5 October 2026 for #9 in `docs/plans/games-board-next.md`. What a share
+is, its routes and why the anonymous half is safe are `docs/auth.md`'s, under **Sharing a board**;
+its look and its words are `docs/design.md`'s. What belongs here is what it does to the board.
+
+**Backlog always, and each other column only when its owner ticked it.** The columns are the
+hobby's, in the board's order, less any that are not shown (`sharedColumns` in `share/paths.ts`).
+**Nothing of this browser's own Settings applies**: columns taken off there are the visitor's view
+of their own board, and what a share shows is its owner's to say, stored with the share.
+
+**A shared column is the board's frame around faces with nothing in their hands.**
+`board/Column.tsx` is split in two since then. `Column` is yours: a drop target and a stack of
+`Card`s to carry and open. `ColumnFrame` is everything a column is apart from its cards (the well,
+the heading and count, the hours, the fold, the sort control, the empty and loading states), and
+both wear it, so they cannot drift. `SharedColumn` hands it `CardFace` with no handlers, exactly as
+the drag preview draws a card, and with `latestNotePreview` set to null: the server sends no note on
+a share, and a note that ever arrived would still not be printed. Nothing is registered with
+dnd-kit, so nothing can be pressed, carried or dropped onto.
+
+- **Where a column's answer comes from is a `ColumnRequest`**, a key and a function. `columnQuery`
+  is the board's and `sharedColumnQuery` the share's. It is a plain object rather than
+  `queryOptions` because TanStack types `queryFn` against the exact key, and a result of
+  `queryOptions` will not widen to a type two sources share.
+- **The sort control stays, and the hand-made order is *Board order*** there, since it is the
+  owner's and not the reader's. The visitor's sorts are page state, never written anywhere.
+- **Dropped folds side by side, as on yours**, and not on a phone, where choosing it in the switcher
+  is already asking to see it.
+- **Backlog's *at your pace* line is left off**: a share's frame is handed no pace, because the
+  pace in this browser is the visitor's, about their own board.
+- **On a phone it is one column at a time under `ColumnSwitcher`, outside any `DndContext`.** Its
+  segments register on dnd-kit's defaults and reach nothing, which answered the plan's open
+  question. Its counts come from the share's own column requests.
+
+**A share's years come from the columns it shows, and no others.** A year only Dropped has
+anything in would otherwise be offered on a share without Dropped, and open on a board with nothing
+to show for it. `ISharedLibrary.YearsAsync` filters the board's own rows to the shown columns by the
+current pass before reading the dates, as the columns are drawn by it, and with every column shown
+it answers exactly the board's list. The control opens on the latest year, and the share renders no
+board until the years arrive, for the board's reason. Backlog and On Hold are exempt, as on yours.
+
+**The calendar is under it when ticked, and does not remember being folded.** Your board keeps the
+fold in this browser under the board's key, and a share's fold remembered there would fold the
+visitor's own calendar too, so `ComingSoon` takes `remembers={false}` from a share.
+
 ### Query keys, ordering, and the traps
 
 **`frontend/src/board/keys.ts` owns every board query key**, and its comments carry the reasoning.
@@ -778,6 +843,15 @@ What a caller has to know:
   entry between them is a thing that goes wrong once and is very hard to see afterwards. **The
   drawer is handed its hobby by the board** rather than working it out, which it needs anyway to
   know which fields a pass of that kind has.
+- **A share's answers are under `['shared', token, …]`, never under `['library', …]`**, the shape
+  after the token being the board's. An owner who opens their own link and follows *Make your
+  own* lands on their board in the same app, holding the same cache, and a share's columns leave
+  the note out: kept under the board's keys, they would be what the board draws until something
+  refetched it. So nothing on the board settles a share, and nothing a share reads can land in the
+  board's cache. *Keeps what it reads under its token* in `SharedBoardPage.test.tsx` reads the
+  cache itself, and was written when planting the fault turned nothing red. **Your own link, in
+  Settings, is `['share', hobby]`**, outside `'library'` too, because nothing on the board changes
+  it and it changes nothing there.
 
 **Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries take
 `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just added appears

@@ -16,6 +16,7 @@ year in review is meant to grow from it.
 | The tiles | Finished · Completion · Vs HowLongToBeat · Rating, four across from 1280px |
 | The panels | Finished each month (covers) · Ratings (a column per point) · You and HowLongToBeat (a bar per game) · Backlog (oldest first), two across from 1024px, in the board's wells |
 | Hobbies | **Games only**, from `HobbyDefinition.stats`. The API answers for every hobby |
+| On a share | **The owner's page, whole**, when the share shows Stats: `/share/:token/stats/:year?`, under the share's banner, in words written to nobody. See **On a share** |
 
 Every row of that table was decided with the user on 2 October 2026: the first four questions
 before anything was drawn, the rest from a private page of renders,
@@ -196,10 +197,38 @@ goes by title.
   also needs the pass to record hours and the hobby's `columnHours` words, so films would get
   every panel but that one.
 
+## On a share
+
+**A share that shows Stats shows the owner's page, whole.** Decided at the #9 workshop on 4 October
+2026: every finish, and what was dropped counted as a number with no titles, whichever columns the
+share shows. So the only thing a share decides about Stats is whether they are on it. The page is
+`/share/:token/stats/:year?`, reached by *Stats for 2026 →* on the share's year row, and a share
+without Stats sends that address to the share's board, as a hobby with no Stats page sends its own
+to its board. What a share is, and why its anonymous routes are safe, are `docs/auth.md`'s, under
+**Sharing a board**.
+
+- **`GET /api/shared/{token}/stats?year=` and `…/stats/years`** answer through `ISharedStats`,
+  `StatsService`'s second face, which takes its owner from the caller. Every query here starts from
+  `Passes(ownerId, hobby)`, so your own page passes `user.Id` and a share passes its token's owner,
+  and the backlog comes from `LibraryService.BacklogAsync(ownerId, hobby)` the same way. *Stats on
+  a share is the owner's page whichever columns are shown* compares the two answers byte for byte,
+  with Stats the only part ticked.
+- **The years are the Stats page's own**, as on yours, not the share's board's, which come from
+  the columns it shows.
+- **It is the board's own `Dashboard` and `StatsHeading`, handed `voice="shared"`.** The phrases
+  this page writes to its owner, *of the games you started*, *You and HowLongToBeat*, *in your
+  backlog*, *Back to your board* and the rest, the column header's *without your hours* among
+  them, each have a second form side by side with the first. The table of all twelve, on the
+  board and this page, is in `docs/design.md`, under **Sharing a board**.
+- **The note on *added* is the twelfth phrase**, which the workshop's table of eleven missed and
+  the renders of the built page found. On a share it reads *"Added" is the day a title went on the
+  board…* and *"in the backlog"*, picked on 5 October 2026 over leaving the note off a share.
+
 ## Checked by putting each fault back
 
 Every guard was checked by planting its fault, one at a time, against the finished feature. Each
-fault turned red exactly the tests named.
+fault turned red exactly the tests named. The share's faults, its Stats among them, are in
+`docs/auth.md`, under **Sharing a board**.
 
 **Backend**, `StatsEndpointTests` (28) and the two new `JournalClockTests`:
 

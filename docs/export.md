@@ -10,7 +10,7 @@ the same day (PR #61).
 
 | | |
 |---|---|
-| Where | **A row in a *Your data* group after Columns** in Settings: a download glyph, *Download a spreadsheet*, and what the file holds under it |
+| Where | **A row in a *Your data* group after Columns** in Settings, and after Sharing on a board that can be shared: a download glyph, *Download a spreadsheet*, and what the file holds under it |
 | What | **Three sheets.** Games has a row per title, as its card shows it. Playthroughs has a row per pass, and Notes a row per note, newest first |
 | Which titles | **Everything on the board**: every column, those taken off in Settings included, every year, and the calendar's titles. The year control and Settings decide what you see, not what you have |
 | The file | `hobbytracker-games-2026-10-04.xlsx`, named for the board and the day it was made here |

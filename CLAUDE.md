@@ -41,6 +41,7 @@ thing always known before an edit:
 | `AuthService`, `AuthController`, `AccountService`, `AccountController`, `SessionValidator`, `Program.cs`'s auth block, `frontend/src/shell/`, `frontend/src/account/` | `docs/auth.md` |
 | `StatsService`, `StatsController`, `HoursTally`, `frontend/src/stats/` | `docs/stats.md` |
 | `frontend/src/export/`, `LibraryService.ExportAsync`, `ExportTitleDto`, the *Your data* group in Settings | `docs/export.md` |
+| `ShareService`, `ShareController`, `SharedController`, `ISharedLibrary`, `ISharedStats`, `frontend/src/share/`, `lib/voice.ts` | `docs/auth.md` — **Sharing a board** — then `docs/board.md` for a shared column and its years |
 | `Dockerfile`, `deploy/`, `PublicOriginMiddleware`, **or being asked to deploy** | `docs/deploy.md` — the source of truth, runbook included |
 | **Picking up a feature from What is next** | `docs/plans/games-board-next.md` — its status table, its rules, then the feature's section |
 | `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
@@ -69,6 +70,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Stats** | A page under the games board for a year at a time: four tiles of headline numbers, then every finish as a cover by month, your hours against HowLongToBeat game by game, your ratings point by point, and the backlog oldest first with how long each title has waited. **Every playthrough counts, where the board counts titles** | `docs/stats.md` |
 | **The spreadsheet** | The games board as an Excel workbook, from a row in Settings: every title as its card shows it, every playthrough, every note. **Everything you have, not what the board is showing** — every column, every year, and the calendar's titles. Real dates and numbers, and nothing a formula | `docs/export.md` |
 | **Deleting your account** | A tinted row in Settings, on every board, that opens into a warning naming the sign-in and counting every board, and **asks for the word *delete***. One row goes and the database cascades the rest; the catalogue stays. **Every other device is signed out at its next request**, because the session is checked against the account on every one | `docs/auth.md` |
+| **A share link** | One read-only link per board, made from a row in Settings that opens a dialog: a box for each part but Backlog, and the owner's name off until ticked. **Anybody holding it sees the board, its calendar and its Stats with nobody signed in**, under a banner, in words written to nobody, and never a note. Stopping kills the address for everyone | `docs/auth.md` |
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
@@ -150,8 +152,8 @@ cd frontend && npm install && npm run dev           # http://localhost:5173
 — a localhost throwaway, which is why they sit in `appsettings.Development.json` while the IGDB and
 sign-in secrets do not.
 
-**Every route is `[Authorize]`d, so a bare `curl` gets a 401** — including the two maintenance refresh
-routes. Sign in in the browser and call them from its console, or drive `curl` with a cookie jar:
+**Every route but a share's reads is `[Authorize]`d, so a bare `curl` gets a 401** — including the
+two maintenance refresh routes. Sign in in the browser and call them from its console, or drive `curl` with a cookie jar:
 
 ```bash
 # Sign in once into a jar, then spend it. The redirect chain ends on the board.
@@ -232,6 +234,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── lib/storage.ts  localStorage that may refuse, read and written without throwing
 │       ├── lib/preferenceStore.ts  a stored preference two components share, with no provider
 │       ├── lib/pace.ts   how much you play: "How long will it take me?" and Backlog's line
+│       ├── lib/voice.ts  who a page's words are to: the owner, or — on a share — nobody
+│       ├── lib/useModalPanel.ts  a modal panel's keyboard: the journal's, and the share dialog's
 │       ├── hobbies/      ONE FILE PER HOBBY — every word a person reads, the genre list,
 │       │                 search dispatch, and which fields a pass of that kind has
 │       ├── board/        keys.ts owns every query key, sensors.ts the drag's activation
@@ -245,6 +249,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       │                 download.ts loads the writer only when the row in Settings is pressed
 │       ├── account/      deleting your account: the tinted row and its warning, the sentence
 │       │                 (warning.ts), and the delete the Settings menu holds
+│       ├── share/        a share link: its row in Settings and the dialog, and the two pages a
+│       │                 visitor reads outside the session gate, under query keys of their own
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
 │       ├── theme/        the eight themes, two densities, and the menu that picks them
 │       └── test/         MSW server, fixtures, and the render helper
@@ -461,7 +467,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | | |
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
-| Scope | **`/board/:hobby`, `/board/:hobby/discover/:list` and `/board/:hobby/stats/:year`, behind a session, plus `/signin`.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. The Stats page is the year in review's starting point; there is no detail page yet |
+| Scope | **`/board/:hobby`, `/board/:hobby/discover/:list` and `/board/:hobby/stats/:year`, behind a session, plus `/signin`, and a share's `/share/:token` and `/share/:token/stats/:year?` outside it.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. The Stats page is the year in review's starting point; there is no detail page yet |
 | Columns | Backlog · Playing · **On Hold** · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list; the board draws it less anything taken off in Settings, and hands *that* list to every card's menu. **No columns a person names themselves** — `LogStatus` is one shared vocabulary, and the year rules and the transitions depend on what each value means |
 | On Hold | **After Playing, a plain column, and exempt from the year like Backlog** — Playing with the controller put down, so it takes Playing's rule for the dates and keeps where you were in a show. A fifth `LogStatus` with **no migration**, because `status` is unconstrained text. Position, look and width were each picked from rendered screenshots on 17 September 2026. `docs/board.md` |
 | Hiding a column | **Any but Backlog, per board, per browser, from a Columns group of checkboxes in Settings.** Not rendered, not fetched, not a drop target, not offered in a card's menu — and nothing written, so its titles are there when it comes back. Backlog stays because search adds to it. `docs/board.md` |
@@ -479,6 +485,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Saving a pass | **The pass writes itself and there is no Save button.** A change arms a 500ms timer; the timer checks the rules and sends every field. Leaving a field deliberately does *not* send it — that would be a write per stop while tabbing, and would write "season 2, no episode" on the way to naming one — but **closing the drawer does**, which is the one hole a form like this opens. A refused value stops the write and stays on screen to be corrected. `docs/journal.md` |
 | Stats | **A dashboard under the board, one year at a time** — `/all` for every year — that counts **every playthrough rather than every title**: a finish replayed since still counts in its year, so the Completed column can show a different count. Completion is the share of what was *started* in the year, finished. Games only, from `HobbyDefinition.stats`. All twelve choices — four before any render, eight from renders on 2 October 2026 — were the recommendations. `docs/stats.md`, `docs/design.md` |
 | Deleting an account | **A tinted row under *Your data* on every board, opening into a warning that asks for the word *delete***, in any case, before its filled button works. It names the sign-in, counts each board in the hobby's own word, and says the nightly backups keep a copy for about two weeks. **`DELETE /api/account` removes the `users` row and the cascades take the rest**; `SessionValidator` checks every cookie against its account, so other devices are signed out rather than left as a user with no row. Afterwards the sign-in card reads *Account deleted*. Every choice was the recommendation, from renders on 4 October 2026. `docs/auth.md`, `docs/design.md` |
+| Sharing | **One revocable link per board, from a Sharing row in Settings that opens a dialog.** Every part but Backlog is a box (Playing, On Hold, Completed, Dropped, Coming soon, Stats), **stored as the list shown**, so anything added to the app later stays off existing shares; the owner's name is a box, off until ticked; **notes never**. A share is the board, its calendar and its Stats page, read-only, under a banner, in words written to nobody, and **Stats is whole**. Unknown, stopped and switched off are **one 404**, and a share's years come only from the columns it shows. The token is plain text, so Settings can show it again, and stopping deletes the row. **Scoping stays at the call site**: a share's reads name the token's owner, and `ICurrentUser` is never swapped for one. Every choice but the banner, the user's own over a heading, was the recommendation, from renders on 4 and 5 October 2026. `docs/auth.md`, `docs/design.md` |
 | Spreadsheet | **A three-sheet `.xlsx` of everything on the board** — Games as the cards show them, every playthrough, every note — from a row in a *Your data* group after Columns in Settings. Every column, every year and the calendar's titles, because the year control and Settings decide what you see, not what you have. ISO dates as real date cells, numbers as numbers, nothing a formula, and the HowLongToBeat link a plain address. **The server sends facts and the client writes the words**, through write-excel-file loaded when the row is pressed. Games only, from `HobbyDefinition.export`. Every choice but one was the recommendation, from renders on 4 October 2026; *All genres* and the link were the user's. `docs/export.md`, `docs/design.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named, and **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
@@ -490,7 +497,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Dev wiring | Vite proxy `/api` → `:5201`, **`changeOrigin: false`** so sign-in stays on one origin. **No CORS change needed or wanted** |
 | Testing | Vitest + RTL + MSW for logic and components; Playwright for the drag |
 | E2E harness | Real API and real Postgres on a **separate `hobbytracker_e2e` database**, with IGDB, TMDB, MAL, HowLongToBeat and the OAuth provider stubbed |
-| Sessions | An **httpOnly cookie**, and every board route is `[Authorize]`d |
+| Sessions | An **httpOnly cookie**, and every board route is `[Authorize]`d **but a share's six reads**, which are `[AllowAnonymous]`, answer for the token's owner, and never ask `ICurrentUser`. `docs/auth.md` |
 | Timezone | `America/New_York`, server-configured, DST-following |
 | Timestamps | `started_at` / `completed_at` / `logged_at` are instants, not dates |
 
@@ -561,6 +568,7 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 | `status_changes` | `id`, `log_entry_id`, `from_status` (**null when the pass was made**), `to_status`, `changed_at`. Written by `StatusHistoryRecorder` during the save, never by a service; a shuffle inside ten minutes folds away |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
+| `board_shares` | `id`, `user_id` (**cascades**), `hobby_id`, `token` (**unique, plain text**), `parts` (`text[]` of **what it shows**), `shows_name`, `created_at`. One per board: unique on `(user_id, hobby_id)` |
 
 ## What is next
 
@@ -597,8 +605,8 @@ shuffled.
       because a MAL search answers everything a detail call would.
 - [ ] **The games board, before the other hobbies — the current focus.** Decided 1 October 2026:
       a feature is built on the games board first and taken to the other hobbies afterwards. Ten
-      are planned in `docs/plans/games-board-next.md`, one section each, to be
-      picked up in any order:
+      were planned in `docs/plans/games-board-next.md`, one section each, to be picked up in any
+      order, and an eleventh, a bug, was added on 4 October 2026:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -624,10 +632,16 @@ shuffled.
         names the sign-in, one row deleted for the cascades to finish, and a session check that
         signs every other device out. Every choice was the recommendation, from renders (PR #63,
         deployed)
-      - a read-only share link
+      - [x] a read-only share link — one per board, from a row in Settings that opens a dialog of
+        boxes, read with nobody signed in: the board, its calendar and its Stats, under a banner,
+        in words written to nobody, and never a note. The user picked the banner over the
+        recommended heading; every other choice was the recommendation (PR #65)
       - [x] `/` to the search box — from anywhere on the board, except in a field, with the
         journal open, or while a card is being carried (PR #58, deployed). The plan missed that
         last one; Chromium found it, because a space typed for the search dropped the card
+      - a release window that has begun — a bug found while rendering the share link: a window
+        stored at year, quarter or month precision is measured from its first day, so a title not
+        out yet reads "276 days ago"
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
