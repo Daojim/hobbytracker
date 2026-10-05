@@ -14,7 +14,8 @@ namespace HobbyTracker.Api.Domain;
 /// statement with no default — a status without one compiles and silently stamps nothing — and
 /// a decision in LibraryService.InYear, whose default arm would otherwise answer for it — and a
 /// third in StatsService.CompletionAsync, where a status in none of the three counts is silently
-/// left out of the completion rate.
+/// left out of the completion rate. A fourth is OpenShare.Shows, whose default arm keeps a new
+/// column off every share until it has a SharePart of its own for an owner to tick.
 /// </summary>
 public enum LogStatus
 {

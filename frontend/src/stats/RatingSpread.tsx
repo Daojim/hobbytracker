@@ -1,7 +1,14 @@
 import type { Finish } from '../api/types';
 import { ratingFill } from '../lib/rating';
+import type { Voice, Voiced } from '../lib/voice';
 import { ratingCounts } from './stats';
 import { Nothing } from './Section';
+
+/** What the chart counts: the ones you rated, or on a share, which addresses nobody, the ones rated. */
+const OVER_THE_RATED: Voiced<(rated: number) => string> = {
+  own: (rated) => `over the ${rated} you rated`,
+  shared: (rated) => `over the ${rated} rated`,
+};
 
 /**
  * How many finishes you rated at each whole point, 1 to 10, as a column per point. Picked from
@@ -11,7 +18,15 @@ import { Nothing } from './Section';
  * Each column wears the colour a card's rating at that point wears. The chart is drawn for the
  * eye; the same counts are a list for a screen reader, the points with none left out.
  */
-export function RatingSpread({ finished, year }: { finished: Finish[]; year: number | undefined }) {
+export function RatingSpread({
+  finished,
+  year,
+  voice,
+}: {
+  finished: Finish[];
+  year: number | undefined;
+  voice: Voice;
+}) {
   const rated = finished.filter((finish) => finish.rating !== null).length;
   const unrated = finished.length - rated;
 
@@ -25,7 +40,8 @@ export function RatingSpread({ finished, year }: { finished: Finish[]; year: num
   return (
     <>
       <p className="mt-1 text-sm text-muted">
-        over the {rated} you rated{unrated > 0 ? ` · ${unrated} finished without a rating` : ''}
+        {OVER_THE_RATED[voice](rated)}
+        {unrated > 0 ? ` · ${unrated} finished without a rating` : ''}
       </p>
 
       <div aria-hidden="true" className="mt-4">

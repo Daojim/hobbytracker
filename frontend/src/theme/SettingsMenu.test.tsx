@@ -6,6 +6,7 @@ import { Route, Routes } from 'react-router';
 import writeXlsxFile from 'write-excel-file/browser';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
+import { shareServer } from '../test/share';
 import { logEntry } from '../test/passes';
 import { hiddenColumnsKey } from '../board/hiddenColumns';
 import { todayHere } from '../lib/time';
@@ -24,6 +25,12 @@ const open = async () => {
 };
 
 describe('SettingsMenu', () => {
+  beforeEach(() => {
+    // The panel asks after the board's share link as it opens, for its Sharing row's line. None,
+    // unless a test says otherwise; share/ShareDialog.test.tsx is where sharing is tested.
+    shareServer();
+  });
+
   afterEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute(THEME_ATTRIBUTE);

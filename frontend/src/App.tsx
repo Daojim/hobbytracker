@@ -4,6 +4,8 @@ import { DiscoverPage } from './discover/DiscoverPage';
 import { StatsPage } from './stats/StatsPage';
 import { RequireSession } from './shell/RequireSession';
 import { SignInPage } from './shell/SignInPage';
+import { SharedBoardPage } from './share/SharedBoardPage';
+import { SharedStatsPage } from './share/SharedStatsPage';
 import { DEFAULT_HOBBY, boardPath } from './shell/hobbies';
 
 /**
@@ -56,6 +58,12 @@ export function App() {
           than dropped: the address outlived the page, and a bookmark to it should land
           somewhere rather than nowhere. */}
       <Route path="/search" element={<Navigate to={boardPath(DEFAULT_HOBBY)} replace />} />
+
+      {/* A share of somebody's board, read by its link: the one board outside the session gate,
+          because the person holding the link has no account to be signed in to. It asks only
+          the share's own routes, which answer for the token's owner. */}
+      <Route path="/share/:token" element={<SharedBoardPage />} />
+      <Route path="/share/:token/stats/:year?" element={<SharedStatsPage />} />
     </Routes>
   );
 }

@@ -45,11 +45,14 @@ public interface ILibraryService
         string? hobby, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Your Backlog column as the board draws it, oldest first, with when each title arrived in
-    /// it — what the Stats page lists as waiting.
+    /// A Backlog column as the board draws it, oldest first, with when each title arrived in it —
+    /// what the Stats page lists as waiting.
+    ///
+    /// The one read here whose owner the caller names, because the Stats page has two readers:
+    /// you, and a share of your board, which passes its token's owner. See <see cref="IStatsService"/>.
     /// </summary>
     Task<IReadOnlyList<BacklogTitleDto>> BacklogAsync(
-        string? hobby, CancellationToken cancellationToken);
+        int ownerId, string? hobby, CancellationToken cancellationToken);
 
     /// <summary>
     /// Everything on your board, for the spreadsheet: every title in every column, the
@@ -94,18 +97,68 @@ public interface ILibraryService
 }
 
 /// <summary>
+/// What a share may read of its owner's board: a column, the calendar and the years.
+///
+/// <para>
+/// <b>Every method takes the owner, and none of them asks <see cref="ICurrentUser"/>.</b> A share
+/// is read by nobody in particular, and a read scoped to whoever is visiting would answer with the
+/// visitor's board — or, for a visitor signed in to nothing, throw. The share's controller passes
+/// its token's owner, where everybody can see it.
+/// </para>
+///
+/// <para>
+/// <b>An interface of its own</b>, so the controller holding it can reach nothing else here:
+/// no write, and no read that acts as whoever is signed in. And <b>no card carries a note</b>,
+/// because a note is the journal, and a share is the board.
+/// </para>
+/// </summary>
+public interface ISharedLibrary
+{
+    /// <summary>One column of the owner's board, as their board draws it, less the note.</summary>
+    Task<LibraryPage> ColumnAsync(
+        int ownerId,
+        string hobby,
+        LogStatus status,
+        int? year,
+        LibrarySort sort,
+        int? page,
+        int? pageSize,
+        CancellationToken cancellationToken);
+
+    /// <summary>The owner's release calendar, as their board draws it, less the note.</summary>
+    Task<IReadOnlyList<LibraryItemDto>> UpcomingAsync(
+        int ownerId, string hobby, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The board's years by the board's rule, counted from <paramref name="columns"/> alone: a
+    /// year only an unshared column has anything in is not one the share has to show.
+    /// </summary>
+    Task<IReadOnlyList<int>> YearsAsync(
+        int ownerId,
+        string hobby,
+        IReadOnlySet<LogStatus> columns,
+        CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// Your collection: titles you have logged something against.
 ///
 /// Deliberately not "everything in the media table". Searching IGDB upserts every result as a
 /// side effect, so `media` accumulates whatever has ever been typed into a search box. Joining
 /// to log_entries is what separates the catalog from the collection.
+///
+/// <para>
+/// <b>Whose board is said at every read</b>: <see cref="BoardQuery"/> takes its owner, and the
+/// methods for the signed-in pass <c>user.Id</c> where the eye can find it. A share's reads, which
+/// are <see cref="ISharedLibrary"/>'s, pass the owner they are handed instead.
+/// </para>
 /// </summary>
 public sealed class LibraryService(
     HobbyTrackerDbContext db,
     IJournalClock clock,
     ICurrentUser user,
     IEnumerable<IMediaAdded> mediaAdded,
-    ILogger<LibraryService> logger) : ILibraryService
+    ILogger<LibraryService> logger) : ILibraryService, ISharedLibrary
 {
     /// <summary>
     /// How much of a note reaches a card.
@@ -147,13 +200,28 @@ public sealed class LibraryService(
     /// </summary>
     private const int UpcomingCap = 200;
 
-    public async Task<IReadOnlyList<LibraryItemDto>> UpcomingAsync(
-        string? hobby, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<LibraryItemDto>> UpcomingAsync(
+        string? hobby, CancellationToken cancellationToken) =>
+        CalendarAsync(user.Id, LatestNoteOf(user.Id), hobby, cancellationToken);
+
+    Task<IReadOnlyList<LibraryItemDto>> ISharedLibrary.UpcomingAsync(
+        int ownerId, string hobby, CancellationToken cancellationToken) =>
+        CalendarAsync(ownerId, NoNote, hobby, cancellationToken);
+
+    /// <summary>
+    /// The calendar, straight through the column's own read rather than a projection of its own.
+    /// The two terminal projections already have to agree field for field, and a third copy of
+    /// them is how that quietly stops being true.
+    /// </summary>
+    private async Task<IReadOnlyList<LibraryItemDto>> CalendarAsync(
+        int ownerId,
+        Expression<Func<BoardRow, string?>> note,
+        string? hobby,
+        CancellationToken cancellationToken)
     {
-        // Straight through ListAsync rather than a projection of its own. The two terminal
-        // projections already have to agree field for field, and a third copy of them is how
-        // that quietly stops being true.
-        var page = await ListAsync(
+        var page = await PageAsync(
+            ownerId,
+            note,
             hobby,
             LogStatus.Backlog,
             year: null,
@@ -167,13 +235,16 @@ public sealed class LibraryService(
     }
 
     public async Task<IReadOnlyList<BacklogTitleDto>> BacklogAsync(
-        string? hobby, CancellationToken cancellationToken)
+        int ownerId, string? hobby, CancellationToken cancellationToken)
     {
         // The column exactly as the board draws it, through the board's own query: the current
         // pass decides the column, and the titles waiting on the release calendar are not in it.
         // Unpaged, because the whole column is the answer and a backlog is hundreds at most.
+        //
+        // Whichever owner the caller names: you, from your own Stats page, or a share's owner
+        // from theirs. Nothing here is written, and nothing here is a note.
         var titles = await Filtered(
-                BoardQuery().AsNoTracking(), hobby, LogStatus.Backlog, year: null,
+                BoardQuery(ownerId).AsNoTracking(), hobby, LogStatus.Backlog, year: null,
                 LibraryPartition.Default, clock.Today)
             .Select(row => new BacklogTitleDto(
                 row.Media.Id,
@@ -226,7 +297,7 @@ public sealed class LibraryService(
         // by column, and within a column they arrive already in place.
         var titles = await Sorted(
                 Filtered(
-                    BoardQuery().AsNoTracking(), hobby, status: null, year: null,
+                    BoardQuery(userId).AsNoTracking(), hobby, status: null, year: null,
                     LibraryPartition.Default, clock.Today),
                 LibrarySort.Manual)
             .Select(row => new
@@ -305,7 +376,42 @@ public sealed class LibraryService(
         ];
     }
 
-    public async Task<LibraryPage> ListAsync(
+    public Task<LibraryPage> ListAsync(
+        string? hobby,
+        LogStatus? status,
+        int? year,
+        LibrarySort sort,
+        LibraryPartition partition,
+        int? page,
+        int? pageSize,
+        CancellationToken cancellationToken) =>
+        PageAsync(
+            user.Id, LatestNoteOf(user.Id), hobby, status, year, sort, partition, page, pageSize,
+            cancellationToken);
+
+    Task<LibraryPage> ISharedLibrary.ColumnAsync(
+        int ownerId,
+        string hobby,
+        LogStatus status,
+        int? year,
+        LibrarySort sort,
+        int? page,
+        int? pageSize,
+        CancellationToken cancellationToken) =>
+        // The board's own read of the column, for the owner the share names, with the note slot
+        // filled by nothing. The default partition, so a title waiting on the calendar is off the
+        // column here exactly as it is on the owner's board.
+        PageAsync(
+            ownerId, NoNote, hobby, status, year, sort, LibraryPartition.Default, page, pageSize,
+            cancellationToken);
+
+    /// <summary>
+    /// A page of one owner's board and the hours its header says over the whole column: what a
+    /// column of your board is, and a column of a share of it, each carrying the note it is handed.
+    /// </summary>
+    private async Task<LibraryPage> PageAsync(
+        int ownerId,
+        Expression<Func<BoardRow, string?>> note,
         string? hobby,
         LogStatus? status,
         int? year,
@@ -315,12 +421,10 @@ public sealed class LibraryService(
         int? pageSize,
         CancellationToken cancellationToken)
     {
-        var userId = user.Id;
-
         var (normalisedPage, normalisedSize) = Paging.Normalise(page, pageSize);
 
         var query = Filtered(
-            BoardQuery().AsNoTracking(), hobby, status, SpanOf(year), partition, clock.Today);
+            BoardQuery(ownerId).AsNoTracking(), hobby, status, SpanOf(year), partition, clock.Today);
 
         var total = await query.CountAsync(cancellationToken);
 
@@ -331,7 +435,35 @@ public sealed class LibraryService(
         var items = await Ordered(query, sort, partition)
             .Skip((normalisedPage - 1) * normalisedSize)
             .Take(normalisedSize)
-            .Select(row => new LibraryItemDto(
+            .Select(CardsWith(note))
+            .ToListAsync(cancellationToken);
+
+        return new LibraryPage(items, total, normalisedPage, normalisedSize, hours);
+    }
+
+    /// <summary>
+    /// A board row as the card it is drawn as, with the card's note left for the caller to say.
+    ///
+    /// <para>
+    /// <b>One projection for your board and for a share of it</b>, so the two cannot drift: a share
+    /// shows a stranger the board its owner sees, less one field. That field is handed in as an
+    /// expression rather than chosen by a condition in here, because a condition is a <c>CASE</c>
+    /// around the subquery and the subquery still goes to the database: a share would read every
+    /// note and then throw it away. Handed <see cref="NoNote"/>, the slot is a constant and the SQL
+    /// never names <c>notes</c> at all.
+    /// </para>
+    ///
+    /// <para>
+    /// The note is spliced in by swapping the lambda's second parameter for the note's body, which
+    /// is <c>ReleaseWindow.NotOutOn</c>'s trick: EF Core cannot translate an <c>Invoke</c>, and
+    /// what it is handed here is the very tree the projection was when the note was written inline.
+    /// </para>
+    /// </summary>
+    private static Expression<Func<BoardRow, LibraryItemDto>> CardsWith(
+        Expression<Func<BoardRow, string?>> note)
+    {
+        Expression<Func<BoardRow, string?, LibraryItemDto>> card =
+            (row, latestNote) => new LibraryItemDto(
                 row.Media.Id,
 
                 // Which of a title's two names leads, for the one hobby that has two.
@@ -419,35 +551,53 @@ public sealed class LibraryService(
                 row.Media.ReleasePrecision,
                 row.Media.ReleaseStatus,
 
-                // The last thing you wrote about this title, from *any* pass of yours —
-                // deliberately unlike every other field on this row, all of which come from
-                // Latest. A replay begun this morning has nothing written on it yet, and what
-                // you said the first time round is still the last thing you said about it.
-                //
-                // Which is why the UserId predicate below is load-bearing rather than
-                // decorative. Riding on Latest would have inherited BoardQuery's scoping for
-                // free; reaching every pass on a title reaches a *shared* title, so without it
-                // a stranger's journal prints on your card. Notes carry no user column of
-                // their own — they belong to whoever owns the pass they were written during —
-                // so this is a join, exactly as every query in NoteService is.
-                //
-                // Here rather than in BoardQuery for the genre downcast's reason, and it
-                // matters more here: this is terminal, so a subquery that fails to translate
-                // throws and names itself, where the same thing in BoardQuery would empty the
-                // board and say nothing at all.
-                row.Media.LogEntries
-                    .Where(entry => entry.UserId == userId)
-                    .SelectMany(entry => entry.Notes)
-                    .OrderByDescending(note => note.WrittenAt)
-                    .ThenByDescending(note => note.Id)
-                    .Select(note => note.Body.Length > NotePreviewLength
-                        ? note.Body.Substring(0, NotePreviewLength)
-                        : note.Body)
-                    .FirstOrDefault()))
-            .ToListAsync(cancellationToken);
+                // The last thing written about this title, or nothing: the caller's to say. See
+                // LatestNoteOf, which is a board's, and NoNote, which is a share's.
+                latestNote);
 
-        return new LibraryPage(items, total, normalisedPage, normalisedSize, hours);
+        var row = card.Parameters[0];
+        var spliced = new Rebind(note.Parameters[0], row).Visit(note.Body);
+
+        return Expression.Lambda<Func<BoardRow, LibraryItemDto>>(
+            new Rebind(card.Parameters[1], spliced).Visit(card.Body), row);
     }
+
+    /// <summary>
+    /// The last thing the owner wrote about a title, from <em>any</em> pass of theirs — what a card
+    /// on their own board carries, and deliberately unlike every other field on it, all of which
+    /// come from Latest. A replay begun this morning has nothing written on it yet, and what was
+    /// said the first time round is still the last thing said about it.
+    ///
+    /// <para>
+    /// <b>The <c>UserId</c> predicate is load-bearing rather than decorative.</b> Riding on Latest
+    /// would have inherited BoardQuery's scoping for free; reaching every pass on a title reaches a
+    /// <em>shared</em> title, so without it a stranger's journal prints on your card. Notes carry no
+    /// user column of their own — they belong to whoever owns the pass they were written during —
+    /// so this is a join, exactly as every query in NoteService is.
+    /// </para>
+    ///
+    /// <para>
+    /// In the terminal projection rather than in BoardQuery for the genre downcast's reason, and it
+    /// matters more here: a subquery that fails to translate throws and names itself, where the
+    /// same thing in BoardQuery would empty the board and say nothing at all.
+    /// </para>
+    /// </summary>
+    private static Expression<Func<BoardRow, string?>> LatestNoteOf(int ownerId) =>
+        row => row.Media.LogEntries
+            .Where(entry => entry.UserId == ownerId)
+            .SelectMany(entry => entry.Notes)
+            .OrderByDescending(note => note.WrittenAt)
+            .ThenByDescending(note => note.Id)
+            .Select(note => note.Body.Length > NotePreviewLength
+                ? note.Body.Substring(0, NotePreviewLength)
+                : note.Body)
+            .FirstOrDefault();
+
+    /// <summary>
+    /// What a share's cards carry: nothing, as a constant, so a share's SQL never reaches
+    /// <c>notes</c>. A note is the journal, and a share is the board.
+    /// </summary>
+    private static readonly Expression<Func<BoardRow, string?>> NoNote = _ => null;
 
     /// <summary>
     /// What a column's header says about how long its titles take: the figure each card prints,
@@ -497,9 +647,40 @@ public sealed class LibraryService(
         return HoursTally.Of(titles.Select(title => (title.Length, title.HoursPlayed)));
     }
 
-    public async Task<IReadOnlyList<int>> ActivityYearsAsync(
-        string? hobby, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<int>> ActivityYearsAsync(
+        string? hobby, CancellationToken cancellationToken) =>
+        YearsOfAsync(user.Id, hobby, columns: null, cancellationToken);
+
+    Task<IReadOnlyList<int>> ISharedLibrary.YearsAsync(
+        int ownerId,
+        string hobby,
+        IReadOnlySet<LogStatus> columns,
+        CancellationToken cancellationToken) =>
+        YearsOfAsync(ownerId, hobby, columns, cancellationToken);
+
+    /// <summary>
+    /// The years one owner's board has anything in, counted from <paramref name="columns"/>, or
+    /// from every column when that is null — a board's years, or a share's.
+    /// </summary>
+    private async Task<IReadOnlyList<int>> YearsOfAsync(
+        int ownerId,
+        string? hobby,
+        IReadOnlySet<LogStatus>? columns,
+        CancellationToken cancellationToken)
     {
+        var rows = Filtered(
+            BoardQuery(ownerId).AsNoTracking(), hobby, status: null, year: null,
+            LibraryPartition.Default, clock.Today);
+
+        // A share counts only the columns it shows. A year only Dropped has activity in would
+        // otherwise be offered on a share without Dropped, and open on a board with nothing to
+        // show for it. By the current pass, as the columns are drawn by it.
+        if (columns is not null)
+        {
+            var shown = columns.ToList();
+            rows = rows.Where(row => shown.Contains(row.Latest.Status));
+        }
+
         // Both dates, off the same projection the columns filter on, so the picker can never
         // offer a year that turns out to be empty in every column at once.
         //
@@ -507,9 +688,7 @@ public sealed class LibraryService(
         // and is not right now that Playing filters on a start: a year you began something in
         // and finished nothing in would be a year the columns handle perfectly well and the
         // picker has no way to ask for.
-        var activity = await Filtered(
-                BoardQuery().AsNoTracking(), hobby, status: null, year: null,
-                LibraryPartition.Default, clock.Today)
+        var activity = await rows
             .Select(row => new { row.Latest.StartedAt, row.Latest.CompletedAt })
             .ToListAsync(cancellationToken);
 
@@ -631,7 +810,7 @@ public sealed class LibraryService(
         // Default, so a reorder acts on the column as it is drawn: an unreleased title is on the
         // calendar rather than in the well, and is not one of the cards being dragged past.
         var inColumn = await Filtered(
-                BoardQuery(), request.Hobby, request.Status, year: null,
+                BoardQuery(user.Id), request.Hobby, request.Status, year: null,
                 LibraryPartition.Default, clock.Today)
             .Where(row => request.MediaIds.Contains(row.Media.Id))
             .Select(row => new { MediaId = row.Media.Id, Entry = row.Latest })
@@ -656,12 +835,19 @@ public sealed class LibraryService(
 
     // ------------------------------------------------------------------ internals
 
-    private IQueryable<BoardRow> BoardQuery()
+    /// <summary>
+    /// One owner's board: every title they have logged, with the pass that decides its column.
+    ///
+    /// <para>
+    /// <b>The owner is a parameter rather than read from the session in here</b>, so whose board a
+    /// read is about is said at its call site: <c>user.Id</c> for the signed-in, and the token's
+    /// owner for a share. A share that asked the session instead would answer with the visitor's
+    /// board — and for a visitor signed in to nothing, <c>ICurrentUser.Id</c> throws, which is the
+    /// backstop rather than the design.
+    /// </para>
+    /// </summary>
+    private IQueryable<BoardRow> BoardQuery(int ownerId)
     {
-        // Read once into a local, so EF parameterises it and so an unauthenticated caller fails
-        // here rather than quietly producing a board scoped to nobody.
-        var userId = user.Id;
-
         // All three reaches into log_entries below carry the predicate, and all three have to.
         // Scoping only the first would leave EntryCount counting strangers' replays and Latest
         // able to pick a stranger's entry — and Latest is what decides the column, so the
@@ -669,12 +855,12 @@ public sealed class LibraryService(
         return db.Media
             // One row per title however many times it has been logged. A plain join to
             // log_entries would return a replayed game once per playthrough.
-            .Where(media => media.LogEntries.Any(entry => entry.UserId == userId))
+            .Where(media => media.LogEntries.Any(entry => entry.UserId == ownerId))
             .Select(media => new BoardRow
             {
                 Media = media,
                 HobbyName = media.Hobby!.Name,
-                EntryCount = media.LogEntries.Count(entry => entry.UserId == userId),
+                EntryCount = media.LogEntries.Count(entry => entry.UserId == ownerId),
 
                 // "Current" state comes from the most recent entry: a replay under way beats an
                 // old completion. Ordering is logged_at DESC, id DESC: a pass is current because
@@ -696,12 +882,13 @@ public sealed class LibraryService(
                 // if they disagree, the board moves one entry and then displays a different one.
                 // That now includes agreeing about whose entries are in scope.
                 Latest = media.LogEntries
-                    .Where(entry => entry.UserId == userId)
+                    .Where(entry => entry.UserId == ownerId)
                     .OrderByDescending(entry => entry.LoggedAt)
                     .ThenByDescending(entry => entry.Id)
                     .First(),
             });
     }
+
     /// <summary>
     /// The entry the board considers current, as a tracked entity. Must order identically to
     /// the projection in <see cref="BoardQuery"/> and to the entry list in
@@ -1042,7 +1229,7 @@ public sealed class LibraryService(
     {
         var userId = user.Id;
 
-        return await BoardQuery()
+        return await BoardQuery(userId)
             .AsNoTracking()
             .Where(row => row.Media.Id == mediaId)
             .Select(row => new LibraryItemDto(
@@ -1112,5 +1299,16 @@ public sealed class LibraryService(
                         : note.Body)
                     .FirstOrDefault()))
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// Swaps one parameter for an expression throughout a tree — how <see cref="CardsWith"/>
+    /// splices a card's note into the one projection, as <c>ReleaseWindow</c> re-points its
+    /// predicate at a board row.
+    /// </summary>
+    private sealed class Rebind(ParameterExpression from, Expression to) : ExpressionVisitor
+    {
+        protected override Expression VisitParameter(ParameterExpression node) =>
+            node == from ? to : base.VisitParameter(node);
     }
 }

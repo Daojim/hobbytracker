@@ -44,7 +44,10 @@ export function resetDatabase(): void {
   // users and auth_identities go too, so a run starts with nobody signed up. They are not
   // reference data — the lookup tables are — and a leftover account would let one spec's
   // sign-in satisfy the next spec's.
+  //
+  // board_shares is named for the inventory's sake, as notes are. CASCADE from users reaches it
+  // either way, and naming it says in so many words that a run ends every share link.
   psql(
-    'TRUNCATE notes, status_changes, log_entries, games, movies, tv_seasons, tv_shows, anime, media, auth_identities, users RESTART IDENTITY CASCADE;',
+    'TRUNCATE notes, status_changes, log_entries, games, movies, tv_seasons, tv_shows, anime, media, board_shares, auth_identities, users RESTART IDENTITY CASCADE;',
   );
 }

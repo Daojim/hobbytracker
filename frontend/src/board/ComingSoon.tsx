@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { upcoming } from '../api/library';
 import { genreStripe, hobbyDefinition, resolveGenre } from '../hobbies';
 import {
@@ -12,10 +12,23 @@ import {
 } from '../lib/release';
 import { readStored, writeStored } from '../lib/storage';
 import { todayHere } from '../lib/time';
+import type { Voice } from '../lib/voice';
 import { upcomingKey } from './keys';
 import { BOARD_GAP, boardTracks, calendarSpan } from './grid';
 import type { Hobby } from '../shell/hobbies';
 import type { LibraryItem } from '../api/types';
+
+/** Where the calendar's titles come from: your board's library, or a share's. */
+export interface UpcomingRequest {
+  queryKey: QueryKey;
+  queryFn: () => Promise<LibraryItem[]>;
+}
+
+/** Your board's calendar, as a request — `columnQuery`'s counterpart for the section under it. */
+export const upcomingQuery = (hobby: string): UpcomingRequest => ({
+  queryKey: upcomingKey(hobby),
+  queryFn: () => upcoming(hobby),
+});
 
 /**
  * How many dated titles are shown before the rest is folded away.
@@ -47,8 +60,25 @@ export interface ComingSoonProps {
    * only be that by being laid out on the same tracks — see `grid.ts`.
    */
   columns: number;
-  /** Opens a title's journal, exactly as a card does. */
-  onOpen: (mediaId: number) => void;
+
+  /** Where the titles come from: your board's calendar, or a share's. */
+  query: UpcomingRequest;
+
+  /** Who the section's words are to: the board's owner, or — on a share — nobody. */
+  voice: Voice;
+
+  /**
+   * Whether the section remembers being folded, per board. Yes on your own board. On a share the
+   * fold is the visitor's choice about somebody else's board, and remembering it under the
+   * board's key would fold the visitor's own calendar along with it.
+   */
+  remembers: boolean;
+
+  /**
+   * Opens a title's journal, exactly as a card does. Absent on a share, which has no journal, so
+   * a title there is text rather than a button that leads nowhere.
+   */
+  onOpen?: (mediaId: number) => void;
 }
 
 /**
@@ -62,21 +92,17 @@ export interface ComingSoonProps {
  * Rendered from `HobbyDefinition.releases` and nothing else: a hobby with none renders no
  * section, and there is no branch on the slug here.
  */
-export function ComingSoon({ hobby, columns, onOpen }: ComingSoonProps) {
+export function ComingSoon({ hobby, columns, query, voice, remembers, onOpen }: ComingSoonProps) {
   const definition = hobbyDefinition(hobby);
   const words = definition.releases;
 
   const headingId = useId();
-  const [open, setOpen] = useState(() => readOpen(hobby));
+  const [open, setOpen] = useState(() => !remembers || readOpen(hobby));
   const [showAll, setShowAll] = useState(false);
 
   // Hooks first, always: a hobby without a calendar still has to run every one of them, or
   // switching boards would change how many hooks this component calls.
-  const { data } = useQuery({
-    queryKey: upcomingKey(hobby),
-    queryFn: () => upcoming(hobby),
-    enabled: words !== null,
-  });
+  const { data } = useQuery({ ...query, enabled: words !== null });
 
   if (words === null) {
     return null;
@@ -132,7 +158,9 @@ export function ComingSoon({ hobby, columns, onOpen }: ComingSoonProps) {
             type="button"
             onClick={() => {
               setOpen((wasOpen) => {
-                writeOpen(hobby, !wasOpen);
+                if (remembers) {
+                  writeOpen(hobby, !wasOpen);
+                }
                 return !wasOpen;
               });
             }}
@@ -146,7 +174,7 @@ export function ComingSoon({ hobby, columns, onOpen }: ComingSoonProps) {
         {open && (
           <div className="rounded-xl border border-line-soft bg-well p-3">
             {items.length === 0 ? (
-              <p className="text-sm text-muted">{words.empty}</p>
+              <p className="text-sm text-muted">{words.empty[voice]}</p>
             ) : (
               <>
                 {groups.map(({ key, rows }) => (
@@ -215,7 +243,7 @@ function UpcomingRow({
   item: LibraryItem;
   hobby: Hobby;
   today: string;
-  onOpen: (mediaId: number) => void;
+  onOpen: ((mediaId: number) => void) | undefined;
 }) {
   const definition = hobbyDefinition(hobby);
 
@@ -250,13 +278,17 @@ function UpcomingRow({
       )}
 
       <div className="min-w-0 flex-1">
-        <button
-          type="button"
-          onClick={() => onOpen(item.mediaId)}
-          className="block max-w-full truncate text-left text-sm font-medium hover:underline"
-        >
-          {item.title}
-        </button>
+        {onOpen === undefined ? (
+          <p className="max-w-full truncate text-sm font-medium">{item.title}</p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpen(item.mediaId)}
+            className="block max-w-full truncate text-left text-sm font-medium hover:underline"
+          >
+            {item.title}
+          </button>
+        )}
 
         <p className="mt-0.5 text-xs text-muted">
           {when}

@@ -1,6 +1,7 @@
 import type { BacklogTitle, Completion, Finish } from '../api/types';
 import { daysBetween, type Day } from '../lib/release';
 import { journalDateInput, journalMonth, journalYear, todayHere } from '../lib/time';
+import type { Voice, Voiced } from '../lib/voice';
 
 /**
  * The Stats page's arithmetic, and the words that come straight out of it.
@@ -155,20 +156,24 @@ export function ratingCounts(finished: Finish[]): number[] {
   return counts;
 }
 
+/** Where a title has waited: yours, or — on a share, which addresses nobody — the board's. */
+const IN_THE_BACKLOG: Voiced<string> = { own: 'in your backlog', shared: 'in the backlog' };
+
 /**
  * How long a title has waited, in the days here.
  *
  * "In your backlog" when the column history says when it arrived. "Added" when all there is to go
  * on is the day the pass was made, which for a title moved since is earlier than its wait began —
- * so the page claims only what it knows.
+ * so the page claims only what it knows. "Added" is about nobody in particular already, so only
+ * the first is said differently on a share.
  */
-export function waited(title: BacklogTitle, today: Day = todayHere()): string {
+export function waited(title: BacklogTitle, voice: Voice, today: Day = todayHere()): string {
   const since = title.inBacklogSince ?? title.loggedAt;
   const days = daysBetween(journalDateInput(since), today) ?? 0;
   const span = `${days} ${days === 1 ? 'day' : 'days'}`;
 
   if (title.inBacklogSince !== null) {
-    return days === 0 ? 'in your backlog since today' : `in your backlog ${span}`;
+    return days === 0 ? `${IN_THE_BACKLOG[voice]} since today` : `${IN_THE_BACKLOG[voice]} ${span}`;
   }
 
   return days === 0 ? 'added today' : `added ${span} ago`;

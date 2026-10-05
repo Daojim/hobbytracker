@@ -19,6 +19,24 @@ public interface IStatsService
 }
 
 /// <summary>
+/// The Stats page as a share reads it: its owner's, named by the caller, and never the session's.
+///
+/// <para>
+/// <b>Whole, whichever columns the share shows</b>, as decided at the #9 workshop: every finish,
+/// and what was dropped counted as a number with no titles. So these are the owner's own page,
+/// figure for figure, and the only thing a share decides about them is whether they are on it.
+/// An interface of its own for <see cref="ISharedLibrary"/>'s reason: the controller holding it
+/// can reach nothing that acts as whoever is signed in.
+/// </para>
+/// </summary>
+public interface ISharedStats
+{
+    Task<StatsDto> GetAsync(int ownerId, string hobby, int? year, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<int>> YearsAsync(int ownerId, string hobby, CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// What a year of a hobby added up to.
 ///
 /// <para>
@@ -32,21 +50,36 @@ public interface IStatsService
 /// <para>
 /// <b>Scoped by <c>log_entries.user_id</c> in <see cref="Passes"/></b>, the one place every query
 /// here starts from, as NoteService scopes. The titles are shared and the passes are not, so a
-/// query that started anywhere else would count a stranger's playthroughs as yours.
+/// query that started anywhere else would count a stranger's playthroughs as yours. Whose passes
+/// is the caller's to say: <c>user.Id</c> for your own page, the token's owner for a share's.
 /// </para>
 /// </summary>
 public sealed class StatsService(
     HobbyTrackerDbContext db,
     IJournalClock clock,
     ICurrentUser user,
-    ILibraryService library) : IStatsService
+    ILibraryService library) : IStatsService, ISharedStats
 {
-    public async Task<StatsDto> GetAsync(
-        string? hobby, int? year, CancellationToken cancellationToken)
+    public Task<StatsDto> GetAsync(string? hobby, int? year, CancellationToken cancellationToken) =>
+        StatsOfAsync(user.Id, hobby, year, cancellationToken);
+
+    Task<StatsDto> ISharedStats.GetAsync(
+        int ownerId, string hobby, int? year, CancellationToken cancellationToken) =>
+        StatsOfAsync(ownerId, hobby, year, cancellationToken);
+
+    public Task<IReadOnlyList<int>> YearsAsync(string? hobby, CancellationToken cancellationToken) =>
+        YearsOfAsync(user.Id, hobby, cancellationToken);
+
+    Task<IReadOnlyList<int>> ISharedStats.YearsAsync(
+        int ownerId, string hobby, CancellationToken cancellationToken) =>
+        YearsOfAsync(ownerId, hobby, cancellationToken);
+
+    private async Task<StatsDto> StatsOfAsync(
+        int ownerId, string? hobby, int? year, CancellationToken cancellationToken)
     {
         YearSpan? span = year is { } chosen ? clock.SpanOf(chosen) : null;
 
-        var finished = await FinishedAsync(hobby, span, cancellationToken);
+        var finished = await FinishedAsync(ownerId, hobby, span, cancellationToken);
 
         return new StatsDto(
             finished,
@@ -54,18 +87,18 @@ public sealed class StatsService(
             // The column header's rules, over the year's finishes rather than a column's titles.
             HoursTally.Of(finished.Select(finish => (finish.LengthHours, finish.HoursPlayed))),
 
-            await CompletionAsync(hobby, span, cancellationToken),
+            await CompletionAsync(ownerId, hobby, span, cancellationToken),
 
             // Backlog belongs to no year, here as on the board.
-            await library.BacklogAsync(hobby, cancellationToken));
+            await library.BacklogAsync(ownerId, hobby, cancellationToken));
     }
 
-    public async Task<IReadOnlyList<int>> YearsAsync(
-        string? hobby, CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<int>> YearsOfAsync(
+        int ownerId, string? hobby, CancellationToken cancellationToken)
     {
         // Every pass that has left the queue, by the dates the page files it under. A pass in
         // Backlog has no year by rule, so a date left on one by an edit offers nothing to see.
-        var dates = await Passes(hobby)
+        var dates = await Passes(ownerId, hobby)
             .Where(entry => entry.Status != LogStatus.Backlog)
             .Select(entry => new { entry.StartedAt, entry.CompletedAt })
             .ToListAsync(cancellationToken);
@@ -73,14 +106,10 @@ public sealed class StatsService(
         return clock.YearsOf(dates.SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt }));
     }
 
-    /// <summary>Your passes, of one hobby or of all of them.</summary>
-    private IQueryable<LogEntry> Passes(string? hobby)
+    /// <summary>One owner's passes, of one hobby or of all of them.</summary>
+    private IQueryable<LogEntry> Passes(int ownerId, string? hobby)
     {
-        // Read once into a local so EF parameterises it, and so a caller with no session fails
-        // here rather than producing stats scoped to nobody.
-        var userId = user.Id;
-
-        var passes = db.LogEntries.AsNoTracking().Where(entry => entry.UserId == userId);
+        var passes = db.LogEntries.AsNoTracking().Where(entry => entry.UserId == ownerId);
 
         return string.IsNullOrWhiteSpace(hobby)
             ? passes
@@ -92,11 +121,11 @@ public sealed class StatsService(
     /// Completed, the one with its date cleared included and sorted last.
     /// </summary>
     private async Task<IReadOnlyList<FinishDto>> FinishedAsync(
-        string? hobby, YearSpan? span, CancellationToken cancellationToken)
+        int ownerId, string? hobby, YearSpan? span, CancellationToken cancellationToken)
     {
         // Completed and nothing else. A dropped pass can carry a finish date — dropping leaves a
         // completion alone — and is not a game you finished.
-        var finished = Passes(hobby).Where(entry => entry.Status == LogStatus.Completed);
+        var finished = Passes(ownerId, hobby).Where(entry => entry.Status == LogStatus.Completed);
 
         if (span is { } year)
         {
@@ -146,9 +175,9 @@ public sealed class StatsService(
     /// it has no start, since adding a title straight to Completed stamps nothing else.
     /// </summary>
     private async Task<CompletionDto> CompletionAsync(
-        string? hobby, YearSpan? span, CancellationToken cancellationToken)
+        int ownerId, string? hobby, YearSpan? span, CancellationToken cancellationToken)
     {
-        var started = Passes(hobby);
+        var started = Passes(ownerId, hobby);
 
         if (span is { } year)
         {

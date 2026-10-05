@@ -66,6 +66,61 @@ namespace HobbyTracker.Api.Data.Migrations
                     b.ToTable("auth_identities", (string)null);
                 });
 
+            modelBuilder.Entity("HobbyTracker.Api.Domain.BoardShare", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("HobbyId")
+                        .HasColumnType("integer")
+                        .HasColumnName("hobby_id");
+
+                    b.PrimitiveCollection<string[]>("Parts")
+                        .IsRequired()
+                        .HasColumnType("text[]")
+                        .HasColumnName("parts");
+
+                    b.Property<bool>("ShowsName")
+                        .HasColumnType("boolean")
+                        .HasColumnName("shows_name");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(22)
+                        .HasColumnType("character varying(22)")
+                        .HasColumnName("token");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_board_shares");
+
+                    b.HasIndex("HobbyId")
+                        .HasDatabaseName("ix_board_shares_hobby_id");
+
+                    b.HasIndex("Token")
+                        .IsUnique()
+                        .HasDatabaseName("ix_board_shares_token");
+
+                    b.HasIndex("UserId", "HobbyId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_board_shares_user_id_hobby_id");
+
+                    b.ToTable("board_shares", (string)null);
+                });
+
             modelBuilder.Entity("HobbyTracker.Api.Domain.Hobby", b =>
                 {
                     b.Property<int>("Id")
@@ -736,6 +791,27 @@ namespace HobbyTracker.Api.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_auth_identities_users_user_id");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.BoardShare", b =>
+                {
+                    b.HasOne("HobbyTracker.Api.Domain.Hobby", "Hobby")
+                        .WithMany()
+                        .HasForeignKey("HobbyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_board_shares_hobbies_hobby_id");
+
+                    b.HasOne("HobbyTracker.Api.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_board_shares_users_user_id");
+
+                    b.Navigation("Hobby");
 
                     b.Navigation("User");
                 });

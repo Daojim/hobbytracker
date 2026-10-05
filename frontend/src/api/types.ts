@@ -601,3 +601,30 @@ export interface BoardTitles {
   hobby: string;
   titles: number;
 }
+
+/**
+ * Something a share can show besides Backlog, which every share shows: four columns, by their
+ * `LogStatus` names, then the calendar and the Stats page. A share stores the parts it shows, so a
+ * part added to the app later is off every existing share until its owner ticks it.
+ */
+export type SharePart = 'InProgress' | 'OnHold' | 'Completed' | 'Dropped' | 'Upcoming' | 'Stats';
+
+/**
+ * Your board's share link, as Settings shows it: `GET /api/share?hobby=`. The address is built
+ * here rather than sent, because only the browser knows which origin it is on.
+ */
+export interface Share {
+  token: string;
+  parts: SharePart[];
+  showsName: boolean;
+}
+
+/**
+ * A share, as anybody holding its link reads it: `GET /api/shared/{token}`. `name` is null unless
+ * the owner ticked it, and no other route of a share carries it.
+ */
+export interface SharedBoard {
+  hobby: string;
+  parts: SharePart[];
+  name: string | null;
+}

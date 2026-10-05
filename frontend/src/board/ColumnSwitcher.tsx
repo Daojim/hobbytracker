@@ -1,10 +1,9 @@
 import { useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useDndContext, useDroppable, type UniqueIdentifier } from '@dnd-kit/core';
-import { columnQuery } from './Column';
-import { yearFor } from './keys';
+import type { ColumnRequest } from './Column';
 import type { BoardColumn } from '../hobbies';
-import type { LibrarySort, LogStatus } from '../api/types';
+import type { LogStatus } from '../api/types';
 
 /** The id a segment answers to as a drop target, beside a column's `column:` ids. */
 export const segmentId = (status: LogStatus) => `segment:${status}`;
@@ -23,11 +22,15 @@ const SEGMENT_TRACKS: Readonly<Record<number, string>> = {
 };
 
 export interface ColumnSwitcherProps {
-  hobby: string;
   /** The columns the board is drawing, which are the ones there are to switch between. */
   columns: readonly BoardColumn[];
-  sorts: Record<LogStatus, LibrarySort>;
-  year: number | undefined;
+
+  /**
+   * Each column's own request, which its count is read from: your board's, or a share's. The
+   * column on screen shares its fetch with its segment, because they are the same request.
+   */
+  requestFor: (status: LogStatus) => ColumnRequest;
+
   shown: LogStatus;
   onShow: (status: LogStatus) => void;
   /** A card is being carried, so the switcher is a drop target and has to be seen as one. */
@@ -51,24 +54,18 @@ export interface ColumnSwitcherProps {
  * which a screen reader can then say. Each name and its count are one accessible name, "Backlog
  * 4", which is what the column's own heading says too.
  *
- * Its counts are the columns' own answers, from `columnQuery`. The column on screen shares its
- * fetch with its segment, and every other column is fetched once, as it was side by side. So
- * choosing a column shows what is already known about it, and a move counts at once in the
- * column it went to, because a move writes those same cached answers.
+ * Its counts are the columns' own answers, from each column's request. The column on screen
+ * shares its fetch with its segment, and every other column is fetched once, as it was side by
+ * side. So choosing a column shows what is already known about it, and a move counts at once in
+ * the column it went to, because a move writes those same cached answers.
+ *
+ * **On a share it is the same switcher outside any drag.** Rendered with no `DndContext` above
+ * it, its segments register on dnd-kit's defaults, which reach nothing: there is nothing on a
+ * share to carry, and nowhere a card could land. Found while rendering the #9 workshop.
  */
-export function ColumnSwitcher({
-  hobby,
-  columns,
-  sorts,
-  year,
-  shown,
-  onShow,
-  lifted,
-}: ColumnSwitcherProps) {
+export function ColumnSwitcher({ columns, requestFor, shown, onShow, lifted }: ColumnSwitcherProps) {
   const totals = useQueries({
-    queries: columns.map(({ status }) =>
-      columnQuery(hobby, status, sorts[status], yearFor(status, year)),
-    ),
+    queries: columns.map(({ status }) => requestFor(status)),
   });
 
   // Where the switcher sits when nothing has scrolled it. Sticky, it reports the top of the

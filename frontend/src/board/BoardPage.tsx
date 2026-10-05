@@ -6,29 +6,21 @@ import { activityYears } from '../api/library';
 import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
-import { Column } from './Column';
+import { Column, columnQuery } from './Column';
 import { ColumnSwitcher } from './ColumnSwitcher';
-import { ComingSoon } from './ComingSoon';
+import { ComingSoon, upcomingQuery } from './ComingSoon';
 import { EntryDrawer } from '../journal/EntryDrawer';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { useBoard } from './useBoard';
 import { YearPicker } from './YearPicker';
-import { yearFor, yearsKey } from './keys';
+import { ALL_MANUAL, yearFor, yearsKey } from './keys';
 import { BOARD_GAP, SIDE_BY_SIDE, boardTracks } from './grid';
 import { useHiddenColumns } from './hiddenColumns';
 import { columnsFor, hobbyDefinition } from '../hobbies';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby, statsPath } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
 import type { LibrarySort, LogStatus } from '../api/types';
-
-const ALL_MANUAL: Record<LogStatus, LibrarySort> = {
-  Backlog: 'manual',
-  InProgress: 'manual',
-  OnHold: 'manual',
-  Completed: 'manual',
-  Dropped: 'manual',
-};
 
 export function BoardPage() {
   const { hobby } = useParams();
@@ -221,10 +213,10 @@ function Board({ hobby }: { hobby: Hobby }) {
                   drawn with only Backlog on the board, where there is nothing to choose. */}
               {switching && (
                 <ColumnSwitcher
-                  hobby={hobby}
                   columns={columns}
-                  sorts={sorts}
-                  year={year}
+                  requestFor={(status) =>
+                    columnQuery(hobby, status, sorts[status], yearFor(status, year))
+                  }
                   shown={showing.status}
                   onShow={setShown}
                   lifted={board.dragging !== null}
@@ -318,6 +310,9 @@ function Board({ hobby }: { hobby: Hobby }) {
         <ComingSoon
           hobby={hobby}
           columns={columns.length}
+          query={upcomingQuery(hobby)}
+          voice="own"
+          remembers
           onOpen={(mediaId) => {
             openedFrom.current = mediaId;
             setAskHowLong(false);

@@ -198,6 +198,11 @@ export const TV: HobbyDefinition = {
   // No spreadsheet in Settings yet, for that reason again. The API already answers the export
   // for every hobby. See HobbyDefinition.export.
   export: null,
+
+  // No share link yet either. The API would make one of this board, and answer it; turning it on
+  // is this block, and the board's columns and calendar need nothing more. See
+  // HobbyDefinition.share.
+  share: null,
 };
 
 /**
