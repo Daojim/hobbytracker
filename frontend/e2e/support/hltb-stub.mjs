@@ -2,9 +2,9 @@
  * A stand-in for HowLongToBeat — the site, not an API, because there is no API to stand in for.
  *
  * The point of this stub is that the *real* code path runs against it. HLTB's access shape is
- * four legs of rediscovery and an anti-bot check, all of it worked out by spike and none of it
- * configurable, so a stub that only answered searches would leave the interesting half of
- * `Integrations/Hltb` unexercised and green. This serves all of it:
+ * four legs of rediscovery and a token bound to whoever asked for it, all of it worked out by
+ * spike and none of it configurable, so a stub that only answered searches would leave the
+ * interesting half of `Integrations/Hltb` unexercised and green. This serves all of it:
  *
  *   1. GET /                          the home page, naming the bundles
  *   2. GET /_next/static/chunks/*.js  the bundles, one of which carries the endpoint's name
@@ -13,9 +13,14 @@
  *   5. GET /game/{id}                 one game by id, with no handshake at all
  *
  * The checks below are not invention. Each is a fact measured against the live site and written
- * down in CLAUDE.md, and enforcing them here is what makes a run fail if somebody drops the
- * Referer or lets the User-Agent drift out of `HltbClient.Identify` — which are two of the three
- * things that were green against stubs while the real site refused three times running.
+ * down in docs/games-hltb.md, and enforcing them here is what makes a run fail if somebody drops
+ * the Referer or lets the User-Agent drift out of `HltbClient.Identify` — which are two of the
+ * three things that were green against stubs while the real site refused three times running.
+ *
+ * It serves the handshake as the site has since 23 September 2026: a token, and no key and value
+ * for the search to send back. The site dropped those that afternoon and a session that insisted
+ * on them failed every automatic lookup for thirteen days, so a stub still handing them out is
+ * exactly the one that would have stayed green through it.
  */
 import { createServer } from 'node:http';
 
@@ -104,13 +109,16 @@ const asPageGame = (game) => ({ ...asSearchResult(game), release_world: game.yea
  * one a reader meets, which is exactly what the community clients take and what answers 404 on
  * the real site; it is here so that "take the first POST fetch" fails this suite rather than
  * passing it. Only `warble/site` is also referenced with /init, so only it is the search.
+ *
+ * The handshake is asked for in a template literal, because the real bundle asks for it in one —
+ * so the backtick in the pair rule's pattern is exercised here and not only in a unit test.
  */
 const BUNDLE = [
   '(self.webpackChunk=self.webpackChunk||[]).push([[404],{',
   '8813:(e,t,n)=>{const r=async(i)=>fetch("/api/game",{method:"POST",body:JSON.stringify(i)});',
-  'const o=async()=>{const s=await fetch("/api/' + SEARCH_PATH + '/init?"+Date.now());',
+  'const o=async()=>{const s=await fetch(`/api/' + SEARCH_PATH + '/init?t=${Date.now()}`);',
   'const c=await s.json();return fetch("/api/' + SEARCH_PATH + '",{method:"POST",headers:{',
-  '"x-auth-token":c.token,"x-hp-key":c.hpKey,"x-hp-val":c.hpVal}})};',
+  '"Content-Type":"application/json","x-auth-token":c.token}})};',
   'n.d(t,{search:()=>o,game:()=>r})}',
   '}]);',
 ].join('\n');
@@ -191,18 +199,18 @@ const server = createServer(async (request, response) => {
     }
 
     handshakes += 1;
-    const hpKey = 'ign_e2e' + handshakes;
-    const hpVal = String(Date.now());
 
-    // The real token decodes to <ms>::<ip>|<user-agent>|<hpKey>|<hpVal>.<hmac>. The User-Agent
-    // being baked in is the whole reason the search has to send the same one, so this bakes it
-    // in too and the search below checks it.
+    // The real token decodes to <ms>::<ip>|<user-agent>.<hmac>, and since 23 September 2026 it
+    // is all the handshake hands out: the hpKey and hpVal it carried until then are gone from
+    // the token, the reply and the search alike. The User-Agent being baked in is the whole
+    // reason the search has to send the same one, so this bakes it in too and the search below
+    // checks it. The count stands in for the hmac, so no two handshakes issue the same token.
     const token = Buffer.from(
-      Date.now() + '::127.0.0.1|' + request.headers['user-agent'] + '|' + hpKey + '|' + hpVal,
+      Date.now() + '::127.0.0.1|' + request.headers['user-agent'] + '.' + handshakes,
     ).toString('base64');
 
-    issued.set(token, { hpKey, hpVal, userAgent: request.headers['user-agent'] });
-    json(response, { token, hpKey, hpVal });
+    issued.set(token, { userAgent: request.headers['user-agent'] });
+    json(response, { token });
     return;
   }
 
@@ -223,22 +231,6 @@ const server = createServer(async (request, response) => {
     // about one string, where only the far end can tell you they have stopped.
     if (credentials.userAgent !== request.headers['user-agent']) {
       denied(response, 'searched under a different User-Agent than the token was issued to');
-      return;
-    }
-
-    if (
-      request.headers['x-hp-key'] !== credentials.hpKey
-      || request.headers['x-hp-val'] !== credentials.hpVal
-    ) {
-      denied(response, 'the handshake headers do not match what was issued');
-      return;
-    }
-
-    // The trap, and the reason it cost a spike to find: the body has to carry a property whose
-    // *name* is the hpKey. Without it the real endpoint answers 404 rather than 403, so a failed
-    // anti-bot check reads as a wrong URL and sends you hunting for a path suffix.
-    if (body[credentials.hpKey] !== credentials.hpVal) {
-      response.writeHead(404).end();
       return;
     }
 

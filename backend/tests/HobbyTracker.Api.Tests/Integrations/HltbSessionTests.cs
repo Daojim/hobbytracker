@@ -33,16 +33,26 @@ public sealed class HltbSessionTests
         """;
 
     /// <summary>
-    /// The bundle as the site serves it today: the endpoint is /api/search/site, and the decoy
-    /// POST to /api/game/ is still the first thing a reader meets.
+    /// The bundle as the site serves it today: the endpoint is /api/search/site, the handshake
+    /// is asked for in a template literal, the search sends the token and nothing else — and the
+    /// decoy POST to /api/game/ is still the first thing a reader meets.
     /// </summary>
     private const string MultiSegmentBundle = """
         let a=await fetch("/api/game/",{method:"POST"});
-        let b=await fetch("/api/search/site/init?"+Date.now());
-        let c=await fetch("/api/search/site",{method:"POST",headers:{"x-hp-key":k}});
+        let b=await fetch(`/api/search/site/init?t=${Date.now()}`);
+        let c=await fetch("/api/search/site",{method:"POST",headers:{"x-auth-token":t}});
         """;
 
-    private const string Init =
+    /// <summary>
+    /// The handshake as the site hands it out since 23 September 2026: a token alone.
+    /// </summary>
+    private const string Init = """{"token":"tok-1"}""";
+
+    /// <summary>
+    /// The handshake as it was until then: a token, and a key and value the search had to send
+    /// back. Kept, because a shape the site has used once is a shape it may use again.
+    /// </summary>
+    private const string InitWithHp =
         """{"token":"tok-1","hpKey":"ign_abc123","hpVal":"deadbeef"}""";
 
     [Fact]
@@ -57,8 +67,60 @@ public sealed class HltbSessionTests
 
         credentials.SearchPath.ShouldBe("bleed");
         credentials.Token.ShouldBe("tok-1");
+    }
+
+    [Fact]
+    public async Task Takes_a_handshake_that_hands_out_a_token_and_nothing_else()
+    {
+        // What the site has done since 23 September 2026, when it stopped handing out an hpKey
+        // and an hpVal. A handshake without them was refused as malformed, so every automatic
+        // lookup failed from that afternoon on — while pinning by hand, which needs no
+        // handshake, went on working. The symptom was the one the rename to search/site left.
+        var session = CreateSession(out _);
+
+        var credentials = await session.GetAsync(Ct);
+
+        credentials.Token.ShouldBe("tok-1");
+        credentials.HpKey.ShouldBeNull();
+        credentials.HpVal.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Passes_on_a_key_and_value_when_the_handshake_hands_them_out()
+    {
+        // Nothing here decides the pair is gone for good. The handshake says what the search has
+        // to carry, so if the site brings it back the search sends it back with no release.
+        var session = CreateSession(out _, init: InitWithHp);
+
+        var credentials = await session.GetAsync(Ct);
+
         credentials.HpKey.ShouldBe("ign_abc123");
         credentials.HpVal.ShouldBe("deadbeef");
+    }
+
+    [Fact]
+    public async Task Still_refuses_a_handshake_with_no_token()
+    {
+        // The one value every shape of the handshake has carried, and the search is refused
+        // without it — measured: 403 "Session expired or invalid fingerprint". Letting the pair
+        // go must not let this go with it.
+        var session = CreateSession(
+            out _, init: """{"hpKey":"ign_abc123","hpVal":"deadbeef"}""");
+
+        await Should.ThrowAsync<HltbException>(session.GetAsync(Ct));
+    }
+
+    [Fact]
+    public async Task Asks_for_the_handshake_the_way_the_site_now_does()
+    {
+        // The cache-buster went from ?<ms> to ?t=<ms> in the same change. The site answers
+        // either today; asking the way its own JavaScript asks keeps that from being a question.
+        var session = CreateSession(out var stub);
+
+        await session.GetAsync(Ct);
+
+        stub.Requests.Single(request => request.Uri!.AbsolutePath.EndsWith("/init"))
+            .Uri!.Query.ShouldMatch(@"^\?t=\d+$");
     }
 
     [Fact]
@@ -158,7 +220,10 @@ public sealed class HltbSessionTests
     }
 
     private static HltbSession CreateSession(
-        out StubHttpMessageHandler stub, string bundle = Bundle, string? fallback = null)
+        out StubHttpMessageHandler stub,
+        string bundle = Bundle,
+        string? fallback = null,
+        string init = Init)
     {
         stub = new StubHttpMessageHandler((request, _) =>
         {
@@ -168,7 +233,7 @@ public sealed class HltbSessionTests
             {
                 "/" => Respond(Home, "text/html"),
                 "/_next/static/chunks/app.js" => Respond(bundle, "application/javascript"),
-                _ when path.EndsWith("/init") => Respond(Init, "application/json"),
+                _ when path.EndsWith("/init") => Respond(init, "application/json"),
                 _ => new HttpResponseMessage(HttpStatusCode.NotFound),
             };
         });

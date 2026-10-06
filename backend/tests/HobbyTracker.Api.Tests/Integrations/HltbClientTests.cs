@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Tests.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -10,7 +11,8 @@ namespace HobbyTracker.Api.Tests.Integrations;
 /// Talking to HowLongToBeat, which has no API and does not want to be talked to by a program.
 ///
 /// Two routes with almost nothing in common. A search goes through the endpoint whose name the
-/// session had to find, and has to carry the handshake in the headers *and* in the body. Fetching
+/// session had to find, and carries back whatever the handshake handed out — the token always,
+/// and a key and value in the headers *and* the body whenever there are any. Fetching
 /// a title already pinned to an id is an ordinary GET of an ordinary page, with the answer parsed
 /// out of the JSON Next.js leaves embedded in it — no handshake at all, which is what keeps a
 /// pinned title refreshable even while the search endpoint is renamed out from under us.
@@ -33,16 +35,81 @@ public sealed class HltbClientTests
         }]}
         """;
 
+    /// <summary>
+    /// The handshake as the site hands it out since 23 September 2026: a token alone.
+    /// </summary>
+    private static readonly HltbCredentials TokenOnly = new("search/site", "tok-1");
+
+    /// <summary>
+    /// The handshake as it was until then, and as it may be again: a token, and a key and value
+    /// the search has to send back.
+    /// </summary>
+    private static readonly HltbCredentials WithHp =
+        new("bleed", "tok-1", "ign_abc123", "deadbeef");
+
     // ------------------------------------------------------------------ search
+
+    [Fact]
+    public async Task Sends_the_token_and_nothing_else_when_that_is_all_the_handshake_gave()
+    {
+        // The site's own search since 23 September 2026: the token in a header, and a body with
+        // no property named after anything. Until this passed, a search could not be sent at
+        // all without a key and value to send back — and the handshake had stopped giving any.
+        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)));
+
+        await client.SearchAsync("Hollow Knight", Ct);
+
+        var request = stub.Requests[0];
+        request.Uri!.AbsolutePath.ShouldBe("/api/search/site");
+        request.Header("x-auth-token").ShouldBe("tok-1");
+        request.Header("x-hp-key").ShouldBeNull();
+        request.Header("x-hp-val").ShouldBeNull();
+
+        JsonDocument.Parse(request.Body!).RootElement.EnumerateObject()
+            .Select(property => property.Name)
+            .ShouldBe(
+                ["searchType", "searchTerms", "searchPage", "size", "searchOptions", "useCache"]);
+    }
+
+    [Fact]
+    public async Task Asks_with_the_filters_in_the_shape_the_site_now_sends()
+    {
+        // Not what broke. The same change moved the site's filters from strings to include-lists
+        // and swapped difficulty and the year range for a year filter of that kind, and the old
+        // body still answered "Lies of P" byte for byte. But the rule here has always been the
+        // site's own request shape — the one it will be last to stop accepting.
+        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)));
+
+        await client.SearchAsync("Hollow Knight", Ct);
+
+        var games = JsonNode.Parse(stub.Requests[0].Body!)!["searchOptions"]!["games"];
+        JsonNode.DeepEquals(games, JsonNode.Parse("""
+            {
+              "userId": 0,
+              "platform": { "mode": "include", "values": [] },
+              "sortCategory": "popular",
+              "rangeCategory": "main",
+              "rangeTime": { "min": null, "max": null },
+              "gameplay": {
+                "perspective": { "mode": "include", "values": [] },
+                "flow": { "mode": "include", "values": [] },
+                "genre": { "mode": "include", "values": [] }
+              },
+              "year": { "mode": "include", "values": [] },
+              "modifier": ""
+            }
+            """)).ShouldBeTrue(games?.ToJsonString());
+    }
 
     [Fact]
     public async Task Carries_the_anti_bot_value_as_a_property_named_by_its_own_key()
     {
-        // The trap, and the one worth a test of its own. The check is not only in the headers:
+        // The trap, and the one worth a test of its own, whenever the handshake hands out a key
+        // and value — as it did until 23 September 2026. The check is not only in the headers:
         // the body has to gain a property whose *name* is the hpKey. Without it the endpoint
         // answers 404 rather than 403 — so a failed anti-bot check reads as a wrong URL, and
         // sends you hunting for a path suffix that was never there.
-        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)));
+        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)), WithHp);
 
         await client.SearchAsync("Hollow Knight", Ct);
 
@@ -53,7 +120,7 @@ public sealed class HltbClientTests
     [Fact]
     public async Task Carries_the_handshake_in_the_headers_too()
     {
-        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)));
+        var client = CreateClient(out var stub, Responses(Ok(HollowKnight)), WithHp);
 
         await client.SearchAsync("Hollow Knight", Ct);
 
@@ -334,13 +401,16 @@ public sealed class HltbClientTests
             .GetProperty("searchTerms").EnumerateArray().Select(term => term.GetString());
 
     private static HltbClient CreateClient(
-        out StubHttpMessageHandler stub, (HttpStatusCode, string, string)[] responses) =>
-        CreateClient(out stub, responses, out _);
+        out StubHttpMessageHandler stub,
+        (HttpStatusCode, string, string)[] responses,
+        HltbCredentials? handshake = null) =>
+        CreateClient(out stub, responses, out _, handshake);
 
     private static HltbClient CreateClient(
         out StubHttpMessageHandler stub,
         (HttpStatusCode, string, string)[] responses,
-        out FakeHltbSession session)
+        out FakeHltbSession session,
+        HltbCredentials? handshake = null)
     {
         stub = new StubHttpMessageHandler((_, index) =>
         {
@@ -354,7 +424,7 @@ public sealed class HltbClientTests
             };
         });
 
-        session = new FakeHltbSession();
+        session = new FakeHltbSession(handshake ?? TokenOnly);
 
         return new HltbClient(
             new HttpClient(stub) { BaseAddress = new Uri("https://howlongtobeat.com/") },
@@ -364,7 +434,7 @@ public sealed class HltbClientTests
     }
 
     /// <summary>Records whether it was consulted, so the pinned route can prove it was not.</summary>
-    private sealed class FakeHltbSession : IHltbSession
+    private sealed class FakeHltbSession(HltbCredentials handshake) : IHltbSession
     {
         public bool Asked { get; private set; }
         public int InvalidateCount { get; private set; }
@@ -372,7 +442,7 @@ public sealed class HltbClientTests
         public Task<HltbCredentials> GetAsync(CancellationToken cancellationToken)
         {
             Asked = true;
-            return Task.FromResult(new HltbCredentials("bleed", "tok-1", "ign_abc123", "deadbeef"));
+            return Task.FromResult(handshake);
         }
 
         public void Invalidate() => InvalidateCount++;
