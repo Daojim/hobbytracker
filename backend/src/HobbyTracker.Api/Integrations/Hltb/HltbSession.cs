@@ -5,10 +5,12 @@ using Microsoft.Extensions.Options;
 namespace HobbyTracker.Api.Integrations.Hltb;
 
 /// <summary>
-/// What a search has to carry to be answered: where to send it, and the handshake values that
-/// prove the caller loaded the page first.
+/// What a search has to carry to be answered: where to send it, the token that proves the
+/// caller loaded the page first, and — only when the handshake hands them out — a key and value
+/// the search has to send back.
 /// </summary>
-public sealed record HltbCredentials(string SearchPath, string Token, string HpKey, string HpVal);
+public sealed record HltbCredentials(
+    string SearchPath, string Token, string? HpKey = null, string? HpVal = null);
 
 public interface IHltbSession
 {
@@ -83,8 +85,8 @@ public sealed partial class HltbSession(
 
         var searchPath = await DiscoverSearchPathAsync(client, cancellationToken);
 
-        // The cache-buster is the site's own doing; it asks with the epoch in milliseconds.
-        var initPath = $"api/{searchPath}/init?{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+        // The cache-buster is the site's own doing; it asks with the epoch in milliseconds, as t.
+        var initPath = $"api/{searchPath}/init?t={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
         var body = await ReadAsync(client, initPath, cancellationToken);
 
         HltbHandshake? handshake;
@@ -97,19 +99,27 @@ public sealed partial class HltbSession(
             throw new HltbException("HowLongToBeat's handshake could not be parsed.", exception);
         }
 
-        if (handshake is null
-            || string.IsNullOrEmpty(handshake.Token)
-            || string.IsNullOrEmpty(handshake.HpKey)
-            || string.IsNullOrEmpty(handshake.HpVal))
+        if (handshake is null || string.IsNullOrEmpty(handshake.Token))
         {
-            throw new HltbException(
-                $"HowLongToBeat's handshake at /{initPath} did not carry the expected values.");
+            throw new HltbException($"HowLongToBeat's handshake at /{initPath} carried no token.");
         }
 
-        logger.LogInformation(
-            "HowLongToBeat session established against /api/{SearchPath}.", searchPath);
+        // The key and value are the handshake's to hand out, not this class's to insist on.
+        // Until 23 September 2026 every handshake carried them; since then the site hands out a
+        // token alone, and refusing that as malformed is what stopped every automatic lookup —
+        // in the background, where nothing said so. Passed on whole or not at all: half a pair
+        // is nothing the search could send back.
+        var hasHp = !string.IsNullOrEmpty(handshake.HpKey)
+                    && !string.IsNullOrEmpty(handshake.HpVal);
 
-        return new HltbCredentials(searchPath, handshake.Token, handshake.HpKey, handshake.HpVal);
+        logger.LogInformation(
+            "HowLongToBeat session established against /api/{SearchPath}, {Carrying}.",
+            searchPath,
+            hasHp ? "with a key and value to send back" : "with a token alone");
+
+        return hasHp
+            ? new HltbCredentials(searchPath, handshake.Token, handshake.HpKey, handshake.HpVal)
+            : new HltbCredentials(searchPath, handshake.Token);
     }
 
     /// <summary>

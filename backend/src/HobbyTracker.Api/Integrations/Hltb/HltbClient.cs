@@ -44,17 +44,19 @@ public interface IHltbClient
 /// Reads HowLongToBeat, which publishes no API and would rather not be read by a program.
 ///
 /// Two routes with almost nothing in common. A search goes to the endpoint whose name
-/// <see cref="IHltbSession"/> had to find, carrying the handshake in the headers *and* as a
-/// property of the body. Fetching a game already pinned to an id is an ordinary page fetch with
-/// the answer parsed out of the JSON Next.js leaves embedded in it, and needs no handshake at
-/// all — which is what keeps a pinned title refreshable on a day the search endpoint has been
-/// renamed out from under us.
+/// <see cref="IHltbSession"/> had to find, carrying back whatever the handshake handed out: the
+/// token always, and a key and value in the headers *and* as a property of the body whenever
+/// there are any. Fetching a game already pinned to an id is an ordinary page fetch with the
+/// answer parsed out of the JSON Next.js leaves embedded in it, and needs no handshake at all —
+/// which is what keeps a pinned title refreshable on a day the search endpoint has been renamed
+/// out from under us.
 ///
 /// The retry lives here rather than in a DelegatingHandler, which is where the IGDB equivalent
-/// would put it, and the difference is not stylistic: the credential is partly in the *body*, so
-/// a handler replaying a 403 would resend the stale one and fail the very check it was retrying
-/// for. Rewriting request JSON inside a handler is worse than the coupling it would avoid, and
-/// the site's own JavaScript does exactly this in one function.
+/// would put it, and the difference is not stylistic: the credential can be partly in the
+/// *body* — it was until 23 September 2026, and is again whenever a handshake hands out a key —
+/// so a handler replaying a 403 would resend the stale one and fail the very check it was
+/// retrying for. Rewriting request JSON inside a handler is worse than the coupling it would
+/// avoid, and the site's own JavaScript does exactly this in one function.
 /// </summary>
 public sealed partial class HltbClient(
     HttpClient httpClient,
@@ -153,8 +155,14 @@ public sealed partial class HltbClient(
 
         Identify(request);
         request.Headers.TryAddWithoutValidation("x-auth-token", credentials.Token);
-        request.Headers.TryAddWithoutValidation("x-hp-key", credentials.HpKey);
-        request.Headers.TryAddWithoutValidation("x-hp-val", credentials.HpVal);
+
+        // Only when the handshake handed them out, as it did until 23 September 2026.
+        if (credentials is { HpKey: { } hpKey, HpVal: { } hpVal })
+        {
+            request.Headers.TryAddWithoutValidation("x-hp-key", hpKey);
+            request.Headers.TryAddWithoutValidation("x-hp-val", hpVal);
+        }
+
         request.Headers.TryAddWithoutValidation("Origin", _options.BaseUrl.TrimEnd('/'));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
 
@@ -228,12 +236,16 @@ public sealed partial class HltbClient(
     /// <summary>
     /// The site's own request shape, rather than the shorter one the community clients send.
     ///
-    /// The last line is the whole anti-bot check and the reason this is a JsonObject and not a
-    /// typed record: the body has to carry a property whose *name* is the handshake's key. Miss
-    /// it and the endpoint answers 404 rather than 403, so a failed check reads as a wrong URL.
+    /// The last step is the whole anti-bot check whenever the handshake hands out a key, and the
+    /// reason this is a JsonObject and not a typed record: the body has to carry a property
+    /// whose *name* is that key. Miss it and the endpoint answers 404 rather than 403, so a
+    /// failed check reads as a wrong URL. The site stopped handing the pair out on
+    /// 23 September 2026, and its own search stopped sending it — so the handshake decides
+    /// whether there is a property to add, and nothing here assumes either way.
     /// </summary>
-    private static JsonObject BuildPayload(string[] terms, HltbCredentials credentials) =>
-        new()
+    private static JsonObject BuildPayload(string[] terms, HltbCredentials credentials)
+    {
+        var payload = new JsonObject
         {
             ["searchType"] = "games",
             ["searchTerms"] = new JsonArray([.. terms.Select(term => JsonValue.Create(term))]),
@@ -244,22 +256,17 @@ public sealed partial class HltbClient(
                 ["games"] = new JsonObject
                 {
                     ["userId"] = 0,
-                    ["platform"] = string.Empty,
+                    ["platform"] = Unfiltered(),
                     ["sortCategory"] = "popular",
                     ["rangeCategory"] = "main",
                     ["rangeTime"] = new JsonObject { ["min"] = null, ["max"] = null },
                     ["gameplay"] = new JsonObject
                     {
-                        ["perspective"] = string.Empty,
-                        ["flow"] = string.Empty,
-                        ["genre"] = string.Empty,
-                        ["difficulty"] = string.Empty,
+                        ["perspective"] = Unfiltered(),
+                        ["flow"] = Unfiltered(),
+                        ["genre"] = Unfiltered(),
                     },
-                    ["rangeYear"] = new JsonObject
-                    {
-                        ["min"] = string.Empty,
-                        ["max"] = string.Empty,
-                    },
+                    ["year"] = Unfiltered(),
                     ["modifier"] = string.Empty,
                 },
                 ["users"] = new JsonObject { ["sortCategory"] = "postcount" },
@@ -269,8 +276,23 @@ public sealed partial class HltbClient(
                 ["randomizer"] = 0,
             },
             ["useCache"] = true,
-            [credentials.HpKey] = credentials.HpVal,
         };
+
+        if (credentials is { HpKey: { } hpKey, HpVal: { } hpVal })
+        {
+            payload[hpKey] = hpVal;
+        }
+
+        return payload;
+    }
+
+    /// <summary>
+    /// A filter that narrows nothing, as the site's own search has sent one since
+    /// 23 September 2026: an include-list with nothing in it, where it used to be an empty
+    /// string. A new one each time, because a JsonNode belongs to exactly one parent.
+    /// </summary>
+    private static JsonObject Unfiltered() =>
+        new() { ["mode"] = "include", ["values"] = new JsonArray() };
 
     /// <summary>
     /// Says who is calling, on every request this client makes.

@@ -25,8 +25,8 @@ that unofficial clients wrap and that has broken those clients for months at a s
 break as expected**: stored numbers persist, a title added during an outage shows nothing, and
 `Hltb:Enabled` turns the worker off without a release.
 
-**The access shape**, established by spike and correct as of August 2026. All of it is rediscovered
-at runtime rather than configured, because all of it moves:
+**The access shape**, established by spike in August 2026 and re-measured on 6 October 2026. All of
+it is rediscovered at runtime rather than configured, because all of it moves:
 
 1. `GET /` → the Next.js bundles under `/_next/static/chunks/*.js`.
 2. **The pair rule**: the search endpoint is whichever `/api/X` is *also* referenced as
@@ -35,12 +35,15 @@ at runtime rather than configured, because all of it moves:
    clients do — picks `/api/game/`, which answers **404**, and a 404 reads as a wrong URL rather than
    a wrong rule. `Hltb:FallbackSearchPath` is where to correct the next rename without a release, and
    it has to be **kept current to be worth anything**.
-3. `GET /api/{X}/init?<epoch-ms>` → `{"token":..., "hpKey":"ign_...", "hpVal":...}`. The token decodes
-   to `<ms>::<your-ip>|<your-user-agent>|<hpKey>|<hpVal>.<hmac>`.
-4. `POST /api/{X}` with `x-auth-token`, `x-hp-key`, `x-hp-val` — **and the body carrying a property
-   whose *name* is the hpKey.** Without it the endpoint answers 404, not 403, so a failed anti-bot
-   check looks exactly like a wrong URL. A 403 means the token has gone off: re-run the handshake and
-   retry **once**, as the site's own JavaScript does.
+3. `GET /api/{X}/init?t=<epoch-ms>` → `{"token":...}`. The token decodes to
+   `<ms>::<your-ip>|<your-user-agent>.<hmac>`. **Until 23 September 2026 it also handed out
+   `"hpKey":"ign_..."` and `"hpVal":...`**, both baked into the token as well — see **The handshake
+   stopped handing out a pair** below.
+4. `POST /api/{X}` with `x-auth-token` — and, **whenever the handshake hands out a key and value**,
+   `x-hp-key`, `x-hp-val` and a body property whose *name* is the hpKey. Without that property the
+   endpoint answered 404, not 403, so a failed anti-bot check looked exactly like a wrong URL. A 403
+   means the token has gone off: re-run the handshake and retry **once**, as the site's own
+   JavaScript does.
 
 **`User-Agent` and `Referer` are both load-bearing, measured rather than guessed** — the handshake
 answers `403 Access Denied` without either and 200 with both, where `Accept` and `Origin` make no
@@ -79,6 +82,53 @@ one pair resolves the same way twice.
 shape, and `hltb-stub.mjs` serves `warble/site` rather than `warble`. That the stub was a single word
 for as long as the site was is exactly how the suite stayed green while the app was broken — **a stub
 that mirrors only today's shape cannot warn you about tomorrow's.**
+
+#### The handshake stopped handing out a pair, and insisting on one broke it all again
+
+On **23 September 2026, between 14:17 and 17:57 Eastern**, HowLongToBeat stopped handing out
+`hpKey` and `hpVal`. The handshake answers `{"token":...}` alone, the token no longer carries them,
+and the site's own search sends `x-auth-token` and nothing else: no `x-hp-*` headers, no property
+named by a key. `HltbSession` refused a handshake without the pair as malformed — *"did not carry the
+expected values"* — so every automatic lookup failed at the handshake, before a search was sent.
+
+**It ran for thirteen days**, found on 6 October when Lies of P came back with no hours and no id.
+The production log held 28 of those exceptions over the 25 hours it went back, and nothing else from
+the worker; 57 titles on boards had never been answered. The database dates it exactly: first-time
+adds were stamped within seconds of being added until 14:17 that day, Resident Evil 2 through Grand
+Theft Auto V: Special Edition, and from Resident Evil Veronica at 17:57 none was. Every stamp after
+that was a fetch by id — a title that already held one, or one pinned by hand. The symptom was the
+slash's sentence word for word, **with a second half that looked like rate limiting**: a title
+already holding an id still filled in when it was added again, because fetching by id needs no
+handshake. It was not — the log held no 429.
+
+**The rule now: the handshake decides what the search carries.** A token is still required, because
+the search is refused without one. The pair is passed on whole when the handshake hands one out and
+not at all when it does not, so its coming back needs no release, and the log line that opens a
+session says which it got. `Takes_a_handshake_that_hands_out_a_token_and_nothing_else` is the
+regression; `Passes_on_a_key_and_value_when_the_handshake_hands_them_out` and
+`Still_refuses_a_handshake_with_no_token` keep the loosening from going further than it should.
+Against the old code, every session test that reached the handshake failed with the production log's
+own sentence.
+
+Re-measured the same day, and still true:
+
+| sent | answer |
+|---|---|
+| the handshake without a `Referer` | **403** `{"error":"Access Denied"}` |
+| a search under a User-Agent other than the token's | **403** `{"error":"Session expired or invalid fingerprint"}` |
+| a search with no token at all | **403**, the same body |
+
+**The same change made two more moves, and neither is what broke.** The handshake is asked for with
+`?t=<ms>` rather than `?<ms>`. And the search's filters became include-lists — `platform`,
+`perspective`, `flow` and `genre` went from `""` to `{"mode":"include","values":[]}`, `difficulty` went,
+and `rangeYear` became a `year` list of the same kind. The old body still answered Lies of P byte for
+byte, 5,551 bytes either way. The client follows both anyway, because its rule has always been the
+site's own request shape, and that is the one the site will be last to stop accepting.
+
+**The site's own search now handles a 429** — *"Too many searches, please wait a minute and try
+again."* — and did not before. None was seen here, and nothing publishes the limit. A 429 is a failure
+like any other, so the title keeps its null stamp and the next backfill finds it again. **After a
+large backfill, look in the log for 429s** before concluding that every title was asked.
 
 #### A colon can empty the search, so the terms are cleaned first
 
@@ -130,9 +180,10 @@ over every submission. **Do not compute this.**
 arrive at once, invalidated from outside. Nothing expires it on a timer: the token's lifetime is
 HLTB's to know, so any guess fails either by refusing a good token or keeping a stale one. But:
 
-- **The 403 retry lives in `HltbClient`, not in a `DelegatingHandler`.** The credential is partly in
-  the request *body*, so a handler replaying a 403 would resend the stale one and fail the very check
-  it was retrying for. **Identity is stamped per request** for the same family of reasons.
+- **The 403 retry lives in `HltbClient`, not in a `DelegatingHandler`.** The credential can be partly
+  in the request *body* — it was until 23 September 2026, and is whenever a handshake hands out a key —
+  so a handler replaying a 403 would resend the stale one and fail the very check it was retrying
+  for. **Identity is stamped per request** for the same family of reasons.
 - **The throttle does stay a handler**, rate limiting being a transport concern — but **its state is a
   singleton beside it**, since `IHttpClientFactory` rebuilds the chain every couple of minutes and a
   timestamp on the handler would reset on a schedule nothing in that file controls. Politeness, not
@@ -313,10 +364,13 @@ choices, each of which stops a spec passing for the wrong reason:
 - **The bundle carries a decoy.** `/api/game` is referenced from a POST fetch and is the first one a
   reader meets — what the community clients take, and what answers 404 on the real site. It is there
   so "take the first POST fetch" fails this suite rather than passing it.
-- **The identity checks are enforced, not decorative.** No User-Agent or no Referer is a 403, a search
-  under a different User-Agent than the token was issued to is a 403, and a search without the
-  hpKey-named body property is a **404**, not a 403, because that is what the real endpoint does and
-  the wrong status is the trap.
+- **The identity checks are enforced, not decorative.** No User-Agent or no Referer is a 403, and a
+  search under a different User-Agent than the token was issued to is a 403.
+- **Its handshake is today's: a token and nothing else.** It used to hand out the pair the site
+  did, which is why it stayed green through the thirteen days the site's pair was missing. Checked by
+  putting the old rule back — a session that insists on the pair — and **all eleven specs in
+  `hltb.spec.ts` fail**, each waiting for a lookup that never lands. The hpKey-named property and its
+  404 are `HltbClientTests`' to pin now, against the day the pair comes back.
 - **The search takes a moment** — `SEARCH_DELAY_MS` 600ms on the search alone, the by-id fetch still
   instant. It answered instantly once, which let the refetch that follows an add win a race it always
   loses in production, so the spec asserting the card fills itself in passed whether or not the board
