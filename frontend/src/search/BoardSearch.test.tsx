@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http } from 'msw';
@@ -27,7 +27,7 @@ describe('BoardSearch', () => {
   it('asks IGDB nothing while the box is empty', async () => {
     const search = searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await waitFor(() => expect(box()).toBeInTheDocument());
 
     expect(search.searches).toEqual([]);
@@ -37,7 +37,7 @@ describe('BoardSearch', () => {
     // The bar is always there; the strip is not. An empty box costs the board no room.
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await waitFor(() => expect(box()).toBeInTheDocument());
 
     expect(strip()).not.toBeInTheDocument();
@@ -48,7 +48,7 @@ describe('BoardSearch', () => {
     // not be six searches.
     const search = searchServer({ results: [game()] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
     expect(search.searches).toEqual([]);
 
@@ -64,7 +64,7 @@ describe('BoardSearch', () => {
       ],
     });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
 
     await waitFor(() =>
@@ -78,7 +78,7 @@ describe('BoardSearch', () => {
   it('says when nothing matched, rather than showing an empty strip', async () => {
     searchServer({ results: [] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'zzzz');
 
     expect(await screen.findByText('Nothing matched “zzzz”.')).toBeInTheDocument();
@@ -89,7 +89,7 @@ describe('BoardSearch', () => {
     // the distinction — so this should not flatten it back into "something went wrong".
     searchServer({ searchStatus: 502 });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
 
     expect(await screen.findByRole('alert')).toHaveTextContent('IGDB is unhappy.');
@@ -98,7 +98,7 @@ describe('BoardSearch', () => {
   it('puts a result on the backlog', async () => {
     const search = searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
     await userEvent.click(
       await screen.findByRole('button', { name: 'Add Hollow Knight to backlog' }),
@@ -112,7 +112,7 @@ describe('BoardSearch', () => {
     // so nothing here sends one.
     const search = searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
     await userEvent.click(
       await screen.findByRole('button', { name: 'Add Hollow Knight to playing' }),
@@ -126,7 +126,7 @@ describe('BoardSearch', () => {
     // never answers again, so the tile can only change on the add's own write.
     searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
     const add = await screen.findByRole('button', { name: 'Add Hollow Knight to completed' });
 
@@ -135,7 +135,42 @@ describe('BoardSearch', () => {
 
     const tile = (await screen.findByRole('heading', { name: 'Hollow Knight' })).closest('li')!;
     await waitFor(() => expect(tile).toHaveTextContent('On your board: Completed'));
-    expect(within(tile).queryByRole('button')).not.toBeInTheDocument();
+    // Nothing left to add with. The one button is the title's name, which opens its journal.
+    expect(within(tile).getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Hollow Knight',
+    ]);
+  });
+
+  it('opens the journal of a title it has just added, without a trip to the board', async () => {
+    // What this was asked for: find a game, put it on the board, and say something about it
+    // straight away rather than going to look for its card.
+    searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+    const onOpen = vi.fn();
+
+    renderWithProviders(<BoardSearch hobby="games" onOpen={onOpen} />);
+    await userEvent.type(box(), 'hollow');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add Hollow Knight to completed' }),
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Hollow Knight' }));
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(3003);
+  });
+
+  it('opens the journal of a title that was on your board before the search', async () => {
+    // The other way the strip learns where a title is: from the library it reads, rather than
+    // from an add of its own.
+    searchServer({
+      results: [game({ id: 3003, title: 'Hollow Knight' })],
+      library: [{ mediaId: 3003, status: 'InProgress' }],
+    });
+    const onOpen = vi.fn();
+
+    renderWithProviders(<BoardSearch hobby="games" onOpen={onOpen} />);
+    await userEvent.type(box(), 'hollow');
+    await userEvent.click(await screen.findByRole('button', { name: 'Hollow Knight' }));
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(3003);
   });
 
   it('says which column a title in your library is in, instead of offering it again', async () => {
@@ -144,7 +179,7 @@ describe('BoardSearch', () => {
       library: [{ mediaId: 3003, status: 'Completed' }],
     });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
 
     const tile = (await screen.findByRole('heading', { name: 'Hollow Knight' })).closest('li')!;
@@ -160,7 +195,7 @@ describe('BoardSearch', () => {
     localStorage.setItem(hiddenColumnsKey('games'), JSON.stringify(['Completed']));
     searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
 
     expect(
@@ -174,7 +209,7 @@ describe('BoardSearch', () => {
   it('gives the board back when the search is cleared', async () => {
     searchServer({ results: [game({ title: 'Hollow Knight' })] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
     await screen.findByRole('region', { name: 'Search results' });
 
@@ -188,7 +223,7 @@ describe('BoardSearch', () => {
     // dead × sitting in the box reads as something that has stopped working.
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
 
     expect(clearButton()).not.toBeInTheDocument();
 
@@ -203,7 +238,7 @@ describe('BoardSearch', () => {
     // than where it started, and only someone tabbing would ever notice.
     searchServer({ results: [game({ title: 'Hollow Knight' })] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
     await screen.findByRole('region', { name: 'Search results' });
 
@@ -219,7 +254,7 @@ describe('BoardSearch', () => {
     // Once there is typing, the strip is the answer and the offer would only be in its way.
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
 
     const offer = await screen.findByRole('link', { name: 'Browse popular games' });
     expect(offer).toHaveAttribute('href', '/board/games/discover');
@@ -236,7 +271,7 @@ describe('BoardSearch', () => {
     // every spec that finds the box by name would stop finding it. The clear button's rule.
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await screen.findByRole('link', { name: 'Browse popular games' });
 
     expect(box()).toHaveAccessibleName('Search games');
@@ -245,7 +280,7 @@ describe('BoardSearch', () => {
   it('offers nothing on a board whose hobby has no Discover page', async () => {
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="movies" />, { route: '/board/movies' });
+    renderWithProviders(<BoardSearch hobby="movies" onOpen={vi.fn()} />, { route: '/board/movies' });
     await waitFor(() =>
       expect(screen.getByRole('searchbox', { name: 'Search movies' })).toBeInTheDocument(),
     );
@@ -259,7 +294,7 @@ describe('BoardSearch', () => {
     // disagreeing about which of them the press was meant for.
     searchServer({ results: [game({ title: 'Hollow Knight' })] });
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'hollow');
     await screen.findByRole('region', { name: 'Search results' });
 
@@ -275,7 +310,7 @@ describe('BoardSearch', () => {
     // with it, so without preventDefault every search begun this way would begin with one.
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await waitFor(() => expect(box()).toBeInTheDocument());
 
     await userEvent.keyboard('/');
@@ -290,7 +325,7 @@ describe('BoardSearch', () => {
     // US one, Shift and that key make "?", which is a different key to this listener.
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await waitFor(() => expect(box()).toBeInTheDocument());
 
     await userEvent.keyboard('{Shift>}/{/Shift}');
@@ -304,7 +339,7 @@ describe('BoardSearch', () => {
     async (modifier) => {
       searchServer();
 
-      renderWithProviders(<BoardSearch hobby="games" />);
+      renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
       await waitFor(() => expect(box()).toBeInTheDocument());
 
       await userEvent.keyboard(`{${modifier}>}/{/${modifier}}`);
@@ -318,7 +353,7 @@ describe('BoardSearch', () => {
     // Fate/stay night, and most of the series after it.
     searchServer();
 
-    renderWithProviders(<BoardSearch hobby="games" />);
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} />);
     await userEvent.type(box(), 'fate/stay');
 
     expect(box()).toHaveValue('fate/stay');
@@ -341,7 +376,7 @@ describe('BoardSearch', () => {
 
     renderWithProviders(
       <>
-        <BoardSearch hobby="games" />
+        <BoardSearch hobby="games" onOpen={vi.fn()} />
         {field}
       </>,
     );

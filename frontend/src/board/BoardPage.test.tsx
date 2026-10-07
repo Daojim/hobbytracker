@@ -89,6 +89,19 @@ function movingCard(item: LibraryItem) {
   );
 }
 
+/**
+ * The cards on the board with this name, and nothing else on the page.
+ *
+ * A search result for a title on your board opens its journal from its name, so it is a button
+ * named for the title as well, and counting the page's buttons would count it as a second card.
+ * `data-board` is what the e2e `card()` locator is scoped by, for the same reason.
+ */
+function cardsNamed(title: string) {
+  return within(document.querySelector<HTMLElement>('[data-board]')!).getAllByRole('button', {
+    name: title,
+  });
+}
+
 // A column taken off in Settings is remembered in storage, and so is the calendar folded shut:
 // neither may follow one test into the next.
 afterEach(() => localStorage.clear());
@@ -357,7 +370,7 @@ describe('BoardPage', () => {
       target: { value: 'manual' },
     });
 
-    expect(screen.getAllByRole('button', { name: 'Celeste' })).toHaveLength(1);
+    expect(cardsNamed('Celeste')).toHaveLength(1);
   });
 
   it('does not bring a removed card back in an ordering it left behind, once it is added again', async () => {
@@ -396,7 +409,7 @@ describe('BoardPage', () => {
       target: { value: 'manual' },
     });
 
-    expect(screen.getAllByRole('button', { name: 'Celeste' })).toHaveLength(1);
+    expect(cardsNamed('Celeste')).toHaveLength(1);
   });
 
   it('leaves a column taken off in Settings off the board, and never asks for it', async () => {
@@ -587,6 +600,70 @@ describe('BoardPage', () => {
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Celeste' })).toHaveFocus(),
+    );
+  });
+
+  it('opens the journal from the name of a search result on your board', async () => {
+    // The third way into the drawer, beside a card and a calendar row, and the one for a title
+    // just found: nobody has to go and look for its card. Through the page because the drawer is
+    // the page's. Nothing here asserts an h3, which is what BoardSearch's own file guards.
+    searchServer({ results: [game({ id: 3001, title: 'Celeste' })] });
+    boardServer();
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste' }));
+    journalServer({
+      detail: gameDetail({ title: 'Celeste', logEntries: [logEntry({ id: 7, rating: 8.5 })] }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.type(await screen.findByRole('searchbox', { name: 'Search games' }), 'celeste');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    await userEvent.click(await within(results).findByRole('button', { name: 'Celeste' }));
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(await screen.findByRole('spinbutton', { name: 'Exact rating' })).toHaveValue(8.5);
+  });
+
+  it('hands focus back to the search result, not the card, when the drawer it opened closes', async () => {
+    // One title, a card and a result at once, and the keyboard goes back to whichever it left.
+    // So each door says where that is, rather than the board assuming every opening was a card.
+    searchServer({ results: [game({ id: 3001, title: 'Celeste' })] });
+    boardServer();
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste' }));
+    journalServer({ detail: gameDetail({ title: 'Celeste' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.type(await screen.findByRole('searchbox', { name: 'Search games' }), 'celeste');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    await userEvent.click(await within(results).findByRole('button', { name: 'Celeste' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+    await waitFor(() =>
+      expect(within(results).getByRole('button', { name: 'Celeste' })).toHaveFocus(),
+    );
+  });
+
+  it('hands focus back to the calendar row when the drawer it opened closes', async () => {
+    // A title waiting on the calendar has no card, so looking for a card's name found nothing
+    // and the keyboard was left on the page.
+    boardServer({
+      upcoming: [
+        libraryItem({
+          mediaId: 4004,
+          title: 'Hades III',
+          releaseDate: '2027-03-12',
+          releaseEnd: '2027-03-12',
+          releasePrecision: 'Day',
+        }),
+      ],
+    });
+    journalServer({ detail: gameDetail({ title: 'Hades III' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Hades III' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Hades III' })).toHaveFocus(),
     );
   });
 

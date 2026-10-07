@@ -31,6 +31,12 @@ import { useAddToBoard } from './useAddToBoard';
  */
 export interface BoardSearchProps {
   hobby: string;
+
+  /**
+   * Opens the journal of a result that is on your board, from its name. The drawer is the page's
+   * rather than the bar's, so the page says what opening it means: the bar only says which title.
+   */
+  onOpen: (mediaId: number) => void;
 }
 
 /** Long enough that a typed word is one search, short enough that it does not feel stuck. */
@@ -42,7 +48,7 @@ const FIELDS = 'input, textarea, select';
 /** dnd-kit's own mark for the card in hand: a sortable, pressed. */
 const CARRIED = '[aria-roledescription="sortable"][aria-pressed="true"]';
 
-export function BoardSearch({ hobby }: BoardSearchProps) {
+export function BoardSearch({ hobby, onOpen }: BoardSearchProps) {
   const definition = hobbyDefinition(hobby);
   const [term, setTerm] = useState('');
   const boxRef = useRef<HTMLInputElement>(null);
@@ -230,6 +236,7 @@ export function BoardSearch({ hobby }: BoardSearchProps) {
                   onBoard={board.statusOf(hit.id)}
                   adding={board.isAdding(hit.id)}
                   onAdd={board.add}
+                  onOpen={onOpen}
                   columns={board.columns}
                   definition={definition}
                 />

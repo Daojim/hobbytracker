@@ -75,6 +75,8 @@ describe('contrast', () => {
       it.each([
         ['fg', 'surface'],
         ['muted', 'surface'],
+        // Among others, a search result's name once it opens the journal: the tile is `surface`.
+        // The lowest on 7 October 2026, measured in the browser: 5.11 on Ember.
         ['accent', 'surface'],
         ['danger', 'surface'],
         // All three rating bands, not just the one that happens to be on screen. The low band is
