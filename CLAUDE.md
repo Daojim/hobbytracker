@@ -645,8 +645,8 @@ shuffled.
         out yet reads "276 days ago"
       - [x] the journal from a search result — a result on your board opens its journal from its
         name, in the accent: the user's pick from renders over a card's plain name. A journal
-        opened from the calendar now hands the keyboard back, which it never did (on
-        `journal-from-search`)
+        opened from the calendar now hands the keyboard back, which it never did (PR #68,
+        deployed)
       - a column dropdown in the journal — the column's name above the rating becomes a control
         that moves the title. It reverses *No status control* in `docs/journal.md`, and the
         autosave can undo a move made while a save is pending; the plan says how

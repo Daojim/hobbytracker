@@ -29,11 +29,11 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 9 | A read-only share link | M | **Shipped and deployed 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. See its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 | 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
-| 12 | The journal from a search result | S | **Built 7 October 2026** on `journal-from-search`, after a workshop the same day: a result on your board opens its journal from its name, in the accent. Not merged yet. See its section |
+| 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
 | 13 | A column dropdown in the journal | M | Planned 7 October 2026. It reverses *No status control* in `docs/journal.md`, and the autosave can undo a move. See its section |
 
-Production runs `7b2d3f9`'s code, which was `main` on 5 October 2026. Everything merged since is
-docs. Deploying is the runbook in `docs/deploy.md`.
+Production runs `a80bf49`'s code, which was `main` on 7 October 2026. Deploying is the runbook in
+`docs/deploy.md`.
 
 ## Suggested order (any order works)
 
@@ -1101,11 +1101,11 @@ These are words people read, so render them before picking.
 
 ---
 
-## 12. The journal from a search result · built
+## 12. The journal from a search result · shipped
 
-**Built 7 October 2026**, the day it was asked for, after a workshop the same day. The plan below
-is as it was written; what the build decided and found follows it, from **Decided from the
-renders** on.
+**Shipped and deployed 7 October 2026** (PR #68), the day it was asked for, after a workshop the
+same day. The plan below is as it was written; what the build decided and found follows it, from
+**Decided from the renders** on.
 
 **What.** A title in the search strip that is already on your board opens its journal when its
 name is clicked, as a card's name does. Asked for on 7 October 2026: search for a game, add it,
