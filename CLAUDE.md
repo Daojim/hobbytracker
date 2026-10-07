@@ -606,7 +606,8 @@ shuffled.
 - [ ] **The games board, before the other hobbies — the current focus.** Decided 1 October 2026:
       a feature is built on the games board first and taken to the other hobbies afterwards. Ten
       were planned in `docs/plans/games-board-next.md`, one section each, to be picked up in any
-      order, and an eleventh, a bug, was added on 4 October 2026:
+      order, an eleventh, a bug, was added on 4 October 2026, and two about the journal on
+      7 October:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -642,6 +643,13 @@ shuffled.
       - a release window that has begun — a bug found while rendering the share link: a window
         stored at year, quarter or month precision is measured from its first day, so a title not
         out yet reads "276 days ago"
+      - [x] the journal from a search result — a result on your board opens its journal from its
+        name, in the accent: the user's pick from renders over a card's plain name. A journal
+        opened from the calendar now hands the keyboard back, which it never did (on
+        `journal-from-search`)
+      - a column dropdown in the journal — the column's name above the rating becomes a control
+        that moves the title. It reverses *No status control* in `docs/journal.md`, and the
+        autosave can undo a move made while a save is pending; the plan says how
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.

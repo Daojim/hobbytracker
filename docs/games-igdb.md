@@ -145,6 +145,24 @@ would render it as one — and knowing that needs the *whole* library, which is 
 would offer to add your hundred-and-first title twice. How a title is added is **Adding straight to
 a column**, below.
 
+**A result on your board opens its journal from its name**, as a card's name does. It is the third
+door into the drawer, beside a card and a calendar row, built on 7 October 2026 (#12 in
+`docs/plans/games-board-next.md`) so that a title just found can be written about without going to
+find its card. A name not on your board stays text, because there is no pass to open. The strip
+learns that a title is on the board from the list that names its column, and only once the server
+has answered an add, so a name cannot open a journal before its pass exists. The Discover wall does
+not do this: its page has no drawer, and it was left for later the same day.
+
+- **The name that opens is in the accent**, where a card's name is plain until the pointer is on
+  it. The strip mixes names that open with names that do not, and the accent is what the board's
+  links wear. Picked from renders over the card's look, which was the recommendation, and over a
+  dotted underline. Ember's accent is red, and that was on the renders. Its contrast is
+  `index.css.test.ts`'s `accent` on `surface`, the tile's ground.
+- **The two-line clamp is inside the button**, on a span, and never on the heading around it. A
+  button lays out as an inline-block, which the heading's clamp cannot reach into. Measured in
+  Chromium, *The Legend of Zelda: Breath of the Wild* ran to three lines with the clamp left on the
+  heading. A clamp on the button itself also measured two lines, but only because Chromium turns
+  the button into `flow-root`.
 - **Escape is handled on the search, not on `document`** — the journal drawer already listens there,
   and two listeners for one key is how they start disagreeing about which of them a press was for.
 - **`/` takes the keyboard to the box from anywhere on the board, and is never typed into it.**
@@ -189,8 +207,12 @@ a column**, below.
   debounced copy empty together, which is the honest description of what a hobby change means to
   this component.
 - **`BoardSearch` is tested on its own, never through `BoardPage`**, because a result's title and a
-  card's title are both an `<h3>`. **The exceptions are the cases only the page can produce, and
-  none of them asserts an `<h3>`.** One is the box emptying on a hobby change: the bar outliving
+  card's title are both an `<h3>`, and for a title on your board both a button with its name.
+  **The exceptions are the cases only the page can produce, and none of them asserts an `<h3>`.**
+  Opening the journal from the strip is one of them, since the drawer is the page's. The button is
+  why `BoardPage.test.tsx` counts cards with `cardsNamed`, inside `[data-board]`. Its two
+  mounted-twice cases counted every button on the page with the title's name, which found the
+  strip's tile as a second card. One is the box emptying on a hobby change: the bar outliving
   the board it belongs to, asserted through a box's value and what each provider was asked. The
   other is `/` meeting the open journal, which is the page's drawer over the page's bar. For the
   same reason `e2e/support/board.ts`'s `card()` is scoped to `[data-board]` — it was a bare

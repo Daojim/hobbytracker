@@ -55,7 +55,8 @@ Search sits above the board rather than on a screen of its own, so the column a 
 in is visible while you decide. Every result — and every cover on the Discover wall — adds
 straight to Backlog, Playing or Completed, and arrives with the dates a drag into that column would
 have given it: the server works them out with the drag's own code, so an add and a drag cannot
-disagree.
+disagree. A result already on your board says which column it is in, and its name opens its
+journal, so a game just found can be written about without going to look for its card.
 
 Metadata comes from [IGDB](https://api-docs.igdb.com/) for games,
 [TMDB](https://developer.themoviedb.org/) for films and television, and
@@ -543,6 +544,11 @@ to prevent something, the test for it is checked by reintroducing the thing.
       visitor needs no account and gets the board, its calendar and its Stats, never a note, in
       words written to nobody. The user picked a banner across the top over the recommended
       heading, and the renders of the built app found a twelfth phrase still written to the owner
+- [x] The journal from a search result: a game on your board opens its journal from its name in
+      the strip, so one just found can be written about without finding its card. The name wears
+      the accent, the user's pick from renders over a card's plain name, and measuring before the
+      build found that the two-line limit on a name breaks quietly inside a button. A journal
+      opened from the release calendar now hands the keyboard back, which it never did
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 
