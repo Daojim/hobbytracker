@@ -5,10 +5,11 @@ import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { activityYears } from '../api/library';
 import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
+import { resultTitleId } from '../search/SearchResult';
 import { CARD_CLASS, CardFace, cardTitleId } from './Card';
 import { Column, columnQuery } from './Column';
 import { ColumnSwitcher } from './ColumnSwitcher';
-import { ComingSoon, upcomingQuery } from './ComingSoon';
+import { ComingSoon, calendarTitleId, upcomingQuery } from './ComingSoon';
 import { EntryDrawer } from '../journal/EntryDrawer';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useOverlayHistory } from '../lib/useOverlayHistory';
@@ -101,8 +102,10 @@ function Board({ hobby }: { hobby: Hobby }) {
   // questions nobody asked.
   const [menuFor, setMenuFor] = useState<number | null>(null);
 
-  // Which card it was opened from, so the keyboard can be handed back to it on the way out.
-  const openedFrom = useRef<number | null>(null);
+  // What it was opened from, by the id of that element, so the keyboard can be handed back to it
+  // on the way out. An id rather than a media id, because there are three doors and one title
+  // can be behind two of them at once: a card, and a search result naming the same game.
+  const openedFrom = useRef<string | null>(null);
   // Whether it was opened by a card's "How long for me?", so the question starts open. State
   // rather than part of the history entry: Back is about whether the drawer is open, and nothing
   // about which door it came through needs surviving a reload. Set on every opening, so a
@@ -142,17 +145,25 @@ function Board({ hobby }: { hobby: Hobby }) {
   const drawn = sideBySide ? columns : [showing];
   const switching = !sideBySide && columns.length > 1;
 
-  // Focus goes back to the card the drawer was opened from — by id, not by a stored element.
-  // Refetches remount the card while the drawer is open, so a reference kept from then would
+  // Focus goes back to what the drawer was opened from — by id, not by a stored element.
+  // Refetches remount a card while the drawer is open, so a reference kept from then would
   // point at a node no longer in the document.
   useEffect(() => {
     if (journalFor !== null || openedFrom.current === null) {
       return;
     }
 
-    document.getElementById(cardTitleId(openedFrom.current))?.focus();
+    document.getElementById(openedFrom.current)?.focus();
     openedFrom.current = null;
   }, [journalFor]);
+
+  // Every way into the drawer: a card, a calendar row, or a search result's name. Each names the
+  // element the keyboard goes back to.
+  function openJournalFrom(returnTo: string, mediaId: number, askHowLongToo = false) {
+    openedFrom.current = returnTo;
+    setAskHowLong(askHowLongToo);
+    openJournal(mediaId);
+  }
 
   return (
     // 16px on a phone. 24 there, with the column's own 12 inside it, put the cards 36px in from
@@ -169,8 +180,15 @@ function Board({ hobby }: { hobby: Hobby }) {
             typed on — and clearing the term from inside it would not have been enough, because
             the debounced copy has already settled by the time the prop changes: the first render
             under the new hobby sends the old word to the new provider, measured, before any
-            effect could run. Remounting starts all of it empty at once. */}
-        <BoardSearch key={hobby} hobby={hobby} />
+            effect could run. Remounting starts all of it empty at once.
+
+            A result on your board opens its journal from its name, the third door into the
+            drawer: a title just found can be written about without going to look for its card. */}
+        <BoardSearch
+          key={hobby}
+          hobby={hobby}
+          onOpen={(mediaId) => openJournalFrom(resultTitleId(mediaId), mediaId)}
+        />
 
         {/* Nothing until the years arrive, and that is deliberate rather than a missing
             loading state. The board opens on the latest year there is, so rendering before they
@@ -267,11 +285,9 @@ function Board({ hobby }: { hobby: Hobby }) {
                       onClose: () => setMenuFor(null),
                       columns,
                     }}
-                    onOpen={(mediaId, options) => {
-                      openedFrom.current = mediaId;
-                      setAskHowLong(options?.askHowLong ?? false);
-                      openJournal(mediaId);
-                    }}
+                    onOpen={(mediaId, options) =>
+                      openJournalFrom(cardTitleId(mediaId), mediaId, options?.askHowLong)
+                    }
                   />
                 ))}
               </div>
@@ -313,11 +329,7 @@ function Board({ hobby }: { hobby: Hobby }) {
           query={upcomingQuery(hobby)}
           voice="own"
           remembers
-          onOpen={(mediaId) => {
-            openedFrom.current = mediaId;
-            setAskHowLong(false);
-            openJournal(mediaId);
-          }}
+          onOpen={(mediaId) => openJournalFrom(calendarTitleId(mediaId), mediaId)}
         />
       </div>
 

@@ -95,6 +95,32 @@ test('a game can go straight to Completed, finished today with no start made up'
   ).toBe(today());
 });
 
+test('a game just added opens its journal from the strip, and gets the keyboard back', async ({
+  page,
+}) => {
+  // Found, put on the board, and written about, without going to look for its card. The name
+  // becomes a way in once the server has the pass, which is when the tile says where it went.
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+  await page.getByRole('button', { name: 'Add Hollow Knight to completed' }).click();
+  await expect(result(page, 'Hollow Knight')).toContainText('On your board: Completed');
+
+  const name = result(page, 'Hollow Knight').getByRole('button', {
+    name: 'Hollow Knight',
+    exact: true,
+  });
+  await name.click();
+
+  const drawer = page.getByRole('dialog', { name: 'Hollow Knight' });
+  await expect(drawer).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  // Back to the tile it came from, which is still there: opening the drawer left the search as
+  // it was. The card with the same name is on the board behind, and is not where it goes.
+  await expect(drawer).toBeHidden();
+  await expect(name).toBeFocused();
+});
+
 test('a search that matches nothing says so', async ({ page }) => {
   await page.getByRole('searchbox', { name: 'Search games' }).fill('zzzzzz');
 

@@ -3,7 +3,8 @@
 Written 1 October 2026 at the user's request. A feature is built on the **games board first** and
 taken to the other hobbies afterwards. The ten below are planned so a session can pick up **any
 one, in any order**, when the user names it. An eleventh, a bug in the release calendar, was added
-on 4 October 2026. CLAUDE.md's **What is next** points here.
+on 4 October 2026, and a twelfth and a thirteenth, both about the journal, on 7 October 2026.
+CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -28,6 +29,8 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 9 | A read-only share link | M | **Shipped and deployed 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. See its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 | 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
+| 12 | The journal from a search result | S | **Built 7 October 2026** on `journal-from-search`, after a workshop the same day: a result on your board opens its journal from its name, in the accent. Not merged yet. See its section |
+| 13 | A column dropdown in the journal | M | Planned 7 October 2026. It reverses *No status control* in `docs/journal.md`, and the autosave can undo a move. See its section |
 
 Production runs `7b2d3f9`'s code, which was `main` on 5 October 2026. Everything merged since is
 docs. Deploying is the runbook in `docs/deploy.md`.
@@ -1095,6 +1098,188 @@ These are words people read, so render them before picking.
 - A window not yet begun reads what the pick says.
 - **Put the fault back.** With the distance read off `releaseDate` alone again, the begun cases
   go red.
+
+---
+
+## 12. The journal from a search result · built
+
+**Built 7 October 2026**, the day it was asked for, after a workshop the same day. The plan below
+is as it was written; what the build decided and found follows it, from **Decided from the
+renders** on.
+
+**What.** A title in the search strip that is already on your board opens its journal when its
+name is clicked, as a card's name does. Asked for on 7 October 2026: search for a game, add it,
+and write about it without going to find its card.
+
+**How it fits.**
+- `BoardPage` already opens the drawer from two places, a card and a *Coming soon* row. The strip
+  becomes a third, through the same `openJournal`.
+- The strip already knows which column each result is in, from `useAddToBoard().statusOf`. It
+  learns a new title's column only once the server has answered the add (`onSuccess`), so a title
+  cannot open a journal before its pass exists.
+- A title that is not on your board stays text. There is no pass to open.
+- Every board gets it, because `BoardSearch` is every hobby's. Holding it to games would be a
+  branch on the slug.
+
+**Focus on the way out has to be per door.** `BoardPage` hands focus back to
+`cardTitleId(mediaId)`, which is right for a card only. A tile needs an id of its own, because a
+title on your board is often a card as well. So `openedFrom` holds the id of the element to go
+back to, and each door says which.
+
+**Found while planning: the calendar's door already loses the keyboard.** Its title button has no
+id, and a calendar title is not a card, so closing a journal opened from *Coming soon* hands focus
+to nothing. This was read from the code, and its test goes red before any change. The per-door id
+fixes it in the same change.
+
+### Decide at pickup
+
+- **How an openable title looks on the strip.** A card's title is plain at rest and underlined on
+  hover. On the strip, titles that open and titles that do not sit side by side. Render it first.
+- **The Discover wall.** Its tiles (`WallTile`) are on a page with no drawer. Recommended: not now.
+
+### Tests first
+
+- `SearchResult.test.tsx`: a title on your board is a button that opens its journal, and one that
+  is not on it is text.
+- `BoardSearch.test.tsx`: a title added from the strip opens its journal straight away.
+- `BoardPage.test.tsx`: the strip's title opens the drawer; closing it hands focus to the tile
+  rather than to the card with the same title; and closing one opened from the calendar hands
+  focus back to the calendar row. The last is red before any change.
+- `e2e/search.spec.ts`: search, add, open the journal from the strip, Escape, and focus is on the
+  tile.
+- **Put the faults back:** the tile handing focus to `cardTitleId`, and the title as a button
+  while it is not on your board.
+
+### Decided from the renders
+
+Three looks, A, B and C, were shot from the real app: at 1440 and 390, at rest, under the pointer
+and with keyboard focus, and on all eight themes. They were put on one private page with the
+contrast measured in the browser: https://claude.ai/artifact/F7cNF6poVAme3CD8iBWYCL. The strip
+was staged from the #9 workshop's sample board, four titles on your board and four not, because
+Docker was down and the IGDB stub has no covers.
+
+| Choice | Picked | Against |
+|---|---|---|
+| How a name that opens looks | **B, the accent**, the user's pick | A, a card's plain name, which was the recommendation; C, a dotted underline |
+| The Discover wall | **Not now**, the recommendation | the same on Discover, whose page would need a drawer of its own |
+
+Accent on the tile measured 5.11:1 on Ember up to 9.11:1 on Console. On Ember the accent is red,
+so a name that opens reads like a warning there. The page and the option both said so before the
+pick.
+
+### Built
+
+- **`SearchResult`.** On your board, the name is a button inside the `<h3>`, with
+  `text-left text-accent hover:underline` and `id={resultTitleId(mediaId)}`. The two-line clamp
+  moved off the heading and onto a span inside the button. A name not on your board is unchanged.
+- **`onOpen` is required** on `SearchResult` and on `BoardSearch`. The strip only ever sits over a
+  board, and a board always has a journal, so an optional prop would have existed for the tests
+  alone.
+- **`BoardPage`.** `openedFrom` holds an element's id rather than a media id.
+  `openJournalFrom(returnTo, mediaId, askHowLong)` is the one way in, and each of the three doors
+  names its element: `cardTitleId`, `calendarTitleId` and `resultTitleId`.
+- **`ComingSoon`.** The row's button carries `calendarTitleId`, which is the calendar fix.
+
+### Tests
+
+`SearchResult.test.tsx` gained 3 cases and changed 1. `BoardSearch.test.tsx` gained 2, changed 1,
+and passes `onOpen` on its 23 renders. `BoardPage.test.tsx` gained 3, and its two mounted-twice
+cases now count cards on the board (see below). `e2e/search.spec.ts` gained 1. Each fault was
+planted alone, against the finished build:
+
+| Fault planted | Red |
+|---|---|
+| The strip's door hands focus back by `cardTitleId` | *hands focus back to the search result, not the card*, and no other |
+| The name a button whether or not the title is on your board | *leaves the name as text*, and four older tile cases that count a tile's buttons |
+| The calendar row without its id | *hands focus back to the calendar row*, which was also red before any change |
+| The clamp back on the heading | *wears the accent on a name that opens, and keeps it to two lines* |
+| The name without the accent | the same case |
+| A move leaving the views of both columns in the cache | *does not bring a moved card back*, counted on the board |
+| A removal leaving them | *does not bring a removed card back*, counted on the board |
+
+The e2e case could not be shown red first, because Docker was down while the tests were written.
+It was checked afterwards by planting the first fault: with the strip's door handing focus back
+by `cardTitleId`, *a game just added opens its journal from the strip* fails at `toBeFocused()`,
+since the keyboard goes to the card behind. The full suite, 191 specs, passed on the finished
+build.
+
+### What the plan got wrong, or left out
+
+- **The clamp.** The plan did not see it coming. Measured in Chromium before the build, a button
+  inside today's clamped heading ran Zelda's name to three lines, because a button lays out as an
+  inline-block. jsdom has no layout, so the Vitest case reads the structure, with the measurement
+  in its comment.
+- **Two existing tests counted the strip's tile as a card.** `BoardPage.test.tsx`'s mounted-twice
+  cases counted every button on the page with the title's name, and one of them types into the
+  strip. Once the name was a button, it counted 2 with the board right. Both now count inside
+  `[data-board]` through `cardsNamed`, and both still go red without the fix they guard.
+- **The contrast was already covered.** `index.css.test.ts` asserts `accent` on `surface` on every
+  theme, and the tile is `surface`. It gained a comment naming the use.
+
+---
+
+## 13. A column dropdown in the journal · M
+
+**What.** In the drawer, the current pass's heading (the column's name, above the rating) becomes
+a control that moves the title to another column. Asked for on 7 October 2026.
+
+**It reverses a settled decision, and the reason for that decision has gone.**
+- `docs/journal.md` lists *No status control* as settled, and the comment above `EntryForm`
+  repeats it. Dragging is the gesture, the rules about which pass a move touches live on the
+  server, and a second way in would need its own copy of them.
+- The card's `⋯` menu has since become a second way in without a copy. It calls the drag's own
+  mutation, `useBoard().move`, and the server applies the transition table. The dropdown should be
+  a third caller of that mutation, which also refreshes the columns, the years, the calendar and
+  the strip's chips. Both places need to say why the decision changed.
+
+**The autosave can undo a move.** This was read from the code and has not been run.
+- Every autosave `PUT` carries the status: `pick()` in `api/logEntries.ts` writes it, and
+  `EntryForm` sends `status: entry.status`. It carries every date as the form holds it.
+- The form re-seeds from a refetched pass only when nothing is owed, so a move made while an edit
+  is pending leaves the form holding the old dates.
+- Type a rating, then pick Playing on a Backlog pass within half a second:
+  - If the board's refetch lands first, the timer sends the old, empty Started against a pass whose
+    start the move has just stamped. `dateFieldValue('', stamped)` is `null`, so the save clears
+    the start. A Playing pass with no start is in no year, so the card leaves the board for the
+    year being shown.
+  - If the save goes first, it sends the old status, and the server moves the pass back while the
+    board shows it moved.
+- The likely fix is to send whatever is owed and wait for it before moving, then let the form
+  re-seed from the moved pass.
+
+**Leaving Completed starts a new pass.** The transition table inserts rather than edits, so
+picking Playing on a Completed pass makes a replay: the form empties, and the finished pass drops
+to *Earlier passes*. A drag does the same. In the drawer, though, the control sits on that pass's
+own heading, so it reads as correcting the pass rather than replaying the title.
+
+**Other cases:**
+- **A column taken off in Settings** is not offered, but a pass in one must still show it as
+  chosen. #12 makes that reachable: a title in a hidden column has no card, and its search tile
+  can now open its journal. The platform select already keeps a value its list no longer has.
+- **A title not out yet.** A tile offers it only *Add to calendar*, and a calendar row has no
+  menu, so nothing today moves one out of Backlog. The dropdown would be the first thing that can.
+- ***How long will it take me?*** goes when the pass reaches Completed or Dropped
+  (`hasFinishAhead`).
+- **Every hobby**, in its own words (Watching, Watched), from `columnLabel`.
+
+### Decide at pickup
+
+- **What another column does to a Completed pass:** a replay as a drag makes one, with wording
+  that says so, or behind a confirmation.
+- **The look.** The heading shares `BAND_HEADING` with *Journal*, because matching is the point of
+  them, and a control in its place breaks that. Render it first, at 390px as well.
+- **What a title that is not out yet is offered.**
+
+### Tests first
+
+- **The race, reproduced red before any fix:** a rating typed, then a move within the delay. Both
+  survive, with the dates the move stamped.
+- A move calls the move route, not the `PUT`. `boardServer().transitions` records it.
+- A pass in a hidden column shows that column as chosen, and the column is offered nowhere else.
+- From Completed: the drawer shows the new pass, and the finished one is under *Earlier passes*.
+- e2e: a move from the drawer puts the card in its new column, and a reload keeps it there.
+- **Put the faults back:** the move sent through the `PUT`, and the move made without waiting for
+  the pending save.
 
 ---
 

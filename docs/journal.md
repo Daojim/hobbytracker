@@ -9,6 +9,8 @@
 The board moves a title between columns; the drawer is where you say anything *about* it. Click a
 card's title and it slides in over the board — a rating, the two dates, a list of dated notes, and
 every earlier pass with its own notes below it, plus whatever else a pass of *that kind* records.
+A calendar row's title opens it too, and since 7 October 2026 so does the name of a search result
+that is on your board, so a title just found can be written about without going to find its card.
 **Loaded through `hobbyDefinition(hobby).journal.load`**, which hits the hobby's own detail route
 and maps what comes back into one `TitleDetail`; `logEntries[0]` *is* the pass the board is showing,
 because every detail endpoint shares the board's ordering.
@@ -256,9 +258,15 @@ Settled:
   year and its open Dropped well with it — a reload nobody asked for, on the way out of a drawer.
   `App.test.tsx` pins it, checked by keying that route's element on the location, which fails that
   one test and nothing else.
-- **Focus goes back to the card's title button by id, not by a stored element.** Refetches remount the
-  card while the drawer is open, so the node captured at open time is usually detached (`cardTitleId`
-  in `src/board/Card.tsx`).
+- **Focus goes back to the button the drawer was opened from, by id, not by a stored element.**
+  Refetches remount the card while the drawer is open, so the node captured at open time is usually
+  detached. **Each door has an id of its own**: `cardTitleId` in `src/board/Card.tsx`,
+  `calendarTitleId` in `src/board/ComingSoon.tsx` and `resultTitleId` in
+  `src/search/SearchResult.tsx`. One id would not do, because a title on your board is very often a
+  card and a search result at once, and two elements cannot share one. `BoardPage` keeps the id of
+  whichever was pressed. **The calendar's door lost the keyboard until 7 October 2026**: it was
+  handed back by `cardTitleId`, a title on the calendar has no card, and the keyboard was left on
+  the page.
 - **The form re-seeds from a changed pass rather than being rebuilt on a React key, and the
   autosave is the whole reason.** It *was* keyed on the values it was seeded from — `entrySeed`,
   now gone — because `useState` reads its initial value once and a transition *edits the current

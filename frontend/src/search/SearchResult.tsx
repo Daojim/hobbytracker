@@ -4,6 +4,15 @@ import { awaitsRelease, boardWords } from './addWords';
 import type { AddColumn, HobbyDefinition, SearchHit } from '../hobbies';
 import type { LogStatus } from '../api/types';
 
+/**
+ * A stable handle on a result's name, for the drawer it opens to hand the keyboard back to.
+ *
+ * Its own rather than `cardTitleId`, because a title on your board is very often a card at the
+ * same time, and two elements cannot share an id. The keyboard goes back to whichever of the two
+ * the drawer was opened from.
+ */
+export const resultTitleId = (mediaId: number) => `result-title-${mediaId}`;
+
 export interface SearchResultProps {
   hit: SearchHit;
   /**
@@ -14,6 +23,15 @@ export interface SearchResultProps {
   onBoard: LogStatus | null;
   adding: boolean;
   onAdd: (mediaId: number, status: LogStatus) => void;
+
+  /**
+   * Opens the journal of a title on your board, from its name, as a card's name does.
+   *
+   * Required rather than optional: the strip only ever sits over a board, and a board always has
+   * a journal to open.
+   */
+  onOpen: (mediaId: number) => void;
+
   /** Where this board can take a title — see `addColumns`. */
   columns: readonly AddColumn[];
 
@@ -43,6 +61,7 @@ export function SearchResult({
   onBoard,
   adding,
   onAdd,
+  onOpen,
   columns,
   definition,
 }: SearchResultProps) {
@@ -71,8 +90,35 @@ export function SearchResult({
       <div className="min-w-0 flex-1">
         {/* line-clamp rather than truncate: two lines is enough for most titles, and a name cut
             off mid-word at one line is how "Hollow Knight" and "Hollow Knight: Silksong" become
-            the same tile. */}
-        <h3 className="line-clamp-2 text-sm font-medium break-words">{hit.title}</h3>
+            the same tile.
+
+            On your board, the name opens the title's journal, as a card's does. It is a button
+            inside the heading, which is how a card's name is built, so the tile is still found
+            by its heading and the heading still says only the title. Not on your board, it is
+            text: there is no pass to open.
+
+            In the accent, where a card's name is plain. The strip mixes names that open with
+            names that do not, and the accent is what the board's links already wear. Picked from
+            renders on 7 October 2026 over a card's plain name and a dotted underline.
+
+            The clamp goes inside the button, never on the heading around it. A button lays out
+            as an inline-block, which the heading's clamp cannot reach into: measured in
+            Chromium, The Legend of Zelda: Breath of the Wild ran to three lines with the clamp
+            left where it was. */}
+        {onBoard === null ? (
+          <h3 className="line-clamp-2 text-sm font-medium break-words">{hit.title}</h3>
+        ) : (
+          <h3 className="text-sm font-medium break-words">
+            <button
+              type="button"
+              id={resultTitleId(hit.id)}
+              onClick={() => onOpen(hit.id)}
+              className="text-left text-accent hover:underline"
+            >
+              <span className="line-clamp-2">{hit.title}</span>
+            </button>
+          </h3>
+        )}
 
         {/* Whatever this hobby says about a title in a line or two: a game's platforms and
             developers, a film's year and director. The hobby builds the lines and this prints

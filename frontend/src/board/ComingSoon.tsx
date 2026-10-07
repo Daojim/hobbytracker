@@ -42,6 +42,14 @@ const SHOWN_AT_FIRST = 20;
 const OPEN_KEY = (hobby: string) => `hobbytracker.coming-soon.${hobby}`;
 
 /**
+ * A stable handle on a calendar row's name, for the drawer it opens to hand the keyboard back to.
+ *
+ * A title waiting on the calendar has no card, so `cardTitleId` finds nothing for it: closing a
+ * journal opened from here used to leave the keyboard on the page.
+ */
+export const calendarTitleId = (mediaId: number) => `calendar-title-${mediaId}`;
+
+/**
  * Remembered per board, and never allowed to take the page down for it — see `lib/storage.ts`.
  * The choice applies to this page either way, because it is also held in state below.
  */
@@ -283,6 +291,7 @@ function UpcomingRow({
         ) : (
           <button
             type="button"
+            id={calendarTitleId(item.mediaId)}
             onClick={() => onOpen(item.mediaId)}
             className="block max-w-full truncate text-left text-sm font-medium hover:underline"
           >

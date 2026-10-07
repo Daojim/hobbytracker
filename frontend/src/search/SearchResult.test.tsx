@@ -21,6 +21,7 @@ const GAME_COLUMNS = addColumns(columnsFor('games'));
 /** In a list, as the strip draws it, so the tile is a list item the way it is on screen. */
 function renderResult(props: Partial<Parameters<typeof SearchResult>[0]> = {}) {
   const onAdd = vi.fn();
+  const onOpen = vi.fn();
   render(
     <ul>
       <SearchResult
@@ -28,13 +29,14 @@ function renderResult(props: Partial<Parameters<typeof SearchResult>[0]> = {}) {
         onBoard={null}
         adding={false}
         onAdd={onAdd}
+        onOpen={onOpen}
         columns={GAME_COLUMNS}
         definition={GAMES}
         {...props}
       />
     </ul>,
   );
-  return { onAdd };
+  return { onAdd, onOpen };
 }
 
 describe('SearchResult', () => {
@@ -144,12 +146,53 @@ describe('SearchResult', () => {
   });
 
   it('says which column a title is in, rather than offering to add it again', () => {
-    // A second pass is not a replay, and the board would render it as one.
+    // A second pass is not a replay, and the board would render it as one. The one button left is
+    // the title's name, which opens the journal it already has.
     renderResult({ hit: hit({ title: 'Hollow Knight' }), onBoard: 'Completed' });
 
     const tile = screen.getByRole('listitem');
     expect(tile).toHaveTextContent('On your board: Completed');
-    expect(within(tile).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(tile).getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Hollow Knight',
+    ]);
+  });
+
+  it('opens the journal of a title on your board from its name, as a card does', async () => {
+    // A button inside the heading, which is how a card's name is built, so the tile is still
+    // found by its heading and the heading still says only the title.
+    const { onOpen } = renderResult({
+      hit: hit({ id: 3003, title: 'Hollow Knight' }),
+      onBoard: 'InProgress',
+    });
+
+    const name = screen.getByRole('button', { name: 'Hollow Knight' });
+    expect(screen.getByRole('heading', { name: 'Hollow Knight' })).toContainElement(name);
+
+    await userEvent.click(name);
+
+    expect(onOpen).toHaveBeenCalledExactlyOnceWith(3003);
+  });
+
+  it('wears the accent on a name that opens, and keeps it to two lines inside the button', () => {
+    // Picked from renders on 7 October 2026, over a card's plain name and a dotted underline: the
+    // strip mixes names that open with names that do not, and the accent is what the board's
+    // links already wear. The clamp is inside the button because a button lays out as an
+    // inline-block, which a clamp on the heading around it cannot reach into. Measured in
+    // Chromium, with the clamp left on the heading, Zelda's name ran to three lines.
+    const zelda = 'The Legend of Zelda: Breath of the Wild';
+    renderResult({ hit: hit({ title: zelda }), onBoard: 'Completed' });
+
+    const name = screen.getByRole('button', { name: zelda });
+    expect(name).toHaveClass('text-accent');
+    expect(name.querySelector('.line-clamp-2')).toHaveTextContent(zelda);
+  });
+
+  it('leaves the name as text while the title is not on your board', () => {
+    // There is no pass to open yet, and a button that leads nowhere is worse than none.
+    renderResult({ hit: hit({ title: 'Hollow Knight' }) });
+
+    expect(screen.getByRole('heading', { name: 'Hollow Knight' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hollow Knight' })).not.toBeInTheDocument();
   });
 
   it("names that column in the hobby's words", () => {
