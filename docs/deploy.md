@@ -324,11 +324,37 @@ This has not been needed yet, so it describes the mechanism rather than a rehear
 
 ### Backups
 
-`scripts/backup.sh` runs from the deploying user's crontab at 04:30 every night. It pipes a
-`pg_dump` through `gzip` into `BACKUP_DIR`, on a different physical disk from the database. Each
-dump is written under a partial name and tested before it counts, and 14 days are kept. On 1
-October 2026 there were sixteen, the newest from 04:30 that morning. A dump is plain SQL, but no
-restore has been needed yet.
+`scripts/backup.sh` runs from the deploying user's crontab at 04:30 every night, **by the server's
+clock, which is UTC**: 00:30 Eastern in summer and 23:30 in winter. So a note written at 2 AM
+Eastern is in the next night's dump, not that morning's. It pipes a `pg_dump` through `gzip` into
+`BACKUP_DIR`, on a different physical disk from the database. Each dump is written under a partial
+name and tested before it counts, and 14 days are kept. On 1 October 2026 there were sixteen, the
+newest from 04:30 that morning. A dump is plain SQL.
+
+**The first restore was on 8 October 2026**: a pass and its nine notes, deleted together by a
+cascade (#15 in `docs/plans/games-board-next.md`), put back from that night's dump. Three things it
+found:
+
+- **Restore the rows, not the database.** A whole restore would throw away everything written
+  since the dump. The rows came out of the dump's `COPY` block unchanged, by `awk`, and went back
+  through `COPY ... FROM stdin` in one transaction, behind a guard that refused if anything had
+  changed since it was read. The script ended in a psql variable, `:end_with;`, and ran with
+  `-v end_with=rollback` before `-v end_with=commit`, so what was tested is what ran. A dump taken
+  by hand first, with `scripts/backup.sh`, made the restore itself undoable.
+- **The deleted rows could not be read back off the disk.** `n_dead_tup` still counted them, and
+  nothing had vacuumed the table, but Postgres prunes dead rows from a nearly full page when it
+  next reads it. In the WAL the prune is the very next record after the delete.
+- **The WAL was a second copy, and the one that proved the dump current.** On a database this
+  quiet, one 16 MB segment held every change for nearly four weeks. `pg_waldump --relation` listed
+  every write to the table in that time, and `--save-fullpage` saved the page as the delete found
+  it, with the notes still on it. They matched the dump character for character, and nothing had
+  written to them after it was taken. It reads the WAL and writes only those pages, into a
+  directory of its own to be removed afterwards. The relation is `1663/<database oid>/<relfilenode>`,
+  the two numbers `pg_relation_filepath` gives:
+
+  ```bash
+  ssh -o BatchMode=yes <host> 'cd <dir> && docker compose exec -T -u postgres db sh -c "mkdir -p /tmp/fpi && /usr/lib/postgresql/17/bin/pg_waldump -p \$PGDATA/pg_wal -R 1663/<db>/<rel> --save-fullpage=/tmp/fpi <segment>"'
+  ```
 
 ### Still open
 
