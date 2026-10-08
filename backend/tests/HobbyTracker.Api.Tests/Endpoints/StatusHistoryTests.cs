@@ -252,6 +252,117 @@ public sealed class StatusHistoryTests(PostgresFixture postgres) : DatabaseTestB
         change.ChangedAt.ShouldBe(Clock.UtcNow);
     }
 
+    // ------------------------------------------------------- a finish put back
+
+    // A finish put back never happened, so the history forgets it whatever its age, as it forgets
+    // a column a pass spent a minute in: the put-back folds into the row that recorded the finish.
+    // Found on 8 October 2026, a mistaken finish noticed six hours later.
+
+    [Fact]
+    public async Task A_finish_put_back_hours_later_leaves_nothing_behind()
+    {
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 9, 1));
+
+        await MoveAsync(mediaId, LogStatus.Completed);
+        (await HistoryAsync()).ShouldHaveSingleItem();
+
+        Clock.UtcNow += TimeSpan.FromHours(6);
+        (await PutBackAsync(mediaId, LogStatus.InProgress)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Folded into a Playing-to-Playing row, which is no move at all, so the row goes.
+        (await HistoryAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_finish_put_back_in_another_column_leaves_only_the_move_that_stood()
+    {
+        var mediaId = await GivenGameAsync();
+        var entryId = await GivenLogEntryAsync(
+            mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 9, 1));
+
+        await MoveAsync(mediaId, LogStatus.Completed);
+        Clock.UtcNow += TimeSpan.FromHours(6);
+        await PutBackAsync(mediaId, LogStatus.OnHold);
+
+        // From Playing to On Hold, at the put-back: the finish between them is gone.
+        var change = (await HistoryAsync()).ShouldHaveSingleItem();
+        change.LogEntryId.ShouldBe(entryId);
+        change.FromStatus.ShouldBe(LogStatus.InProgress);
+        change.ToStatus.ShouldBe(LogStatus.OnHold);
+        change.ChangedAt.ShouldBe(Clock.UtcNow);
+    }
+
+    [Fact]
+    public async Task A_title_made_finished_and_put_back_was_made_where_it_was_put()
+    {
+        // Added straight to Completed, so its one row is the one saying where it was made, which
+        // folds like any other and is never deleted.
+        var mediaId = await GivenGameAsync();
+
+        await AddAsync(mediaId, LogStatus.Completed);
+        Clock.UtcNow += TimeSpan.FromDays(2);
+        await PutBackAsync(mediaId, LogStatus.InProgress);
+
+        var change = (await HistoryAsync()).ShouldHaveSingleItem();
+        change.FromStatus.ShouldBeNull();
+        change.ToStatus.ShouldBe(LogStatus.InProgress);
+        change.ChangedAt.ShouldBe(Clock.UtcNow);
+    }
+
+    [Fact]
+    public async Task A_finish_the_history_never_saw_is_put_back_without_a_row()
+    {
+        // Finished before recording began, so no row says it reached Completed. A row saying it
+        // left would claim the finish the put-back denies; what came before a pass's first row is
+        // unknown rather than nothing.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2026, 9, 1), completedAt: Eastern(2026, 9, 20));
+
+        await PutBackAsync(mediaId, LogStatus.InProgress);
+
+        (await HistoryAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task Rewriting_a_finished_pass_into_another_column_takes_the_finish_back_too()
+    {
+        // The recorder knows a put-back by what it is rather than by who asked: the board never
+        // moves a finished pass in place, so one that leaves Completed in place has had its finish
+        // taken back. Rewriting a pass is the other route that can do that.
+        var mediaId = await GivenGameAsync();
+        var entryId = await GivenLogEntryAsync(
+            mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 9, 1));
+        await MoveAsync(mediaId, LogStatus.Completed);
+        Clock.UtcNow += TimeSpan.FromHours(6);
+
+        (await PutAsync(entryId, LogStatus.InProgress, startedAt: Eastern(2026, 9, 1)))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        (await HistoryAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_replay_still_leaves_the_finish_where_it_was()
+    {
+        // The other answer to the same question. The finished pass does not change, so its row
+        // stands, and the replay is made beside it.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 9, 1));
+        await MoveAsync(mediaId, LogStatus.Completed);
+        Clock.UtcNow += TimeSpan.FromHours(6);
+
+        await MoveAsync(mediaId, LogStatus.InProgress);
+
+        (await HistoryAsync()).Select(change => (change.FromStatus, change.ToStatus)).ShouldBe(
+        [
+            (LogStatus.InProgress, LogStatus.Completed),
+            (null, LogStatus.InProgress),
+        ]);
+    }
+
     // ---------------------------------------------------------------- cascades
 
     [Fact]
@@ -300,6 +411,14 @@ public sealed class StatusHistoryTests(PostgresFixture postgres) : DatabaseTestB
 
     private Task<HttpResponseMessage> AddAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync($"/api/library/{mediaId}", new AddToBoardRequest(status), Json, Ct);
+
+    /// <summary>A move out of Completed that says the finish never happened.</summary>
+    private Task<HttpResponseMessage> PutBackAsync(int mediaId, LogStatus status) =>
+        Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}/status",
+            new StatusTransitionRequest(status, NotFinished: true),
+            Json,
+            Ct);
 
     private Task<HttpResponseMessage> PutAsync(
         int entryId, LogStatus status, DateTimeOffset? startedAt, decimal? rating = null) =>

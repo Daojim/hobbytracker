@@ -57,6 +57,17 @@ public sealed record LibraryItemDto(
     DateTimeOffset? LastActivity,
 
     /// <summary>
+    /// When the latest entry finished, and null when it carries no finish — which a Completed
+    /// pass can, since its finish date can be cleared by hand and only the order of the two
+    /// dates is validated.
+    ///
+    /// Apart from <see cref="LastActivity"/> because that falls back to the start. A card that
+    /// asks whether a finish happened has to name the finish itself, never a start passing for
+    /// one.
+    /// </summary>
+    DateTimeOffset? CompletedAt,
+
+    /// <summary>
     /// The title's genres, and which of them was chosen to stand for it — the card's colour.
     ///
     /// Not a games concept, despite living in a detail table: films have genres and books will.

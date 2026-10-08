@@ -26,6 +26,7 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     entryCount: 1,
     latestRating: null,
     lastActivity: null,
+    completedAt: null,
     genres: [],
     primaryGenre: null,
     lengthHours: null,
@@ -110,7 +111,9 @@ export function boardServer(
   authServer();
 
   const listed: URL[] = [];
-  const transitions: { mediaId: number; status: LogStatus }[] = [];
+  // `notFinished` only when a move says so, which is a finish put back. Every other move is
+  // recorded as it always was.
+  const transitions: { mediaId: number; status: LogStatus; notFinished?: true }[] = [];
   const reorders: { hobby: string; status: LogStatus; mediaIds: number[] }[] = [];
 
   server.use(
@@ -151,9 +154,12 @@ export function boardServer(
     }),
 
     http.post('/api/library/:mediaId/status', async ({ params, request }) => {
-      const { status } = (await request.json()) as { status: LogStatus };
+      const { status, notFinished } = (await request.json()) as {
+        status: LogStatus;
+        notFinished?: boolean;
+      };
       const mediaId = Number(params['mediaId']);
-      transitions.push({ mediaId, status });
+      transitions.push(notFinished === true ? { mediaId, status, notFinished } : { mediaId, status });
 
       return HttpResponse.json(libraryItem({ mediaId, currentStatus: status }));
     }),

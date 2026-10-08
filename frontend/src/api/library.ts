@@ -77,11 +77,20 @@ export function exportLibrary(hobby: string): Promise<ExportTitle[]> {
  * one, and which timestamps get set, is decided server-side — so this never has to know which
  * entry is current, and replaying a game finished in 2024 cannot overwrite that completion by
  * accident.
+ *
+ * `notFinished` is the one thing more a move can say, and only about a finished pass: the finish
+ * never happened, so leaving Completed moves that pass and takes its finish date away rather than
+ * starting a new pass beside it. Sent only when it is said, so every other move is the request it
+ * always was.
  */
-export function transition(mediaId: number, status: LogStatus): Promise<LibraryItem> {
+export function transition(
+  mediaId: number,
+  status: LogStatus,
+  notFinished = false,
+): Promise<LibraryItem> {
   return apiJson<LibraryItem>(`/api/library/${mediaId}/status`, {
     method: 'POST',
-    body: { status },
+    body: notFinished ? { status, notFinished } : { status },
   });
 }
 

@@ -31,6 +31,8 @@ interface Move {
   to: LogStatus;
   /** Where in the target column the card was let go. Appended when not given. */
   index?: number;
+  /** A finish put back: the pass itself leaves Completed, and its finish goes. See `transition`. */
+  notFinished?: boolean;
 }
 
 interface Reorder {
@@ -53,6 +55,15 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
   // stop scrolling itself. See `dnd.autoScroll` below.
   const [overSegment, setOverSegment] = useState(false);
 
+  // A card asked to leave Completed, by a drag or by its menu, waiting on whether it was finished.
+  //
+  // Leaving Completed either replays the title or takes a mistaken finish back, and only the
+  // person moving it knows which, so nothing moves until the card is answered. Decided at the #14
+  // pickup over an Undo after every move: an Undo is gone in seconds, and the mistaken finish #14
+  // was found from was noticed six hours later. Held here, above the cards, for the reason the
+  // remove confirm is held above them: a refetch remounts cards. One at a time falls out of it.
+  const [leaving, setLeaving] = useState<Move | null>(null);
+
   const keyFor = (status: LogStatus) =>
     columnKey(hobby, status, sorts[status], yearFor(status, year));
 
@@ -72,8 +83,8 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
   const holdRefetches = () => queryClient.cancelQueries({ queryKey: ['library', hobby] });
 
   const move = useMutation({
-    mutationFn: async ({ mediaId, to }: Move) => {
-      await transition(mediaId, to);
+    mutationFn: async ({ mediaId, to, notFinished }: Move) => {
+      await transition(mediaId, to, notFinished);
 
       // The transition alone puts the card wherever the server decided, which is the top of the
       // column whenever it had to start a new entry. Storing the order it was actually dropped
@@ -253,6 +264,19 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
   const statusOf = (data: unknown): LogStatus | undefined =>
     (data as { status?: LogStatus } | undefined)?.status;
 
+  /**
+   * A move between columns from the board itself, which asks first when it leaves Completed: see
+   * `leaving`. The journal does not come through here, because it asks its own question.
+   */
+  function moveOrAsk(asked: Move) {
+    if (asked.from === 'Completed') {
+      setLeaving(asked);
+      return;
+    }
+
+    move.mutate(asked);
+  }
+
   function onDragStart(event: DragStartEvent) {
     setDragging(findCard(Number(event.active.id)));
   }
@@ -279,7 +303,7 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       // Dropped onto a card: land where that card is. Dropped onto the column itself: the end.
       const target = columnOf(to)?.items ?? [];
       const overIndex = target.findIndex((item) => item.mediaId === Number(over.id));
-      move.mutate({ mediaId, from, to, index: overIndex === -1 ? undefined : overIndex });
+      moveOrAsk({ mediaId, from, to, index: overIndex === -1 ? undefined : overIndex });
       return;
     }
 
@@ -312,19 +336,41 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
      * The same mutation the drag ends in, deliberately, so a menu move inherits the optimistic
      * update, the rollback, the reorder that follows it in manual sort, and both invalidations
      * without any of it being written twice. It replaced a `drop` that was this with `to` fixed
-     * to 'Dropped', which was all the old close button could ever ask for.
+     * to 'Dropped', which was all the old close button could ever ask for. And it asks before
+     * leaving Completed, as the drag does.
      */
-    move: (mediaId: number, from: LogStatus, to: LogStatus) =>
-      move.mutate({ mediaId, from, to }),
+    move: (mediaId: number, from: LogStatus, to: LogStatus) => moveOrAsk({ mediaId, from, to }),
     /**
      * The same move, from the journal's heading, as something to wait on.
      *
      * The drawer has a pass on screen that the move changes underneath it, so it needs to know
      * when the move is over rather than only that it was asked for. A third caller of the one
-     * mutation, as the menu is the second: everything above happens for it as well.
+     * mutation, as the menu is the second: everything above happens for it as well. It does not
+     * ask, because the drawer has asked already.
      */
     moveAndWait: (mediaId: number, from: LogStatus, to: LogStatus) =>
       move.mutateAsync({ mediaId, from, to }),
+    /** A finish put back from the journal, which asked whether it happened: the same mutation. */
+    putBackAndWait: (mediaId: number, to: LogStatus) =>
+      move.mutateAsync({ mediaId, from: 'Completed', to, notFinished: true }),
+    /** The card waiting on whether it was finished, and where it was asked to go. */
+    leaving: leaving === null ? null : { mediaId: leaving.mediaId, to: leaving.to },
+    /** It was finished: a new pass in the column it was asked to go to, the finished one kept. */
+    replay: () => {
+      if (leaving !== null) {
+        setLeaving(null);
+        move.mutate(leaving);
+      }
+    },
+    /** It was never finished: the pass itself goes there, without its finish. */
+    putBack: () => {
+      if (leaving !== null) {
+        setLeaving(null);
+        move.mutate({ ...leaving, notFinished: true });
+      }
+    },
+    /** Neither: the card stays in Completed. */
+    stay: () => setLeaving(null),
     /** Taking the current pass off the board, which is the one ending a drag cannot express. */
     remove: (mediaId: number) => remove.mutate(mediaId),
     /** The card under the cursor, so the drag has something to follow. */

@@ -3,6 +3,7 @@ import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitEstimate, estimate } from './support/hltb';
 import {
+  answerFinished,
   card,
   column,
   drag,
@@ -201,6 +202,8 @@ test('a finished game dragged back to the backlog stays there', async ({ page })
   await page.reload();
 
   await drag(page, card(page, 'Hollow Knight'), column(page, 'Backlog'));
+  // A drag out of Completed asks whether it was finished, since #14. It was: a replay.
+  await answerFinished(page, 'Hollow Knight', true);
 
   await expect(column(page, 'Backlog').getByText('Hollow Knight')).toBeVisible();
 
@@ -219,6 +222,7 @@ test('the pass you finished is still there to read afterwards', async ({ page })
   await page.reload();
 
   await drag(page, card(page, 'Hollow Knight'), column(page, 'Backlog'));
+  await answerFinished(page, 'Hollow Knight', true);
 
   // Waited for rather than the card merely appearing: the optimistic move carries the old entry
   // count, so ×2 is the first thing on screen that can only have come from the refetch. Opening
@@ -422,6 +426,7 @@ test('a pass added by a mistaken drag can be taken back', async ({ page }) => {
   await page.reload();
 
   await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+  await answerFinished(page, 'Hollow Knight', true);
   await expect(
     card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
   ).toBeVisible();
@@ -601,6 +606,7 @@ test('a replay starts empty and the finished pass keeps what you wrote', async (
   await page.getByRole('button', { name: 'Close' }).click();
 
   await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+  await answerFinished(page, 'Hollow Knight', true);
   await expect(
     card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
   ).toBeVisible();
@@ -720,10 +726,8 @@ test('another column on a finished pass asks first, then starts a new one', asyn
 
   await openJournal(page, 'Hollow Knight');
   await moveFromJournal(page, 'Completed', 'Playing');
-  await expect(
-    page.getByText('Start a new pass in Playing? This one stays under Earlier passes.'),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Start new pass' }).click();
+  await expect(page.getByText('Did you finish it on Nov 2, 2024?')).toBeVisible();
+  await page.getByRole('button', { name: 'Yes — start a new pass' }).click();
 
   // The drawer is about the new pass, and the finished one is underneath with its rating.
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Column: Playing' })).toBeVisible();
@@ -738,4 +742,48 @@ test('another column on a finished pass asks first, then starts a new one', asyn
   await expect(
     card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
   ).toBeVisible();
+});
+
+test('a mistaken finish put back from the journal is one pass, in Playing, with its note', async ({
+  page,
+}) => {
+  // The case #14 was found from: a game being played, finished by mistake and moved back. The
+  // move back used to start a blank pass above the real one, which was then the one deleted to
+  // tidy up, its notes with it. Putting the finish back moves the real pass instead.
+  const mediaId = await seed(page.request, 'Hollow Knight', 'InProgress', {
+    startedAt: '2026-09-17',
+  });
+  const started = (await entriesFor(page.request, mediaId))[0]?.startedAt;
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  await writeNote(page, 'Act 2 at last. The citadel is enormous.');
+
+  await moveFromJournal(page, 'Playing', 'Completed');
+  await expect(page.getByRole('dialog').getByText('Moving…')).toHaveCount(0);
+  await expect(
+    page.getByRole('dialog').getByRole('button', { name: 'Column: Completed' }),
+  ).toBeVisible();
+
+  await moveFromJournal(page, 'Completed', 'Playing');
+  await expect(page.getByRole('dialog').getByText(/^Did you finish it on /)).toBeVisible();
+  await page.getByRole('button', { name: 'No — move it to Playing' }).click();
+  await expect(page.getByRole('dialog').getByText('Moving…')).toHaveCount(0);
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Column: Playing' })).toBeVisible();
+
+  // One pass, the one it was, in Playing with its start and without the finish.
+  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(1);
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0])
+    .toMatchObject({ status: 'InProgress', startedAt: started, completedAt: null });
+
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.reload();
+  await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
+
+  await openJournal(page, 'Hollow Knight');
+  await expect(
+    page.getByRole('dialog').getByText('Act 2 at last. The citadel is enormous.'),
+  ).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('Earlier passes')).toHaveCount(0);
 });

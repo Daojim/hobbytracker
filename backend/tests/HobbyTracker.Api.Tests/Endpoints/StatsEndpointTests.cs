@@ -37,6 +37,22 @@ public sealed class StatsEndpointTests(PostgresFixture postgres) : DatabaseTestB
     }
 
     [Fact]
+    public async Task A_finish_put_back_is_not_a_finish()
+    {
+        // The other answer to leaving Completed. A replay keeps the finish; putting it back says
+        // it never happened, so there is nothing to count in any year.
+        var silksong = await GivenGameAsync("Hollow Knight: Silksong");
+        await LogAsync(silksong, LogStatus.InProgress, startedAt: Eastern(2026, 9, 1));
+        (await MoveAsync(silksong, LogStatus.Completed)).EnsureSuccessStatusCode();
+        Clock.UtcNow += TimeSpan.FromHours(6);
+
+        (await PutBackAsync(silksong, LogStatus.InProgress)).EnsureSuccessStatusCode();
+
+        (await StatsAsync(year: 2026)).Finished.ShouldBeEmpty();
+        (await StatsAsync(year: null)).Finished.ShouldBeEmpty();
+    }
+
+    [Fact]
     public async Task A_game_finished_twice_in_a_year_is_two_finishes()
     {
         var celeste = await GivenGameAsync("Celeste");
@@ -326,6 +342,23 @@ public sealed class StatsEndpointTests(PostgresFixture postgres) : DatabaseTestB
     }
 
     [Fact]
+    public async Task A_title_finished_by_mistake_and_put_back_has_waited_all_along()
+    {
+        // The mistaken finish is erased from the column history rather than recorded and undone,
+        // so the arrival in Backlog before it is the latest row again, and the wait is unbroken.
+        var start = Clock.UtcNow;
+        var celeste = await GivenGameAsync("Celeste");
+        (await AddAsync(celeste, LogStatus.Backlog)).EnsureSuccessStatusCode();
+
+        Clock.UtcNow = start.AddDays(30);
+        (await MoveAsync(celeste, LogStatus.Completed)).EnsureSuccessStatusCode();
+        Clock.UtcNow = start.AddDays(30).AddHours(6);
+        (await PutBackAsync(celeste, LogStatus.Backlog)).EnsureSuccessStatusCode();
+
+        (await StatsAsync(year: 2026)).Backlog.ShouldHaveSingleItem().InBacklogSince.ShouldBe(start);
+    }
+
+    [Fact]
     public async Task A_title_whose_last_recorded_move_was_elsewhere_has_no_arrival_to_claim()
     {
         // History says it went to Playing, and a write around the recorder put it back. The last
@@ -533,6 +566,14 @@ public sealed class StatsEndpointTests(PostgresFixture postgres) : DatabaseTestB
 
     private Task<HttpResponseMessage> AddAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync($"/api/library/{mediaId}", new AddToBoardRequest(status), Json, Ct);
+
+    /// <summary>A move out of Completed that says the finish never happened.</summary>
+    private Task<HttpResponseMessage> PutBackAsync(int mediaId, LogStatus status) =>
+        Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}/status",
+            new StatusTransitionRequest(status, NotFinished: true),
+            Json,
+            Ct);
 
     private async Task<StatsDto> StatsAsync(int? year, string hobby = "games")
     {

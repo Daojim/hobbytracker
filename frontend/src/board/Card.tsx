@@ -1,6 +1,7 @@
-import { type SyntheticEvent, useEffect, useRef } from 'react';
+import { type SyntheticEvent, useEffect, useId, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { finishQuestion, putBackAnswer, REPLAY_ANSWER } from '../lib/finishQuestion';
 import { formatJournalDate } from '../lib/time';
 import { isRecentRelease } from '../lib/release';
 
@@ -42,6 +43,14 @@ export const cardTitleId = (mediaId: number) => `card-title-${mediaId}`;
  * would be pointing at a detached node; an id finds whatever is there now.
  */
 export const cardMenuId = (mediaId: number) => `card-menu-${mediaId}`;
+
+/**
+ * The first answer to a card's question about leaving Completed, which the board hands the
+ * keyboard to when the question appears. The board rather than the card, and by id, because a
+ * refetch remounts cards: a card that took the keyboard on every mount would take it from
+ * wherever it had gone since, the search box included.
+ */
+export const cardAnswerId = (mediaId: number) => `card-answer-${mediaId}`;
 
 const stopPress = (event: SyntheticEvent) => event.stopPropagation();
 
@@ -95,12 +104,32 @@ export interface CardMenu {
   columns: readonly BoardColumn[];
 }
 
+/**
+ * A card leaving Completed, asked whether it was finished before anything moves: held above the
+ * board for `CardRemoval`'s reason, since a refetch remounts cards.
+ *
+ * Leaving Completed either replays the title or takes a mistaken finish back, and only the person
+ * moving it knows which. Decided at the #14 pickup, for a drag and the menu alike.
+ */
+export interface CardLeaving {
+  /** Where the card was asked to go, while it asks. Null while it is not asking. */
+  to: LogStatus | null;
+  /** It was finished: a new pass there, the finished one kept. */
+  onReplay: () => void;
+  /** It was never finished: this pass goes there, without its finish. */
+  onPutBack: () => void;
+  /** Neither: the card stays in Completed. */
+  onStay: () => void;
+}
+
 export interface CardFaceProps {
   item: LibraryItem;
   /** Moves the title to another column. Omitted by the drag preview. */
   onMove?: (mediaId: number, to: LogStatus) => void;
   /** Deleting the current pass. Omitted by the drag preview. */
   removal?: CardRemoval;
+  /** Whether it was finished, while it is leaving Completed. Omitted by the drag preview. */
+  leaving?: CardLeaving;
   /** The options corner and its panel. Omitted by the drag preview, which offers nothing. */
   menu?: CardMenu;
   /** Opens the journal for this title. Omitted by the drag preview for the same reason. */
@@ -108,8 +137,9 @@ export interface CardFaceProps {
 }
 
 /** Everything a card shows. Shared with the drag preview, which must not be a second sortable. */
-export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps) {
+export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardFaceProps) {
   const lastActivity = formatJournalDate(item.lastActivity);
+  const questionId = useId();
 
   // What this hobby calls things, and what it paints its cards from. Taken off the row rather
   // than passed in: `hobby` is already on every board row, so a card can never be handed one
@@ -515,6 +545,58 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
           )}
         </div>
       )}
+
+      {/* Whether it was finished, while the card is leaving Completed. A row of its own under
+          everything else, the card's whole width: picked at the #14 workshop over the place
+          Remove's confirm takes, because at 1440 that is the column beside the cover, 111px
+          wide, and both answers wrapped. CARD_CLASS wraps for it.
+
+          The tinted box the journal's question wears, with the journal's words, so the two
+          doors ask one question. Nothing here is a drag: three small buttons on a card that
+          drags are exactly where a wobble past the threshold would carry the card off. */}
+      {leaving !== undefined && leaving.to !== null && (
+        <div
+          {...NOT_A_DRAG}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              leaving.onStay();
+              document.getElementById(cardMenuId(item.mediaId))?.focus();
+            }
+          }}
+          className="flex basis-full flex-col gap-1.5 rounded-lg border border-line-soft bg-well p-2 text-xs"
+        >
+          <p id={questionId}>{finishQuestion(item.completedAt)}</p>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              id={cardAnswerId(item.mediaId)}
+              type="button"
+              aria-describedby={questionId}
+              onClick={leaving.onReplay}
+              className="rounded border border-line bg-surface px-2 py-0.5 text-left font-medium hover:bg-hover"
+            >
+              {REPLAY_ANSWER}
+            </button>
+            <button
+              type="button"
+              aria-describedby={questionId}
+              onClick={leaving.onPutBack}
+              className="rounded border border-line bg-surface px-2 py-0.5 text-left font-medium hover:bg-hover"
+            >
+              {putBackAnswer(hobby.columnLabel[leaving.to])}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                leaving.onStay();
+                document.getElementById(cardMenuId(item.mediaId))?.focus();
+              }}
+              className="rounded border border-line bg-surface px-2 py-0.5 text-muted hover:bg-hover hover:text-fg"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -544,21 +626,28 @@ export function CardFace({ item, onMove, removal, menu, onOpen }: CardFaceProps)
  * to hold still, and stops the scroll itself once it has. **`select-none` and the callout** are
  * that hold's other half: a held finger is also how a phone asks to select the title or, on iOS,
  * to save the cover, and either would open over the card just as it was being picked up.
+ *
+ * **`flex-wrap` is there for one row**: the question a card asks before it leaves Completed,
+ * which takes the card's whole width under everything else. Nothing else wraps. The cover and
+ * the corner do not shrink, and the text column is `flex-1`, which grows from nothing rather than
+ * from its contents, so the first line always fits. The genre stripe stretches to that line
+ * only, so it stops above the question, which the workshop page showed before the pick.
  */
 export const CARD_CLASS =
-  '@container flex touch-manipulation select-none [-webkit-touch-callout:none] items-start gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
+  '@container flex flex-wrap touch-manipulation select-none [-webkit-touch-callout:none] items-start gap-2 rounded-lg border border-card-line bg-surface p-card text-sm shadow-card';
 
 export interface CardProps {
   item: LibraryItem;
   onMove: (mediaId: number, to: LogStatus) => void;
   removal: CardRemoval;
+  leaving: CardLeaving;
   menu: CardMenu;
   onOpen: OpenJournal;
   /** False outside `manual` sort, where a drag would imply a ranking the API will not store. */
   draggable: boolean;
 }
 
-export function Card({ item, onMove, removal, menu, onOpen, draggable }: CardProps) {
+export function Card({ item, onMove, removal, leaving, menu, onOpen, draggable }: CardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.mediaId,
     // Read back by the drag handlers: a drop needs to know which column the card came from, and
@@ -599,7 +688,14 @@ export function Card({ item, onMove, removal, menu, onOpen, draggable }: CardPro
         isDragging ? 'opacity-40' : ''
       } ${menu.open ? 'relative z-10' : ''}`}
     >
-      <CardFace item={item} onMove={onMove} removal={removal} menu={menu} onOpen={onOpen} />
+      <CardFace
+        item={item}
+        onMove={onMove}
+        removal={removal}
+        leaving={leaving}
+        menu={menu}
+        onOpen={onOpen}
+      />
     </li>
   );
 }

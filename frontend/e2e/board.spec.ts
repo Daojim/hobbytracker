@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import {
+  answerFinished,
   card,
   chooseOption,
   column,
@@ -130,6 +131,8 @@ test('replaying a finished game keeps the finish', async ({ page }) => {
   await page.reload();
 
   await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+  // A drag out of Completed asks whether it was finished, since #14. It was: this is a replay.
+  await answerFinished(page, 'Hollow Knight', true);
 
   await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
   await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(2);
@@ -138,6 +141,42 @@ test('replaying a finished game keeps the finish', async ({ page }) => {
   const completion = entries.find((entry) => entry.status === 'Completed');
   expect(completion?.completedAt).not.toBeNull();
   expect(entries.some((entry) => entry.status === 'InProgress')).toBe(true);
+});
+
+test('a finish put back by a drag is the same pass, back in Playing with its start', async ({
+  page,
+}) => {
+  // #14's case on the board: a game being played, finished by mistake, noticed later and dragged
+  // back. The card asks before it leaves Completed, and the answer that it was never finished
+  // moves the pass itself, where a replay would start a blank one above it.
+  const mediaId = await seed(page.request, 'Hollow Knight', 'InProgress', {
+    startedAt: '2026-09-17',
+  });
+  const started = (await entriesFor(page.request, mediaId))[0]?.startedAt;
+  await page.reload();
+
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'Completed'));
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0]?.completedAt)
+    .not.toBeNull();
+
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+
+  // Nothing has moved yet: the card asks, where it still is.
+  await expect(card(page, 'Hollow Knight').getByText(/^Did you finish it on /)).toBeVisible();
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
+  await answerFinished(page, 'Hollow Knight', false);
+
+  await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
+  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(1);
+  await expect
+    .poll(async () => (await entriesFor(page.request, mediaId))[0])
+    .toMatchObject({ status: 'InProgress', startedAt: started, completedAt: null });
+
+  await page.reload();
+  await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
+  await expect(card(page, 'Hollow Knight').getByRole('img', { name: /playthroughs/ })).toHaveCount(0);
 });
 
 test('the options menu drops a game, and dragging it out picks it back up', async ({
@@ -292,6 +331,7 @@ test('removing a replayed title takes every pass, not one press per playthrough'
   await page.reload();
 
   await drag(page, card(page, 'Hollow Knight'), column(page, 'Backlog'));
+  await answerFinished(page, 'Hollow Knight', true);
   await expect(column(page, 'Backlog').getByText('Hollow Knight')).toBeVisible();
 
   // Waits for the refetch before clicking: the badge only appears once the server has answered,
@@ -327,6 +367,7 @@ test('a finished game replayed from the menu keeps the completion, as a drag doe
   await page.reload();
 
   await chooseOption(page, 'Hollow Knight', 'Move to Playing');
+  await answerFinished(page, 'Hollow Knight', true);
 
   await expect(column(page, 'InProgress').getByText('Hollow Knight')).toBeVisible();
   await expect(
@@ -436,6 +477,7 @@ test('a card dragged out of Backlog and back can be dragged again', async ({ pag
   await expect(picker).toHaveValue(thisYear);
 
   await drag(page, card(page, 'Celeste'), column(page, 'Backlog'));
+  await answerFinished(page, 'Celeste', true);
   await expect(column(page, 'Backlog').getByText('Celeste')).toBeVisible();
 
   // The year holds, rather than reverting to All years because the list it came from emptied.
@@ -570,6 +612,32 @@ test.describe('on a phone', () => {
       .poll(async () => (await entriesFor(page.request, mediaId))[0]?.status)
       .toBe('InProgress');
     expect(await titlesIn(page, 'Backlog')).toEqual([]);
+  });
+
+  test('a finished card let go on another segment asks on the card, where it still is', async ({
+    page,
+  }) => {
+    // The drop is on the switcher, and the column the card is leaving stays on screen, because a
+    // drop does not switch columns. So that is where it asks. Never finished puts the pass back.
+    const mediaId = await seed(page.request, 'Hollow Knight', 'Completed', {
+      startedAt: '2026-09-17',
+      completedAt: '2026-10-08',
+    });
+    await page.reload();
+    await segment(page, 'Completed').click();
+
+    await holdAndDrag(page, card(page, 'Hollow Knight'), segment(page, 'InProgress'));
+
+    await expect(
+      card(page, 'Hollow Knight').getByText('Did you finish it on Oct 8, 2026?'),
+    ).toBeVisible();
+    await answerFinished(page, 'Hollow Knight', false);
+
+    await expect(segment(page, 'InProgress')).toHaveAccessibleName('Playing 1');
+    await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(1);
+    await expect
+      .poll(async () => (await entriesFor(page.request, mediaId))[0])
+      .toMatchObject({ status: 'InProgress', completedAt: null });
   });
 
   test('a finger held on the options corner does not pick the card up', async ({ page }) => {

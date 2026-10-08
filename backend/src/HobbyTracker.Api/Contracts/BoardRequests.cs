@@ -4,11 +4,18 @@ using HobbyTracker.Api.Domain;
 namespace HobbyTracker.Api.Contracts;
 
 /// <summary>
-/// Moving a title to a board column. The caller names the target column and nothing else —
-/// the server decides whether that edits the current entry or starts a new one, and works out
-/// the dates, so no client has to know which entry is current.
+/// Moving a title to a board column. The caller names the target column — the server decides
+/// whether that edits the current entry or starts a new one, and works out the dates, so no
+/// client has to know which entry is current.
+///
+/// <para>
+/// <b><paramref name="NotFinished"/> is the one thing more a caller can say</b>, and only about a
+/// finished pass: the finish never happened. Leaving Completed then moves that pass rather than
+/// starting a new one beside it, and takes its finish date away. Without it, leaving Completed is
+/// a replay, as it always was. It means nothing to a pass that is not finished.
+/// </para>
 /// </summary>
-public sealed record StatusTransitionRequest(LogStatus Status);
+public sealed record StatusTransitionRequest(LogStatus Status, bool NotFinished = false);
 
 /// <summary>
 /// Putting a title on your board, in a column. The caller names the column and nothing else,

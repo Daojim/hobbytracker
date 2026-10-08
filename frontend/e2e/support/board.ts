@@ -347,3 +347,27 @@ export async function chooseOption(page: Page, title: string, option: string): P
     .getByRole('button', { name: option })
     .click();
 }
+
+/**
+ * Answers the question a card asks before it leaves Completed, which a drag or a menu move out of
+ * Completed has asked since #14: whether it was finished. Yes is a replay, a new pass beside the
+ * finished one; no is a finish put back, the finished pass itself moving without its finish.
+ */
+export async function answerFinished(page: Page, title: string, finished: boolean): Promise<void> {
+  const question = card(page, title).getByText(/^Did you finish it/);
+  const answer = card(page, title).getByRole('button', {
+    name: finished ? 'Yes — start a new pass' : /^No — move it to /,
+  });
+
+  // Pressed until the question goes, because the first press can land on nothing. dnd-kit stops
+  // every click on the page until 50ms after a drop: its sensor takes its click listener off on a
+  // timeout (AbstractPointerSensor.detach, in 6.3.1). A spec answering the moment drag() returns
+  // is faster than that, and a person is not. Found on 8 October 2026, when the seven specs that
+  // answered at once went red and the ones that looked at the card first stayed green.
+  await expect(async () => {
+    if (await question.isVisible()) {
+      await answer.click({ timeout: 1000 });
+    }
+    await expect(question).toBeHidden({ timeout: 250 });
+  }).toPass({ timeout: 5000 });
+}
