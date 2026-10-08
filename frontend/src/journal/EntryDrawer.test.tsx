@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { EntryDrawer } from './EntryDrawer';
 import { gameDetail, journalServer, logEntry, note } from '../test/games';
 import { movieDetail, movieJournalServer } from '../test/movies';
@@ -11,6 +11,7 @@ import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { mediaKey } from '../board/keys';
 import { setPace, setPlayStyle } from '../lib/pace';
+import { columnsFor } from '../hobbies';
 import { AUTOSAVE_MS } from './fields';
 import type { LogStatus } from '../api/types';
 
@@ -28,8 +29,18 @@ const started = () => screen.getByLabelText('Started');
  */
 const autosaves = { timeout: AUTOSAVE_MS + 1000 };
 
+/**
+ * What the board hands every drawer: the columns it draws, and the move it owns.
+ *
+ * Required, so every case states them. Only *EntryDrawer, moving the title* asks anything of
+ * them; the rest are about the pass and its notes.
+ */
+function fromBoard(hobby: string) {
+  return { columns: columnsFor(hobby), onMove: () => Promise.resolve() };
+}
+
 function open(mediaId = 3003, onClose = vi.fn()) {
-  return { onClose, ...renderWithProviders(<EntryDrawer hobby="games" mediaId={mediaId} onClose={onClose} />) };
+  return { onClose, ...renderWithProviders(<EntryDrawer hobby="games" mediaId={mediaId} onClose={onClose} {...fromBoard('games')} />) };
 }
 
 describe('EntryDrawer', () => {
@@ -1344,7 +1355,7 @@ describe('EntryDrawer, on a film', () => {
   function openFilm(mediaId = 4004, onClose = vi.fn()) {
     return {
       onClose,
-      ...renderWithProviders(<EntryDrawer hobby="movies" mediaId={mediaId} onClose={onClose} />),
+      ...renderWithProviders(<EntryDrawer hobby="movies" mediaId={mediaId} onClose={onClose} {...fromBoard('movies')} />),
     };
   }
 
@@ -1501,7 +1512,7 @@ describe('EntryDrawer, on a show', () => {
   function openShow(mediaId = 5005, onClose = vi.fn()) {
     return {
       onClose,
-      ...renderWithProviders(<EntryDrawer hobby="tv" mediaId={mediaId} onClose={onClose} />),
+      ...renderWithProviders(<EntryDrawer hobby="tv" mediaId={mediaId} onClose={onClose} {...fromBoard('tv')} />),
     };
   }
 
@@ -1711,7 +1722,7 @@ describe('EntryDrawer, on an anime', () => {
   function openAnime(mediaId = 52991, onClose = vi.fn()) {
     return {
       onClose,
-      ...renderWithProviders(<EntryDrawer hobby="anime" mediaId={mediaId} onClose={onClose} />),
+      ...renderWithProviders(<EntryDrawer hobby="anime" mediaId={mediaId} onClose={onClose} {...fromBoard('anime')} />),
     };
   }
 
@@ -1935,7 +1946,7 @@ describe('EntryDrawer, asking how long a game will take', () => {
       detail: movieDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
     });
 
-    renderWithProviders(<EntryDrawer hobby="movies" mediaId={4004} onClose={vi.fn()} />);
+    renderWithProviders(<EntryDrawer hobby="movies" mediaId={4004} onClose={vi.fn()} {...fromBoard('movies')} />);
 
     await screen.findByRole('heading', { name: 'Arrival' });
     expect(
@@ -1984,9 +1995,304 @@ describe('EntryDrawer, asking how long a game will take', () => {
     journalServer({ detail: playing() });
 
     renderWithProviders(
-      <EntryDrawer hobby="games" mediaId={3003} onClose={vi.fn()} askHowLong />,
+      <EntryDrawer
+        hobby="games"
+        mediaId={3003}
+        onClose={vi.fn()}
+        askHowLong
+        {...fromBoard('games')}
+      />,
     );
 
     expect(await screen.findByText('How much do you play?')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The pass's heading, as the way to another column.
+ *
+ * The board owns the move: it is the drag's own mutation, with the card moved at once and every
+ * refetch after it, so the drawer is handed one and these cases are about what the drawer does
+ * with it. It answers at once unless a case holds it.
+ */
+describe('EntryDrawer, moving the title', () => {
+  function openToMove({
+    hobby = 'games',
+    mediaId = 3003,
+    columns = columnsFor(hobby),
+    onMove = vi.fn((_from: LogStatus, _to: LogStatus) => Promise.resolve()),
+    onClose = vi.fn(),
+  } = {}) {
+    renderWithProviders(
+      <EntryDrawer
+        hobby={hobby}
+        mediaId={mediaId}
+        onClose={onClose}
+        columns={columns}
+        onMove={onMove}
+      />,
+    );
+
+    return { onMove, onClose };
+  }
+
+  /** The heading, which is a button now: it says which column the pass is in. */
+  const control = (column: string) => screen.findByRole('button', { name: `Column: ${column}` });
+  const list = () => within(screen.getByRole('group', { name: 'Move to' }));
+
+  async function pick(from: string, to: string) {
+    await userEvent.click(await control(from));
+    await userEvent.click(list().getByRole('button', { name: to }));
+  }
+
+  it("turns the pass's heading into a control that opens on every column the board draws", async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    openToMove();
+    await userEvent.click(await control('Playing'));
+
+    expect(list().getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Backlog',
+      'Playing',
+      'On Hold',
+      'Completed',
+      'Dropped',
+    ]);
+    expect(list().getByRole('button', { name: 'Playing', current: true })).toBeInTheDocument();
+    // Still the heading of the pass: the region is named for the column, as it was.
+    expect(screen.getByRole('region', { name: 'Playing' })).toBeInTheDocument();
+  });
+
+  it('moves the pass to the column picked, through the board', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    const { onMove } = openToMove();
+    await pick('Playing', 'On Hold');
+
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith('InProgress', 'OnHold'));
+    expect(screen.queryByRole('group', { name: 'Move to' })).not.toBeInTheDocument();
+  });
+
+  it('moves nothing when the column it is already in is picked', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    const { onMove } = openToMove();
+    await pick('Playing', 'Playing');
+
+    expect(screen.queryByRole('group', { name: 'Move to' })).not.toBeInTheDocument();
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it('offers no column taken off in Settings', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    openToMove({ columns: columnsFor('games').filter(({ status }) => status !== 'OnHold') });
+    await userEvent.click(await control('Playing'));
+
+    expect(list().queryByRole('button', { name: 'On Hold' })).not.toBeInTheDocument();
+  });
+
+  it('still names a column taken off in Settings while the pass is in it', async () => {
+    // A title in a hidden column has no card, and since #12 its search result can open this
+    // drawer. Where the pass is stays true whether or not the board draws it.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'OnHold' })] }) });
+
+    openToMove({ columns: columnsFor('games').filter(({ status }) => status !== 'OnHold') });
+    await userEvent.click(await control('On Hold'));
+
+    expect(list().getByRole('button', { name: 'On Hold', current: true })).toBeInTheDocument();
+    expect(list().getAllByRole('button')).toHaveLength(5);
+  });
+
+  it('asks before another column starts a new pass from a Completed one, and moves nothing until told', async () => {
+    // Leaving Completed inserts a pass rather than editing this one, so the finished playthrough
+    // is kept. On the pass's own heading that reads as a correction, which it is not.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'Completed', completedAt: '2024-11-02T18:00:00+00:00' }),
+        ],
+      }),
+    });
+
+    const { onMove } = openToMove();
+    await pick('Completed', 'Playing');
+
+    const question = screen.getByText(
+      'Start a new pass in Playing? This one stays under Earlier passes.',
+    );
+    expect(question).toBeInTheDocument();
+    expect(onMove).not.toHaveBeenCalled();
+
+    // The keyboard goes to the answer, which carries the question as its description.
+    const yes = screen.getByRole('button', { name: 'Start new pass' });
+    expect(yes).toHaveFocus();
+    expect(yes).toHaveAccessibleDescription(
+      'Start a new pass in Playing? This one stays under Earlier passes.',
+    );
+
+    await userEvent.click(yes);
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith('Completed', 'InProgress'));
+  });
+
+  it('leaves a Completed pass where it is when the question is cancelled', async () => {
+    journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'Completed' })] }),
+    });
+
+    const { onMove } = openToMove();
+    await pick('Completed', 'Dropped');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByText(/Start a new pass/)).not.toBeInTheDocument();
+    expect(await control('Completed')).toHaveFocus();
+    expect(onMove).not.toHaveBeenCalled();
+  });
+
+  it('asks nothing of a pass that is not Completed, because nothing new is started', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'Backlog' })] }) });
+
+    const { onMove } = openToMove();
+    await pick('Backlog', 'Completed');
+
+    await waitFor(() => expect(onMove).toHaveBeenCalledWith('Backlog', 'Completed'));
+    expect(screen.queryByText(/Start a new pass/)).not.toBeInTheDocument();
+  });
+
+  it('hands the keyboard back to the heading once the move is made', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    const { onMove } = openToMove();
+    await pick('Playing', 'Dropped');
+
+    await waitFor(() => expect(onMove).toHaveBeenCalled());
+    // Still named Playing: this drawer's pass is not refetched by a move that was only recorded.
+    await waitFor(async () => expect(await control('Playing')).toHaveFocus());
+  });
+
+  it('closes the list on Escape and hands the keyboard back, leaving the drawer open', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    const { onClose } = openToMove();
+    await userEvent.click(await control('Playing'));
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByRole('group', { name: 'Move to' })).not.toBeInTheDocument();
+    expect(await control('Playing')).toHaveFocus();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('closes the list when a press lands somewhere else', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    openToMove();
+    await userEvent.click(await control('Playing'));
+    await userEvent.click(screen.getByRole('heading', { name: 'Hollow Knight' }));
+
+    expect(screen.queryByRole('group', { name: 'Move to' })).not.toBeInTheDocument();
+  });
+
+  it('sends what it owes before it moves, and moves only once that write has been answered', async () => {
+    // Every write carries the pass's column, so one sent while a move is on its way carries the
+    // column being left, and two requests in flight may land in either order. The save the form
+    // was holding goes first, and the move waits for its answer.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'Backlog' })] }) });
+    const saved: Record<string, unknown>[] = [];
+    let answered = false;
+    server.use(
+      http.put('/api/log-entries/:id', async ({ request }) => {
+        saved.push((await request.json()) as Record<string, unknown>);
+        await delay(300);
+        answered = true;
+        return HttpResponse.json(logEntry({ id: 7 }));
+      }),
+    );
+
+    const order: string[] = [];
+    openToMove({
+      onMove: vi.fn(() => {
+        order.push(answered ? 'moved after the save was answered' : 'moved before it was');
+        return Promise.resolve();
+      }),
+    });
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+    await pick('Backlog', 'Playing');
+
+    await waitFor(() => expect(order).toEqual(['moved after the save was answered']), autosaves);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ status: 'Backlog', rating: 8.5 });
+  });
+
+  it('dims the pass and says Moving… until the move is over, and takes nothing meanwhile', async () => {
+    // Read-only for the trip, decided at pickup: anything owed has gone, so a write sent now
+    // could only carry the column being left. Dimmed, picked from the renders, so it says why.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'InProgress', rating: 8.5, hoursPlayed: 12 })],
+      }),
+    });
+    let finish = () => {};
+    const onMove = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    openToMove({ onMove });
+    await pick('Playing', 'On Hold');
+
+    // Where it is going, at once, and that it has not got there yet.
+    expect(await control('On Hold')).toBeInTheDocument();
+    expect(screen.getByText('Moving…')).toBeInTheDocument();
+    const form = screen.getByRole('region', { name: 'On Hold' }).querySelector('form')!;
+    expect(form).toHaveAttribute('aria-busy', 'true');
+
+    // And the pass takes nothing: not a key, and not the three ways a value changes without a
+    // change event to stop — the ×, and the wheel over the rating bar and over the hours.
+    await userEvent.type(rating(), '3');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear rating' }));
+    fireEvent.wheel(slider(), { deltaY: -100 });
+    fireEvent.wheel(screen.getByRole('spinbutton', { name: 'Hours played' }), { deltaY: -100 });
+    expect(rating()).toHaveValue(8.5);
+    expect(screen.getByRole('spinbutton', { name: 'Hours played' })).toHaveValue(12);
+
+    // Nor does the heading offer a second move, which could land before the first.
+    expect(await control('On Hold')).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(await control('On Hold'));
+    expect(screen.queryByRole('group', { name: 'Move to' })).not.toBeInTheDocument();
+
+    act(() => finish());
+    await waitFor(() => expect(screen.queryByText('Moving…')).not.toBeInTheDocument());
+    expect(form).toHaveAttribute('aria-busy', 'false');
+  });
+
+  it('says so when a move fails, and still names the column the pass is in', async () => {
+    // The board puts the card back when the request fails. The drawer has no card to put back,
+    // so it has to say it: the heading going on naming Playing is the only other signal.
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
+
+    openToMove({ onMove: vi.fn(() => Promise.reject(new Error('The server is having a bad day.'))) });
+    await pick('Playing', 'Completed');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The server is having a bad day.');
+    expect(await control('Playing')).toBeInTheDocument();
+  });
+
+  it('calls the columns what a film in them is called', async () => {
+    movieJournalServer({
+      detail: movieDetail({ logEntries: [logEntry({ id: 7, status: 'Completed' })] }),
+    });
+
+    openToMove({ hobby: 'movies', mediaId: 4004 });
+    await userEvent.click(await control('Watched'));
+
+    expect(list().getAllByRole('button').map((button) => button.textContent)).toEqual([
+      'Backlog',
+      'Watching',
+      'On Hold',
+      'Watched',
+      'Dropped',
+    ]);
   });
 });

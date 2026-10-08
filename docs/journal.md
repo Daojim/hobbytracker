@@ -11,6 +11,8 @@ card's title and it slides in over the board — a rating, the two dates, a list
 every earlier pass with its own notes below it, plus whatever else a pass of *that kind* records.
 A calendar row's title opens it too, and since 7 October 2026 so does the name of a search result
 that is on your board, so a title just found can be written about without going to find its card.
+Since the same day the drawer can move a title as well: the current pass's heading is a control
+that opens on the board's columns.
 **Loaded through `hobbyDefinition(hobby).journal.load`**, which hits the hobby's own detail route
 and maps what comes back into one `TitleDetail`; `logEntries[0]` *is* the pass the board is showing,
 because every detail endpoint shares the board's ordering.
@@ -33,8 +35,47 @@ Settled:
   have looked away is one they will never see, and the drawer can be shut by then. Three
   consequences, each with its own bullet below: **a refused value stops the write**, **leaving a
   field deliberately does not send it**, and **closing the drawer does**.
-- **No status control.** Dragging is the gesture that changes a column, and the rules about which
-  entry that touches live on the server; a second way in would need its own copy of all of it.
+- **The pass's heading moves the title**, since 7 October 2026, and that reverses what this line
+  used to say: *no status control*, because dragging was the gesture and a second way in would need
+  its own copy of the server's rules about which pass a move touches. The card's `⋯` menu then
+  became a second way in **without** a copy — it calls the drag's own mutation — and the heading is
+  a third caller of the same one, handed to the drawer by the board as `onMove`. The rules still
+  live in one place, the move route. `journal/ColumnControl.tsx` holds the control: the column's
+  name with a chevron, opening the board's columns as a group of buttons with the current one
+  ticked. **Picked from renders** over a *Move* button beside the heading and the phone switcher's
+  segments in its place, because it is the only one of the three that changes nothing at rest — the
+  same `BAND_HEADING` type, the same 16px row, the same 44px down to Rating. The workshop is in
+  `docs/plans/games-board-next.md`, #13.
+- **Buttons, never a `<select>`.** Chrome on Windows changes a closed select on every arrow key and
+  fires `change` each time: four presses of ↓ were four changes, measured in Chromium 151. Here a
+  change is a move, so arrowing from Backlog to Dropped would stamp a completion on the way past.
+  The genre select gets away with saving on change because the last genre wins; the last of four
+  moves does not undo the other three.
+- **Leaving Completed asks first, in a tinted box.** Another column always inserts a pass from a
+  Completed one rather than editing it, and on this pass's own heading that reads as a correction,
+  which it is not — so the drawer asks *Start a new pass in Playing? This one stays under Earlier
+  passes.* A drag does not ask, because a drag is a gesture on the title. **The box was the user's
+  pick** over a line in the Delete confirm's shape: the one boxed thing in the pass, so it cannot be
+  read past. Not red and not a fill, because nothing is lost. The yes takes the keyboard when the box
+  appears and carries the question as its description; either answer hands the keyboard back to the
+  heading. **Nothing anywhere corrects a Completed pass's column in place**, and this is no
+  exception.
+- **A column taken off in Settings is offered nowhere, and still named while the pass is in it.**
+  The list is the board's, as every card's menu is; a pass already in a hidden column has it
+  ticked, because that stays true whether or not the board draws it. Since #12 that is reachable: a
+  title in a hidden column has no card, and its search result opens this drawer.
+- **A title that is not out yet is offered every column**, like any title. The board keeps an early
+  build outside Backlog on purpose (*A second thing that narrows a column* in `docs/board.md`), and
+  leaving Backlog takes a title off the calendar while moving it back returns it. The heading is the
+  first thing that can move one at all: a tile offers it only *Add to calendar*, and a calendar row
+  has no menu.
+- **A move from the drawer happens in one order, and the pass holds still for it.** What the form
+  owes is sent first (`EntryFormHandle.flush`), the move waits for every write still on its way
+  (`writes` in the drawer, chained, because two can be in flight on a slow phone), then the move,
+  which `useBoard` answers only once this drawer has refetched the moved pass. Meanwhile the heading
+  names where the title is going and says *Moving…* beside itself, so nothing below shifts, and the
+  pass is **read-only and dimmed**, both decided at pickup and picked from the renders. See
+  **Every write of a pass carries its column** below for what that order prevents.
 - **A field a hobby does not have is *absent*, not relabelled and not disabled.** A film's pass has
   no Hours played and no Platform: "your time" on a film is the runtime, which is a fact about the
   film rather than about the evening. `EntryForm` takes an explicit field set for this, stated
@@ -95,11 +136,15 @@ Settled:
   separating a heading from the line belonging to it, 24px of nothing. Grouped, the 8px left is the
   leading between an 18px heading and a 12px line rather than any spacing at all. The close button
   stays outside the group, so it keeps its corner however far the title wraps.
-- **The current pass's heading is a band heading; an earlier pass's is not.** `PassSection` takes a
-  `lead` flag and the only thing it changes is the type. The current pass opens a band between two
-  rules, as the header above and the notes below do, so it wears the uppercase the app already uses
-  for one — the same type "Earlier passes" itself is set in. An earlier pass is a row *inside* that
-  group, and matching it would nest two levels of the same shout.
+- **The current pass's heading is a band heading; an earlier pass's is not.** `PassSection` is
+  handed its heading, with the id that names the region, rather than a string and a `lead` flag:
+  the current pass's is the column control and an earlier pass's is plain text. The current pass
+  opens a band between two rules, as the header above and the notes below do, so its control wears
+  the uppercase the app already uses for one — `BAND_HEADING`, passed into `ColumnControl` rather
+  than copied, so the two band headings cannot drift. An earlier pass is a row *inside* "Earlier
+  passes", and matching it would nest two levels of the same shout. **The region is still named
+  for the column**: `aria-labelledby` points at the column's name inside the button, and the
+  button carries a name of its own, *Column: Playing*, so a screen reader hears what it is for.
 - **Delete sits hard right on the row the Save button used to be on, through an `actions` slot on
   `EntryForm`.** It used to sit under the form in the column every field label occupies, at the
   size every field label is set in, saying one word — so it read as a heading for whatever came
@@ -277,18 +322,52 @@ Settled:
   after every keystroke — so the field being typed into would lose the keyboard on each write.
   Assigning the same values to the inputs that already hold them costs a render and changes
   nothing on screen. `key={current.id}` stays, because a *different* pass is a different form.
-- **`agreed` is one ref and it answers both questions.** `passValues(entry)` and the seven pieces
-  of state are each flattened to one string by `valuesKey`, and `held === agreed.current` is the
-  whole of "there is nothing here the server has not been told". It moves on exactly two
-  occasions: a write is sent, and the pass underneath is taken as the truth. The timer fires only
-  when they differ; the re-seed runs only when they agree — which is what stops a refetch
-  answering a save still in flight from putting the old rating back over what is being typed. A
-  field left out of `valuesKey` is a field a refetch cannot correct on screen, which is the bug
-  `entrySeed` was written for in its own words.
+- **`agreed` holds the seven values the server is believed to have, and the re-seed asks it field
+  by field.** `passValues(entry)` and the seven pieces of state are each flattened to one string by
+  `valuesKey`, and `held` matching `agreed` whole is "there is nothing here the server has not been
+  told", which is when the timer has nothing to do. It moves on exactly two occasions: a write is
+  sent, and the pass underneath is taken as the truth. **The re-seed runs when the pass changes, and
+  takes the pass's value for each field the reader has not touched since `agreed` last moved**; a
+  touched field keeps what was typed and stays owed. A refetch answering our own save changes
+  nothing, because it says what `agreed` already says — which is what stops it putting the old
+  rating back over what is being typed. **It was all or nothing until 7 October 2026**, guarded on
+  nothing being owed, and that was the hole a move found: a rating the rules refused, held across a
+  move, kept the form from ever taking the start the move stamped, and the corrected rating went
+  with an empty Started. *Keeps the start a move stamped while a refused rating waits to be
+  corrected* in `BoardPage.test.tsx` goes red under the old rule. A field left out of `valuesKey`
+  is a field a refetch cannot correct on screen, which is the bug `entrySeed` was written for in
+  its own words.
 - **The timer's handler comes out of a ref refreshed every render.** It is armed on the render
   that changed a field and fires half a second later, by which time the pass underneath can have
   been refetched — and `dateFieldValue` reads it to tell an untouched day from an edited one.
   `useWheelStep` keeps the same ref for the same reason.
+- **Every write of a pass carries its column and its dates, so anything else that writes the pass
+  races the autosave.** The form sends the status it was loaded with, and `UpdateAsync` writes
+  whatever status it is sent. Measured on 7 October 2026, with the heading built and the order
+  above left out: a rating typed inside the half second before a move from Backlog to Playing
+  ended one of two ways. With the move's refetch first, the save went with the old, empty Started,
+  and the server was left Playing with no start — in no year, so off the board. With the save
+  first, it went with the old column, and the server put the pass back in Backlog while the board
+  was showing it moved. Both cases are in `BoardPage.test.tsx`, run against a fake that keeps the
+  passes the way the API does, and `journal.spec.ts` runs the first against the real one. **The
+  field-by-field re-seed makes the first order safe on its own; the order is what the second
+  needs.** Planting the move without the flush left the refetch-first case green, in Vitest and in
+  a browser, and turned the save-first case red.
+- **Read-only is a gate on change events, not `disabled` or `inert`.** A browser takes focus off a
+  control the moment it is disabled or made inert, and the keyboard lands at the top of the page —
+  `DeleteAccount` measured that first. So while a move is on its way `EntryForm` stops every
+  field's change at the `<form>` in the capture phase, and React puts each controlled field back as
+  it was. The × and the wheel over the rating and the hours change a value with no change event,
+  so they check `moving` themselves. `pointer-events-none` keeps a select from opening onto a choice
+  that would only be put back. The heading is `aria-disabled` for the same reason: the keyboard is
+  on it, since it is what started the move.
+- **An Escape meant for the heading's list stops at its container.** The drawer closes on an Escape
+  heard at the `document`, so the list's handler stops the event, or closing the list would close
+  the journal. The card's menu needs nothing of the kind, because it is not inside the drawer.
+- ***Moving…* is a second `role="status"` in the dialog while a move is on its way.** `passSaved`
+  in `e2e/support/board.ts` expects the dialog to hold one, so a spec that waited for *Saved*
+  mid-move would fail as a strict-mode violation. Wait for the move first: the heading naming the
+  new column, or Started showing the stamped day.
 - **A save says "Saved", and the flag lives in the drawer.** It went there because the form used
   to be rebuilt by the refetch that confirmed the write, destroying a flag set on success — the
   button appeared to snap straight back to *Save*. The form no longer remounts and the flag stays

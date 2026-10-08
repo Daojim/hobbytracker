@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { BoardPage } from './BoardPage';
 import { hiddenColumnsKey } from './hiddenColumns';
 import { server } from '../test/server';
 import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
-import type { LibraryItem, LogStatus } from '../api/types';
+import { AUTOSAVE_MS } from '../journal/fields';
+import type { LibraryItem, LogEntry, LogStatus } from '../api/types';
 import { game, gameDetail, journalServer, logEntry, searchServer } from '../test/games';
 import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
@@ -840,6 +841,351 @@ describe('BoardPage', () => {
     await userEvent.type(note, 'Chapter 7/9');
 
     expect(note).toHaveValue('Chapter 7/9');
+  });
+});
+
+/** When the server's clock says a move happened: noon in New York on 7 October 2026. */
+const MOVED_AT = '2026-10-07T16:00:00+00:00';
+
+/** `LibraryService.TransitionAsync`'s table, for the fake below: what a move does to the passes. */
+function transition(passes: LogEntry[], to: LogStatus) {
+  const latest = passes[0]!;
+  if (latest.status === to) {
+    return;
+  }
+
+  const stamp = (pass: LogEntry) => {
+    switch (to) {
+      case 'Backlog':
+        pass.startedAt = null;
+        pass.completedAt = null;
+        pass.seasonNumber = null;
+        pass.episodeNumber = null;
+        break;
+      case 'InProgress':
+      case 'OnHold':
+        pass.startedAt ??= MOVED_AT;
+        pass.completedAt = null;
+        break;
+      case 'Completed':
+        pass.completedAt =
+          pass.startedAt !== null && pass.startedAt > MOVED_AT ? pass.startedAt : MOVED_AT;
+        break;
+      case 'Dropped':
+        pass.startedAt ??=
+          pass.completedAt !== null && pass.completedAt < MOVED_AT ? pass.completedAt : MOVED_AT;
+        break;
+    }
+  };
+
+  // Leaving Completed inserts rather than edits, which is what keeps the finished pass.
+  if (latest.status === 'Completed') {
+    const fresh = logEntry({
+      id: Math.max(...passes.map((pass) => pass.id)) + 1,
+      mediaId: latest.mediaId,
+      mediaTitle: latest.mediaTitle,
+      status: to,
+      notes: [],
+      loggedAt: MOVED_AT,
+    });
+    stamp(fresh);
+    passes.unshift(fresh);
+    return;
+  }
+
+  latest.status = to;
+  stamp(latest);
+}
+
+/**
+ * One title's passes as the API keeps them, so what a test reads back is what the server was
+ * left holding.
+ *
+ * A move applies the transition table, and a save replaces the pass with what it was sent,
+ * status and all, which is what the real `PUT` does. The race between the drawer's autosave and
+ * a move is entirely a question of what is left at the end, and `boardServer`'s fixtures answer
+ * the same rows whatever happens.
+ *
+ * `moveAnswersAfter` holds the move's answer back after applying it: the server has moved the
+ * pass, and the page does not know yet. `titleAnswersAfterAMove` holds back the journal's
+ * refetch instead, once a move has been made: the move is answered, and the drawer is still
+ * holding the pass as it was.
+ */
+function passesOnServer(
+  item: LibraryItem,
+  first: LogEntry,
+  { moveAnswersAfter = 0, titleAnswersAfterAMove = 0 } = {},
+) {
+  const passes: LogEntry[] = [{ ...first }];
+  let moved = false;
+
+  server.use(
+    http.get('/api/library/upcoming', () => HttpResponse.json([])),
+
+    http.get('/api/library', ({ request }) => {
+      const asked = new URL(request.url).searchParams.get('status');
+      const now = passes[0]!.status;
+      const card = { ...item, currentStatus: now, entryCount: passes.length };
+
+      return HttpResponse.json(libraryPage(asked === null || asked === now ? [card] : []));
+    }),
+
+    http.get('/api/games/:id', async () => {
+      // Read now and answered later, as a slow read is: what comes back is what was there when
+      // it was asked.
+      const logEntries = passes.map((pass) => ({ ...pass }));
+
+      if (moved && titleAnswersAfterAMove > 0) {
+        await delay(titleAnswersAfterAMove);
+      }
+
+      return HttpResponse.json(gameDetail({ id: item.mediaId, title: item.title, logEntries }));
+    }),
+
+    http.post('/api/library/:mediaId/status', async ({ request }) => {
+      const { status } = (await request.json()) as { status: LogStatus };
+      transition(passes, status);
+      moved = true;
+
+      if (moveAnswersAfter > 0) {
+        await delay(moveAnswersAfter);
+      }
+
+      return HttpResponse.json({ ...item, currentStatus: status });
+    }),
+
+    http.put('/api/log-entries/:id', async ({ params, request }) => {
+      const pass = passes.find((one) => one.id === Number(params['id']))!;
+      Object.assign(pass, (await request.json()) as Partial<LogEntry>);
+      return HttpResponse.json(pass);
+    }),
+
+    http.put('/api/library/order', () => new HttpResponse(null, { status: 204 })),
+  );
+
+  return { passes };
+}
+
+/**
+ * Moving a title from its journal, through the board's own move.
+ *
+ * The heading's list is `EntryDrawer.test.tsx`'s business. What is here needs the board: the
+ * route a move takes, the calendar's door, and what the server is left holding when a move and
+ * the drawer's autosave meet.
+ */
+describe('BoardPage, moving a title from its journal', () => {
+  /** Long enough for a save the form is holding to have been sent, and answered. */
+  const autosaves = { timeout: AUTOSAVE_MS + 1000 };
+  /** Long enough for a move held back by `moveAnswersAfter` as well. */
+  const slow = { timeout: AUTOSAVE_MS * 2 + 2000 };
+
+  async function moveFromJournal(from: string, to: string) {
+    await userEvent.click(await screen.findByRole('button', { name: `Column: ${from}` }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: 'Move to' })).getByRole('button', { name: to }),
+    );
+  }
+
+  it('moves through the move route, never the PUT', async () => {
+    // The route applies the server's rules about which pass a move touches and what it stamps.
+    // A PUT carrying a new status would skip every one of them.
+    const board = boardServer({
+      columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] },
+    });
+    const journal = journalServer({
+      detail: gameDetail({ title: 'Celeste', logEntries: [logEntry({ id: 7, status: 'Backlog' })] }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    await moveFromJournal('Backlog', 'Completed');
+
+    await waitFor(() =>
+      expect(board.transitions).toEqual([{ mediaId: 3003, status: 'Completed' }]),
+    );
+    expect(journal.saved).toEqual([]);
+  });
+
+  it('offers a title that is not out yet every column, from the calendar', async () => {
+    // Nothing else moves one off the calendar: a tile offers it only *Add to calendar*, and a
+    // calendar row has no menu. Decided at pickup: every column, as for any title, because the
+    // board keeps an early build outside Backlog on purpose.
+    boardServer({
+      upcoming: [
+        libraryItem({
+          mediaId: 4004,
+          title: 'Hades III',
+          releaseDate: '2027-03-12',
+          releaseEnd: '2027-03-12',
+          releasePrecision: 'Day',
+        }),
+      ],
+    });
+    journalServer({
+      detail: gameDetail({
+        id: 4004,
+        title: 'Hades III',
+        released: false,
+        logEntries: [logEntry({ id: 7, mediaId: 4004, status: 'Backlog' })],
+      }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Hades III' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Column: Backlog' }));
+
+    expect(
+      within(screen.getByRole('group', { name: 'Move to' }))
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Backlog', 'Playing', 'On Hold', 'Completed', 'Dropped']);
+  });
+
+  it('starts a new pass from a Completed one when told, with the finished one underneath', async () => {
+    boardServer();
+    passesOnServer(
+      libraryItem({ mediaId: 3003, title: 'Celeste', currentStatus: 'Completed' }),
+      logEntry({
+        id: 7,
+        status: 'Completed',
+        rating: 9.5,
+        startedAt: '2024-10-01T16:00:00+00:00',
+        completedAt: '2024-11-02T18:00:00+00:00',
+      }),
+    );
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    await moveFromJournal('Completed', 'Playing');
+    await userEvent.click(screen.getByRole('button', { name: 'Start new pass' }));
+
+    // The drawer is about the new pass now, which has nothing written on it yet...
+    expect(await screen.findByRole('button', { name: 'Column: Playing' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('spinbutton', { name: 'Exact rating' })).toHaveValue(null),
+    );
+
+    // ...and the finished one is a record underneath it, rating and all.
+    const finished = within(screen.getByRole('region', { name: 'Completed Nov 2, 2024' }));
+    expect(finished.getByRole('img', { name: 'Rated 9.5 out of 10' })).toBeInTheDocument();
+  });
+
+  it('holds the pass still until the journal has the moved pass under it', async () => {
+    // The move's own answer comes back before the journal's refetch does. Let go between the
+    // two, and the form is writable over the pass as it was before the move, under a heading
+    // back on the column the title has just left.
+    boardServer();
+    passesOnServer(
+      libraryItem({ mediaId: 3003, title: 'Celeste' }),
+      logEntry({ id: 7, status: 'Backlog' }),
+      { titleAnswersAfterAMove: 1500 },
+    );
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    await moveFromJournal('Backlog', 'Playing');
+
+    // Long after the move itself was answered...
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(screen.getByRole('button', { name: 'Column: Playing' })).toBeInTheDocument();
+    expect(screen.getByText('Moving…')).toBeInTheDocument();
+
+    // ...and over once the moved pass is there.
+    await waitFor(() => expect(screen.queryByText('Moving…')).not.toBeInTheDocument(), slow);
+    expect(screen.getByLabelText('Started')).toHaveValue('2026-10-07');
+  });
+
+  it('keeps a rating typed just before a move, and the start the move stamped', async () => {
+    // The race, the way round where the move's refetch lands first. The form re-seeds only
+    // when nothing is owed, so it went on holding an empty Started; half a second later the
+    // timer sent it, and a Playing pass with no start belongs to no year.
+    boardServer();
+    const title = passesOnServer(
+      libraryItem({ mediaId: 3003, title: 'Celeste' }),
+      logEntry({ id: 7, status: 'Backlog' }),
+    );
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+    await moveFromJournal('Backlog', 'Playing');
+
+    // The page catches up: the heading names the column, and Started shows the stamped day.
+    expect(await screen.findByRole('button', { name: 'Column: Playing' }, slow)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Started')).toHaveValue('2026-10-07'), slow);
+
+    // And nothing still owed lands on top of it afterwards.
+    await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_MS + 300));
+    expect(title.passes[0]).toMatchObject({
+      status: 'InProgress',
+      rating: 8.5,
+      startedAt: MOVED_AT,
+    });
+  });
+
+  it('keeps the start a move stamped while a refused rating waits to be corrected', async () => {
+    // The hole the plan's fix left. A refused value is never sent, so the form stays out of step
+    // with the server on purpose — and a form that re-seeds only when nothing is owed then never
+    // takes the start the move stamped. Corrected, the rating went with an empty Started.
+    boardServer();
+    const title = passesOnServer(
+      libraryItem({ mediaId: 3003, title: 'Celeste' }),
+      logEntry({ id: 7, status: 'Backlog' }),
+    );
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    const rating = await screen.findByRole('spinbutton', { name: 'Exact rating' });
+    await userEvent.type(rating, '8.75');
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
+      'at most one decimal place',
+    );
+
+    await moveFromJournal('Backlog', 'Playing');
+
+    // The stamped start reaches the form, and the refused rating stays to be corrected.
+    await waitFor(() => expect(screen.getByLabelText('Started')).toHaveValue('2026-10-07'), slow);
+    expect(rating).toHaveValue(8.75);
+
+    await userEvent.clear(rating);
+    await userEvent.type(rating, '8.5');
+
+    await waitFor(
+      () =>
+        expect(title.passes[0]).toMatchObject({
+          status: 'InProgress',
+          rating: 8.5,
+          startedAt: MOVED_AT,
+        }),
+      autosaves,
+    );
+  });
+
+  it('does not let a save owed from before a move put the pass back where it was', async () => {
+    // The race the other way round: the move is sent, and the save the form was holding goes
+    // after it while its answer is still on the way, carrying the column it was loaded with.
+    // The server moved the pass and then put it back.
+    boardServer();
+    const title = passesOnServer(
+      libraryItem({ mediaId: 3003, title: 'Celeste' }),
+      logEntry({ id: 7, status: 'Backlog' }),
+      { moveAnswersAfter: AUTOSAVE_MS + 500 },
+    );
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+    await moveFromJournal('Backlog', 'Playing');
+
+    expect(await screen.findByRole('button', { name: 'Column: Playing' }, slow)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText('Started')).toHaveValue('2026-10-07'), slow);
+
+    await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_MS + 300));
+    expect(title.passes[0]).toMatchObject({
+      status: 'InProgress',
+      rating: 8.5,
+      startedAt: MOVED_AT,
+    });
   });
 });
 

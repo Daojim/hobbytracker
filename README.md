@@ -28,7 +28,8 @@ Cards carry the cover, the genre they are painted as, your rating, how long the 
 the last thing you wrote about it. Each column's header adds those lengths up, and Completed's sets
 the hours you logged against them. Clicking the title opens the journal over the board: rating,
 platform, dates, your hours beside HowLongToBeat's three estimates, dated notes, and every
-earlier pass with its own notes below it.
+earlier pass with its own notes below it. The column's name at the top of the pass moves the
+title from there, as a drag would.
 
 A link on the board's year row opens that year's stats: what you finished, as covers under the
 month you finished them, your hours against HowLongToBeat game by game, your ratings, how much of
@@ -549,6 +550,13 @@ to prevent something, the test for it is checked by reintroducing the thing.
       the accent, the user's pick from renders over a card's plain name, and measuring before the
       build found that the two-line limit on a name breaks quietly inside a button. A journal
       opened from the release calendar now hands the keyboard back, which it never did
+- [x] Moving a title from its journal. The column's name at the top of the pass opens on the
+      board's columns, and leaving Completed asks first, in a tinted box the user picked over a
+      quieter line, because the finished pass is kept and a new one started. The journal writes
+      itself half a second after each change, and a move made inside that half second could be
+      undone by the write still waiting — measured both ways round, as two failing tests, before
+      anything was fixed. A native dropdown was ruled out by measurement too: Chrome on Windows
+      changes a closed one on every arrow key, and here every change would be a move
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

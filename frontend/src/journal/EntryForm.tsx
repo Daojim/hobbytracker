@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { formatHours } from '../lib/hours';
 import {
   AUTOSAVE_MS,
@@ -12,7 +20,7 @@ import {
   passValues,
   valuesKey,
 } from './fields';
-import type { HltbEstimates } from './fields';
+import type { HltbEstimates, PassValues } from './fields';
 import { HowLong } from './HowLong';
 import type { PassFields, TitleSeason } from '../hobbies';
 import { hasFinishAhead } from '../lib/pace';
@@ -107,6 +115,27 @@ export interface EntryFormProps {
   actions?: ReactNode;
   /** Opened from a card's *How long for me?*, so the question under the estimates starts open. */
   askHowLong?: boolean;
+  /**
+   * A move of this title is on its way, from the heading above the form.
+   *
+   * The pass takes nothing until it is over: every write carries the pass's column and dates,
+   * so one sent now would carry the column being left, and could land after the move and undo
+   * it. The drawer has had the form send what it owed before the move went, so nothing is lost
+   * by holding still, and the pass is dimmed so the stillness says why.
+   */
+  moving: boolean;
+  /** What the drawer can ask of the form at a moment of its own choosing. */
+  ref?: Ref<EntryFormHandle>;
+}
+
+export interface EntryFormHandle {
+  /**
+   * Sends whatever the form owes now, rather than when the timer would have.
+   *
+   * The drawer's to ask, before a move: a command at a moment the form cannot see coming, which
+   * is what a handle is for. A value the rules refuse is still refused, and stays on screen.
+   */
+  flush: () => void;
 }
 
 /**
@@ -116,9 +145,10 @@ export interface EntryFormProps {
  * finished, the episode you are on — and a button between each of them and the record is a step
  * nobody wants. A change arms a timer; the timer checks the rules and sends every field.
  *
- * The status is deliberately not here. Dragging is the gesture that moves a title between
- * columns, and the rules about which entry that touches and which timestamps it stamps live on
- * the server — a second way in would need its own copy of all of it.
+ * The status is still not a field here, though the drawer's heading moves the title now. A move
+ * goes through the board's mutation and the move route, where the rules about which entry it
+ * touches and which timestamps it stamps live; this form only sends the status it was handed,
+ * and is held still while a move is on its way — see {@link EntryFormProps.moving}.
  */
 export function EntryForm({
   hobby,
@@ -137,6 +167,8 @@ export function EntryForm({
   onEdit,
   actions,
   askHowLong = false,
+  moving,
+  ref,
 }: EntryFormProps) {
   const ids = useId();
   const seed = passValues(entry);
@@ -161,14 +193,16 @@ export function EntryForm({
 
   // What the inputs hold, and what the pass underneath them says, as two things that can be
   // compared in one go.
-  const held = valuesKey({ rating, platform, hours, season, episode, started, completed });
+  const values: PassValues = { rating, platform, hours, season, episode, started, completed };
+  const held = valuesKey(values);
   const fromPass = valuesKey(seed);
 
-  // What the server is believed to hold. It moves on exactly two occasions and no others: a
-  // write is sent, and the pass underneath is taken as the truth. `held === agreed.current` is
-  // therefore the whole of "there is nothing here the server has not been told", which is both
-  // the question the timer asks and the question the re-seed below asks.
-  const agreed = useRef(held);
+  // What the server is believed to hold, field by field. It moves on exactly two occasions and
+  // no others: a write is sent, and the pass underneath is taken as the truth. `held` matching
+  // it whole is "there is nothing here the server has not been told", which is the question the
+  // timer asks. A field matching it is one the reader has not touched since, which is the
+  // question the re-seed below asks of each field.
+  const agreed = useRef<PassValues>(values);
 
 
   /** Dragging the slider. A step of 0.1 gives exactly the scale the column stores. */
@@ -188,6 +222,10 @@ export function EntryForm({
   }
 
   function clearRating() {
+    if (moving) {
+      return;
+    }
+
     setRating('');
     setThumb(UNRATED_THUMB);
   }
@@ -206,6 +244,11 @@ export function EntryForm({
    * this form exists to state.
    */
   function stepRating(grain: number, direction: 1 | -1) {
+    // A wheel raises no change event, so the form's gate below never hears it.
+    if (moving) {
+      return;
+    }
+
     const from = parseRating(rating).value ?? thumb;
     const next = Math.min(10, Math.max(1, Number((from + grain * direction).toFixed(1))));
 
@@ -218,6 +261,10 @@ export function EntryForm({
 
   /** The wheel over hours played. Half an hour, which is the grain anybody records a session in. */
   function stepHours(direction: 1 | -1) {
+    if (moving) {
+      return;
+    }
+
     const from = parseHours(hours).value ?? 0;
     const next = Number((from + HOURS_GRAIN * direction).toFixed(2));
 
@@ -342,7 +389,7 @@ export function EntryForm({
    * it, which is the whole of what changed when the button went.
    */
   function sendIfValid() {
-    if (held === agreed.current) {
+    if (held === valuesKey(agreed.current)) {
       return;
     }
 
@@ -387,7 +434,7 @@ export function EntryForm({
       return;
     }
 
-    agreed.current = held;
+    agreed.current = values;
 
     // Every field, every time. The API takes PUT rather than PATCH precisely so that an absent
     // field means "cleared" — sending only what changed would wipe the rating whenever somebody
@@ -426,8 +473,12 @@ export function EntryForm({
   // A change, then quiet, then a write. The cleanup is what makes it one write per pause rather
   // than one per keystroke: "8.5" re-arms the timer twice on its way past a bare 8, which is a
   // rating the server would have accepted and stored.
+  //
+  // It needs no hold of its own while a move is on its way. The drawer has the form send what it
+  // owes before the move goes, and the form takes no edit until it is over, so the only thing
+  // that can still be owed meanwhile is a value the rules refuse — which this sends nothing for.
   useEffect(() => {
-    if (held === agreed.current) {
+    if (held === valuesKey(agreed.current)) {
       return;
     }
 
@@ -435,35 +486,62 @@ export function EntryForm({
     return () => clearTimeout(timer);
   }, [held]);
 
+  useImperativeHandle(ref, () => ({ flush: () => write.current() }), []);
+
   // The one hole a form that writes itself opens, and the reason a blur does not also send:
   // closing the drawer inside the delay would lose the change, where closing over an unpressed
   // button was visibly your own doing. A no-op unless there is something owing, so the ordinary
   // close costs nothing.
   useEffect(() => () => write.current(), []);
 
-  // The pass underneath, taken as the truth — a drag that stamped a start while the drawer was
-  // shut, or the refetch that follows a write of our own and mostly says what was just sent.
+  // The pass underneath, taken as the truth — a move that stamped a start, a drag that stamped
+  // one while the drawer was shut, or the refetch that follows a write of our own and mostly
+  // says what was just sent.
   //
-  // Guarded on there being nothing of the reader's to lose, because the two are indistinguishable
-  // from here: a save in flight is answered by a refetch carrying the old values, and re-seeding
-  // from that would put the rating back half a second after it was typed.
+  // Field by field. A field the reader has not touched since the server last agreed takes the
+  // pass's value; one they have touched keeps theirs, and goes on being owed until it is sent.
+  // It used to be all or nothing, guarded on there being nothing of the reader's to lose — which
+  // was right for a refetch answering our own save, and wrong the moment the pass could change
+  // underneath a value still owed: a rating the rules refused, held across a move, kept the form
+  // from ever taking the start the move stamped, and the corrected rating went with an empty
+  // Started. A refetch carrying what was just sent still changes nothing, because it is what
+  // `agreed` already says.
+  //
+  // Run when the pass changes and not when the reader types: `fromPass` is the whole of the
+  // pass as one string, so it is what says there is anything here to do.
   useEffect(() => {
-    if (held !== agreed.current || fromPass === held) {
+    const before = agreed.current;
+    if (valuesKey(before) === fromPass) {
       return;
     }
 
-    setRating(seed.rating);
-    setThumb(entry.rating ?? UNRATED_THUMB);
-    setPlatform(seed.platform);
-    setHours(seed.hours);
-    setSeason(seed.season);
-    setEpisode(seed.episode);
-    setStarted(seed.started);
-    setCompleted(seed.completed);
-    agreed.current = fromPass;
-    // `seed` is rebuilt every render and `fromPass` is the whole of it as one string, so these
-    // two are what actually say when there is anything here to do.
-  }, [held, fromPass]);
+    const untouched = (field: keyof PassValues) => values[field] === before[field];
+
+    if (untouched('rating')) {
+      setRating(seed.rating);
+      setThumb(entry.rating ?? UNRATED_THUMB);
+    }
+    if (untouched('platform')) {
+      setPlatform(seed.platform);
+    }
+    if (untouched('hours')) {
+      setHours(seed.hours);
+    }
+    if (untouched('season')) {
+      setSeason(seed.season);
+    }
+    if (untouched('episode')) {
+      setEpisode(seed.episode);
+    }
+    if (untouched('started')) {
+      setStarted(seed.started);
+    }
+    if (untouched('completed')) {
+      setCompleted(seed.completed);
+    }
+
+    agreed.current = seed;
+  }, [fromPass]);
 
   return (
     // noValidate, so the rules below are the ones that speak. step="0.1" is kept for the
@@ -482,14 +560,28 @@ export function EntryForm({
     //
     // Still a <form> with nothing to submit it: a browser's implicit submission does nothing
     // here, since more than one field blocks it, and preventDefault costs one line.
+    //
+    // While a move is on its way the form takes nothing, and every field's change is stopped
+    // here on its way down, in one place rather than in seven handlers: React lets a capture
+    // listener stop an event before the target's own, and puts a controlled field back as it was.
+    // Not `disabled` or `inert`, which a browser answers by taking focus off whatever had it, and
+    // the keyboard would land at the top of the page; DeleteAccount measured that first. The dim
+    // is what says so, and `pointer-events-none` keeps a select from opening onto a choice that
+    // would only be put back.
     <form
       onSubmit={(event) => {
         event.preventDefault();
         write.current();
       }}
+      onChangeCapture={(event) => {
+        if (moving) {
+          event.stopPropagation();
+        }
+      }}
       onChange={onEdit}
       noValidate
-      className="flex flex-col gap-3"
+      aria-busy={moving}
+      className={`flex flex-col gap-3 ${moving ? 'pointer-events-none opacity-50' : ''}`}
     >
       <Field id={`${ids}-rating`} label="Rating" message={messageFor('rating')}>
         <div className="flex items-center gap-3">

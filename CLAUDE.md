@@ -647,9 +647,11 @@ shuffled.
         name, in the accent: the user's pick from renders over a card's plain name. A journal
         opened from the calendar now hands the keyboard back, which it never did (PR #68,
         deployed)
-      - a column dropdown in the journal — the column's name above the rating becomes a control
-        that moves the title. It reverses *No status control* in `docs/journal.md`, and the
-        autosave can undo a move made while a save is pending; the plan says how
+      - [x] a column dropdown in the journal — the pass's heading opens on the board's columns,
+        and leaving Completed asks first, in a tinted box: the user's pick over a line. It
+        reverses *No status control* in `docs/journal.md`. The autosave could undo a move made
+        while a save was pending, which was reproduced red both ways round before the fix (on
+        `journal-column-control`)
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
