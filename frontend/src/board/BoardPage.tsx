@@ -339,6 +339,10 @@ function Board({ hobby }: { hobby: Hobby }) {
           mediaId={journalFor}
           onClose={closeJournal}
           askHowLong={askHowLong}
+          // The board's own list and the board's own move, so the pass's heading offers what a
+          // card's menu offers and moves the card the way the menu does.
+          columns={columns}
+          onMove={(from, to) => board.moveAndWait(journalFor, from, to)}
         />
       )}
     </main>

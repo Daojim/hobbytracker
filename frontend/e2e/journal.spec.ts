@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitEstimate, estimate } from './support/hltb';
@@ -6,6 +6,7 @@ import {
   card,
   column,
   drag,
+  entriesFor,
   openJournal,
   passSaved,
   seed,
@@ -647,4 +648,94 @@ test('the wheel rates a game without scrolling the drawer out from under it', as
   await expect(box).toHaveValue('2.1');
 
   expect(await scrollTop(), 'the panel scrolled while the wheel was being read').toBe(before);
+});
+
+/** The pass's heading, which moves the title: it opens a list of the board's columns. */
+async function moveFromJournal(page: Page, from: string, to: string): Promise<void> {
+  await page.getByRole('dialog').getByRole('button', { name: `Column: ${from}` }).click();
+  await page
+    .getByRole('group', { name: 'Move to' })
+    .getByRole('button', { name: to, exact: true })
+    .click();
+}
+
+test('a move from the journal puts the card in its new column, and a reload keeps it there', async ({
+  page,
+}) => {
+  await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await moveFromJournal(page, 'Backlog', 'Playing');
+
+  // The drawer holds the moved pass: its heading, and the start the move stamped.
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Column: Playing' })).toBeVisible();
+  await expect(page.getByLabel('Started')).toHaveValue(today());
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+  await page.reload();
+  await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
+  await expect(column(page, 'Backlog').getByText('Celeste')).toHaveCount(0);
+});
+
+test('a rating typed just before a move from the journal is kept, and so is the start', async ({
+  page,
+}) => {
+  // The race the heading was built around, against the real API: the save the form is holding,
+  // and the move, inside the half second it holds it. Before the fix the save went after the
+  // move, with the old empty Started, and the pass was left Playing with no start.
+  const mediaId = await seed(page.request, 'Celeste', 'Backlog');
+  await page.reload();
+
+  await openJournal(page, 'Celeste');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
+  await moveFromJournal(page, 'Backlog', 'Playing');
+
+  await expect(page.getByLabel('Started')).toHaveValue(today());
+
+  // Nothing left on its way before the reload, which would abort it: the move is over, and the
+  // dialog's one status says Saved. *Moving…* is a status too, so it has to go first.
+  await expect(page.getByRole('dialog').getByText('Moving…')).toHaveCount(0);
+  await passSaved(page);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.reload();
+  await expect(
+    column(page, 'InProgress').getByRole('img', { name: 'Rated 8.5 out of 10' }),
+  ).toBeVisible();
+
+  const [pass] = await entriesFor(page.request, mediaId);
+  expect(pass).toMatchObject({ status: 'InProgress', rating: 8.5 });
+  expect(pass?.startedAt).not.toBeNull();
+});
+
+test('another column on a finished pass asks first, then starts a new one', async ({ page }) => {
+  await seed(page.request, 'Hollow Knight', 'Completed', {
+    startedAt: '2024-01-10',
+    completedAt: '2024-11-02',
+    rating: 9.5,
+  });
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  await moveFromJournal(page, 'Completed', 'Playing');
+  await expect(
+    page.getByText('Start a new pass in Playing? This one stays under Earlier passes.'),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Start new pass' }).click();
+
+  // The drawer is about the new pass, and the finished one is underneath with its rating.
+  await expect(page.getByRole('dialog').getByRole('button', { name: 'Column: Playing' })).toBeVisible();
+  await expect(page.getByRole('spinbutton', { name: 'Exact rating' })).toHaveValue('');
+  await expect(
+    page
+      .getByRole('region', { name: 'Completed Nov 2, 2024' })
+      .getByRole('img', { name: 'Rated 9.5 out of 10' }),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(
+    card(page, 'Hollow Knight').getByRole('img', { name: '2 playthroughs' }),
+  ).toBeVisible();
 });

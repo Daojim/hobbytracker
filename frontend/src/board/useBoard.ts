@@ -157,7 +157,6 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
 
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, from] });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby, to] });
-      void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
 
       // A move stamps a timestamp, and the years are derived from those — so a drag is one of
       // the two things that can bring a new year into existence. Without this the first title
@@ -176,6 +175,13 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       // shared prefix. The strip sits above this board and names the column a title is in, so
       // left alone it would go on naming the one a card had just been dragged out of.
       void queryClient.invalidateQueries({ queryKey: libraryStatusesKey(hobby) });
+
+      // Returned, and the only one that is, so the move is not over until it has landed: a
+      // journal open on the title is the one reader with a form over the pass, and it holds
+      // still until it has the moved pass under it. `moveAndWait` is how it waits. A drag or the
+      // menu has no journal open — the drawer covers the board — so nothing observes the title
+      // then, and this answers at once.
+      return queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
     },
   });
 
@@ -310,6 +316,15 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
      */
     move: (mediaId: number, from: LogStatus, to: LogStatus) =>
       move.mutate({ mediaId, from, to }),
+    /**
+     * The same move, from the journal's heading, as something to wait on.
+     *
+     * The drawer has a pass on screen that the move changes underneath it, so it needs to know
+     * when the move is over rather than only that it was asked for. A third caller of the one
+     * mutation, as the menu is the second: everything above happens for it as well.
+     */
+    moveAndWait: (mediaId: number, from: LogStatus, to: LogStatus) =>
+      move.mutateAsync({ mediaId, from, to }),
     /** Taking the current pass off the board, which is the one ending a drag cannot express. */
     remove: (mediaId: number) => remove.mutate(mediaId),
     /** The card under the cursor, so the drag has something to follow. */

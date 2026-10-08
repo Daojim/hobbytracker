@@ -1,16 +1,17 @@
-import { Fragment, useId, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { formatJournalDate } from '../lib/time';
 import { useModalPanel } from '../lib/useModalPanel';
+import { ColumnControl } from './ColumnControl';
 import { ConfirmDelete } from './ConfirmDelete';
-import { EntryForm } from './EntryForm';
+import { EntryForm, type EntryFormHandle } from './EntryForm';
 import { HltbPin } from './HltbPin';
 import { NoteList } from './NoteList';
-import { automaticGenre, hobbyDefinition } from '../hobbies';
+import { automaticGenre, hobbyDefinition, type BoardColumn } from '../hobbies';
 import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
 import { useJournalEntry } from './useJournalEntry';
 import { useNotes } from './useNotes';
-import type { LogEntry, LogStatus } from '../api/types';
+import type { LogEntry, LogStatus, UpdateLogEntry } from '../api/types';
 
 /**
  * What a person calls each column, which is not what the protocol calls it: `InProgress` is
@@ -43,6 +44,18 @@ export interface EntryDrawerProps {
    * starts open. Said on every opening by the board, never left over from the one before.
    */
   askHowLong?: boolean;
+  /**
+   * The columns the board draws, which are the ones the pass's heading offers. The board's one
+   * list, as every card's menu is handed it, so a column taken off in Settings leaves both at
+   * the same moment.
+   */
+  columns: readonly BoardColumn[];
+  /**
+   * Moves the title, which the board does: it is the drag's own mutation, so a move from here
+   * moves the card, refetches the columns, the years, the calendar and the search strip's chips,
+   * and applies the server's rules about which pass it touches. None of that is written twice.
+   */
+  onMove: (from: LogStatus, to: LogStatus) => Promise<unknown>;
 }
 
 /**
@@ -58,11 +71,19 @@ export interface EntryDrawerProps {
  * it is. Neither kind is a branch on the slug, and that is the point: `if (hobby === 'movies')`
  * would be six branches by the time books land.
  */
-export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: EntryDrawerProps) {
+export function EntryDrawer({
+  hobby,
+  mediaId,
+  onClose,
+  askHowLong = false,
+  columns,
+  onMove,
+}: EntryDrawerProps) {
   const { columnLabel, genres, journal } = hobbyDefinition(hobby);
   const { title, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(hobby, mediaId);
   const titleId = useId();
   const genreId = useId();
+  const questionId = useId();
   const panel = useRef<HTMLElement>(null);
   // Which pass has been asked about, if any. One at a time, and by id rather than a flag,
   // because every row in the history carries the same control.
@@ -121,6 +142,88 @@ export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: Ent
     onCancel: () => setConfirming(null),
     onConfirm: () => deletePass(entryId),
   });
+
+  // Which column a Completed pass has been asked to leave for, while the drawer asks whether a
+  // new pass is meant. Leaving Completed inserts a pass rather than editing this one, so the
+  // finished playthrough is kept — and on the pass's own heading that reads as a correction,
+  // which it is not. A drag does the same without asking; a drag is a gesture on the title, and
+  // this control sits on one pass's own heading.
+  const [asking, setAsking] = useState<LogStatus | null>(null);
+  const [moveError, setMoveError] = useState<string | null>(null);
+  // Where a move that is on its way is going. The heading names it at once, and the pass takes
+  // nothing until the drawer holds the moved pass.
+  const [moving, setMoving] = useState<LogStatus | null>(null);
+  const control = useRef<HTMLButtonElement>(null);
+  const answer = useRef<HTMLButtonElement>(null);
+  const form = useRef<EntryFormHandle>(null);
+
+  // Every write of the pass that has been sent and not yet answered, as one thing to wait on.
+  //
+  // A move has to come after them, not only after the one being sent as it starts: each write
+  // carries the pass's column, so one still in flight could land behind the move and put the
+  // pass back where it was. Chained rather than kept as the latest, because two can be in flight
+  // at once — a save takes longer than the half second between two of them, on a slow phone.
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+
+  function savePass(entryId: number, update: UpdateLogEntry) {
+    const sent = save.mutateAsync({ entryId, update });
+    writes.current = Promise.allSettled([writes.current, sent]);
+
+    // Failure is said by `save.error`, under the form; nothing here has more to add.
+    sent.then(
+      () => setSaved(true),
+      () => {},
+    );
+  }
+
+  // The question takes the keyboard when it appears: the list that asked it has just closed,
+  // and the answer is what a keyboard needs next.
+  useEffect(() => {
+    if (asking !== null) {
+      answer.current?.focus();
+    }
+  }, [asking]);
+
+  /**
+   * A move, in the only order that cannot undo itself.
+   *
+   * What the form owes goes first, and the move waits for every write still on its way; then the
+   * move, which the board answers only once this drawer holds the moved pass. The form takes
+   * nothing in between. Without that, a rating typed inside the half second before a move either
+   * went after it carrying the old column, so the server moved the pass back, or went with the
+   * old, empty Started over the start the move had stamped. Both were measured before the fix.
+   */
+  async function moveTo(from: LogStatus, to: LogStatus) {
+    setAsking(null);
+    setMoveError(null);
+    setMoving(to);
+
+    try {
+      form.current?.flush();
+      await writes.current;
+      await onMove(from, to);
+    } catch (failure) {
+      setMoveError(failure instanceof Error ? failure.message : String(failure));
+    } finally {
+      setMoving(null);
+    }
+  }
+
+  function pick(from: LogStatus, to: LogStatus) {
+    setMoveError(null);
+
+    if (from === 'Completed') {
+      setAsking(to);
+      return;
+    }
+
+    void moveTo(from, to);
+  }
+
+  /** Where the keyboard goes once the question is answered either way: the heading it came from. */
+  function answered() {
+    control.current?.focus();
+  }
 
   const notes = useNotes(hobby, mediaId);
   const noteError = [notes.write.error, notes.rewrite.error, notes.remove.error].find(
@@ -296,7 +399,47 @@ export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: Ent
         {detail !== undefined && <hr className="border-line-soft" />}
 
         {current !== undefined && detail !== undefined && (
-          <PassSection entry={current} heading={columnLabel[current.status]} lead>
+          <PassSection
+            entry={current}
+            // The column the pass is in, and the way to another one. It keeps the band heading's
+            // type, which is what made it match Journal as plain text; see ColumnControl.
+            heading={(id) => (
+              <ColumnControl
+                ref={control}
+                labelId={id}
+                status={moving ?? current.status}
+                moving={moving !== null}
+                columns={columns}
+                columnLabel={columnLabel}
+                className={BAND_HEADING}
+                onPick={(to) => pick(current.status, to)}
+              />
+            )}
+          >
+            {asking !== null && (
+              <NewPassQuestion
+                id={questionId}
+                column={columnLabel[asking]}
+                answer={answer}
+                onYes={() => {
+                  answered();
+                  void moveTo(current.status, asking);
+                }}
+                onNo={() => {
+                  setAsking(null);
+                  answered();
+                }}
+              />
+            )}
+
+            {/* The board puts a card back when its move fails. The drawer has no card to put
+                back, so it says so, under the heading that is still naming where the pass is. */}
+            {moveError !== null && (
+              <p role="alert" className="text-xs text-danger">
+                {`Not moved. ${moveError}`}
+              </p>
+            )}
+
             <EntryForm
               // Remounts when a *different* pass becomes the current one, so the inputs reload
               // rather than keeping the last title's half-typed rating — opening another card,
@@ -316,16 +459,13 @@ export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: Ent
               episodeCount={detail.episodeCount}
               estimates={detail.hltb}
               completedLabel={columnLabel.Completed}
+              ref={form}
+              moving={moving !== null}
               saving={save.isPending}
               saved={saved}
               serverErrors={fieldErrors}
               saveError={save.error === null ? null : save.error.message}
-              onSave={(update) =>
-                save.mutate(
-                  { entryId: current.id, update },
-                  { onSuccess: () => setSaved(true) },
-                )
-              }
+              onSave={(update) => savePass(current.id, update)}
               onEdit={() => setSaved(false)}
               // On the Save row, hard right, rather than under it. It stood in the column every
               // field label stands in, at the size every field label is set in, saying one word —
@@ -380,7 +520,17 @@ export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: Ent
 
             <div className="flex flex-col gap-4">
               {earlier.map((entry) => (
-                <PassSection key={entry.id} entry={entry} heading={headingFor(entry, columnLabel)}>
+                <PassSection
+                  key={entry.id}
+                  entry={entry}
+                  // A row inside the group, so not the band's uppercase: two levels of the same
+                  // shout, one inside the other, would be no heading at all.
+                  heading={(id) => (
+                    <p id={id} className="text-sm text-muted">
+                      {headingFor(entry, columnLabel)}
+                    </p>
+                  )}
+                >
                   <div className="flex flex-wrap items-baseline gap-2 text-sm">
                     {entry.rating !== null && (
                       <span
@@ -422,18 +572,16 @@ export function EntryDrawer({ hobby, mediaId, onClose, askHowLong = false }: Ent
 
 interface PassSectionProps {
   entry: LogEntry;
-  /** What the pass is called, and what names the region a screen reader can jump to. */
-  heading: string;
   /**
-   * Whether this is the pass the drawer is *about*, rather than one of the ones underneath it.
+   * What the pass is called, carrying the id that names the region a screen reader can jump to.
    *
-   * Only the styling differs, and it differs because the two are not the same kind of thing. The
-   * current pass opens a band of the drawer, between two rules, the way the header above it and
-   * the notes below it do — so it takes the uppercase heading this app already uses for a band,
-   * the one "Earlier passes" itself wears. An earlier pass is a row inside that group, and
-   * giving it the same weight would put two levels of the same shout inside one another.
+   * Handed the id rather than a string, because the two kinds of pass head themselves
+   * differently. The current pass opens a band of the drawer, between two rules, the way the
+   * header above it and the notes below it do, so its heading is in the band's uppercase — and
+   * since 7 October 2026 it is a control as well, the way to another column. An earlier pass is
+   * a row inside *Earlier passes*, with a plain heading and nothing to press.
    */
-  lead?: boolean;
+  heading: (id: string) => ReactNode;
   children: ReactNode;
 }
 
@@ -444,19 +592,60 @@ interface PassSectionProps {
  * problem — several passes on one screen, each carrying identically-named controls, and tests
  * and screen readers both needing to say which one they mean.
  */
-function PassSection({ entry, heading, lead = false, children }: PassSectionProps) {
+function PassSection({ entry, heading, children }: PassSectionProps) {
   const headingId = `pass-${entry.id}`;
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <p
-        id={headingId}
-        className={lead ? BAND_HEADING : 'text-sm text-muted'}
-      >
-        {heading}
-      </p>
+      {heading(headingId)}
       {children}
     </section>
+  );
+}
+
+interface NewPassQuestionProps {
+  id: string;
+  /** Where the new pass would start, in the hobby's own word. */
+  column: string;
+  /** The yes, which takes the keyboard when the question appears. */
+  answer: React.Ref<HTMLButtonElement>;
+  onYes: () => void;
+  onNo: () => void;
+}
+
+/**
+ * Whether leaving a Completed pass for another column means a new pass, which it always does.
+ *
+ * A tinted box, the user's pick at the workshop over a line in the Delete confirm's shape: the
+ * one boxed thing in the pass, so it cannot be read past. Not red and not a fill, because nothing
+ * is lost — the finished pass goes under *Earlier passes* with its rating, dates and notes.
+ *
+ * The yes carries the question as its description, so a screen reader that lands on it hears
+ * what it would do rather than three words.
+ */
+function NewPassQuestion({ id, column, answer, onYes, onNo }: NewPassQuestionProps) {
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-line-soft bg-well p-3 text-xs">
+      <p id={id}>{`Start a new pass in ${column}? This one stays under Earlier passes.`}</p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          ref={answer}
+          type="button"
+          aria-describedby={id}
+          onClick={onYes}
+          className="rounded border border-line bg-surface px-2 py-0.5 font-medium hover:bg-hover"
+        >
+          Start new pass
+        </button>
+        <button
+          type="button"
+          onClick={onNo}
+          className="rounded border border-line bg-surface px-2 py-0.5 text-muted hover:bg-hover hover:text-fg"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
