@@ -650,8 +650,8 @@ shuffled.
       - [x] a column dropdown in the journal — the pass's heading opens on the board's columns,
         and leaving Completed asks first, in a tinted box: the user's pick over a line. It
         reverses *No status control* in `docs/journal.md`. The autosave could undo a move made
-        while a save was pending, which was reproduced red both ways round before the fix (on
-        `journal-column-control`)
+        while a save was pending, which was reproduced red both ways round before the fix (PR
+        #70, deployed)
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
