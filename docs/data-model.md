@@ -178,6 +178,15 @@ row says Backlog — see **How long a title has waited** in `docs/stats.md`.
 - **Leaving Completed records the replay, not the finished pass.** The finished pass does not change,
   so it gets no row. "When did this title leave Completed" is the replay's made-row, read across the
   title's passes.
+- **A finish put back is erased, whatever its age**, since 8 October 2026 (#14). The board never
+  moves a finished pass in place except to take its finish back, so the recorder knows one by what
+  it is, a pass leaving Completed in place, rather than by who asked, and folds it into the row that
+  recorded the finish as a shuffle folds: back where that row began, the row goes. Decided at the
+  pickup over keeping both rows, the plan's recommendation, because two rows restart a Backlog
+  wait, which Stats reads off the latest row. A finish with no row of its own, because the pass
+  predates recording or got there around the recorder, is put back with no row at all: a row
+  saying it left Completed would claim the finish being taken back. The rewrite route can take a
+  finish back too, and is folded the same way. `StatusHistoryTests` has a case for each.
 - **No backfill, and a reader can tell which passes that leaves unknown.** The only row a migration
   could write for an existing pass is "made in its current column, when it was logged", which is
   false for every pass a move has edited since. Instead, **every pass made since recording began has

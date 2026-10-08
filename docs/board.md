@@ -33,7 +33,7 @@ off the routing table; see **Sharing a board** in `docs/auth.md`.
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
 | `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, soonest first and the undated last. **Not paged** |
 | `GET /api/library/export?hobby=` | everything on your board for the spreadsheet in Settings: every title in every column, the calendar's too, with every pass of yours and every note, in the board's order. **Not paged.** See `docs/export.md` |
-| `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls |
+| `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls. **`notFinished: true` puts a finish back**: the finished pass itself moves, without its finish |
 | `POST /api/library/{mediaId}` | put a title on your board, in a column — what a tile's +, ▶ and ✓ call. **201** with the card; **409** when it is already on your board |
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours** |
 | `PUT /api/library/order` | store one column's manual ranking |
@@ -128,12 +128,21 @@ column; which entry gets touched and which dates get set is decided server-side.
 | not Completed | `OnHold` | edit in place; **Playing's rule exactly** — `started_at` = now *only if null*; clear `completed_at` |
 | not Completed | `Dropped` | edit in place; set `started_at` = now *only if null*; leave `completed_at` alone |
 | **Completed** | anything else | **insert a new entry** at the top of the target column |
+| **Completed**, with `notFinished` | anything else | **edit in place**: clear `completed_at`, then the target's own row above |
 | same as target | — | no-op |
 
 **Leaving `Completed` inserts rather than edits.** Replaying a game finished in 2024 must not
 overwrite that completion — preserving it is the entire reason the schema allows several entries per
 title, and editing in place would destroy the record silently, on a gesture as casual as a drag.
 `StatusTransitionTests` covers every row above; do not "simplify" this into a plain update.
+
+**Unless the caller says the finish never happened**, since 8 October 2026 (#14). Until then
+nothing could move a finished pass, so a mistaken finish moved back left a blank pass above the real
+one, and the real one was then deleted to tidy up, notes and all. `notFinished` is that answer, and
+it is never a default: a client sends it only when somebody has said *No* to *Did you finish it?*
+(see **Leaving Completed asks first** below). The finish is cleared before the target's own rule
+runs, because Dropped's leaves a finish alone and would keep the one being taken back, and fall
+back to it for a start. It means nothing to a pass that is not finished.
 `InProgress` sets `started_at` only when null, so picking a dropped game back up keeps the moment you
 actually started it, and a pass inserted by a drag out of Completed gets a null platform and null
 hours rather than inheriting the last one's.
@@ -143,8 +152,8 @@ menu move, a drop on the phone's switcher and an add each leave a row in `status
 column the pass left, which it reached, and when — written by `StatusHistoryRecorder` during the
 save, so `TransitionAsync` and `NewPassAsync` carry no line for it. Leaving Completed records the
 replay being made and nothing against the finished pass, which did not change. A card
-shuffled between columns inside ten minutes folds away rather than being recorded. See **A pass's
-history** in `docs/data-model.md`.
+shuffled between columns inside ten minutes folds away rather than being recorded, and a finish put
+back folds away however old it is. See **A pass's history** in `docs/data-model.md`.
 
 **Dropping stamps a start when the pass has none**, which is the one rule in that table that adds a
 fact rather than preserving one. A Backlog entry has both timestamps cleared by rule and the Dropped
@@ -216,8 +225,51 @@ none for it to promise.
 list `BoardPage` hands every card. It calls the same mutation through `useBoard().moveAndWait`, so
 it moves the card, refetches the columns, the years, the calendar and the strip's chips, and the
 server applies the transition table, with nothing written twice. What it adds is the drawer's, not
-the board's — a question before leaving Completed, and a form held still while the move is on its
-way. See **The pass's heading moves the title** in `docs/journal.md`.
+the board's — a form held still while the move is on its way. See **The pass's heading moves the
+title** in `docs/journal.md`. It asked before leaving Completed from the start; since #14 the board
+asks too, below.
+
+### Leaving Completed asks first
+
+**A drag or a menu move out of Completed leaves the card where it is and asks on it whether it was
+finished**, since 8 October 2026 (#14): *Did you finish it on Oct 8, 2026?*, answered *Yes — start
+a new pass*, *No — move it to Playing* or *Cancel*. Yes is a replay, as every move out of Completed
+was; no is a finish put back (**Unless the caller says the finish never happened**, above). The
+journal asks the same question in the same words, from `lib/finishQuestion.ts`.
+
+- **Decided at the pickup over an *Undo* after every move, which was the plan's recommendation.**
+  An *Undo* is not a move back: undoing a replay has to delete the new pass, where a move back to
+  Completed would mark the blank pass finished, and undoing a move into Backlog has to put the start
+  back, where a move to Playing stamps today. It also lasts seconds, and the mistaken finish #14
+  was found from was noticed six hours later. The cost, accepted: a replay by drag takes one more
+  press.
+- **The question is a row of its own under the card's contents, the card's full width**, picked
+  from the renders over the place *Remove from board*'s confirm takes, which at 1440 is the column
+  beside the cover: 111px wide, where both answers wrapped. The full-width row is 210px.
+  `CARD_CLASS` carries `flex-wrap` for it, and its comment says why nothing else can wrap.
+- **`useBoard` holds which card is asking**, as `leaving`, because a refetch remounts cards, for
+  the reason the remove confirm is held above them. `moveOrAsk` is the one place a board move turns
+  into a question: `onDragEnd` and the menu's `move` both go through it, and `moveAndWait`, the
+  journal's, does not, because the drawer asks for itself. The drop's index is kept, so a replay
+  in manual sort lands where it was let go.
+- **The board hands the keyboard to the first answer, by id, when the question starts**:
+  `cardAnswerId`, from an effect on `leaving` in `BoardPage`. The card does not focus itself on
+  mount, because a refetch remounts it, and a question that took the keyboard on every mount would
+  take it from wherever it had gone since, the search box included. *Cancel* and Escape hand it to
+  the card's corner, by `cardMenuId`, as the menu's Escape does.
+- **Every answer stops the press from starting a drag** (`NOT_A_DRAG`): three small buttons on a
+  card that drags. `Card.test.tsx` presses each one every way a sensor can start.
+- **On a phone the question is asked where the card still is.** A drop on a segment of the
+  switcher does not switch columns, so the column being left stays on screen. `board.spec.ts` drops
+  a finished card on Playing's segment and answers.
+- **Not on a share.** A share is read-only, with no menu and no drag, so it never asks, and the
+  question is not a `Voiced` pair.
+- **A click within 50ms of a drop lands on nothing.** dnd-kit's sensor stops every click on the
+  page while a drag is on and takes that listener off on a timeout after it ends
+  (`AbstractPointerSensor.detach`, 6.3.1). A person cannot click that fast and a spec can: the
+  first e2e run had seven specs red that answered the question the moment `drag()` returned. Any
+  spec that clicks straight after a drag meets it, which is why `answerFinished` in
+  `e2e/support/board.ts` presses until the question goes.
 
 **One item comes and goes: *How long for me?*,** under *Open journal*. Added on 2 October 2026 for
 #4, it opens the same drawer with "How long will it take me?" already asked — see

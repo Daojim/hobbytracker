@@ -528,6 +528,7 @@ here**.
 | **`System.Text.Json` reads a bare `"2026-03-03"` as midnight *UTC*** — 7pm on the 2nd here, which is the original timezone bug walking back in through the API | `docs/data-model.md` |
 | **The year filter is a range, never an `EXTRACT`.** `date_part('year', …)` on a `timestamptz` reads the *session's* timezone, so the same query answers differently depending on how the connection was opened | `docs/data-model.md` |
 | **A pass's status written around `SaveChanges` leaves no history.** `StatusHistoryRecorder` is an interceptor, so an `ExecuteUpdate`, raw SQL or a context built without it moves a pass with no `status_changes` row and no error — and history not written down cannot be recovered. Anything that writes `status` in bulk, an import included, goes through tracked entities | `docs/data-model.md` |
+| **A finished pass moved in place reads to the history as a finish put back**, and the row that recorded its finish is erased. The board never moves one in place for any other reason, so the recorder needs no signal; anything new that does, an import or a bulk edit, loses that history with no error. Leave a finished pass alone and insert, as a replay does | `docs/data-model.md` |
 | **Tailwind v4 scans source text**, so an interpolated class name generates nothing and the element renders unstyled rather than failing — `` `bg-genre-${x}` `` paints a transparent stripe | `docs/design.md` |
 | **A new theme has more lists to join than it looks**, and the one that fails quietly stamps nothing: the theme is offered, chosen, stored, and then repainted after the bundle mounts on every load — the flash the pre-paint script exists to prevent, on the one theme nobody would test for it | `docs/design.md` |
 | **`log_entries` and `notes` are yours; `media`, `games` and the lookup tables are shared and must stay shared.** Scoping is an injected `ICurrentUser` at sixteen call sites rather than a query filter, and a missed one shows as a stranger's data on your board, never as an error | `docs/auth.md` |
@@ -606,8 +607,9 @@ shuffled.
 - [ ] **The games board, before the other hobbies — the current focus.** Decided 1 October 2026:
       a feature is built on the games board first and taken to the other hobbies afterwards. Ten
       were planned in `docs/plans/games-board-next.md`, one section each, to be picked up in any
-      order, an eleventh, a bug, was added on 4 October 2026, and two about the journal on
-      7 October:
+      order, an eleventh, a bug, was added on 4 October 2026, two about the journal on
+      7 October, and two more about it on 8 October, after a mistaken finish cost a pass its
+      notes:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -652,6 +654,14 @@ shuffled.
         reverses *No status control* in `docs/journal.md`. The autosave could undo a move made
         while a save was pending, which was reproduced red both ways round before the fix (PR
         #70, deployed)
+      - [x] putting a finished pass back — leaving Completed asks *Did you finish it on Oct 8,
+        2026?*, in the journal and on a card a drag or its menu is taking out of Completed. *No*
+        moves the finished pass itself and takes its finish, and the history forgets the finish
+        whatever its age. Found on 8 October 2026: the tidy-up the drawer offered deleted the
+        real pass, and its nine notes came back from the nightly backup. Every choice was the
+        recommendation, two of them over the plan's (built 8 October 2026)
+      - deleting a pass keeps its notes — they move to the pass that stays, and the confirm says
+        so, where today it says nothing. Found the same day, from the same case
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
