@@ -659,7 +659,7 @@ shuffled.
         moves the finished pass itself and takes its finish, and the history forgets the finish
         whatever its age. Found on 8 October 2026: the tidy-up the drawer offered deleted the
         real pass, and its nine notes came back from the nightly backup. Every choice was the
-        recommendation, two of them over the plan's (built 8 October 2026)
+        recommendation, two of them over the plan's (PR #72, deployed)
       - deleting a pass keeps its notes — they move to the pass that stays, and the confirm says
         so, where today it says nothing. Found the same day, from the same case
 

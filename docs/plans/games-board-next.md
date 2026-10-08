@@ -32,10 +32,10 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
-| 14 | Put a finished pass back | S–M | **Built 8 October 2026** on `put-a-finished-pass-back`, the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. Not yet merged or deployed. See its section |
+| 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | Planned. Found the same day, from the same case |
 
-Production runs `6f12f4d`'s code, which was `main` on 7 October 2026. Deploying is the runbook in
+Production runs `5de8419`'s code, which was `main` on 8 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -1430,10 +1430,11 @@ the rows that say *in a browser*:
 
 ---
 
-## 14. Put a finished pass back · built
+## 14. Put a finished pass back · shipped
 
-**Built 8 October 2026**, the day it was found, after a workshop the same day. The plan below is as
-it was written. What was decided and built follows it, from **Decided at pickup** on.
+**Shipped and deployed 8 October 2026** (PR #72), the day it was found, after a workshop the same
+day. The plan below is as it was written. What was decided and built follows it, from **Decided
+at pickup** on.
 
 **What.** Moving a title out of Completed gets a second answer besides a new pass: *it was never
 finished*, which puts this pass in the column picked and clears its finish date. Asked for on
