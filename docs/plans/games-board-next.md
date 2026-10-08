@@ -30,9 +30,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 | 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
-| 13 | A column dropdown in the journal | M | **Built 7 October 2026** on `journal-column-control`, the day it was planned, after a workshop the same day: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. Not merged yet. See its section |
+| 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
 
-Production runs `a80bf49`'s code, which was `main` on 7 October 2026. Deploying is the runbook in
+Production runs `6f12f4d`'s code, which was `main` on 7 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -1218,10 +1218,11 @@ build.
 
 ---
 
-## 13. A column dropdown in the journal · built
+## 13. A column dropdown in the journal · shipped
 
-**Built 7 October 2026**, the day it was planned, after a workshop the same day. The plan below is
-as it was written. What was decided and built follows it, from **Decided at pickup** on.
+**Shipped and deployed 7 October 2026** (PR #70), the day it was planned, after a workshop the
+same day. The plan below is as it was written. What was decided and built follows it, from
+**Decided at pickup** on.
 
 **What.** In the drawer, the current pass's heading (the column's name, above the rating) becomes
 a control that moves the title to another column. Asked for on 7 October 2026.
