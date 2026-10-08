@@ -51,15 +51,22 @@ Settled:
   change is a move, so arrowing from Backlog to Dropped would stamp a completion on the way past.
   The genre select gets away with saving on change because the last genre wins; the last of four
   moves does not undo the other three.
-- **Leaving Completed asks first, in a tinted box.** Another column always inserts a pass from a
-  Completed one rather than editing it, and on this pass's own heading that reads as a correction,
-  which it is not — so the drawer asks *Start a new pass in Playing? This one stays under Earlier
-  passes.* A drag does not ask, because a drag is a gesture on the title. **The box was the user's
-  pick** over a line in the Delete confirm's shape: the one boxed thing in the pass, so it cannot be
-  read past. Not red and not a fill, because nothing is lost. The yes takes the keyboard when the box
-  appears and carries the question as its description; either answer hands the keyboard back to the
-  heading. **Nothing anywhere corrects a Completed pass's column in place**, and this is no
-  exception.
+- **Leaving Completed asks whether it was finished, in a tinted box.** Another column from a
+  Completed pass is one of two things, and only the reader knows which: a replay, which inserts a
+  new pass and keeps this one under *Earlier passes*, or a mistaken finish, which moves this pass
+  itself and takes its finish date away. So the drawer asks *Did you finish it on Oct 8, 2026?*,
+  answered *Yes — start a new pass* or *No — move it to Playing*. **The words were picked at the
+  #14 workshop on 8 October 2026**, over a second button on #13's sentence and over two answers
+  each with a line saying what it does, because they ask the one fact that decides it and the day
+  is the clue. With no finish date, which a finish cleared by hand leaves, it asks *Did you finish
+  it?* The words are `lib/finishQuestion.ts`'s, since a card asks the same question when a drag or
+  its menu leaves Completed; see **Leaving Completed asks first** in `docs/board.md`. **The box was
+  the user's pick at #13** over a line in the Delete confirm's shape: the one boxed thing in the
+  pass, so it cannot be read past. Not red and not a fill, because neither answer loses anything.
+  The first answer takes the keyboard when the box appears, both carry the question as their
+  description, and every answer hands the keyboard back to the heading. **Until #14 nothing
+  corrected a Completed pass's column in place**, which is the trap under *An earlier pass's
+  fields* below.
 - **A column taken off in Settings is offered nowhere, and still named while the pass is in it.**
   The list is the board's, as every card's menu is; a pass already in a hidden column has it
   ticked, because that stays true whether or not the board draws it. Since #12 that is reachable: a
@@ -75,7 +82,10 @@ Settled:
   which `useBoard` answers only once this drawer has refetched the moved pass. Meanwhile the heading
   names where the title is going and says *Moving…* beside itself, so nothing below shifts, and the
   pass is **read-only and dimmed**, both decided at pickup and picked from the renders. See
-  **Every write of a pass carries its column** below for what that order prevents.
+  **Every write of a pass carries its column** below for what that order prevents. **A finish put
+  back takes the same order** (`moveTo` is handed the move to send), because it carries a column
+  as any move does; *puts a pass back in the order a move is made* in `EntryDrawer.test.tsx` holds
+  it.
 - **A field a hobby does not have is *absent*, not relabelled and not disabled.** A film's pass has
   no Hours played and no Platform: "your time" on a film is the runtime, which is a fact about the
   film rather than about the evening. `EntryForm` takes an explicit field set for this, stated
@@ -89,6 +99,14 @@ Settled:
   would undo that with a keystroke. The two exceptions are deliberate: a note is yours to fix, and a
   pass that never happened — the ×2 a mistaken drag to Completed and back leaves behind — is not a
   record worth keeping. Correcting a *field* on a finished pass is still a psql job.
+  **Which of the ×2 never happened is the trap, found on 8 October 2026.** The mistaken move edits
+  the real pass to Completed and the move back starts the blank one, so the pass under *Earlier
+  passes* is the real one, and its Delete says nothing about the notes it takes. Deleting the blank
+  one instead leaves the real one in Completed, which nothing corrected. Nine notes went that way
+  and came back from the nightly backup. **#14 fixed the move, the same day**: *No — move it to
+  Playing* puts the real pass back, so no blank one is made. A *Yes* given by mistake still makes
+  one, and #15 in `docs/plans/games-board-next.md`, notes moving to the pass that stays, is the
+  fix planned for the delete.
 - **Deleting confirms inline**, not `window.confirm`, which cannot be worded past the browser's own
   phrasing, cannot be styled, and has to be stubbed in every test that walks past it. Each button in
   the history names the pass it would take, because they all otherwise say the same word.

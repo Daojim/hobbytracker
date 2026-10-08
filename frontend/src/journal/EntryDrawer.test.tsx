@@ -36,7 +36,11 @@ const autosaves = { timeout: AUTOSAVE_MS + 1000 };
  * them; the rest are about the pass and its notes.
  */
 function fromBoard(hobby: string) {
-  return { columns: columnsFor(hobby), onMove: () => Promise.resolve() };
+  return {
+    columns: columnsFor(hobby),
+    onMove: () => Promise.resolve(),
+    onPutBack: () => Promise.resolve(),
+  };
 }
 
 function open(mediaId = 3003, onClose = vi.fn()) {
@@ -2021,6 +2025,7 @@ describe('EntryDrawer, moving the title', () => {
     mediaId = 3003,
     columns = columnsFor(hobby),
     onMove = vi.fn((_from: LogStatus, _to: LogStatus) => Promise.resolve()),
+    onPutBack = vi.fn((_to: LogStatus) => Promise.resolve()),
     onClose = vi.fn(),
   } = {}) {
     renderWithProviders(
@@ -2030,10 +2035,11 @@ describe('EntryDrawer, moving the title', () => {
         onClose={onClose}
         columns={columns}
         onMove={onMove}
+        onPutBack={onPutBack}
       />,
     );
 
-    return { onMove, onClose };
+    return { onMove, onPutBack, onClose };
   }
 
   /** The heading, which is a button now: it says which column the pass is in. */
@@ -2104,9 +2110,11 @@ describe('EntryDrawer, moving the title', () => {
     expect(list().getAllByRole('button')).toHaveLength(5);
   });
 
-  it('asks before another column starts a new pass from a Completed one, and moves nothing until told', async () => {
-    // Leaving Completed inserts a pass rather than editing this one, so the finished playthrough
-    // is kept. On the pass's own heading that reads as a correction, which it is not.
+  it('asks whether a Completed pass was finished before it leaves, and moves nothing until told', async () => {
+    // Leaving Completed either replays the title or takes a mistaken finish back, and only the
+    // reader knows which. The question asks the fact that decides it, with the day as the clue:
+    // picked at the #14 workshop over a second button on #13's sentence and over two described
+    // answers.
     journalServer({
       detail: gameDetail({
         logEntries: [
@@ -2115,24 +2123,101 @@ describe('EntryDrawer, moving the title', () => {
       }),
     });
 
-    const { onMove } = openToMove();
+    const { onMove, onPutBack } = openToMove();
     await pick('Completed', 'Playing');
 
-    const question = screen.getByText(
-      'Start a new pass in Playing? This one stays under Earlier passes.',
-    );
-    expect(question).toBeInTheDocument();
+    expect(screen.getByText('Did you finish it on Nov 2, 2024?')).toBeInTheDocument();
     expect(onMove).not.toHaveBeenCalled();
+    expect(onPutBack).not.toHaveBeenCalled();
 
-    // The keyboard goes to the answer, which carries the question as its description.
-    const yes = screen.getByRole('button', { name: 'Start new pass' });
+    // The keyboard goes to the first answer, which carries the question as its description.
+    const yes = screen.getByRole('button', { name: 'Yes — start a new pass' });
     expect(yes).toHaveFocus();
-    expect(yes).toHaveAccessibleDescription(
-      'Start a new pass in Playing? This one stays under Earlier passes.',
-    );
+    expect(yes).toHaveAccessibleDescription('Did you finish it on Nov 2, 2024?');
 
     await userEvent.click(yes);
     await waitFor(() => expect(onMove).toHaveBeenCalledWith('Completed', 'InProgress'));
+    expect(onPutBack).not.toHaveBeenCalled();
+  });
+
+  it('puts the pass back rather than starting a new one when it was never finished', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'Completed', completedAt: '2026-10-08T07:14:00+00:00' }),
+        ],
+      }),
+    });
+
+    const { onMove, onPutBack } = openToMove();
+    await pick('Completed', 'On Hold');
+
+    const no = screen.getByRole('button', { name: 'No — move it to On Hold' });
+    expect(no).toHaveAccessibleDescription('Did you finish it on Oct 8, 2026?');
+    await userEvent.click(no);
+
+    await waitFor(() => expect(onPutBack).toHaveBeenCalledExactlyOnceWith('OnHold'));
+    expect(onMove).not.toHaveBeenCalled();
+    // Either answer hands the keyboard back to the heading.
+    await waitFor(async () => expect(await control('Completed')).toHaveFocus());
+  });
+
+  it('asks without a day when the finish has been cleared by hand', async () => {
+    // A finished pass can lose its finish date to an edit. The start is no stand-in for it.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({
+            id: 7,
+            status: 'Completed',
+            startedAt: '2026-09-17T23:00:00+00:00',
+            completedAt: null,
+          }),
+        ],
+      }),
+    });
+
+    openToMove();
+    await pick('Completed', 'Playing');
+
+    expect(screen.getByText('Did you finish it?')).toBeInTheDocument();
+  });
+
+  it('puts a pass back in the order a move is made, sending what it owes first', async () => {
+    // A put-back is a move, and races the autosave as one: a save sent while it is on its way
+    // carries the column being left. The order that holds a move holds this.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'Completed', completedAt: '2026-10-08T07:14:00+00:00' }),
+        ],
+      }),
+    });
+    const saved: Record<string, unknown>[] = [];
+    let answered = false;
+    server.use(
+      http.put('/api/log-entries/:id', async ({ request }) => {
+        saved.push((await request.json()) as Record<string, unknown>);
+        await delay(300);
+        answered = true;
+        return HttpResponse.json(logEntry({ id: 7, status: 'Completed' }));
+      }),
+    );
+
+    const order: string[] = [];
+    openToMove({
+      onPutBack: vi.fn(() => {
+        order.push(answered ? 'put back after the save was answered' : 'put back before it was');
+        return Promise.resolve();
+      }),
+    });
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8.5');
+    await pick('Completed', 'Playing');
+    await userEvent.click(screen.getByRole('button', { name: 'No — move it to Playing' }));
+
+    await waitFor(() => expect(order).toEqual(['put back after the save was answered']), autosaves);
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ status: 'Completed', rating: 8.5 });
   });
 
   it('leaves a Completed pass where it is when the question is cancelled', async () => {
@@ -2140,23 +2225,24 @@ describe('EntryDrawer, moving the title', () => {
       detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'Completed' })] }),
     });
 
-    const { onMove } = openToMove();
+    const { onMove, onPutBack } = openToMove();
     await pick('Completed', 'Dropped');
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
-    expect(screen.queryByText(/Start a new pass/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
     expect(await control('Completed')).toHaveFocus();
     expect(onMove).not.toHaveBeenCalled();
+    expect(onPutBack).not.toHaveBeenCalled();
   });
 
-  it('asks nothing of a pass that is not Completed, because nothing new is started', async () => {
+  it('asks nothing of a pass that is not Completed, because there is no finish to ask about', async () => {
     journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'Backlog' })] }) });
 
     const { onMove } = openToMove();
     await pick('Backlog', 'Completed');
 
     await waitFor(() => expect(onMove).toHaveBeenCalledWith('Backlog', 'Completed'));
-    expect(screen.queryByText(/Start a new pass/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
   });
 
   it('hands the keyboard back to the heading once the move is made', async () => {

@@ -3,8 +3,9 @@
 Written 1 October 2026 at the user's request. A feature is built on the **games board first** and
 taken to the other hobbies afterwards. The ten below are planned so a session can pick up **any
 one, in any order**, when the user names it. An eleventh, a bug in the release calendar, was added
-on 4 October 2026, and a twelfth and a thirteenth, both about the journal, on 7 October 2026.
-CLAUDE.md's **What is next** points here.
+on 4 October 2026, and a twelfth and a thirteenth, both about the journal, on 7 October 2026. A
+fourteenth and a fifteenth followed on 8 October 2026, after a mistaken finish cost a pass its
+notes. CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -31,6 +32,8 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
+| 14 | Put a finished pass back | S–M | **Built 8 October 2026** on `put-a-finished-pass-back`, the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. Not yet merged or deployed. See its section |
+| 15 | Deleting a pass keeps its notes | S | Planned. Found the same day, from the same case |
 
 Production runs `6f12f4d`'s code, which was `main` on 7 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -1424,6 +1427,245 @@ the rows that say *in a browser*:
   `document`, so the list has to stop its own.
 - ***Moving…* is a second `role="status"` in the dialog.** `passSaved` in the e2e support expects
   one, so no spec may wait for *Saved* mid-move. Written into `docs/journal.md`.
+
+---
+
+## 14. Put a finished pass back · built
+
+**Built 8 October 2026**, the day it was found, after a workshop the same day. The plan below is as
+it was written. What was decided and built follows it, from **Decided at pickup** on.
+
+**What.** Moving a title out of Completed gets a second answer besides a new pass: *it was never
+finished*, which puts this pass in the column picked and clears its finish date. Asked for on
+8 October 2026.
+
+**What happened.** A game in Playing, started 17 September with nine notes, was moved to Completed
+by mistake at 03:14 Eastern on 8 October 2026. At 09:08 it was moved back to Playing, and the pass
+under *Earlier passes* was then deleted to tidy up. That was the real pass, and its notes went with
+it. They were put back from the nightly backup the same morning; see *Backups* in
+`docs/deploy.md`.
+
+**Why nothing could undo it.**
+- **A move into Completed edits the pass, and a move out of it inserts one.**
+  `LibraryService.TransitionAsync` sets the status in place for every move but one leaving
+  Completed, which adds a new pass so that a replay cannot overwrite a finished playthrough. So the
+  mistake turned the real pass Completed, and the move back started a blank pass above it.
+- **The drawer then offered two deletes, and each loses something.** The blank pass is current,
+  and the real one sits under *Earlier passes*. Deleting the blank one leaves the real one in
+  Completed, and *nothing anywhere corrects a Completed pass's column in place*
+  (`docs/journal.md`). Deleting the real one takes its notes, which is #15.
+- **`docs/journal.md` gave this exact case as the reason a pass can be deleted**: *a pass that
+  never happened — the ×2 a mistaken drag to Completed and back leaves behind*. Of the two, the
+  one that never happened is the blank one, and deleting it fixes nothing. That bullet now says so.
+
+**It reverses a settled decision, as #13 did.** The insert protects a finished playthrough from a
+replay, and the comment above it says editing in place *would silently destroy the completion
+record*. A second answer keeps the replay as the default, so that still holds, and makes the
+correction something asked for. The comment and `docs/journal.md` both need to say why the rule
+changed.
+
+### Decide at pickup
+
+- **Where the second answer goes.** Recommended: in #13's tinted box, beside *Start new pass*,
+  worded as a correction, such as *Not finished — move it back*. Render it, at 390px too.
+- **Whether a drag gets one.** A drag does not ask (*Leaving Completed asks first* in
+  `docs/journal.md`). Recommended: an *Undo* after any move, which also catches a slip into
+  Dropped, since a mistaken drag is the likeliest way in. The alternatives are a question on a
+  drag out of Completed, or the drawer alone.
+- **What the history says.** The correction goes through tracked entities, so
+  `StatusHistoryRecorder` writes *Completed → Playing*. A slip undone within ten minutes folds away
+  already; one undone hours later leaves both rows. Recommended: keep both, since both moves were
+  made.
+- **How the API is told.** Recommended: a flag on the move route, so the rules stay in
+  `TransitionAsync`, rather than a route of its own.
+
+### Tests first
+
+- A pass moved to Completed and put back keeps its id, its start, its platform, its hours and its
+  notes, and loses its finish date. Red before the change.
+- Without the flag, leaving Completed still starts a new pass.
+- A finish put back is no longer counted on the Stats page.
+- e2e: Playing to Completed by mistake, put back from the journal, and after a reload there is one
+  pass, in Playing, with its notes.
+- **Put the faults back:** the correction made as a replay, and the replay made as a correction.
+  Each turns its own case red.
+
+### Decided at pickup
+
+Asked on 8 October 2026, before anything was drawn. All three were the session's
+recommendations, and two of them overturned the plan's.
+
+| Choice | Picked | Against |
+|---|---|---|
+| A move out of Completed on the board | **The card asks first.** A drag or a `⋯` menu move out of Completed leaves the card where it is and asks the journal's question on the card, where Remove's confirm sits. It reverses *a drag does not ask* in `docs/journal.md` | an *Undo* after every move, the plan's recommendation; the journal alone |
+| What the history says | **The mistaken finish is erased.** A put-back folds into the row that recorded the finish, whatever its age, as a shuffle inside ten minutes already does | both rows kept, the plan's recommendation |
+| How the API is told | **A flag on the move route**, the plan's recommendation too | a route of its own |
+
+Read from the code before the questions were asked:
+- **An *Undo* is not a move back.** Undoing a replay has to delete the new pass, where a move back
+  to Completed would mark the blank pass finished and leave two finishes. Undoing a move into
+  Backlog has to put the start back, where a move to Playing stamps today. So an *Undo* needs a
+  restore of its own, and it still misses a mistake noticed hours later, which this one was.
+- **Keeping both rows restarts a Backlog wait.** Stats takes *in your backlog N days* from the
+  pass's latest row, if that row says Backlog (`LibraryService`, the Backlog projection), so a
+  Backlog title finished by mistake and put back hours later would read 0 days.
+- **What a put-back does to the dates**, decided without asking. The pass keeps its id, start,
+  platform, hours, rating and notes. The finish is cleared, then the target column's own rule
+  applies, so Backlog clears the start as well. Dropped's rule leaves a finish alone, so for a
+  put-back the finish is cleared first. It is offered for every column the question is asked
+  about.
+- **Stats needs nothing.** *Finished* counts passes in Completed with a finish in the year, so a
+  pass put back leaves it by the same write.
+
+### Decided from the renders
+
+Three forms of the question were shot from the real drawer and the real card behind a throwaway
+`?pb=` switch, Vite alone with every `/api/` request answered in the browser, on a staged board
+where *Hollow Knight: Silksong* was moved to Completed by mistake at 3:14 that morning. They went
+on one private page with the measurements: https://claude.ai/artifact/AYZjBfGjKjoy4b6Fpx4iWQ. Both
+picks were the recommendations.
+
+| Choice | Picked | Against |
+|---|---|---|
+| The question | **C, it asks what happened**: *Did you finish it on Oct 8, 2026?* with *Yes — start a new pass*, *No — move it to Playing* and *Cancel*. 72px in the drawer, the same as #13's box | A, one more button (*Never finished*) on today's sentence; B, two answers each with a line saying what it does, 184px |
+| Where the card asks | **A row of its own** under the card's contents, the card's full width: 210px at 1440 | in place of the details row, where *Remove from board* asks: 111px beside the cover, so both answers wrapped |
+
+- **The first shots put the card's question where *Remove from board* asks**, which is what the
+  morning's pick said. At 1440 that is the column beside the cover, 111px wide, so every answer
+  wrapped. The full-width row was shot as a second place before anything was shown.
+- **The words are the same on the card and in the drawer.** The renders shortened the card's to
+  *Yes — new pass* and *No — move to Playing*; the full-width row has room for the drawer's.
+- **The card needs the finish date itself.** A card's `lastActivity` is `CompletedAt ??
+  StartedAt`, and a Completed pass can have its finish date cleared by hand, since only the order
+  of the two dates is validated. So `LibraryItemDto` gains `CompletedAt`, and the question says
+  *Did you finish it?* with no date when there is none.
+
+### Built
+
+- **The server.** `StatusTransitionRequest` takes `NotFinished`, and `TransitionAsync` moves a
+  finished pass in place when it is set: the finish is cleared, then the target column's own rule
+  runs. Cleared first because Dropped's rule leaves a finish alone, and would keep the one being
+  taken back and fall back to it for a start. The flag means nothing to a pass that is not
+  finished. `LibraryItemDto.CompletedAt` is new, in both terminal projections.
+- **The history.** `StatusHistoryRecorder` knows a put-back by what it is, a pass leaving Completed
+  in place, which the board does for nothing else. It folds into the row that recorded the finish
+  whatever its age, and writes nothing when no row recorded one. No signal passes from the service
+  to the recorder, so the rewrite route takes a finish back the same way. Stats needed nothing.
+- **The words** are `lib/finishQuestion.ts`'s, one set for both doors: `finishQuestion`,
+  `REPLAY_ANSWER` and `putBackAnswer`.
+- **The journal.** `FinishQuestion` replaces `NewPassQuestion`, with a second answer and both
+  answers described by the question. `onPutBack` is a required prop beside `onMove`, and `moveTo`
+  is handed the move to send, so a put-back takes the order every move takes.
+- **The board.** `useBoard` holds `leaving`, and `moveOrAsk` turns a drag or a menu move out of
+  Completed into a question; `replay`, `putBack` and `stay` answer it, and `putBackAndWait` is the
+  journal's. `Card` takes `leaving: CardLeaving` and draws the question as a full-width row, which
+  is what `flex-wrap` on `CARD_CLASS` is for. `BoardPage` hands the keyboard to the first answer,
+  by `cardAnswerId`, when the question starts, rather than the card taking it on mount.
+- **Every e2e spec that took a finished card out of Completed meant a replay**, eight of them across
+  `board.spec.ts` and `journal.spec.ts`, and each now answers *Yes* through `answerFinished`.
+
+### Tests
+
+Written first and shown red, server and client separately: 14 backend cases red against the code
+before the change, and 18 Vitest cases. The backend gained 15: five in `StatusTransitionTests`,
+six in `StatusHistoryTests` (one of them, *a replay still leaves the finish where it was*, a guard
+that was green before and stays green), two in `StatsEndpointTests` and two in
+`LibraryEndpointTests`. The client gained `lib/finishQuestion.test.ts`, the drawer's put-back cases
+in `EntryDrawer.test.tsx`, *BoardPage, a card leaving Completed*, the card's own cases in
+`Card.test.tsx` and the request's in `api/library.test.ts`. The e2e suite gained three: a finish
+put back by a drag, by a finger on a phone's segment, and from the journal, each read back after a
+reload or from the API.
+
+Each fault was planted alone against the finished build by a script that restored the file byte
+for byte, with hashes compared afterwards. The rows marked *in a browser* also ran the three new
+specs.
+
+| Fault planted | Red |
+|---|---|
+| The put-back made as a replay: the flag ignored by the server | 11: the five put-back cases, four in the history and both in Stats. Not the rewrite route's case, which never sends the flag |
+| The replay made as a put-back: leaving Completed always editing in place | 14 replay cases across the three files, among them *A_replay_still_leaves_the_finish_where_it_was* and *A_finish_still_counts_in_its_year_after_the_game_is_replayed* |
+| The finish not cleared before the column's own rule | the two Dropped cases, and no other |
+| The history folding a put-back only inside the ten-minute window | 5: four history cases, the rewrite route's among them, and the Backlog wait in Stats |
+| A put-back with no recorded finish still writing a row | *A_finish_the_history_never_saw_is_put_back_without_a_row* alone |
+| The column's projection without the finish | *A_card_carries_its_finish_apart_from_its_last_activity* alone |
+| The moved card's projection without it | *A_moved_card_carries_its_finish_as_the_column_does* alone |
+| A board move out of Completed made without asking | 9 in `BoardPage.test.tsx`: seven of the card's cases, and the two year cases that answer *Yes*. *Asks nothing of a card leaving any other column* stays green, as it should. In a browser, the drag and the phone's segment |
+| The card's *No* sent as a replay | *puts the pass back when it was never finished*; in a browser, the drag and the phone's segment |
+| The journal's *No* sent as a replay | 3: the drawer's put-back case, its order case, and the board's journal put-back; in a browser, the journal's spec |
+| The journal's *No* sent at once, outside the order a move is made in | *puts a pass back in the order a move is made, sending what it owes first* alone |
+| The card's question dated by its last activity | *asks without a day when the finish has been cleared, never naming the start instead* |
+| The question's day read in UTC | *names the day here rather than in UTC* |
+| The question's answers left to start a drag | both press cases in `Card.test.tsx` |
+| The keyboard not handed to the card's question | the asking case, and the Escape case, whose key is pressed where the keyboard is |
+| *Cancel* not handing the keyboard back to the corner | the cancel case |
+| The flag never sent | 3: the request's case and both put-back cases in `BoardPage.test.tsx` |
+| Escape not heard by the card's question | the card's Escape case and the board's |
+| Every card asking, not only the one moved | *asks on the card that was moved and on no other*, written when the fault list showed nothing else would catch it |
+
+### What the plan got wrong, or left out
+
+- **Its recommendation for the board, an *Undo* after every move**, was not a move back, and could
+  not have caught the mistake it was found from. See *Decided at pickup*.
+- **Keeping both history rows**, its other recommendation, restarts a Backlog wait.
+- **The card's date is not the finish**, so the card needed one of its own.
+- **Dropped keeps a finish**, so the put-back clears it before the column's rule runs.
+- **Stats needed no code.** Its test was red until the put-back existed and green from the same
+  write.
+- **dnd-kit stops every click on the page until 50ms after a drop**: its sensor takes its click
+  listener off on a timeout (`AbstractPointerSensor.detach`, 6.3.1). The first e2e run had three
+  specs red that answered the question the moment `drag()` returned, and green the one that checked
+  the card first. A person cannot click that fast. `answerFinished` presses until the question
+  goes.
+
+---
+
+## 15. Deleting a pass keeps its notes · S
+
+**What.** Deleting one pass of a title that has another moves its notes to the pass that stays,
+with their dates unchanged, and the confirm says so. Asked for on 8 October 2026, from the case in
+#14: nine notes went with a pass, and the confirm never mentioned them.
+
+**Why it happens.**
+- **The notes go by cascade.** `NoteConfiguration` sets `OnDelete(Cascade)`, because *a note
+  belongs to the pass it was written during*. `LogEntryService.DeleteAsync` removes the pass and
+  nothing else, and the database takes the notes in the same statement, so nothing in the service
+  sees them go.
+- **The confirm does not say so.** `ConfirmDelete` takes a `warning`, documented as *what deleting
+  costs beyond it*, and the Delete on an earlier pass passes `null` (the *Earlier passes* list in
+  `EntryDrawer.tsx`). Over nine notes it said *Really delete?* and nothing else. The current pass
+  warns only when it is the only one.
+
+**What stays as it is.** Removing a title from the board deletes every pass
+(`LibraryService.RemoveFromBoardAsync`) and still takes the notes, and says so first. So does
+deleting the only pass, which is the same thing from the drawer. The cascade stays for both, and
+for deleting an account.
+
+**Considered and not chosen: notes that belong to the title.** A note could carry `user_id` and
+`media_id`, with its pass a nullable tag that a delete sets to null. That keeps every note through
+any delete, and is the literal form of what was asked. It costs a migration, moves the scoping of
+notes off the pass (*`log_entries` and `notes` are yours* in CLAUDE.md), needs a place in the
+drawer for a note with no pass, and changes the export. That is the same protection as moving
+them, for much more, and it does nothing for #14.
+
+### Decide at pickup
+
+- **Which pass gets the notes.** Recommended: the one the board shows, `logEntries[0]`, which is
+  the current pass in the drawer. The alternative is the pass next to it in time, which keeps a
+  note nearer the playthrough it was written in.
+- **The words, rendered.** For example *Its 9 notes move to the current pass.* The confirm keeps
+  its shape, and only its `warning` changes.
+- **Whether to offer deleting the notes too.** Recommended: no. A note can still be deleted on its
+  own, and a second button in the confirm is a second way to lose them.
+
+### Tests first
+
+- Deleting an earlier pass moves its notes to the pass that stays, with `written_at` unchanged, in
+  the same transaction as the delete. Red against today's code.
+- Deleting the only pass, and removing the title from the board, still delete the notes.
+- Notes move only between one person's passes of one title. Another user's pass of the same title
+  is never chosen.
+- The confirm gives the count when a pass has notes, and says nothing extra when it has none.
+- **Put the fault back:** the delete without the move, which turns the first case red.
 
 ---
 

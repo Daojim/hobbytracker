@@ -19,6 +19,8 @@ The board is five columns — Backlog, Playing, On Hold, Completed, and Dropped 
 at the end — and a title moves between them by drag or from the card's own options menu. Any
 column but Backlog can be taken off a board in Settings, per board. Which entry a move touches and
 which timestamps it stamps are decided server-side, so no client has to know which pass is current.
+Moving a game out of Completed asks whether you finished it: a replay keeps the finished pass and
+starts another, and a finish made by mistake is put back on the pass it was made on.
 On a phone the board shows one column at a time, under a switcher pinned to the top that counts
 every column. A card is picked up by holding it still, so a swipe scrolls. The app installs to a
 home screen with an icon of its own, and the bar above it takes the colour of whichever theme is
@@ -158,7 +160,7 @@ See [Running it](#running-it-locally) for how to fill it.
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date |
 | `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column |
-| `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls |
+| `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls. `notFinished: true` puts a finish back on the pass it was made on |
 | `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
 | `PUT /api/library/order` | store one column's manual ranking |
 | `GET /api/library/export?hobby=` | everything on your board, every pass and every note, for the spreadsheet. Not paged |
@@ -295,7 +297,10 @@ enum silently reinterprets existing rows. Text is also why On Hold arrived with 
 **Leaving Completed inserts a pass rather than editing one.** Replaying a game finished in 2024
 must not overwrite that completion — several entries per title is the entire reason the schema is
 shaped this way, and editing in place would destroy the record silently, on a gesture as casual
-as a drag.
+as a drag. **Unless you say the finish never happened**, which is why leaving Completed asks. A
+mistaken finish moved back used to leave a blank replay above the real pass, and tidying that up
+deleted the real one, notes and all. Now the answer *No* moves the real pass back and takes the
+finish off it, and the column history forgets the finish rather than recording it and its undoing.
 
 **The journal drawer's openness is a history entry, not component state.** Android has one Back
 button and it means "out of this" — over an open drawer it left the board, which on a phone is the
@@ -557,6 +562,12 @@ to prevent something, the test for it is checked by reintroducing the thing.
       undone by the write still waiting — measured both ways round, as two failing tests, before
       anything was fixed. A native dropdown was ruled out by measurement too: Chrome on Windows
       changes a closed one on every arrow key, and here every change would be a move
+- [x] Putting a finished pass back. A game finished by mistake and moved back used to start a
+      blank pass above the real one, and the tidy-up deleted the real one with its notes, which
+      came back from the nightly backup. Leaving Completed now asks *Did you finish it on Oct 8,
+      2026?*, on a card as well as in the journal, and *No* moves the real pass back without its
+      finish. Reading the code first overturned two of the plan's recommendations: an Undo is
+      not a move back, and recording both moves would have restarted a backlog wait
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

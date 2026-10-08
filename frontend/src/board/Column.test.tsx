@@ -36,6 +36,13 @@ function renderColumn(
       onSortChange={vi.fn()}
       onMove={vi.fn()}
       removal={{ mediaId: null, onAsk: vi.fn(), onCancel: vi.fn(), onConfirm: vi.fn() }}
+      leaving={{
+        mediaId: null,
+        to: null,
+        onReplay: vi.fn(),
+        onPutBack: vi.fn(),
+        onStay: vi.fn(),
+      }}
       menu={{ mediaId: null, onOpen: vi.fn(), onClose: vi.fn(), columns: columnsFor('games') }}
       onOpen={vi.fn()}
       {...props}

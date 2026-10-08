@@ -68,9 +68,14 @@ public interface ILibraryService
     /// </summary>
     Task<IReadOnlyList<int>> ActivityYearsAsync(string? hobby, CancellationToken cancellationToken);
 
-    /// <summary>Moves a title to a board column. Null when it has never been logged.</summary>
+    /// <summary>
+    /// Moves a title to a board column. Null when it has never been logged.
+    ///
+    /// <paramref name="notFinished"/> says a finished pass's finish never happened, so leaving
+    /// Completed moves that pass rather than starting a replay. It means nothing otherwise.
+    /// </summary>
     Task<LibraryItemDto?> TransitionAsync(
-        int mediaId, LogStatus target, CancellationToken cancellationToken);
+        int mediaId, LogStatus target, bool notFinished, CancellationToken cancellationToken);
 
     /// <summary>
     /// Puts a title on your board, in a column — what a tile's +, ▶ and ✓ do. The card comes
@@ -495,6 +500,9 @@ public sealed class LibraryService(
                 row.EntryCount,
                 row.Latest.Rating,
                 row.Latest.CompletedAt ?? row.Latest.StartedAt,
+                // The finish on its own, for a card asking whether it happened: the line above
+                // falls back to the start, which is no finish at all.
+                row.Latest.CompletedAt,
                 // TPT downcasts, added here rather than in BoardQuery on purpose: that
                 // projection is what every Where and OrderBy on Latest is pushed through, and
                 // when one stops translating the symptom is an empty library rather than an
@@ -698,7 +706,7 @@ public sealed class LibraryService(
     }
 
     public async Task<LibraryItemDto?> TransitionAsync(
-        int mediaId, LogStatus target, CancellationToken cancellationToken)
+        int mediaId, LogStatus target, bool notFinished, CancellationToken cancellationToken)
     {
         var latest = await LatestEntryFor(mediaId).FirstOrDefaultAsync(cancellationToken);
         if (latest is null)
@@ -711,12 +719,13 @@ public sealed class LibraryService(
         {
             var now = clock.Now;
 
-            if (latest.Status == LogStatus.Completed)
+            if (latest.Status == LogStatus.Completed && !notFinished)
             {
-                // Leaving Completed always starts a fresh entry rather than editing the old
-                // one. This is what protects a 2024 playthrough when the same game is replayed
-                // in 2026, and it is the entire reason the schema allows several entries per
-                // title. Editing in place here would silently destroy the completion record.
+                // Leaving Completed starts a fresh entry rather than editing the old one, unless
+                // the caller says the finish never happened. This is what protects a 2024
+                // playthrough when the same game is replayed in 2026, and it is the entire reason
+                // the schema allows several entries per title. Editing in place here would
+                // silently destroy the completion record.
                 //
                 // Yours, like the pass it replaces: LatestEntryFor above already refused
                 // anybody else's, so this can only ever be a replay of your own.
@@ -724,6 +733,20 @@ public sealed class LibraryService(
             }
             else
             {
+                if (latest.Status == LogStatus.Completed)
+                {
+                    // A finish put back, which is the one case that moves a finished pass in
+                    // place. Since 8 October 2026: until then nothing could, and a mistaken
+                    // finish moved back left a blank replay above the real pass, which was then
+                    // the one deleted to tidy up, notes and all. Here the caller has said the
+                    // finish never happened, so there is no completion record to protect.
+                    //
+                    // The finish goes before the column's own rule, because Dropped's leaves a
+                    // finish alone and would otherwise keep the one being taken back — and
+                    // would fall back to it for a start.
+                    latest.CompletedAt = null;
+                }
+
                 latest.Status = target;
                 ApplyTransitionTimestamps(latest, target, now);
             }
@@ -1247,6 +1270,7 @@ public sealed class LibraryService(
                 row.EntryCount,
                 row.Latest.Rating,
                 row.Latest.CompletedAt ?? row.Latest.StartedAt,
+                row.Latest.CompletedAt,
                 // As in ListAsync, coalesce and all. This copy has to exist and has to match:
                 // a transition answers with the row it just wrote and the board caches that, so
                 // a field populated in one projection and null in the other flickers on a drag.

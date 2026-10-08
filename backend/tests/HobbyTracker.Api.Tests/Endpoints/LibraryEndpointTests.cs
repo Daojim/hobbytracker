@@ -316,6 +316,41 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
+    public async Task A_card_carries_its_finish_apart_from_its_last_activity()
+    {
+        // A card's date is the finish, or the start when there is none, and a finished pass can
+        // have its finish cleared by hand. Asking "did you finish it on…" needs the finish
+        // itself, so the row carries it too, and null when the pass has none.
+        var finished = await GivenGameAsync("Hollow Knight", externalId: "1");
+        await GivenLogEntryAsync(finished, LogStatus.Completed,
+            startedAt: Eastern(2026, 4, 1), completedAt: Eastern(2026, 5, 1));
+        var cleared = await GivenGameAsync("Celeste", externalId: "2");
+        await GivenLogEntryAsync(cleared, LogStatus.Completed, startedAt: Eastern(2026, 4, 1));
+
+        var cards = (await GetPageAsync("/api/library?hobby=games&status=Completed")).Items
+            .ToDictionary(item => item.Title);
+
+        cards["Hollow Knight"].CompletedAt.ShouldBe(Eastern(2026, 5, 1));
+        cards["Celeste"].CompletedAt.ShouldBeNull();
+        cards["Celeste"].LastActivity.ShouldBe(Eastern(2026, 4, 1));
+    }
+
+    [Fact]
+    public async Task A_moved_card_carries_its_finish_as_the_column_does()
+    {
+        // The second projection, which a move answers with and the board caches. A field filled
+        // in one and null in the other is a card that changes its mind on a drag.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedAt: Eastern(2026, 4, 1));
+
+        var moved = await ReadAsync<LibraryItemDto>(await Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}/status", new StatusTransitionRequest(LogStatus.Completed),
+            Json, Ct));
+
+        moved.CompletedAt.ShouldBe(Clock.UtcNow);
+    }
+
+    [Fact]
     public async Task A_board_row_for_a_hobby_with_no_detail_table_has_no_estimate()
     {
         // Same TPT downcast as the genres, and the same reason to pin it: the LEFT JOIN behind

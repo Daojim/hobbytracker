@@ -21,6 +21,7 @@ const item: LibraryItem = {
   entryCount: 2,
   latestRating: null,
   lastActivity: '2026-08-21T01:30:00+00:00',
+  completedAt: null,
   genres: [],
   primaryGenre: null,
   lengthHours: null,
@@ -105,6 +106,15 @@ describe('transition', () => {
 
     await expect(transition(14, 'Completed')).resolves.toEqual(item);
     expect(seen.body).toEqual({ status: 'Completed' });
+  });
+
+  it('says a finish never happened only when it is told so', async () => {
+    // The one thing more a move can say, and only about a finished pass. Every other move is the
+    // request it always was, so the flag is left off rather than sent false.
+    const seen = capture('post', '/api/library/14/status', item);
+
+    await transition(14, 'InProgress', true);
+    expect(seen.body).toEqual({ status: 'InProgress', notFinished: true });
   });
 });
 

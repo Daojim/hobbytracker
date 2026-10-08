@@ -6,7 +6,7 @@ import { activityYears } from '../api/library';
 import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
 import { resultTitleId } from '../search/SearchResult';
-import { CARD_CLASS, CardFace, cardTitleId } from './Card';
+import { CARD_CLASS, CardFace, cardAnswerId, cardTitleId } from './Card';
 import { Column, columnQuery } from './Column';
 import { ColumnSwitcher } from './ColumnSwitcher';
 import { ComingSoon, calendarTitleId, upcomingQuery } from './ComingSoon';
@@ -157,6 +157,19 @@ function Board({ hobby }: { hobby: Hobby }) {
     openedFrom.current = null;
   }, [journalFor]);
 
+  // A card asking whether it was finished takes the keyboard when it starts asking, as the
+  // journal's question does: the menu item or the drag that asked has gone. Here rather than in
+  // the card, and when the question changes rather than when the card mounts, because a refetch
+  // remounts cards — taking the keyboard on every mount would take it back from wherever it had
+  // gone since. By id, for the reason the drawer's opener is found by id.
+  const leavingFor = board.leaving?.mediaId ?? null;
+  const leavingTo = board.leaving?.to ?? null;
+  useEffect(() => {
+    if (leavingFor !== null && leavingTo !== null) {
+      document.getElementById(cardAnswerId(leavingFor))?.focus();
+    }
+  }, [leavingFor, leavingTo]);
+
   // Every way into the drawer: a card, a calendar row, or a search result's name. Each names the
   // element the keyboard goes back to.
   function openJournalFrom(returnTo: string, mediaId: number, askHowLongToo = false) {
@@ -279,6 +292,13 @@ function Board({ hobby }: { hobby: Hobby }) {
                         board.remove(mediaId);
                       },
                     }}
+                    leaving={{
+                      mediaId: leavingFor,
+                      to: leavingTo,
+                      onReplay: board.replay,
+                      onPutBack: board.putBack,
+                      onStay: board.stay,
+                    }}
                     menu={{
                       mediaId: menuFor,
                       onOpen: setMenuFor,
@@ -343,6 +363,7 @@ function Board({ hobby }: { hobby: Hobby }) {
           // card's menu offers and moves the card the way the menu does.
           columns={columns}
           onMove={(from, to) => board.moveAndWait(journalFor, from, to)}
+          onPutBack={(to) => board.putBackAndWait(journalFor, to)}
         />
       )}
     </main>

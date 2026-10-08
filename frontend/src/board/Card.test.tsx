@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KeyboardSensor } from '@dnd-kit/core';
-import { Card, type CardMenu, type CardRemoval } from './Card';
+import { Card, type CardLeaving, type CardMenu, type CardRemoval } from './Card';
 import { useBoardSensors } from './sensors';
 import { columnsFor, type BoardColumn } from '../hobbies';
 import { libraryItem } from '../test/library';
@@ -23,6 +23,8 @@ function renderCard(
   menuOpen = false,
   // Every column the hobby has, which is the board with nothing taken off in Settings.
   columns: readonly BoardColumn[] = columnsFor(item.hobby),
+  // Where the card was asked to go from Completed, while it asks whether it was finished.
+  leavingTo: LogStatus | null = null,
 ) {
   const removal: CardRemoval = {
     confirming,
@@ -38,19 +40,40 @@ function renderCard(
     columns,
   };
 
+  const leaving: CardLeaving = {
+    to: leavingTo,
+    onReplay: vi.fn(),
+    onPutBack: vi.fn(),
+    onStay: vi.fn(),
+  };
+
   const view = renderWithProviders(
     <Card
       item={item}
       onMove={onMove}
       removal={removal}
       menu={menu}
+      leaving={leaving}
       onOpen={onOpen}
       draggable
     />,
     { dnd: true },
   );
-  return { ...view, onMove, onOpen, removal, menu };
+  return { ...view, onMove, onOpen, removal, menu, leaving };
 }
+
+/** A finished card asked to leave for `to`, which is when it asks whether it was finished. */
+const renderLeaving = (to: LogStatus, item = finishedCard()) =>
+  renderCard(item, false, vi.fn(), vi.fn(), false, columnsFor(item.hobby), to);
+
+/** Finished by mistake at 3:14 this morning, which is the case the question was built for. */
+const finishedCard = () =>
+  libraryItem({
+    title: 'Hollow Knight: Silksong',
+    currentStatus: 'Completed',
+    lastActivity: '2026-10-08T07:14:00+00:00',
+    completedAt: '2026-10-08T07:14:00+00:00',
+  });
 
 /** The corner control, and the only thing that opens the options. */
 const optionsButton = (title = 'Celeste') =>
@@ -100,7 +123,11 @@ const PRESSES = [
  * native event bubbles past the card either way and a native listener cannot tell the two cases
  * apart. dnd-kit's own listeners are React props, so this measures the layer that matters.
  */
-function renderPressed({ confirming = false, menuOpen = false } = {}) {
+function renderPressed({
+  confirming = false,
+  menuOpen = false,
+  leavingTo = null as LogStatus | null,
+} = {}) {
   const pressed = vi.fn();
   const removal: CardRemoval = {
     confirming,
@@ -112,10 +139,14 @@ function renderPressed({ confirming = false, menuOpen = false } = {}) {
   renderWithProviders(
     <div onMouseDown={pressed} onTouchStart={pressed}>
       <Card
-        item={libraryItem({ title: 'Celeste', currentStatus: 'Backlog' })}
+        item={libraryItem({
+          title: 'Celeste',
+          currentStatus: leavingTo === null ? 'Backlog' : 'Completed',
+        })}
         onMove={vi.fn()}
         removal={removal}
         menu={{ open: menuOpen, onOpen: vi.fn(), onClose: vi.fn(), columns: columnsFor('games') }}
+        leaving={{ to: leavingTo, onReplay: vi.fn(), onPutBack: vi.fn(), onStay: vi.fn() }}
         onOpen={vi.fn()}
         draggable
       />
@@ -614,6 +645,74 @@ describe('Card', () => {
 
       expect(pressed).not.toHaveBeenCalled();
       release(optionsButton());
+    },
+  );
+
+  it('asks whether it was finished while it is leaving Completed, and says what each answer does', async () => {
+    // Leaving Completed either replays the title or takes a mistaken finish back, and only the
+    // person moving it knows which. The board asks on the card, with the journal's own words.
+    const { leaving } = renderLeaving('InProgress');
+
+    expect(screen.getByText('Did you finish it on Oct 8, 2026?')).toBeInTheDocument();
+    const yes = screen.getByRole('button', { name: 'Yes — start a new pass' });
+    const no = screen.getByRole('button', { name: 'No — move it to Playing' });
+
+    // Each answer carries the question, as in the journal. Taking the keyboard is the board's
+    // job rather than the card's, because a refetch remounts cards: see BoardPage's tests.
+    expect(yes).toHaveAccessibleDescription('Did you finish it on Oct 8, 2026?');
+    expect(no).toHaveAccessibleDescription('Did you finish it on Oct 8, 2026?');
+
+    await userEvent.click(yes);
+    expect(leaving.onReplay).toHaveBeenCalledOnce();
+    await userEvent.click(no);
+    expect(leaving.onPutBack).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(leaving.onStay).toHaveBeenCalledOnce();
+  });
+
+  it('asks nothing while it is not leaving', () => {
+    renderCard(finishedCard());
+
+    expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
+  });
+
+  it("names the column in the hobby's own word", () => {
+    renderLeaving(
+      'InProgress',
+      libraryItem({
+        hobby: 'movies',
+        title: 'Arrival',
+        currentStatus: 'Completed',
+        completedAt: '2026-10-08T07:14:00+00:00',
+      }),
+    );
+
+    expect(screen.getByRole('button', { name: 'No — move it to Watching' })).toBeInTheDocument();
+  });
+
+  it('stays where it is on Escape', async () => {
+    const { leaving } = renderLeaving('Dropped');
+
+    screen.getByRole('button', { name: 'Yes — start a new pass' }).focus();
+    await userEvent.keyboard('{Escape}');
+
+    expect(leaving.onStay).toHaveBeenCalledOnce();
+  });
+
+  it.each(PRESSES)(
+    'keeps %s press on the question from starting a drag',
+    (_input, { press, release }) => {
+      // Three small buttons on a card that drags: a wobble past the threshold on any of them
+      // would carry the card off rather than answer.
+      const { pressed } = renderPressed({ leavingTo: 'InProgress' });
+
+      for (const name of ['Yes — start a new pass', 'No — move it to Playing', 'Cancel']) {
+        const button = screen.getByRole('button', { name });
+        press(button);
+        release(button);
+      }
+
+      expect(pressed).not.toHaveBeenCalled();
     },
   );
 

@@ -8,7 +8,7 @@ import { server } from '../test/server';
 import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
 import { AUTOSAVE_MS } from '../journal/fields';
 import type { LibraryItem, LogEntry, LogStatus } from '../api/types';
-import { game, gameDetail, journalServer, logEntry, searchServer } from '../test/games';
+import { game, gameDetail, journalServer, logEntry, note, searchServer } from '../test/games';
 import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
 import { BackButton, renderWithProviders } from '../test/render';
@@ -285,6 +285,8 @@ describe('BoardPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Options for Hollow Knight' }));
     await userEvent.click(screen.getByRole('button', { name: 'Move to Playing' }));
+    // Leaving Completed asks first, since #14. A replay is the answer that it was finished.
+    await userEvent.click(screen.getByRole('button', { name: 'Yes — start a new pass' }));
 
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026'),
@@ -307,6 +309,7 @@ describe('BoardPage', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Options for Hollow Knight' }));
     await userEvent.click(screen.getByRole('button', { name: 'Move to Playing' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes — start a new pass' }));
 
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2024'),
@@ -847,8 +850,11 @@ describe('BoardPage', () => {
 /** When the server's clock says a move happened: noon in New York on 7 October 2026. */
 const MOVED_AT = '2026-10-07T16:00:00+00:00';
 
-/** `LibraryService.TransitionAsync`'s table, for the fake below: what a move does to the passes. */
-function transition(passes: LogEntry[], to: LogStatus) {
+/**
+ * `LibraryService.TransitionAsync`'s table, for the fake below: what a move does to the passes.
+ * `notFinished` is a finish put back, which moves the finished pass itself and takes its finish.
+ */
+function transition(passes: LogEntry[], to: LogStatus, notFinished = false) {
   const latest = passes[0]!;
   if (latest.status === to) {
     return;
@@ -878,8 +884,11 @@ function transition(passes: LogEntry[], to: LogStatus) {
     }
   };
 
-  // Leaving Completed inserts rather than edits, which is what keeps the finished pass.
-  if (latest.status === 'Completed') {
+  // Leaving Completed inserts rather than edits, which is what keeps the finished pass — unless
+  // the finish never happened, when the pass itself moves and loses it first.
+  if (latest.status === 'Completed' && notFinished) {
+    latest.completedAt = null;
+  } else if (latest.status === 'Completed') {
     const fresh = logEntry({
       id: Math.max(...passes.map((pass) => pass.id)) + 1,
       mediaId: latest.mediaId,
@@ -943,8 +952,11 @@ function passesOnServer(
     }),
 
     http.post('/api/library/:mediaId/status', async ({ request }) => {
-      const { status } = (await request.json()) as { status: LogStatus };
-      transition(passes, status);
+      const { status, notFinished } = (await request.json()) as {
+        status: LogStatus;
+        notFinished?: boolean;
+      };
+      transition(passes, status, notFinished === true);
       moved = true;
 
       if (moveAnswersAfter > 0) {
@@ -1057,7 +1069,7 @@ describe('BoardPage, moving a title from its journal', () => {
     renderWithProviders(<BoardPage />, BOARD_ROUTE);
     await userEvent.click(await screen.findByRole('button', { name: 'Celeste' }));
     await moveFromJournal('Completed', 'Playing');
-    await userEvent.click(screen.getByRole('button', { name: 'Start new pass' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Yes — start a new pass' }));
 
     // The drawer is about the new pass now, which has nothing written on it yet...
     expect(await screen.findByRole('button', { name: 'Column: Playing' })).toBeInTheDocument();
@@ -1068,6 +1080,42 @@ describe('BoardPage, moving a title from its journal', () => {
     // ...and the finished one is a record underneath it, rating and all.
     const finished = within(screen.getByRole('region', { name: 'Completed Nov 2, 2024' }));
     expect(finished.getByRole('img', { name: 'Rated 9.5 out of 10' })).toBeInTheDocument();
+  });
+
+  it('puts a mistaken finish back from its journal: one pass, in Playing, with its notes', async () => {
+    // The case #14 was found from. The finish happened by mistake, so moving on from it must not
+    // leave a blank pass above the real one for somebody to tidy away, notes and all.
+    boardServer();
+    const { passes } = passesOnServer(
+      libraryItem({ mediaId: 3003, title: 'Hollow Knight: Silksong', currentStatus: 'Completed' }),
+      logEntry({
+        id: 7,
+        status: 'Completed',
+        platform: 'Switch 2',
+        startedAt: '2026-09-17T23:00:00+00:00',
+        completedAt: '2026-10-08T07:14:00+00:00',
+        notes: [note({ id: 1, logEntryId: 7, body: 'Act 2 at last. The citadel is enormous.' })],
+      }),
+    );
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Hollow Knight: Silksong' }));
+    await moveFromJournal('Completed', 'Playing');
+    await userEvent.click(screen.getByRole('button', { name: 'No — move it to Playing' }));
+
+    expect(await screen.findByRole('button', { name: 'Column: Playing' })).toBeInTheDocument();
+    expect(passes).toHaveLength(1);
+    expect(passes[0]).toMatchObject({
+      id: 7,
+      status: 'InProgress',
+      startedAt: '2026-09-17T23:00:00+00:00',
+      completedAt: null,
+      platform: 'Switch 2',
+    });
+
+    // The drawer says the same: the note is on the pass in front of you, and nothing is under it.
+    expect(await screen.findByText('Act 2 at last. The citadel is enormous.')).toBeInTheDocument();
+    expect(screen.queryByText('Earlier passes')).not.toBeInTheDocument();
   });
 
   it('holds the pass still until the journal has the moved pass under it', async () => {
@@ -1197,6 +1245,143 @@ describe('BoardPage, moving a title from its journal', () => {
  * Every other test in this file runs in jsdom's window, which has no media queries and so gets
  * the board side by side; these give it a phone's width.
  */
+/**
+ * A card leaving Completed, which asks first: decided at the #14 pickup over an *Undo* after
+ * every move, because a mistaken finish can be noticed hours later.
+ *
+ * By its menu here. A drag ends in the same question, and a drag gets a real browser: see
+ * `board.spec.ts`.
+ */
+describe('BoardPage, a card leaving Completed', () => {
+  const TITLE = 'Hollow Knight: Silksong';
+
+  /** Finished by mistake at 3:14 this morning. */
+  const finished = (overrides: Partial<LibraryItem> = {}) =>
+    libraryItem({
+      mediaId: 3003,
+      title: TITLE,
+      currentStatus: 'Completed',
+      lastActivity: '2026-10-08T07:14:00+00:00',
+      completedAt: '2026-10-08T07:14:00+00:00',
+      ...overrides,
+    });
+
+  async function moveByMenu(to: string) {
+    await userEvent.click(await screen.findByRole('button', { name: `Options for ${TITLE}` }));
+    await userEvent.click(screen.getByRole('button', { name: `Move to ${to}` }));
+  }
+
+  /** The card, which is where the question is asked. */
+  const card = () =>
+    within(
+      screen.getAllByRole('listitem').find((item) => within(item).queryByText(TITLE) !== null)!,
+    );
+
+  it('asks on the card whether it was finished, and moves nothing until told', async () => {
+    const board = boardServer({ columns: { Completed: [finished()] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('Playing');
+
+    expect(card().getByText('Did you finish it on Oct 8, 2026?')).toBeInTheDocument();
+    // The menu's item has gone with the menu, so the keyboard goes to the first answer.
+    expect(card().getByRole('button', { name: 'Yes — start a new pass' })).toHaveFocus();
+    expect(board.transitions).toEqual([]);
+  });
+
+  it('starts a new pass when it was finished', async () => {
+    const board = boardServer({ columns: { Completed: [finished()] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('Playing');
+    await userEvent.click(card().getByRole('button', { name: 'Yes — start a new pass' }));
+
+    await waitFor(() =>
+      expect(board.transitions).toEqual([{ mediaId: 3003, status: 'InProgress' }]),
+    );
+  });
+
+  it('puts the pass back when it was never finished', async () => {
+    const board = boardServer({ columns: { Completed: [finished()] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('On Hold');
+    await userEvent.click(card().getByRole('button', { name: 'No — move it to On Hold' }));
+
+    await waitFor(() =>
+      expect(board.transitions).toEqual([{ mediaId: 3003, status: 'OnHold', notFinished: true }]),
+    );
+    expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
+  });
+
+  it('leaves the card in Completed when cancelled, and hands the keyboard back to its corner', async () => {
+    const board = boardServer({ columns: { Completed: [finished()] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('Dropped');
+    await userEvent.click(card().getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Options for ${TITLE}` })).toHaveFocus();
+    expect(board.transitions).toEqual([]);
+  });
+
+  it('cancels on Escape, as the card menu closes on it', async () => {
+    const board = boardServer({ columns: { Completed: [finished()] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('Playing');
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `Options for ${TITLE}` })).toHaveFocus();
+    expect(board.transitions).toEqual([]);
+  });
+
+  it('asks without a day when the finish has been cleared, never naming the start instead', async () => {
+    // A card's own date falls back to the start when there is no finish, so the question cannot
+    // read it: that would ask whether you finished it on the day you began.
+    boardServer({
+      columns: {
+        Completed: [finished({ lastActivity: '2026-09-17T23:00:00+00:00', completedAt: null })],
+      },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('Playing');
+
+    expect(card().getByText('Did you finish it?')).toBeInTheDocument();
+  });
+
+  it('asks on the card that was moved and on no other', async () => {
+    boardServer({
+      columns: {
+        Completed: [finished(), libraryItem({ mediaId: 3004, title: 'Celeste', currentStatus: 'Completed' })],
+      },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('Playing');
+
+    expect(screen.getAllByText(/Did you finish it/)).toHaveLength(1);
+    expect(card().getByText(/Did you finish it/)).toBeInTheDocument();
+  });
+
+  it('asks nothing of a card leaving any other column', async () => {
+    const board = boardServer({
+      columns: { InProgress: [finished({ currentStatus: 'InProgress', completedAt: null })] },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await moveByMenu('Completed');
+
+    await waitFor(() =>
+      expect(board.transitions).toEqual([{ mediaId: 3003, status: 'Completed' }]),
+    );
+    expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
+  });
+});
+
 describe('BoardPage, on a phone', () => {
   let phone: ReturnType<typeof windowOfWidth>;
 

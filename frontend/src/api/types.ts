@@ -188,6 +188,12 @@ export interface LibraryItem {
   latestRating: number | null;
   /** An instant, or null. Render it through `lib/time`, never `new Date(...).getFullYear()`. */
   lastActivity: string | null;
+  /**
+   * When the current pass finished, and null when it has no finish — which a Completed pass can,
+   * once its finish date is cleared by hand. Apart from `lastActivity`, which falls back to the
+   * start: the question a card asks before leaving Completed names the finish itself.
+   */
+  completedAt: string | null;
   /** The title's genres, from whichever source its hobby uses. Null when the hobby has none. */
   genres: string[] | null;
   /** The chosen genre, or null to use the automatic pick. See src/hobbies/. */

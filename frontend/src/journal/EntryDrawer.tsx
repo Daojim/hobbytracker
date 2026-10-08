@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { finishQuestion, putBackAnswer, REPLAY_ANSWER } from '../lib/finishQuestion';
 import { formatJournalDate } from '../lib/time';
 import { useModalPanel } from '../lib/useModalPanel';
 import { ColumnControl } from './ColumnControl';
@@ -56,6 +57,11 @@ export interface EntryDrawerProps {
    * and applies the server's rules about which pass it touches. None of that is written twice.
    */
   onMove: (from: LogStatus, to: LogStatus) => Promise<unknown>;
+  /**
+   * Takes a finish back: the Completed pass itself goes to `to`, without its finish, rather than
+   * a new pass starting there. The board's own mutation again, saying the finish never happened.
+   */
+  onPutBack: (to: LogStatus) => Promise<unknown>;
 }
 
 /**
@@ -78,6 +84,7 @@ export function EntryDrawer({
   askHowLong = false,
   columns,
   onMove,
+  onPutBack,
 }: EntryDrawerProps) {
   const { columnLabel, genres, journal } = hobbyDefinition(hobby);
   const { title, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(hobby, mediaId);
@@ -143,11 +150,10 @@ export function EntryDrawer({
     onConfirm: () => deletePass(entryId),
   });
 
-  // Which column a Completed pass has been asked to leave for, while the drawer asks whether a
-  // new pass is meant. Leaving Completed inserts a pass rather than editing this one, so the
-  // finished playthrough is kept — and on the pass's own heading that reads as a correction,
-  // which it is not. A drag does the same without asking; a drag is a gesture on the title, and
-  // this control sits on one pass's own heading.
+  // Which column a Completed pass has been asked to leave for, while the drawer asks whether it
+  // was finished. Leaving Completed either replays the title, keeping this pass under Earlier
+  // passes, or takes a mistaken finish back and moves this pass itself, and only the reader knows
+  // which. Since #14 the board asks the same question on a card, for a drag and the menu alike.
   const [asking, setAsking] = useState<LogStatus | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
   // Where a move that is on its way is going. The heading names it at once, and the pass takes
@@ -192,8 +198,11 @@ export function EntryDrawer({
    * nothing in between. Without that, a rating typed inside the half second before a move either
    * went after it carrying the old column, so the server moved the pass back, or went with the
    * old, empty Started over the start the move had stamped. Both were measured before the fix.
+   *
+   * `send` is the move itself: an ordinary one, a replay, or a finish put back. All three carry
+   * the column, so all three race the autosave the same way and take the same order.
    */
-  async function moveTo(from: LogStatus, to: LogStatus) {
+  async function moveTo(to: LogStatus, send: () => Promise<unknown>) {
     setAsking(null);
     setMoveError(null);
     setMoving(to);
@@ -201,7 +210,7 @@ export function EntryDrawer({
     try {
       form.current?.flush();
       await writes.current;
-      await onMove(from, to);
+      await send();
     } catch (failure) {
       setMoveError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -217,7 +226,7 @@ export function EntryDrawer({
       return;
     }
 
-    void moveTo(from, to);
+    void moveTo(to, () => onMove(from, to));
   }
 
   /** Where the keyboard goes once the question is answered either way: the heading it came from. */
@@ -417,15 +426,20 @@ export function EntryDrawer({
             )}
           >
             {asking !== null && (
-              <NewPassQuestion
+              <FinishQuestion
                 id={questionId}
                 column={columnLabel[asking]}
+                completedAt={current.completedAt}
                 answer={answer}
-                onYes={() => {
+                onReplay={() => {
                   answered();
-                  void moveTo(current.status, asking);
+                  void moveTo(asking, () => onMove(current.status, asking));
                 }}
-                onNo={() => {
+                onPutBack={() => {
+                  answered();
+                  void moveTo(asking, () => onPutBack(asking));
+                }}
+                onCancel={() => {
                   setAsking(null);
                   answered();
                 }}
@@ -603,43 +617,66 @@ function PassSection({ entry, heading, children }: PassSectionProps) {
   );
 }
 
-interface NewPassQuestionProps {
+interface FinishQuestionProps {
   id: string;
-  /** Where the new pass would start, in the hobby's own word. */
+  /** Where the pass would go, in the hobby's own word. */
   column: string;
-  /** The yes, which takes the keyboard when the question appears. */
+  /** The finish being asked about, or null when the pass carries none. */
+  completedAt: string | null;
+  /** The first answer, which takes the keyboard when the question appears. */
   answer: React.Ref<HTMLButtonElement>;
-  onYes: () => void;
-  onNo: () => void;
+  onReplay: () => void;
+  onPutBack: () => void;
+  onCancel: () => void;
 }
 
 /**
- * Whether leaving a Completed pass for another column means a new pass, which it always does.
+ * Whether a Completed pass was finished, asked before it leaves for another column.
  *
- * A tinted box, the user's pick at the workshop over a line in the Delete confirm's shape: the
- * one boxed thing in the pass, so it cannot be read past. Not red and not a fill, because nothing
- * is lost — the finished pass goes under *Earlier passes* with its rating, dates and notes.
+ * Yes is a replay: a new pass starts there, and this one stays under *Earlier passes*, finished.
+ * No is a finish put back: this pass goes there itself, and its finish date goes. Until #14 there
+ * was only the yes, so a mistaken finish moved back left a blank pass above the real one, and the
+ * real one was then deleted to tidy up, notes and all. The words are `lib/finishQuestion.ts`'s,
+ * which the board's cards ask with too.
  *
- * The yes carries the question as its description, so a screen reader that lands on it hears
- * what it would do rather than three words.
+ * A tinted box, the user's pick at the #13 workshop over a line in the Delete confirm's shape: the
+ * one boxed thing in the pass, so it cannot be read past. Not red and not a fill, because neither
+ * answer loses anything. Both answers carry the question as their description, so a screen reader
+ * that lands on one hears what it is answering.
  */
-function NewPassQuestion({ id, column, answer, onYes, onNo }: NewPassQuestionProps) {
+function FinishQuestion({
+  id,
+  column,
+  completedAt,
+  answer,
+  onReplay,
+  onPutBack,
+  onCancel,
+}: FinishQuestionProps) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-line-soft bg-well p-3 text-xs">
-      <p id={id}>{`Start a new pass in ${column}? This one stays under Earlier passes.`}</p>
+      <p id={id}>{finishQuestion(completedAt)}</p>
       <div className="flex flex-wrap gap-2">
         <button
           ref={answer}
           type="button"
           aria-describedby={id}
-          onClick={onYes}
+          onClick={onReplay}
           className="rounded border border-line bg-surface px-2 py-0.5 font-medium hover:bg-hover"
         >
-          Start new pass
+          {REPLAY_ANSWER}
         </button>
         <button
           type="button"
-          onClick={onNo}
+          aria-describedby={id}
+          onClick={onPutBack}
+          className="rounded border border-line bg-surface px-2 py-0.5 font-medium hover:bg-hover"
+        >
+          {putBackAnswer(column)}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
           className="rounded border border-line bg-surface px-2 py-0.5 text-muted hover:bg-hover hover:text-fg"
         >
           Cancel

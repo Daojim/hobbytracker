@@ -513,6 +513,116 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         entries[1].CompletedAt.ShouldBeNull();
     }
 
+    // ------------------------------------------------- putting a finish back
+
+    // Leaving Completed starts a new pass so a replay cannot overwrite a finished one. A finish
+    // that never happened is the other case, and the caller says so: the pass itself moves, and
+    // its finish date goes. Found on 8 October 2026, when a mistaken finish, and the tidy-up after
+    // it, cost a pass its notes.
+
+    [Fact]
+    public async Task Putting_a_finish_back_moves_that_pass_and_keeps_everything_on_it()
+    {
+        var mediaId = await GivenGameAsync("Hollow Knight: Silksong");
+        var entryId = await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed, rating: 8.5m, platform: "Switch 2",
+            startedAt: Eastern(2026, 9, 17, 19), completedAt: Eastern(2026, 10, 8, 3, 14));
+        await WithDbAsync(async db =>
+        {
+            var pass = await db.LogEntries.SingleAsync(entry => entry.Id == entryId, Ct);
+            pass.HoursPlayed = 31.5m;
+            await db.SaveChangesAsync(Ct);
+        });
+        await GivenNoteAsync(entryId, "Act 2 at last. The citadel is enormous.");
+
+        (await PutBackAsync(mediaId, LogStatus.InProgress)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // One pass, the same one, in Playing again: everything it carried is still on it, and
+        // the finish is gone.
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Id.ShouldBe(entryId);
+        entry.Status.ShouldBe(LogStatus.InProgress);
+        entry.StartedAt.ShouldBe(Eastern(2026, 9, 17, 19));
+        entry.CompletedAt.ShouldBeNull();
+        entry.Rating.ShouldBe(8.5m);
+        entry.Platform.ShouldBe("Switch 2");
+        entry.HoursPlayed.ShouldBe(31.5m);
+
+        var notes = await WithDbAsync(db => db.Notes
+            .Where(note => note.LogEntryId == entryId)
+            .Select(note => note.Body)
+            .ToListAsync(Ct));
+        notes.ShouldBe(["Act 2 at last. The citadel is enormous."]);
+    }
+
+    [Fact]
+    public async Task A_finish_put_back_in_the_backlog_loses_its_start_as_well()
+    {
+        // The column's own rule, as for any move into Backlog: a title back in the queue has not
+        // been started, so a leftover start would put it in a year it was never played in.
+        var mediaId = await GivenGameAsync();
+        var entryId = await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2026, 9, 17), completedAt: Eastern(2026, 10, 8, 3, 14));
+
+        await PutBackAsync(mediaId, LogStatus.Backlog);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Id.ShouldBe(entryId);
+        entry.Status.ShouldBe(LogStatus.Backlog);
+        entry.StartedAt.ShouldBeNull();
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_finish_put_back_as_dropped_loses_the_finish_dropping_would_keep()
+    {
+        // Dropping leaves a completion alone, because a dropped pass can carry one. Putting a
+        // finish back says it never happened, so here it goes regardless, and the start stays.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2026, 9, 17), completedAt: Eastern(2026, 10, 8, 3, 14));
+
+        await PutBackAsync(mediaId, LogStatus.Dropped);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.Dropped);
+        entry.StartedAt.ShouldBe(Eastern(2026, 9, 17));
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_finish_with_no_start_put_back_as_dropped_starts_today()
+    {
+        // Dropping stamps a start on a pass with none, falling back to its finish. The finish is
+        // the thing being taken back, so there is nothing to fall back to: today, as for anything
+        // dropped straight out of the queue.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed, completedAt: Eastern(2026, 9, 1));
+
+        await PutBackAsync(mediaId, LogStatus.Dropped);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.StartedAt.ShouldBe(Now);
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task The_board_shows_the_pass_put_back_and_no_replay()
+    {
+        var mediaId = await GivenGameAsync("Celeste");
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed,
+            startedAt: Eastern(2026, 9, 17), completedAt: Eastern(2026, 10, 8, 3, 14));
+
+        var item = await ReadAsync<LibraryItemDto>(await PutBackAsync(mediaId, LogStatus.InProgress));
+
+        item.CurrentStatus.ShouldBe(LogStatus.InProgress);
+        item.EntryCount.ShouldBe(1);
+        (await GetColumnAsync(LogStatus.Completed)).Items.ShouldBeEmpty();
+    }
+
     // ------------------------------------------------------------------ errors
 
     [Fact]
@@ -674,6 +784,14 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync(
             $"/api/library/{mediaId}/status", new StatusTransitionRequest(status), Json, Ct);
+
+    /// <summary>A move out of Completed that says the finish never happened.</summary>
+    private Task<HttpResponseMessage> PutBackAsync(int mediaId, LogStatus status) =>
+        Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}/status",
+            new StatusTransitionRequest(status, NotFinished: true),
+            Json,
+            Ct);
 
     /// <summary>A title put on the board the way a tile puts it there. See AddingToBoardTests.</summary>
     private Task<HttpResponseMessage> AddAsync(int mediaId, LogStatus status) =>

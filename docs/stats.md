@@ -63,7 +63,9 @@ was left there by an edit and its year would open on a page with nothing in it.
 
 **Finished** is every pass in Completed with a finish in the year. Completed and nothing else: a
 dropped pass can carry a finish date, since dropping leaves a completion alone, and it is not a
-game you finished.
+game you finished. A finish put back (#14) leaves its pass in another column with no finish, so it
+stops counting in every year by the same write, with nothing here to change;
+`A_finish_put_back_is_not_a_finish` says so.
 
 **Completion** is the share of the passes *started* in the year that are finished, beside how many
 are still going (Playing and On Hold) and how many were dropped. Decided with the user over the
@@ -109,6 +111,10 @@ it does not.** The user's own words for the ask were *"X was added to your backl
   somewhere else, a write around the recorder brought the title back, and an older arrival would
   claim a wait that was interrupted. `A_title_whose_last_recorded_move_was_elsewhere_has_no_arrival_to_claim`
   holds it.
+- **A mistaken finish does not interrupt a wait.** A Backlog title finished by mistake and put back
+  (#14) is still waiting from when it arrived, because the history erases a finish put back rather
+  than recording it and its undoing; see **A pass's history** in `docs/data-model.md`. Two rows
+  would have read *0 days*. `A_title_finished_by_mistake_and_put_back_has_waited_all_along`.
 - **Otherwise the pass's `logged_at`, labelled *added***. A pass with no rows was made before
   recording began on 1 October 2026 and has not moved since. When it was made is when it went on
   your board, which for a title moved back since is *earlier* than its wait began. So the word

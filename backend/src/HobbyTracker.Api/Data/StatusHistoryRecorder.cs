@@ -40,6 +40,9 @@ public sealed class StatusHistoryRecorder(IJournalClock clock) : SaveChangesInte
     ///
     /// The cost, accepted when it was chosen: a column a pass genuinely spent five minutes in is
     /// not in the history either. Its own start and finish are still on the pass.
+    ///
+    /// One fold ignores this window: a finish put back, which never happened however long ago it
+    /// was recorded. See <c>Record</c>.
     /// </summary>
     public static readonly TimeSpan SettleWindow = TimeSpan.FromMinutes(10);
 
@@ -132,9 +135,27 @@ public sealed class StatusHistoryRecorder(IJournalClock clock) : SaveChangesInte
 
     private static void Record(DbContext db, Move move, StatusChange? latest, DateTimeOffset now)
     {
+        // A finish taken back. The board never moves a finished pass in place — leaving Completed
+        // starts a replay — unless the caller says the finish never happened, so a pass leaving
+        // Completed in place is a finish put back, known by what it is rather than by who asked.
+        // A finish that never happened is no more history than a column a card spent a minute in,
+        // so it folds the way a shuffle does, whatever its age. Since 8 October 2026: kept, it
+        // would restart a Backlog wait, which Stats reads off the latest row.
+        //
+        // Only into the row that recorded the finish. Without one the finish was never written
+        // down — the pass predates recording, or it got there around the recorder — and a row
+        // saying it left Completed would claim the very finish being taken back.
+        var putBack = move.From == LogStatus.Completed;
+
+        if (putBack && latest?.ToStatus != LogStatus.Completed)
+        {
+            return;
+        }
+
         // Only the latest row, and only while it is recent: how long the pass has been in the
-        // column it is leaving. Anything older settled, and is never touched again.
-        if (latest is not null && now - latest.ChangedAt < SettleWindow)
+        // column it is leaving. Anything older settled, and is never touched again — except a
+        // finish put back, above.
+        if (latest is not null && (putBack || now - latest.ChangedAt < SettleWindow))
         {
             // Plain writes to a tracked row. SaveChanges detects changes after this has run, so
             // the fold goes out in the same transaction as the move that caused it.

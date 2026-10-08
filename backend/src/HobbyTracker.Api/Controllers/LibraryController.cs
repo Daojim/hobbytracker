@@ -130,9 +130,9 @@ public class LibraryController(ILibraryService library) : ControllerBase
     /// <summary>
     /// Moves a title to a board column — what dragging a card does.
     ///
-    /// The caller names only the target column. Whether that edits the current entry or starts
-    /// a new one, and which dates get filled in, is decided server-side, so the board never has
-    /// to know which entry is current.
+    /// The caller names the target column, and may say a finished pass was never finished.
+    /// Whether that edits the current entry or starts a new one, and which dates get filled in,
+    /// is decided server-side, so the board never has to know which entry is current.
     /// </summary>
     [HttpPost("{mediaId:int}/status")]
     [ProducesResponseType<LibraryItemDto>(StatusCodes.Status200OK)]
@@ -140,7 +140,8 @@ public class LibraryController(ILibraryService library) : ControllerBase
     public async Task<ActionResult<LibraryItemDto>> Transition(
         int mediaId, StatusTransitionRequest request, CancellationToken cancellationToken)
     {
-        var item = await library.TransitionAsync(mediaId, request.Status, cancellationToken);
+        var item = await library.TransitionAsync(
+            mediaId, request.Status, request.NotFinished, cancellationToken);
         return item is null ? NotFound() : Ok(item);
     }
 

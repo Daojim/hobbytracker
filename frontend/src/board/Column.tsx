@@ -55,6 +55,19 @@ export interface ColumnRemoval {
 }
 
 /**
+ * A card leaving Completed, as the whole column sees it: which card is asking whether it was
+ * finished, where it was asked to go, and the three answers. Held above the board for the same
+ * reason — see `CardLeaving`.
+ */
+export interface ColumnLeaving {
+  mediaId: number | null;
+  to: LogStatus | null;
+  onReplay: () => void;
+  onPutBack: () => void;
+  onStay: () => void;
+}
+
+/**
  * Which card has its options open, if any. Same shape and same reasoning as ColumnRemoval:
  * one at a time, held above the board because a refetch remounts cards.
  */
@@ -89,6 +102,7 @@ export interface ColumnProps {
   /** Moves a card to another column. The column it leaves is this one, so it goes unsaid. */
   onMove: (mediaId: number, to: LogStatus) => void;
   removal: ColumnRemoval;
+  leaving: ColumnLeaving;
   menu: ColumnMenu;
   onOpen: OpenJournal;
 }
@@ -106,6 +120,7 @@ export function Column({
   namedAbove = false,
   onMove,
   removal,
+  leaving,
   menu,
   onOpen,
 }: ColumnProps) {
@@ -177,6 +192,12 @@ export function Column({
                   onAsk: () => removal.onAsk(item.mediaId),
                   onCancel: removal.onCancel,
                   onConfirm: () => removal.onConfirm(item.mediaId),
+                }}
+                leaving={{
+                  to: leaving.mediaId === item.mediaId ? leaving.to : null,
+                  onReplay: leaving.onReplay,
+                  onPutBack: leaving.onPutBack,
+                  onStay: leaving.onStay,
                 }}
                 menu={{
                   open: menu.mediaId === item.mediaId,
