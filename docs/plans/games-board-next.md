@@ -30,7 +30,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
 | 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
-| 13 | A column dropdown in the journal | M | Planned 7 October 2026. It reverses *No status control* in `docs/journal.md`, and the autosave can undo a move. See its section |
+| 13 | A column dropdown in the journal | M | **Built 7 October 2026** on `journal-column-control`, the day it was planned, after a workshop the same day: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. Not merged yet. See its section |
 
 Production runs `a80bf49`'s code, which was `main` on 7 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -1218,7 +1218,10 @@ build.
 
 ---
 
-## 13. A column dropdown in the journal · M
+## 13. A column dropdown in the journal · built
+
+**Built 7 October 2026**, the day it was planned, after a workshop the same day. The plan below is
+as it was written. What was decided and built follows it, from **Decided at pickup** on.
 
 **What.** In the drawer, the current pass's heading (the column's name, above the rating) becomes
 a control that moves the title to another column. Asked for on 7 October 2026.
@@ -1280,6 +1283,146 @@ own heading, so it reads as correcting the pass rather than replaying the title.
 - e2e: a move from the drawer puts the card in its new column, and a reload keeps it there.
 - **Put the faults back:** the move sent through the `PUT`, and the move made without waiting for
   the pending save.
+
+### Decided at pickup
+
+| Choice | Picked | Against |
+|---|---|---|
+| Another column on a Completed pass | **Ask first**, the recommendation: the drawer says a new pass starts and the finished one stays under *Earlier passes*, before anything moves | the replay said in the options; said afterwards; no control on a Completed pass |
+| A title not out yet | **Every column**, the recommendation. The board already keeps an early build outside Backlog on purpose (*A second thing that narrows a column* in `docs/board.md`), and leaving Backlog takes it off the calendar | Backlog and Dropped only; no control |
+| The pass while a move is on its way. **Not in the plan**: found reading the code | **Read-only**, the recommendation: anything owed is sent first, then the move, and nothing can be typed until the moved pass is back | editable, with what is typed held and sent afterwards, which loses it if the drawer is closed mid-move |
+
+Read from the code before the questions were asked:
+- **The `PUT` writes whatever status it is sent** (`LogEntryService.UpdateAsync`), so the plan's
+  reading of the race holds.
+- **The plan's fix leaves one hole.** A value the rules refuse, held across a move, blocks the
+  re-seed, so the next write sends the old empty Started and clears the start the move stamped. So
+  the form re-seeds field by field: a field not touched since the server last agreed takes the
+  server's value.
+- **Nothing can correct a Completed pass's column in place.** Leaving Completed always inserts, from
+  any door, and the drawer's control is no exception.
+
+### Decided from the renders
+
+Three forms of the control were shot from the real drawer behind a throwaway `?col=` switch, Vite
+alone with every `/api/` request answered in the browser: at rest, under the pointer, with keyboard
+focus, opened, with a column taken off in Settings, on five themes, at 390px, and in the modal. They
+went on one private page with the measurements: https://claude.ai/artifact/KnyaXyhZBd4GTj8V77TTKE.
+
+| Choice | Picked | Against |
+|---|---|---|
+| The control | **A, the heading is the control**, the recommendation: the column's name with a chevron opens a list of the board's columns, the current one ticked | B, the heading unchanged with a *Move* button at the end of its row; C, the phone switcher's segments in its place |
+| The confirm on a Completed pass | **A tinted box**, the user's pick | a line in the shape of the Delete confirm, which was the recommendation |
+| While a move is on its way | **The pass dims**, beside *Moving…*, the recommendation | *Moving…* alone |
+
+- **A changes nothing at rest:** its row is 16px and Rating sits 44px under the rule, exactly as
+  today's heading, at 1440 and at 390. B added 4px and C 16px.
+- **A native `<select>` was ruled out by measurement.** In Chromium 151 on Windows, four presses of
+  ↓ on a closed select fired four `change` events, Playing, On Hold, Completed and Dropped. Every
+  change here is a move, so arrowing past Completed would stamp a completion on the way.
+- **The tick wears the accent, which is red on Ember.** The page said so before the pick.
+
+### The race, reproduced red before the fix
+
+The control was built first with the move made straight away, as the menu makes one, and both
+orders the plan described were then shown red in `BoardPage.test.tsx`, against a fake that keeps
+the passes the way the API does. A rating of 8.5 typed, and Playing picked from Backlog inside the
+half second the form holds it:
+
+| Order | The one save sent | The server was left with |
+|---|---|---|
+| The move's refetch lands first | `InProgress`, 8.5, Started `null` | Playing, 8.5, **no start**: in no year, so off the board |
+| The save goes first (the move's answer held back) | `Backlog`, 8.5, Started `null` | **Backlog**: the move undone, under a board showing it moved |
+
+### Built
+
+- **`journal/ColumnControl.tsx`, new.** The heading is a button named *Column: Playing*, with the
+  column's name inside it in a span carrying the region's label id, and a drawn chevron. It opens a
+  `role="group"` named *Move to*, the card menu's pattern, of the board's columns, with the current
+  one `aria-current` and ticked in the accent, and a hidden current column added to the list in
+  board order. Escape stops at its container and hands the keyboard back, and a press elsewhere
+  closes it, both as the card's menu does. While a move is on its way it names where the title is
+  going, says *Moving…* beside itself, and is `aria-disabled`.
+- **`EntryDrawer`.** `columns` and `onMove` are required props from `BoardPage`, as #12 made
+  `onOpen` required. `PassSection` is handed its heading as a function of the region's id, and the
+  `lead` flag is gone. The Completed question is `NewPassQuestion`, the tinted box: its yes takes
+  the keyboard and is described by the question. A failed move says *Not moved.* and the reason
+  under the heading. `moveTo` runs the order: `flush()`, await `writes`, `onMove`. Every save goes
+  through `savePass`, on `mutateAsync`, and is chained into `writes`.
+- **`EntryForm`.** A `ref` handle with `flush()`. `moving` holds it still: a capture-phase gate on
+  change events at the `<form>`, and checks in the ×, the rating wheel and the hours wheel, with
+  `aria-busy`, `opacity-50` and `pointer-events-none`. `agreed` holds the seven values rather than
+  one string, and the re-seed takes the pass's value for each field not touched since, run when the
+  pass changes.
+- **`useBoard`.** `moveAndWait` is the move as a promise, and `onSettled` returns the title's
+  refetch, so the move is not over until a journal open on it has the moved pass.
+- **A hold on the autosave timer during a move was written and taken out.** Once the form sends what
+  it owes first and takes no edit until the move is over, nothing valid can be owed mid-move, and no
+  test could show the hold doing anything. Planting the flush's removal (F03 below) is what showed
+  where it would have mattered.
+- **The tick is drawn, where the renders showed a `✓` glyph.** The glyph comes from a fallback font,
+  which differs from phone to phone, and the chevron beside it was drawn already.
+
+### Tests
+
+`EntryDrawer.test.tsx` gained 15 cases in *EntryDrawer, moving the title*, and its six existing
+renders take the board's two props through `fromBoard(hobby)`. `BoardPage.test.tsx` gained 7 in
+*BoardPage, moving a title from its journal*, on `passesOnServer`, the fake that keeps a title's
+passes as the API does, with `transition` copying `TransitionAsync`'s table. `journal.spec.ts`
+gained 3: a move kept through a reload, the race against the real API, and a replay from the
+journal with its question. The full suites passed on the finished build: 1064 Vitest cases, 194
+e2e specs and the backend's 756.
+
+Each fault was planted alone against the finished build, by a script that restored the file byte
+for byte, with checksums compared afterwards. The unit cases ran for every row, the e2e cases for
+the rows that say *in a browser*:
+
+| Fault planted | Red |
+|---|---|
+| The move sent through the `PUT` | 13 cases, among them *moves through the move route, never the PUT*, both races and the refused rating; in a browser, *a move from the journal puts the card in its new column*, at Started, since a `PUT` stamps nothing |
+| The move made without waiting for writes in flight | *sends what it owes before it moves, and moves only once that write has been answered*, and no other |
+| The move made without sending what is owed first | the save-first race and the ordering case. **Not the refetch-first race**, which the field-by-field re-seed makes safe on its own; nor, in a browser, the e2e race, for the same reason, since a local API always answers the refetch first |
+| The re-seed all or nothing again | *keeps the start a move stamped while a refused rating waits to be corrected* |
+| In a browser, the code before the fix: the move made at once, and the all-or-nothing re-seed | *a rating typed just before a move from the journal is kept*: Started stayed empty |
+| No gate on change events while a move is on its way | *dims the pass and says Moving… until the move is over, and takes nothing meanwhile* |
+| The ×, the rating wheel or the hours wheel not held, one at a time | the same case, each time |
+| A second move offered while one is on its way | the same case |
+| The move not waiting for the journal's refetch | *holds the pass still until the journal has the moved pass under it* |
+| The heading naming where the pass was, mid-move | that case, and *dims the pass…* |
+| A Completed pass moved without asking | *asks before…*, *leaves a Completed pass where it is when the question is cancelled* and *starts a new pass from a Completed one when told*; in a browser, *another column on a finished pass asks first* |
+| The board's list ignored, every column offered | *offers no column taken off in Settings* |
+| A hidden current column left out of the list | *still names a column taken off in Settings while the pass is in it* |
+| Escape in the list reaching the drawer | *closes the list on Escape and hands the keyboard back, leaving the drawer open* |
+| The keyboard not handed back after a pick | *hands the keyboard back to the heading once the move is made* |
+| The question not taking the keyboard | *asks before another column starts a new pass from a Completed one…* |
+| A failed move saying nothing | *says so when a move fails, and still names the column the pass is in* |
+
+- **The hidden-column row was planted by accident first.** The plant meant to offer every column
+  was written `X ?? cond ? a : b`, which parses as `(X ?? cond) ? a : b`: it planted the other
+  fault, and the case for that one caught it. Both rows are kept; the intended one was planted
+  again.
+- **The e2e race could not be shown red first**, because the fix was in before it was written. It
+  was shown red by planting the code before the fix. **Its first version reloaded straight after
+  Close**, and planting the move made at once turned it red for that reason instead: the rating was
+  still owed, and the reload aborted the write a close sends. It now waits for *Moving…* to go and
+  the dialog to say *Saved*, which is `CLAUDE.md`'s warning about a reload racing a drag, arriving
+  from the journal.
+
+### What the plan got wrong, or left out
+
+- **Its fix was right as far as it went, and three things more were needed.** "Send whatever is
+  owed and wait for it before moving" left a refused value held across a move, which blocked the
+  re-seed until the field-by-field one replaced it. "Wait for it" had to mean every write still in
+  flight, because two can be. And the drawer's hold had to last until the journal's refetch, so
+  the board's move had to wait for that refetch too.
+- **What the pass does while a move is on its way was not in it.** It was found reading the code,
+  and asked before any code: read-only.
+- **It said *dropdown*, and a native one is unusable here,** measured: see *Decided from the
+  renders*.
+- **Escape inside the drawer was not in it.** The drawer closes on an Escape heard at the
+  `document`, so the list has to stop its own.
+- ***Moving…* is a second `role="status"` in the dialog.** `passSaved` in the e2e support expects
+  one, so no spec may wait for *Saved* mid-move. Written into `docs/journal.md`.
 
 ---
 

@@ -211,6 +211,14 @@ a silent no-op. It is called
 **it is offered in every sort mode**, unlike the drag: a menu move writes no ranking, so there is
 none for it to promise.
 
+**The journal's heading is the third way to move a title**, after the drag and this menu, since
+7 October 2026: the current pass's column name opens a list of the same columns, from the same
+list `BoardPage` hands every card. It calls the same mutation through `useBoard().moveAndWait`, so
+it moves the card, refetches the columns, the years, the calendar and the strip's chips, and the
+server applies the transition table, with nothing written twice. What it adds is the drawer's, not
+the board's — a question before leaving Completed, and a form held still while the move is on its
+way. See **The pass's heading moves the title** in `docs/journal.md`.
+
 **One item comes and goes: *How long for me?*,** under *Open journal*. Added on 2 October 2026 for
 #4, it opens the same drawer with "How long will it take me?" already asked — see
 `docs/journal.md`. It is offered where the drawer would ask: a pass that records hours
@@ -838,7 +846,15 @@ What a caller has to know:
   `BoardPage.test.tsx` catches it.
 - `mediaKey(hobby, mediaId)` is `['media', hobby, mediaId]` — one title's journal. The drawer reads
   it; **the board writes to it**, because a transition stamps `started_at` and can insert a whole new
-  entry. It was `gameKey(mediaId)`, keyed on the id alone: media ids are unique across hobbies, so
+  entry. **And a move waits for it**: `onSettled` returns that one invalidation, so the mutation is
+  not over until a journal open on the title has refetched the moved pass. Since 7 October 2026 the
+  journal's heading moves the title (`moveAndWait`, a third caller of the one mutation after the
+  drag and the menu), and its form holds still until the moved pass is under it. Turn the `return`
+  back into a `void` and the hold ends with the move's answer, before the refetch: the heading
+  goes back to the column the title left, writable over the pass as it was. *Holds the pass still
+  until the journal has the moved pass under it* in `BoardPage.test.tsx` goes red. A drag or the
+  menu has no journal open, since the drawer covers the board, so nothing observes the key then
+  and the wait costs nothing. It was `gameKey(mediaId)`, keyed on the id alone: media ids are unique across hobbies, so
   that was not wrong, but two hobbies' detail endpoints answer different shapes and sharing a cache
   entry between them is a thing that goes wrong once and is very hard to see afterwards. **The
   drawer is handed its hobby by the board** rather than working it out, which it needs anyway to
