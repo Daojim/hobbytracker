@@ -4,6 +4,11 @@ namespace HobbyTracker.Api.Domain;
 /// One thing written down during a pass. Several notes per pass is the point — this replaced a
 /// single text column on <see cref="LogEntry"/>, where writing a second thought destroyed the
 /// first.
+///
+/// Usually the pass it hangs off is the one it was written during. Deleting a pass of a title that
+/// has another moves its notes to the current one, so a note can sit on a pass its date does not
+/// fall in, earlier or later. <see cref="WrittenAt"/> is still when it was written, which is why
+/// the move never touches it.
 /// </summary>
 public class Note
 {

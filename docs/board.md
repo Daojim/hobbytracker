@@ -75,14 +75,17 @@ completion it replaced — the card sprang back to Completed and every retry add
 entry. `id` breaks ties, which is not a footnote: fixtures on a stopped clock share one `logged_at`,
 so the tie-break carries the whole ordering in the test suite.
 
-**Every place that orders a title's entries must agree, and there are eight**:
+**Every place that orders a title's entries must agree, and there are nine**:
 `LibraryService.BoardQuery`, `LibraryService.LatestEntryFor`, `LibraryService.ExportAsync`,
-`GameCatalogService.GetAsync`, `HltbService.DetailAsync`, and `EntriesFor` in the film, show and
-anime catalogues. `GetAsync` used to order by `id DESC` alone, which meant the drawer could offer
+`GameCatalogService.GetAsync`, `HltbService.DetailAsync`, `EntriesFor` in the film, show and
+anime catalogues, and `LogEntryService.DeleteAsync`, which picks the pass that keeps a deleted
+pass's notes. `GetAsync` used to order by `id DESC` alone, which meant the drawer could offer
 to edit one entry while the card reported another.
 `LibraryEndpointTests.The_board_and_the_game_detail_agree_about_which_pass_is_current` pins it so a
 future drift fails loudly, and `LibraryExportTests.A_titles_first_pass_is_the_one_its_card_shows`
 pins the spreadsheet's, which was the eighth, on 4 October 2026.
+`DeletingAPassTests.The_notes_go_to_the_pass_the_board_calls_current_and_not_the_one_beside_it`
+pins the ninth, added on 9 October 2026, with passes logged in the opposite order to their ids.
 
 **This was written down as three for months, and the fourth is the one that says so** —
 `HltbService.DetailAsync`'s own comment reads *"three places decide which pass is current"* while
@@ -293,7 +296,9 @@ filters on `LogEntries.Any()` — and **the server re-reads** rather than trusti
 one read from a card rendered a moment ago can already name a pass that has stopped being current.
 **Deleting one pass is the drawer's**, through `DELETE /api/log-entries/{id}`, where the pass is
 named and its dates are on screen. It confirms inline and counts what is going, since "off your
-board" alone reads like a card is being lost rather than three records.
+board" alone reads like a card is being lost rather than three records. Since #15 a title with
+one pass and a note says *and its notes* as well: the drawer counts them when its last pass goes,
+and the card, which knows only that there is a note, says so without a number.
 
 Four things about the menu, each of which had to differ from `SettingsMenu`, the only other menu in
 the app:

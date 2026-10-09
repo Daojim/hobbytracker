@@ -551,6 +551,21 @@ describe('Card', () => {
     expect(screen.getByText('Takes Celeste off your board.')).toBeInTheDocument();
   });
 
+  it('says its notes go with it when its only pass has some', () => {
+    // The drawer counts what deleting the last pass takes, and this is the same delete from the
+    // board. The card cannot count the notes, but it shows the latest, so it knows there are some.
+    renderCard(
+      libraryItem({
+        title: 'Celeste',
+        entryCount: 1,
+        latestNotePreview: 'Golden strawberry, finally.',
+      }),
+      true,
+    );
+
+    expect(screen.getByText('Takes Celeste off your board, and its notes.')).toBeInTheDocument();
+  });
+
   it('counts the playthroughs it would take with it, when there is more than one', () => {
     // The number is the whole warning. Removing takes every pass and everything written during
     // them, so a title carrying a 2024 completion and two replays is losing three records —

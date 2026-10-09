@@ -137,6 +137,12 @@ Sixteen sites, of which three were subtler than the rest:
   injection and takes a `userId`. Left alone, one person's backlog decides where another's new cards
   land.
 
+**Deleting a pass reads the title's other passes, and that read needs both halves of the scope**
+(#15, 9 October 2026). It finds the pass that keeps the deleted one's notes. Without the user,
+somebody else's pass of the same game could be that pass, and your notes would be written into
+their journal. Without the title, a pass of yours on another game could. `DeletingAPassTests` has
+a case for each, and each went red with its predicate taken out.
+
 **Left unscoped deliberately:** `GameCatalogService.RefreshLibraryAsync` and
 `HltbService.BackfillAsync` — both select on "any user has logged this" and write only shared
 columns. Both carry a comment, because they read like missed sites. **404 rather than 403**

@@ -101,16 +101,37 @@ Settled:
   record worth keeping. Correcting a *field* on a finished pass is still a psql job.
   **Which of the ×2 never happened is the trap, found on 8 October 2026.** The mistaken move edits
   the real pass to Completed and the move back starts the blank one, so the pass under *Earlier
-  passes* is the real one, and its Delete says nothing about the notes it takes. Deleting the blank
-  one instead leaves the real one in Completed, which nothing corrected. Nine notes went that way
+  passes* is the real one, and its Delete said nothing about the notes it took. Deleting the blank
+  one instead left the real one in Completed, which nothing corrected. Nine notes went that way
   and came back from the nightly backup. **#14 fixed the move, the same day**: *No — move it to
   Playing* puts the real pass back, so no blank one is made. A *Yes* given by mistake still makes
-  one, and #15 in `docs/plans/games-board-next.md`, notes moving to the pass that stays, is the
-  fix planned for the delete.
+  one, and **#15 fixed the delete on 9 October 2026**: the real pass's notes go to the blank one,
+  which is current, and the confirm says so first. See the next bullet but one.
 - **Deleting confirms inline**, not `window.confirm`, which cannot be worded past the browser's own
   phrasing, cannot be styled, and has to be stubbed in every test that walks past it. Each button in
   the history names the pass it would take, because they all otherwise say the same word.
-- **Deleting the last pass takes the title off the board**, and says so first.
+- **Deleting a pass keeps its notes while another pass stays, and its confirm says where they
+  go.** They move to the current pass of the ones that stay, with their dates unchanged: *Its 9
+  notes move to the current pass.* When the current pass is the one going, the next one takes them
+  and is named the way its own Delete names it: *Its 3 notes move to the Completed pass from Jul 4,
+  2026.* One rule rather than the pass nearest in time, which differs only with three passes or
+  more and is harder to say in a confirm. **They always move.** There is no button to delete them as
+  well, because a note can be deleted on its own and a second button in the confirm is a second way
+  to lose them. A pass with no notes says nothing extra. The server's half is
+  `LogEntryService.DeleteAsync`, which moves them in the same save as the delete. The drawer's is
+  `deleteWarning` in `EntryDrawer.tsx`, which names the same pass because the passes arrive in the
+  order the server picks it by. Decided at the #15 workshop; see `docs/plans/games-board-next.md`.
+- **A confirm with something to say takes a line of its own, and says it above both buttons.** An
+  earlier pass's Delete sits in the row with its rating, hours and platform, and a sentence there
+  ran straight on from them whenever it fitted beside them: in the modal, in the wider drawer, and
+  with a short sentence even in the narrow one. On a phone it left *Cancel* on a line by itself.
+  `ConfirmDelete` does it, so every confirm with a warning has the shape, and one with none, a
+  note's, keeps its place in the row. Picked from renders over the confirm alone on a line, and
+  measured in `journal.spec.ts`, because jsdom has no layout to measure.
+- **Deleting the last pass takes the title off the board**, and says so first, counting the notes
+  that go with it: *…takes Hollow Knight off your board, and its 6 notes.* The card's *Remove from
+  board* is the same delete from the board, and on a title with one pass says *and its notes*,
+  uncounted, because a card knows only that there is a note: the one it shows.
 - **Three bands, separated by a rule each**: what the title *is*, the pass you are on, and what you
   wrote during it. The same `border-line-soft` the settings menu puts between its three groups, and
   the same job — the drawer was one column of controls at one weight, where the first two are about

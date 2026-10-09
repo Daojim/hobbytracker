@@ -70,6 +70,10 @@ public class LogEntriesController(ILogEntryService entries) : ControllerBase
         return updated is null ? NotFound() : Ok(updated);
     }
 
+    /// <summary>
+    /// Deletes one pass. Its notes move to the current pass of those that stay, and go with it
+    /// only when it was the title's last — which takes the title off the board.
+    /// </summary>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

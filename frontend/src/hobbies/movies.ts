@@ -32,10 +32,12 @@ export const MOVIES: HobbyDefinition = {
   // "Film", the word the search box and the pass already use, though the nav says Movies.
   titleNoun: (count) => (count === 1 ? 'film' : 'films'),
 
-  describeRemoval: (title, entryCount) =>
+  describeRemoval: (title, entryCount, hasNotes) =>
     entryCount > 1
       ? `Takes ${title} off your board — all ${entryCount} viewings, and their notes.`
-      : `Takes ${title} off your board.`,
+      : hasNotes
+        ? `Takes ${title} off your board, and its notes.`
+        : `Takes ${title} off your board.`,
 
   /**
    * Ten of TMDB's nineteen, ordered specific before generic on the games list's rule.

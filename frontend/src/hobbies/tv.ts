@@ -45,10 +45,12 @@ export const TV: HobbyDefinition = {
   countPasses: (count) => `${count} watches`,
   titleNoun: (count) => (count === 1 ? 'show' : 'shows'),
 
-  describeRemoval: (title, entryCount) =>
+  describeRemoval: (title, entryCount, hasNotes) =>
     entryCount > 1
       ? `Takes ${title} off your board — all ${entryCount} watches, and their notes.`
-      : `Takes ${title} off your board.`,
+      : hasNotes
+        ? `Takes ${title} off your board, and its notes.`
+        : `Takes ${title} off your board.`,
 
   /**
    * TMDB's *other* genre list — the television one, which is not the film one.

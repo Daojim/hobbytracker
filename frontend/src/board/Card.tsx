@@ -218,7 +218,14 @@ export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardF
   // during them, so a title carrying a completion and two replays is losing three records — and
   // "off your board" on its own reads like it is only losing a card. Deleting a single pass is
   // still possible; it is in the drawer, where the pass is named and dated.
-  const warning = hobby.describeRemoval(item.title, item.entryCount);
+  //
+  // One pass with notes says they go too, as the drawer does when its last pass is deleted. The
+  // card cannot count them, but the note it shows is the latest of them, so it knows there are some.
+  const warning = hobby.describeRemoval(
+    item.title,
+    item.entryCount,
+    item.latestNotePreview !== null,
+  );
 
   // "How long will it take me?" from the board, picked at the #4 workshop. Offered where the
   // drawer would ask it: a pass that records hours, a title with an estimate to count down, and a

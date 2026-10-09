@@ -19,6 +19,11 @@ public interface ILogEntryService
     /// <summary>Returns null when the entry does not exist.</summary>
     Task<LogEntryDto?> UpdateAsync(int id, UpdateLogEntryRequest request, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Deletes one pass. Its notes move to the current pass of those that stay, with their dates
+    /// unchanged, and go with it only when it was the title's last. False when there is no such
+    /// pass of yours.
+    /// </summary>
     Task<bool> DeleteAsync(int id, CancellationToken cancellationToken);
 }
 
@@ -181,16 +186,54 @@ public sealed class LogEntryService(
     {
         var userId = user.Id;
 
-        var entry = await db.LogEntries
+        // With its notes, because they are not deleted with it while another pass stays.
+        var pass = await db.LogEntries
+            .Include(e => e.Notes)
             .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, cancellationToken);
-        if (entry is null)
+        if (pass is null)
         {
             return false;
         }
 
-        // Removes the entry only. The media row stays in the catalog — un-logging something is
-        // not the same as forgetting it exists.
-        db.LogEntries.Remove(entry);
+        // The pass that keeps them: the one the board shows, of the passes that stay. Yours, of
+        // this title, ordered as every place that picks a title's current pass orders it — see
+        // "Library is not the catalog" in docs/board.md — so the notes land on the pass the drawer
+        // shows first. Deleting the current pass itself hands them to the next one, which is about
+        // to become current.
+        //
+        // Both halves of the scope matter. Without the user, somebody else's pass of the same game
+        // could be the one that stays, and your notes would be written into their journal; without
+        // the title, a pass of yours on another one could.
+        var heir = await db.LogEntries
+            .Where(entry =>
+                entry.UserId == userId && entry.MediaId == pass.MediaId && entry.Id != pass.Id)
+            .OrderByDescending(entry => entry.LoggedAt)
+            .ThenByDescending(entry => entry.Id)
+            .Select(entry => (int?)entry.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        // They used to go with it, by the cascade on notes, and the confirm never said so: that is
+        // how nine notes went the morning a mistaken finish was tidied up, and why this moves them
+        // first. Their dates stay where they are, because a note's date is when it was written.
+        //
+        // With no pass left, they still go. The title leaves the board with its only pass, as it
+        // does with Remove from board, and the drawer says so first.
+        if (heir is { } heirId)
+        {
+            foreach (var note in pass.Notes)
+            {
+                note.LogEntryId = heirId;
+            }
+        }
+
+        // One save, so the move and the delete are one write: a delete that fails leaves the notes
+        // on this pass. Re-pointing them before the pass is removed is enough. Remove cascades
+        // only to the notes still pointing at it, and the save sends the moves ahead of the delete
+        // in one command, measured on 9 October 2026.
+        //
+        // The media row stays in the catalog — un-logging something is not the same as forgetting
+        // it exists.
+        db.LogEntries.Remove(pass);
         await db.SaveChangesAsync(cancellationToken);
 
         return true;

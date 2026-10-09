@@ -31,7 +31,8 @@ the last thing you wrote about it. Each column's header adds those lengths up, a
 the hours you logged against them. Clicking the title opens the journal over the board: rating,
 platform, dates, your hours beside HowLongToBeat's three estimates, dated notes, and every
 earlier pass with its own notes below it. The column's name at the top of the pass moves the
-title from there, as a drag would.
+title from there, as a drag would. Deleting a pass keeps what you wrote during it: its notes move
+to the current pass, and the confirm says so before anything goes.
 
 A link on the board's year row opens that year's stats: what you finished, as covers under the
 month you finished them, your hours against HowLongToBeat game by game, your ratings, how much of
@@ -156,7 +157,7 @@ See [Running it](#running-it-locally) for how to fill it.
 | `PUT /api/anime/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `POST /api/anime/refresh` | re-fetch every MAL title on the board. One request per title |
 | `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
-| `GET PUT DELETE /api/log-entries/{id}` | |
+| `GET PUT DELETE /api/log-entries/{id}` | one pass. Deleting it moves its notes to the current pass, and takes them only with the title's last |
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date |
 | `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column |
@@ -568,6 +569,12 @@ to prevent something, the test for it is checked by reintroducing the thing.
       2026?*, on a card as well as in the journal, and *No* moves the real pass back without its
       finish. Reading the code first overturned two of the plan's recommendations: an Undo is
       not a move back, and recording both moves would have restarted a backlog wait
+- [x] Deleting a pass keeps its notes. They went with it by cascade, which is how the tidy-up
+      above lost them, and they move to the current pass now, in the same write as the delete,
+      with the dates they were written on. Every confirm that deletes notes says so, the card's included.
+      The renders found the new sentence running straight on from a pass's hours and platform in
+      a wide drawer, so a confirm with something to say takes a line of its own, measured in a
+      real browser because jsdom has no layout
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

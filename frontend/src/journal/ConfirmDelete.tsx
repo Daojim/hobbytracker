@@ -17,6 +17,14 @@ export interface ConfirmDeleteProps {
  *
  * Not `window.confirm`: it cannot be worded past the browser's own phrasing, cannot be styled,
  * and has to be stubbed in every test that walks past it.
+ *
+ * A confirm with a warning takes a line of its own, and says it on a line above both buttons.
+ * An earlier pass's Delete sits in the row that holds its rating, hours and platform, and a
+ * sentence there ran straight on from them whenever it fitted beside them: *31.5 h Switch 2 Its 9
+ * notes move to the current pass*, in the modal and the wider drawer, and a shorter sentence even
+ * in the narrow one. On a phone the same words left *Cancel* on a line by itself. Picked from
+ * renders at the #15 workshop, over the confirm alone on a line and over today's shape. A confirm
+ * with nothing to say, a note's or a pass's without notes, keeps its place in the row.
  */
 export function ConfirmDelete({
   label,
@@ -41,9 +49,12 @@ export function ConfirmDelete({
     );
   }
 
+  // A line of its own in whatever row holds it, when it has something to say. See above.
+  const ownLine = warning === null ? '' : 'basis-full';
+
   return (
-    <span className="flex flex-wrap items-baseline gap-2 text-xs">
-      {warning !== null && <span className="text-muted">{warning}</span>}
+    <span className={`flex flex-wrap items-baseline gap-2 text-xs ${ownLine}`}>
+      {warning !== null && <span className="basis-full text-muted">{warning}</span>}
 
       {/* Filled, not red text. Colour alone cannot carry "this destroys something": on Ember the
           accent is red too, so a red word beside a red link is a distinction nobody should be

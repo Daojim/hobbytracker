@@ -7,7 +7,7 @@ import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm, type EntryFormHandle } from './EntryForm';
 import { HltbPin } from './HltbPin';
 import { NoteList } from './NoteList';
-import { automaticGenre, hobbyDefinition, type BoardColumn } from '../hobbies';
+import { automaticGenre, hobbyDefinition, type BoardColumn, type TitleDetail } from '../hobbies';
 import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
 import { useJournalEntry } from './useJournalEntry';
@@ -141,13 +141,14 @@ export function EntryDrawer({
     });
   }
 
-  const deleteProps = (entryId: number) => ({
-    confirming: confirming === entryId,
+  const deleteProps = (entry: LogEntry) => ({
+    warning: detail === undefined ? null : deleteWarning(entry, detail, columnLabel),
+    confirming: confirming === entry.id,
     busy: remove.isPending,
     error: remove.error === null ? null : remove.error.message,
-    onAsk: () => setConfirming(entryId),
+    onAsk: () => setConfirming(entry.id),
     onCancel: () => setConfirming(null),
-    onConfirm: () => deletePass(entryId),
+    onConfirm: () => deletePass(entry.id),
   });
 
   // Which column a Completed pass has been asked to leave for, while the drawer asks whether it
@@ -487,17 +488,7 @@ export function EntryDrawer({
               // Beside Save it is unmistakably an action, and the two things you can do to this
               // pass end up on one line, at opposite ends, which is where a destructive one wants
               // to be relative to the ordinary one.
-              actions={
-                <ConfirmDelete
-                  label="Delete this pass"
-                  warning={
-                    onlyPass
-                      ? `The only pass — deleting it takes ${detail.title} off your board.`
-                      : null
-                  }
-                  {...deleteProps(current.id)}
-                />
-              }
+              actions={<ConfirmDelete label="Delete this pass" {...deleteProps(current)} />}
               askHowLong={askHowLong}
             />
 
@@ -568,8 +559,7 @@ export function EntryDrawer({
                       // reader who cannot see which one it sits on would hear the same word over
                       // and over.
                       label={labelFor(entry, columnLabel)}
-                      warning={null}
-                      {...deleteProps(entry.id)}
+                      {...deleteProps(entry)}
                     />
                   </div>
 
@@ -699,8 +689,50 @@ function headingFor(entry: LogEntry, label: ColumnLabel): string {
   const when = whenOf(entry);
   return when === null ? label[entry.status] : `${label[entry.status]} ${when}`;
 }
+
+/** A pass named for a reader who cannot see its row: "the Completed pass from Nov 2, 2024". */
+function passName(entry: LogEntry, label: ColumnLabel): string {
+  const when = whenOf(entry);
+  return `the ${label[entry.status]} pass${when === null ? '' : ` from ${when}`}`;
+}
+
 /** Which pass a delete button in the history would take, for a reader who cannot see the row. */
 function labelFor(entry: LogEntry, label: ColumnLabel): string {
-  const when = whenOf(entry);
-  return `Delete the ${label[entry.status]} pass${when === null ? '' : ` from ${when}`}`;
+  return `Delete ${passName(entry, label)}`;
+}
+
+/**
+ * What deleting a pass costs beyond it, said in its confirm before anything goes. Null when it
+ * costs nothing more, which is any pass with no notes while another stays.
+ *
+ * Its notes move to the current pass of the ones that stay. That is the server's rule, in
+ * `LogEntryService.DeleteAsync`, and this list arrives in the order the server picks that pass
+ * by, so the first pass in it that is not the one going is the one that keeps them. It is "the
+ * current pass" unless the current pass is the one going, and then it is named the way its own
+ * Delete names it. With no pass left, the title leaves the board and the notes go with it, and
+ * the confirm counts them.
+ *
+ * Until #15 an earlier pass's confirm said nothing, and nine notes went that way. The words were
+ * picked from renders on 9 October 2026, in `docs/plans/games-board-next.md`.
+ */
+function deleteWarning(
+  entry: LogEntry,
+  detail: TitleDetail,
+  label: ColumnLabel,
+): string | null {
+  const passes = detail.logEntries;
+  const count = entry.notes.length;
+  const keeper = passes.find((other) => other.id !== entry.id);
+
+  if (keeper === undefined) {
+    const notes = count === 0 ? '' : count === 1 ? ', and its note' : `, and its ${count} notes`;
+    return `The only pass — deleting it takes ${detail.title} off your board${notes}.`;
+  }
+
+  if (count === 0) {
+    return null;
+  }
+
+  const where = keeper === passes[0] ? 'the current pass' : passName(keeper, label);
+  return count === 1 ? `Its note moves to ${where}.` : `Its ${count} notes move to ${where}.`;
 }

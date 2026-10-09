@@ -67,10 +67,12 @@ export const GAMES: HobbyDefinition = {
   countPasses: (count) => `${count} playthroughs`,
   titleNoun: (count) => (count === 1 ? 'game' : 'games'),
 
-  describeRemoval: (title, entryCount) =>
+  describeRemoval: (title, entryCount, hasNotes) =>
     entryCount > 1
       ? `Takes ${title} off your board — all ${entryCount} playthroughs, and their notes.`
-      : `Takes ${title} off your board.`,
+      : hasNotes
+        ? `Takes ${title} off your board, and its notes.`
+        : `Takes ${title} off your board.`,
 
   /**
    * Ordered specific before generic. `Indie`, `Arcade` and most of the rest of IGDB's vocabulary
