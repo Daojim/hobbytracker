@@ -54,7 +54,11 @@ the column in `media` too and leaves the base table with no `id` at all.
 - **Notes are rows, not a column.** `log_entries.notes` was one nullable text field, so writing a
   second thought destroyed the first — which is not a journal. `written_at` is server-stamped and
   **does not move when a note is rewritten**: the date is when you wrote it, not when you last
-  fixed a typo. Cascade delete, because a note belongs to the pass it was written during.
+  fixed a typo. **Nor when it moves to another pass.** A note hangs off the pass it was written
+  during until that pass is deleted while another stays, and then it goes to the current one
+  (#15, 9 October 2026). So the cascade delete takes notes only when a title's whole journal goes:
+  its last pass deleted, Remove from board, an account deleted. Until #15 it took them with any
+  pass, and that is how nine notes were lost.
 - **`log_entries.hours_played` is per pass**, `numeric(5,2)`, for every reason `platform` is.
   Same precision as `hltb_main_story_hours`, because comparing them is the point. Named "played"
   rather than "to complete" because a pass can be `InProgress` or `Dropped`.

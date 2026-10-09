@@ -660,8 +660,11 @@ shuffled.
         whatever its age. Found on 8 October 2026: the tidy-up the drawer offered deleted the
         real pass, and its nine notes came back from the nightly backup. Every choice was the
         recommendation, two of them over the plan's (PR #72, deployed)
-      - deleting a pass keeps its notes — they move to the pass that stays, and the confirm says
-        so, where today it says nothing. Found the same day, from the same case
+      - [x] deleting a pass keeps its notes — they move to the current pass in the same save,
+        dates unchanged, and every confirm that deletes notes says so: where they go, or on the
+        only pass how many go with it. The renders found a sentence running on from a pass's
+        facts, so a confirm with something to say takes a line of its own. Every choice was the
+        recommendation, two of them widening the plan (PR #74)
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
@@ -727,11 +730,12 @@ being wrong. Both rows are marked below.
 - **`BoardPositions.TopOfColumnAsync` is scoped to `(status, user)` and not to hobby.** A film
   taking `min(position) - 1` lowers a floor the games board shares — and moves nothing, because
   only the *relative* order inside a column is ever read. Its own comment says so. Do not change it.
-- **A title's entries order `logged_at DESC, id DESC` at eight call sites that must agree, with
-  no shared helper**: three in `LibraryService`, one in each catalogue service, and
-  `HltbService.DetailAsync`. This line said six until the spreadsheet's made eight, and counting
-  them then found `HltbService`'s had been left out. Count with the grep in **Library is not the
-  catalog** in `docs/board.md` rather than trusting a number here.
+- **A title's entries order `logged_at DESC, id DESC` at nine call sites that must agree, with
+  no shared helper**: three in `LibraryService`, one in each catalogue service,
+  `HltbService.DetailAsync`, and `LogEntryService.DeleteAsync`, which picks the pass that keeps a
+  deleted pass's notes. This line said six until the spreadsheet's made eight, and counting them
+  then found `HltbService`'s had been left out; #15's made nine. Count with the grep in **Library
+  is not the catalog** in `docs/board.md` rather than trusting a number here.
 
 ### Small things, named so they are not rediscovered
 

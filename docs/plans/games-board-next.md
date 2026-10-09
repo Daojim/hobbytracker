@@ -33,7 +33,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
-| 15 | Deleting a pass keeps its notes | S | Planned. Found the same day, from the same case |
+| 15 | Deleting a pass keeps its notes | S | **Built 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. Not deployed yet. See its section |
 
 Production runs `5de8419`'s code, which was `main` on 8 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -1620,7 +1620,11 @@ specs.
 
 ---
 
-## 15. Deleting a pass keeps its notes · S
+## 15. Deleting a pass keeps its notes · built
+
+**Built 9 October 2026** (PR #74), the day it was picked up, after a workshop the same day. The
+plan below is as it was written. What was decided and built follows it, from **Decided at
+pickup** on.
 
 **What.** Deleting one pass of a title that has another moves its notes to the pass that stays,
 with their dates unchanged, and the confirm says so. Asked for on 8 October 2026, from the case in
@@ -1667,6 +1671,127 @@ them, for much more, and it does nothing for #14.
   is never chosen.
 - The confirm gives the count when a pass has notes, and says nothing extra when it has none.
 - **Put the fault back:** the delete without the move, which turns the first case red.
+
+### Decided at pickup
+
+Asked on 9 October 2026, before anything was drawn. All four were the session's
+recommendations. The last two widen the plan. Reading the code found that the plan's
+*What stays as it is* left two confirms that still delete notes without saying so.
+
+| Choice | Picked | Against |
+|---|---|---|
+| Which pass gets the notes | **The current pass**, the one the board shows, of the passes that stay. Deleting the current pass itself hands them to the next one, which becomes current | the pass next to it in time, which differs only when a title has three passes or more |
+| Deleting the notes too | **No. They always move.** A note can still be deleted on its own | a second button in the confirm, and a flag on the delete route |
+| The only pass | **Its confirm counts the notes it takes**, though they still go | the plan's *What stays as it is*, which left the words alone |
+| The card's *Remove from board* | **Says *and its notes* on a title with one pass that has any.** The card has no count, but `latestNotePreview` says whether there is a note. Two passes or more already say *and their notes* | the card left as it is |
+
+Read from the code before the questions were asked:
+- **The current pass's Delete loses notes too.** Its warning is `null` whenever an earlier pass
+  exists, so a replay deleted with notes on it said *Really delete?* and nothing else. The plan
+  named the earlier pass's Delete only.
+- **The receiving pass is a ninth place that orders a title's passes**, `logged_at DESC, id
+  DESC`. *Library is not the catalog* in `docs/board.md` counts them.
+
+### Decided from the renders
+
+Shot from the real drawer and the real card behind a throwaway `?dw=` switch, Vite alone with
+every `/api/` request answered in the browser, on the #13 workshop's staged board. *Hollow
+Knight: Silksong* had the real pass, with nine notes, under the blank one a mistaken *Yes*
+started. *Hollow Knight* had a replay with three notes over a finish, and *The Witcher 3* one pass
+with six. They went on one private page with the measurements:
+https://claude.ai/artifact/PcxX2GZoGxMKtT9Ljn2Z4o. All three picks were the recommendations.
+
+| Choice | Picked | Against |
+|---|---|---|
+| The words for a move | **A:** *Its 9 notes move to the current pass.* Deleting the current pass, the receiving pass is named the way the Delete buttons name passes: *Its 3 notes move to the Completed pass from Jul 4, 2026.* One note: *Its note moves to…* | B, *…move to the Playing pass*, which reads wrong when the deleted pass and the current one share a column; C, *Its 9 notes are kept*, which does not say where |
+| Where the confirm sits | **A confirm with something to say takes a line of its own, and says it on a line above both buttons.** 46px while it asks, against 22px for the buttons alone | the confirm on its own line, which still left *Cancel* alone on a phone; in the row, as today |
+| The only pass | **a:** *The only pass — deleting it takes X off your board, and its 6 notes.* The card's order | b, *…takes X and its 6 notes off your board* |
+
+- **The layout question came from the renders, not the plan.** An earlier pass's Delete is one
+  item in the row that holds its rating, hours and platform, so a sentence there ran straight on
+  from them whenever it fitted beside them: *31.5 h Switch 2 Its 9 notes move to the current
+  pass.* That happened with A in the 512px drawer from 1536px and in the 672px modal, and with C
+  even in the 448px drawer. On a phone, A and B left *Cancel* on a line by itself.
+- **The rule needs no hobby and no pass in it.** It is `ConfirmDelete`'s: a warning is a line of
+  its own. A confirm with none, a note's or a pass with no notes, keeps today's shape.
+
+### Built
+
+- **The server.** `LogEntryService.DeleteAsync` loads the pass with its notes and finds the pass
+  that keeps them: the current one of those that stay, yours and of this title, ordered `logged_at
+  DESC, id DESC`. It re-points the notes, then removes the pass, in one save. With no pass left,
+  the cascade takes the notes as before. No migration, and the route's contract is unchanged.
+- **EF needed no help, measured rather than assumed.** Re-pointing tracked notes and then removing
+  their pass does not cascade to them, and the save sends the note updates ahead of the delete in
+  one command: `UPDATE notes …; UPDATE notes …; DELETE FROM log_entries …`, read back from a
+  throwaway test. So there is no `DetectChanges` call and no explicit transaction.
+- **The words** are `deleteWarning` in `EntryDrawer.tsx`, beside `labelFor`, which now names a
+  pass through `passName`, so the pass that keeps the notes is named the way its own Delete is.
+  `deleteProps` takes the pass rather than its id and carries the warning, so both Deletes get one.
+- **The layout** is `ConfirmDelete`'s. With a warning, the confirm is `basis-full` in whatever row
+  holds it and the warning is `basis-full` above the buttons. Without one nothing changes.
+- **The card.** `describeRemoval` takes `hasNotes`, and `Card` passes `latestNotePreview !== null`.
+  It is one more branch in each of the four hobby files, since a single pass's sentence names no
+  pass noun.
+
+### Tests
+
+Written first and shown red, server and client separately. The backend gained
+`DeletingAPassTests`, eight cases, five of them red against the code before the change. The other
+three are guards: the only pass still takes its notes, your only pass never hands them to a
+stranger's pass of the same game, and a delete the database refuses leaves them where they were.
+The client gained eight cases in `EntryDrawer.test.tsx`, one in `Card.test.tsx` and
+`hobbies/removal.test.ts`, nine across the four hobbies. Eleven were red before the change, and
+the three that say nothing extra were green, as guards should be. The e2e suite gained one spec,
+#14's morning with the *Yes* given. At 1600 it measures where the confirm's sentence and buttons
+sit, deletes the real pass, and reads both notes back after a reload.
+
+The finished build ran 779 backend cases, 1,105 Vitest cases in 56 files, and 198 e2e specs, all
+green. The first full e2e run had one red: *clicking away from the drawer closes it, and so does
+Escape*, the flake CLAUDE.md measures under **Tests**. It failed at its Escape half (line 350),
+not at the backdrop click the note describes. Alone it then passed 14 of 15 times on this branch,
+failing only the first run after the full suite, and 5 of 5 on `main`. A second full run was
+green.
+
+Each fault was planted alone against the finished build by a script that restored the file byte
+for byte, with hashes compared afterwards. Backend faults ran the whole backend suite, frontend
+faults the three Vitest files, and the rows marked *in a browser* the new spec.
+
+| Fault planted | Red |
+|---|---|
+| The delete without the move, the plan's fault | the five move cases, and nothing else in 779. In a browser, the spec, at the notes read back after the reload |
+| The move saved apart from the delete | *A_delete_that_fails_leaves_the_notes_where_they_were* alone |
+| The pass that stays chosen without the user | *Notes_move_only_between_your_own_passes_of_one_title* and *Your_only_pass_takes_its_notes_even_when_somebody_else_has_the_same_game* |
+| The pass that stays chosen without the title | *Notes_move_only_between_your_own_passes_of_one_title* alone |
+| The pass that stays ordered by id alone | *The_notes_go_to_the_pass_the_board_calls_current_and_not_the_one_beside_it* alone |
+| The oldest pass that stays, rather than the current one | the same case alone |
+| The pass being deleted counted among those that stay | *Deleting_the_current_pass_hands_its_notes_to_the_one_that_becomes_current* alone |
+| A pass that has another saying nothing again | 4: both passes' words, the undated pass and the singular |
+| Every pass that keeps the notes called *the current pass* | 2: the current pass deleted, dated and undated |
+| One note said in the plural | *says one note in the singular* alone |
+| The only pass's one note said in the plural | *says the only pass's one note in the singular* alone |
+| The only pass not counting its notes | 2: the count and its singular |
+| A pass with no notes saying something anyway (*Its 0 notes…*) | *adds nothing to the confirm of a pass with no notes* alone |
+| The card not told whether there are notes | *says its notes go with it when its only pass has some* alone |
+| One hobby, anime, without the notes in its Remove | *on anime, says the notes go too…* alone |
+| The confirm left in the pass's row | nothing in Vitest, which has no layout. In a browser, the spec: *the sentence runs on from the hours*, its top 16px above the hours' bottom |
+| The sentence sharing a line with the buttons | nothing in Vitest. In a browser, the spec: *the buttons sit beside the sentence* |
+
+### What the plan got wrong, or left out
+
+- **The current pass's Delete lost notes too.** The plan named the earlier pass's. The current
+  pass warned only when it was the only one, so a replay deleted with notes on it said nothing.
+- **Two confirms would still have deleted notes without saying so:** the only pass's, which the
+  plan's *What stays as it is* left alone, and the card's *Remove from board* on a title with one
+  pass. Both say so now, by the user's pick.
+- **The receiving pass is a ninth place that orders a title's passes**, which the counts in
+  `docs/board.md` and CLAUDE.md had to learn.
+- **The layout was not a question the plan asked.** It said the confirm keeps its shape and only
+  its warning changes. The renders showed that the shape was the problem once the warning had
+  words in it.
+- **"In the same transaction" needed a test of its own.** A command interceptor refuses the
+  delete, and the notes must still be on the pass. It is green against the code before the change
+  too, and red only for a move saved apart from the delete, which is the fault it exists for.
 
 ---
 
