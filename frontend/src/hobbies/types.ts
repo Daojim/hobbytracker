@@ -51,8 +51,12 @@ export interface HobbyDefinition {
    */
   titleNoun(count: number): string;
 
-  /** How the remove confirmation names what it would take with it. */
-  describeRemoval(title: string, entryCount: number): string;
+  /**
+   * How the remove confirmation names what it would take with it. `hasNotes` is whether any pass
+   * carries a note, which is all a card knows: with one pass it decides whether the notes are
+   * mentioned, and several passes always say *and their notes*.
+   */
+  describeRemoval(title: string, entryCount: number, hasNotes: boolean): string;
 
   /**
    * Which genre stands for a title, and what colour that is. One ordered list doing both jobs —

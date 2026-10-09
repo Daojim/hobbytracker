@@ -787,3 +787,66 @@ test('a mistaken finish put back from the journal is one pass, in Playing, with 
   ).toBeVisible();
   await expect(page.getByRole('dialog').getByText('Earlier passes')).toHaveCount(0);
 });
+
+test('deleting the real pass a mistaken Yes left behind keeps its notes, on the pass that stays', async ({
+  page,
+}) => {
+  // #14's morning with the other answer given: finished by mistake, moved back with Yes, which
+  // starts a blank pass over the real one. Tidying up by deleting the real pass took its notes
+  // with it until #15. They move to the pass that stays now, and the confirm says so first.
+  //
+  // At 1600 the drawer is at its widest. With only the hours in the pass's row, a sentence left in
+  // that row fitted beside them and ran straight on from them, so the layout picked at the #15
+  // workshop is measured here, where only a browser can measure it.
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const mediaId = await seed(page.request, 'Hollow Knight', 'InProgress', {
+    startedAt: '2026-09-17',
+    hoursPlayed: 31.5,
+  });
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  await writeNote(page, 'Mantis Lords, first try.');
+  await writeNote(page, 'Crystal Peak at last.');
+
+  await moveFromJournal(page, 'Playing', 'Completed');
+  await expect(page.getByRole('dialog').getByText('Moving…')).toHaveCount(0);
+  await moveFromJournal(page, 'Completed', 'Playing');
+  await page.getByRole('button', { name: 'Yes — start a new pass' }).click();
+  await expect(page.getByRole('dialog').getByText('Moving…')).toHaveCount(0);
+
+  const real = page.getByRole('dialog').getByRole('region', { name: /^Completed / });
+  await real.getByRole('button', { name: /^Delete the Completed pass from / }).click();
+
+  const sentence = real.getByText('Its 2 notes move to the current pass.');
+  await expect(sentence).toBeVisible();
+  await sentence.scrollIntoViewIfNeeded();
+
+  // The sentence starts a line of its own under the pass's hours, and both buttons sit together
+  // under the sentence.
+  const hours = (await real.getByText('31.5 h', { exact: true }).boundingBox())!;
+  const said = (await sentence.boundingBox())!;
+  const really = (await real.getByRole('button', { name: 'Really delete?' }).boundingBox())!;
+  const cancel = (await real.getByRole('button', { name: 'Cancel' }).boundingBox())!;
+  expect(said.y, 'the sentence runs on from the hours').toBeGreaterThanOrEqual(
+    hours.y + hours.height,
+  );
+  expect(really.y, 'the buttons sit beside the sentence').toBeGreaterThanOrEqual(
+    said.y + said.height,
+  );
+  expect(Math.abs(cancel.y - really.y), 'Cancel is on a line of its own').toBeLessThan(2);
+
+  await real.getByRole('button', { name: 'Really delete?' }).click();
+  await expect(page.getByRole('dialog').getByText('Earlier passes')).toHaveCount(0);
+
+  // One pass, the blank one that stayed, and both notes on it after a reload.
+  await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(1);
+  await page.getByRole('button', { name: 'Close' }).click();
+  await page.reload();
+
+  await openJournal(page, 'Hollow Knight');
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Mantis Lords, first try.')).toBeVisible();
+  await expect(dialog.getByText('Crystal Peak at last.')).toBeVisible();
+  await expect(dialog.getByText('Earlier passes')).toHaveCount(0);
+});

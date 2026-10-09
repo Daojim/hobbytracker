@@ -19,8 +19,10 @@ public class NoteConfiguration : IEntityTypeConfiguration<Note>
         // insert it makes, so the default is a backstop rather than the normal path.
         builder.Property(n => n.WrittenAt).HasDefaultValueSql("now()");
 
-        // Cascade: a note is meaningless without the pass it was written during, and deleting a
-        // pass you never took should not leave its notes behind with nothing to belong to.
+        // Cascade, for when a title's whole journal goes: its last pass deleted, Remove from board,
+        // an account deleted. A note with no pass at all has nowhere to be shown. Deleting one pass
+        // of several moves its notes to the current pass first (LogEntryService.DeleteAsync), so
+        // the cascade never takes a note while the title still has a pass to keep it on.
         builder.HasOne(n => n.LogEntry)
             .WithMany(e => e.Notes)
             .HasForeignKey(n => n.LogEntryId)

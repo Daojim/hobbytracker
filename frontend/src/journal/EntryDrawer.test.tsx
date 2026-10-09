@@ -43,6 +43,13 @@ function fromBoard(hobby: string) {
   };
 }
 
+/** `count` notes written during one pass, each with an id and a body of its own. */
+function notesOn(logEntryId: number, count: number) {
+  return Array.from({ length: count }, (_, at) =>
+    note({ id: logEntryId * 100 + at, logEntryId, body: `Note ${at + 1} on pass ${logEntryId}` }),
+  );
+}
+
 function open(mediaId = 3003, onClose = vi.fn()) {
   return { onClose, ...renderWithProviders(<EntryDrawer hobby="games" mediaId={mediaId} onClose={onClose} {...fromBoard('games')} />) };
 }
@@ -622,6 +629,157 @@ describe('EntryDrawer', () => {
 
     expect(await screen.findByText('That pass is already gone.')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("says where an earlier pass's notes go before it deletes it", async () => {
+    // They move to the current pass now, and until #15 they went with it while the confirm said
+    // nothing. Nine notes were lost that way, on the pass a mistaken finish had left underneath.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9 }),
+          logEntry({
+            id: 7,
+            status: 'Completed',
+            completedAt: '2024-11-02T18:00:00+00:00',
+            notes: notesOn(7, 9),
+          }),
+        ],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Delete the Completed pass from Nov 2, 2024' }),
+    );
+
+    expect(screen.getByText('Its 9 notes move to the current pass.')).toBeInTheDocument();
+  });
+
+  it('names the pass that keeps the notes when the current one is deleted', async () => {
+    // The next pass becomes current and takes them, so it is named the way its own Delete names
+    // it, rather than as "the current pass" while the current pass is the one going.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9, notes: notesOn(9, 3) }),
+          logEntry({ id: 7, status: 'Completed', completedAt: '2024-11-02T18:00:00+00:00' }),
+        ],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(
+      screen.getByText('Its 3 notes move to the Completed pass from Nov 2, 2024.'),
+    ).toBeInTheDocument();
+  });
+
+  it('names a pass with no dates by its column alone', async () => {
+    // A finish can be cleared by hand, which leaves a Completed pass with nothing to date it by.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9, notes: notesOn(9, 2) }),
+          logEntry({ id: 7, status: 'Completed' }),
+        ],
+      }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(screen.getByText('Its 2 notes move to the Completed pass.')).toBeInTheDocument();
+  });
+
+  it('says one note in the singular', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9 }),
+          logEntry({
+            id: 7,
+            status: 'Completed',
+            completedAt: '2024-11-02T18:00:00+00:00',
+            notes: notesOn(7, 1),
+          }),
+        ],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Delete the Completed pass from Nov 2, 2024' }),
+    );
+
+    expect(screen.getByText('Its note moves to the current pass.')).toBeInTheDocument();
+  });
+
+  it('adds nothing to the confirm of a pass with no notes', async () => {
+    // Either pass, current or earlier: nothing moves, so there is nothing to say.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9 }),
+          logEntry({ id: 7, status: 'Completed', completedAt: '2024-11-02T18:00:00+00:00' }),
+        ],
+      }),
+    });
+
+    open();
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Delete the Completed pass from Nov 2, 2024' }),
+    );
+    expect(screen.getByRole('button', { name: 'Really delete?' })).toBeInTheDocument();
+    expect(screen.queryByText(/^Its (note|\d+ notes) /)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete this pass' }));
+    expect(screen.getByRole('button', { name: 'Really delete?' })).toBeInTheDocument();
+    expect(screen.queryByText(/^Its (note|\d+ notes) /)).not.toBeInTheDocument();
+  });
+
+  it('counts the notes the only pass takes with it', async () => {
+    // With no pass left to keep them, they go with the title.
+    journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 9, notes: notesOn(9, 6) })] }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(
+      screen.getByText(
+        'The only pass — deleting it takes Hollow Knight off your board, and its 6 notes.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("says the only pass's one note in the singular", async () => {
+    journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 9, notes: notesOn(9, 1) })] }),
+    });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(
+      screen.getByText(
+        'The only pass — deleting it takes Hollow Knight off your board, and its note.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about notes when the only pass has none', async () => {
+    journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 9 })] }) });
+
+    open();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete this pass' }));
+
+    expect(
+      screen.getByText('The only pass — deleting it takes Hollow Knight off your board.'),
+    ).toBeInTheDocument();
   });
 
   it('records how long a pass took, and sends it', async () => {

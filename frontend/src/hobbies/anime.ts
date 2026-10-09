@@ -45,10 +45,12 @@ export const ANIME: HobbyDefinition = {
   // One anime, two anime: the word has no plural in English as people use it.
   titleNoun: () => 'anime',
 
-  describeRemoval: (title, entryCount) =>
+  describeRemoval: (title, entryCount, hasNotes) =>
     entryCount > 1
       ? `Takes ${title} off your board — all ${entryCount} watches, and their notes.`
-      : `Takes ${title} off your board.`,
+      : hasNotes
+        ? `Takes ${title} off your board, and its notes.`
+        : `Takes ${title} off your board.`,
 
   /**
    * MAL's vocabulary, which is three taxonomies in one array.
