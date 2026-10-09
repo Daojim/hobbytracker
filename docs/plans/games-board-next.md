@@ -33,9 +33,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
-| 15 | Deleting a pass keeps its notes | S | **Built 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. Not deployed yet. See its section |
+| 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 
-Production runs `5de8419`'s code, which was `main` on 8 October 2026. Deploying is the runbook in
+Production runs `ba3290c`'s code, which was `main` on 9 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -1620,11 +1620,11 @@ specs.
 
 ---
 
-## 15. Deleting a pass keeps its notes · built
+## 15. Deleting a pass keeps its notes · shipped
 
-**Built 9 October 2026** (PR #74), the day it was picked up, after a workshop the same day. The
-plan below is as it was written. What was decided and built follows it, from **Decided at
-pickup** on.
+**Shipped and deployed 9 October 2026** (PR #74), the day it was picked up, after a workshop the
+same day. The plan below is as it was written. What was decided and built follows it, from
+**Decided at pickup** on.
 
 **What.** Deleting one pass of a title that has another moves its notes to the pass that stays,
 with their dates unchanged, and the confirm says so. Asked for on 8 October 2026, from the case in

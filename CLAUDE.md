@@ -664,7 +664,7 @@ shuffled.
         dates unchanged, and every confirm that deletes notes says so: where they go, or on the
         only pass how many go with it. The renders found a sentence running on from a pass's
         facts, so a confirm with something to say takes a line of its own. Every choice was the
-        recommendation, two of them widening the plan (PR #74)
+        recommendation, two of them widening the plan (PR #74, deployed)
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
