@@ -216,7 +216,53 @@ not do this: its page has no drawer, and it was left for later the same day.
   the board it belongs to, asserted through a box's value and what each provider was asked. The
   other is `/` meeting the open journal, which is the page's drawer over the page's bar. For the
   same reason `e2e/support/board.ts`'s `card()` is scoped to `[data-board]` — it was a bare
-  `getByRole('listitem')`, which a search result tile answers to.
+  `getByRole('listitem')`, which a search result tile answers to. Searching your notes adds three:
+  a note opening its journal at the note, the keyboard coming back to that note's button, and a
+  note rewritten in the journal reading the new way in the results behind it.
+
+**The bar searches your notes too**, from a *Titles | Notes* switch beside the box: what you
+wrote on this board rather than what there is to add. Built on 9 October 2026 for #6 in
+`docs/plans/games-board-next.md`. The server's half, and the journal opening at the note, are
+**Searching your notes** in `docs/journal.md`.
+
+- **One box with a switch, and never both at once.** Picked at the #6 workshop over a box of its
+  own and over one box searching both, which sends a phrase from a note to IGDB and answers it
+  with a strip of games nobody asked about. The words stay when the switch flips, so a search that
+  found nothing on one side is one press from the other. Every board has it, because `BoardSearch`
+  is every hobby's.
+- **The switch sits beside the box**, a radio group named *Search in*, in the column switcher's
+  look in small: the same well, the chosen half raised, 60 × 28. Picked from renders over tabs
+  above the box, 30px taller everywhere and reading as a second row of hobbies, and over the switch
+  inside the box, whose halves were 24px tall in 12px type. **Its cost is the box's width**: 530px
+  at 1440 where it was 576, and 216 at 390, where the placeholder's examples are cut short. The
+  row is `max-w-2xl`, and `e2e/search.spec.ts` holds it inside the phone's gutter.
+- **It starts on Titles every time the board loads**, and is not remembered. The bar's first job
+  is adding titles, and a board that opened on Notes would send the next game's name to your
+  notes. The page's key on the hobby starts each board there.
+- **In Notes the box is named *Search your notes***, with *Search your notes…* inside it, the same
+  on every board, so a screen reader hears the switch flip. Discover's line hides, because it
+  offers titles. A search that finds nothing says *Nothing in your notes matched “x”.*, the strip's
+  own sentence.
+- **The two searches are two queries, and only the switch's is enabled**, so a search of your
+  notes never reaches IGDB's quota. The strip is shown for whichever is.
+- **The results are a card per title, with its cover, in a grid**: three across at 1440, two from
+  768, one on a phone. `NoteResults` groups the server's flat, newest-first list, so a title sits
+  where its newest match is. Each note is a button with its date and then the note from shortly
+  before the first word found, two lines at most: `snippetOf` in `lib/match.ts` keeps a note whole
+  when the first match is within sixty characters and starts at a word about forty before it when
+  it is further in, never between the two halves of an emoji. Past fifty: *The 50 most recent.
+  Another word narrows it.* Picked from renders over one column of text with no covers, and over
+  the title strip's sideways cards, which gave a note about thirty-two characters a line.
+- **The words found are marked with the accent at 25% behind them**, in the results and in the
+  note the journal opens at: `MATCH_MARK` in `lib/Marked.tsx`. The user's pick over bold, which
+  was the recommendation, with its cost on the page: on Ember that is red behind text. See
+  **Searching your notes** in `docs/design.md` for the numbers, and for the tint that failed first.
+  `lib/match.ts` finds the words by the server's rules, case ignored and every word read as the
+  characters it is, and shows a note it cannot find a word in from its start with nothing marked.
+- **Its cache key is under `['library', hobby]`** (`noteSearchKey`), so everything that changes a
+  note settles the results without naming them: a note written, rewritten or deleted, any write in
+  the drawer, and a title taken off the board. A move does not need to, unlike the strip's
+  statuses, because nothing a result shows is a column.
 
 `/search` redirects to the games board rather than being dropped — the address outlived the page, and
 so did the bare `/board` it used to redirect to, which now redirects in turn.

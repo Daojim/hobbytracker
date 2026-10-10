@@ -5,7 +5,9 @@ import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { activityYears } from '../api/library';
 import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
+import { noteResultId } from '../search/NoteResults';
 import { resultTitleId } from '../search/SearchResult';
+import type { FoundNote } from '../journal/NoteList';
 import { CARD_CLASS, CardFace, cardAnswerId, cardTitleId } from './Card';
 import { Column, columnQuery } from './Column';
 import { ColumnSwitcher } from './ColumnSwitcher';
@@ -111,6 +113,10 @@ function Board({ hobby }: { hobby: Hobby }) {
   // about which door it came through needs surviving a reload. Set on every opening, so a
   // question asked from the menu is never still open for the next title opened by its name.
   const [askHowLong, setAskHowLong] = useState(false);
+  // The note a search found, when the drawer was opened from one, so the journal opens at it.
+  // State for `askHowLong`'s reason, and set on every opening for the same one: a note found
+  // once is never marked in the next journal opened by another door.
+  const [atNote, setAtNote] = useState<FoundNote | null>(null);
 
   const { data: years } = useQuery({
     queryKey: yearsKey(hobby),
@@ -170,11 +176,16 @@ function Board({ hobby }: { hobby: Hobby }) {
     }
   }, [leavingFor, leavingTo]);
 
-  // Every way into the drawer: a card, a calendar row, or a search result's name. Each names the
-  // element the keyboard goes back to.
-  function openJournalFrom(returnTo: string, mediaId: number, askHowLongToo = false) {
+  // Every way into the drawer: a card, a calendar row, a search result's name, or a note a search
+  // found. Each names the element the keyboard goes back to.
+  function openJournalFrom(
+    returnTo: string,
+    mediaId: number,
+    { askHowLong: asking = false, note = null }: { askHowLong?: boolean; note?: FoundNote | null } = {},
+  ) {
     openedFrom.current = returnTo;
-    setAskHowLong(askHowLongToo);
+    setAskHowLong(asking);
+    setAtNote(note);
     openJournal(mediaId);
   }
 
@@ -196,11 +207,15 @@ function Board({ hobby }: { hobby: Hobby }) {
             effect could run. Remounting starts all of it empty at once.
 
             A result on your board opens its journal from its name, the third door into the
-            drawer: a title just found can be written about without going to look for its card. */}
+            drawer: a title just found can be written about without going to look for its card.
+            A note a search found is the fourth, and the one that says where in the journal to go. */}
         <BoardSearch
           key={hobby}
           hobby={hobby}
           onOpen={(mediaId) => openJournalFrom(resultTitleId(mediaId), mediaId)}
+          onOpenNote={(mediaId, noteId, words) =>
+            openJournalFrom(noteResultId(noteId), mediaId, { note: { noteId, words } })
+          }
         />
 
         {/* Nothing until the years arrive, and that is deliberate rather than a missing
@@ -306,7 +321,9 @@ function Board({ hobby }: { hobby: Hobby }) {
                       columns,
                     }}
                     onOpen={(mediaId, options) =>
-                      openJournalFrom(cardTitleId(mediaId), mediaId, options?.askHowLong)
+                      openJournalFrom(cardTitleId(mediaId), mediaId, {
+                        askHowLong: options?.askHowLong,
+                      })
                     }
                   />
                 ))}
@@ -359,6 +376,7 @@ function Board({ hobby }: { hobby: Hobby }) {
           mediaId={journalFor}
           onClose={closeJournal}
           askHowLong={askHowLong}
+          atNote={atNote}
           // The board's own list and the board's own move, so the pass's heading offers what a
           // card's menu offers and moves the card the way the menu does.
           columns={columns}

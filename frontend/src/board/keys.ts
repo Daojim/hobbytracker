@@ -111,6 +111,20 @@ export const upcomingKey = (hobby: string) => ['library', hobby, 'upcoming'] as 
 export const libraryStatusesKey = (hobby: string) => ['library', hobby, 'statuses'] as const;
 
 /**
+ * The notes on a hobby's board that a search found.
+ *
+ * Under `['library', hobby]`, so everything that changes what a note says or whether it is there
+ * settles it without naming it: writing, rewriting or deleting a note, a write in the drawer, and
+ * a title taken off the board with its notes. All of them invalidate that prefix. The results sit
+ * under the journal while it is open, so a note corrected there is corrected in them.
+ *
+ * **A move does not need to name it**, unlike `'statuses'`: a result shows a note, its date and
+ * its title, and moving a title to another column changes none of them.
+ */
+export const noteSearchKey = (hobby: string, query: string) =>
+  ['library', hobby, 'notes', query] as const;
+
+/**
  * One of the Discover page's lists.
  *
  * Not under `['library', ...]`, because it is the provider's catalogue rather than anybody's

@@ -6,7 +6,7 @@ import { ColumnControl } from './ColumnControl';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm, type EntryFormHandle } from './EntryForm';
 import { HltbPin } from './HltbPin';
-import { NoteList } from './NoteList';
+import { NoteList, noteRowId, type FoundNote } from './NoteList';
 import { automaticGenre, hobbyDefinition, type BoardColumn, type TitleDetail } from '../hobbies';
 import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
@@ -46,6 +46,12 @@ export interface EntryDrawerProps {
    */
   askHowLong?: boolean;
   /**
+   * Opened from a note a search found: the journal brings that note into view, marks it and the
+   * words it was found by, and gives it the keyboard. Said on every opening by the board, as
+   * `askHowLong` is, so a note found once is never marked again in the next journal opened.
+   */
+  atNote?: FoundNote | null;
+  /**
    * The columns the board draws, which are the ones the pass's heading offers. The board's one
    * list, as every card's menu is handed it, so a column taken off in Settings leaves both at
    * the same moment.
@@ -82,6 +88,7 @@ export function EntryDrawer({
   mediaId,
   onClose,
   askHowLong = false,
+  atNote = null,
   columns,
   onMove,
   onPutBack,
@@ -110,6 +117,26 @@ export function EntryDrawer({
   useModalPanel(panel, onClose);
 
   const detail = title.data;
+
+  // A note a search found is brought into view and given the keyboard, once, when the title it
+  // is in has arrived: a screen reader then reads the note the search was for, rather than the
+  // journal from its top. After useModalPanel, which gave the panel the keyboard as it opened,
+  // because on a title already in the cache both run on the first render and the later one wins.
+  //
+  // Once rather than on every change to the title: a write refetches it with the note still
+  // there, and taking the keyboard back each time would take it out of the field being typed
+  // into. `scrollIntoView` is called if it is there, because jsdom has none.
+  const loaded = detail !== undefined;
+  useEffect(() => {
+    if (!loaded || atNote === null) {
+      return;
+    }
+
+    const found = document.getElementById(noteRowId(atNote.noteId));
+    found?.focus({ preventScroll: true });
+    found?.scrollIntoView?.({ block: 'center' });
+  }, [loaded, atNote]);
+
   // The API orders entries logged_at DESC, id DESC — the same rule the board decides "current"
   // by — so the first one is the pass the card is showing. Re-deriving that here would be a
   // fourth copy of an ordering that has already drifted once.
@@ -507,7 +534,12 @@ export function EntryDrawer({
                 menu opens a journal, and every other hobby gets the word unmodified. */}
             <p className={BAND_HEADING}>Journal</p>
 
-            <NoteList notes={current.notes} composeOpen {...noteProps(current.id)} />
+            <NoteList
+              notes={current.notes}
+              composeOpen
+              found={atNote}
+              {...noteProps(current.id)}
+            />
           </PassSection>
         )}
 
@@ -563,7 +595,12 @@ export function EntryDrawer({
                     />
                   </div>
 
-                  <NoteList notes={entry.notes} composeOpen={false} {...noteProps(entry.id)} />
+                  <NoteList
+                    notes={entry.notes}
+                    composeOpen={false}
+                    found={atNote}
+                    {...noteProps(entry.id)}
+                  />
                 </PassSection>
               ))}
             </div>

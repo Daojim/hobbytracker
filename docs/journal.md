@@ -11,6 +11,8 @@ card's title and it slides in over the board — a rating, the two dates, a list
 every earlier pass with its own notes below it, plus whatever else a pass of *that kind* records.
 A calendar row's title opens it too, and since 7 October 2026 so does the name of a search result
 that is on your board, so a title just found can be written about without going to find its card.
+Since 9 October 2026 a note that a search of your notes found opens it as well, at that note: see
+**Searching your notes**, at the end.
 Since the same day the drawer can move a title as well: the current pass's heading is a control
 that opens on the board's columns.
 **Loaded through `hobbyDefinition(hobby).journal.load`**, which hits the hobby's own detail route
@@ -345,10 +347,11 @@ Settled:
 - **Focus goes back to the button the drawer was opened from, by id, not by a stored element.**
   Refetches remount the card while the drawer is open, so the node captured at open time is usually
   detached. **Each door has an id of its own**: `cardTitleId` in `src/board/Card.tsx`,
-  `calendarTitleId` in `src/board/ComingSoon.tsx` and `resultTitleId` in
-  `src/search/SearchResult.tsx`. One id would not do, because a title on your board is very often a
-  card and a search result at once, and two elements cannot share one. `BoardPage` keeps the id of
-  whichever was pressed. **The calendar's door lost the keyboard until 7 October 2026**: it was
+  `calendarTitleId` in `src/board/ComingSoon.tsx`, `resultTitleId` in
+  `src/search/SearchResult.tsx`, and since #6 `noteResultId` in `src/search/NoteResults.tsx`, by
+  the note rather than the title, because one title can have several notes found. One id would not
+  do, because a title on your board is very often a card and a search result at once, and two
+  elements cannot share one. `BoardPage` keeps the id of whichever was pressed. **The calendar's door lost the keyboard until 7 October 2026**: it was
   handed back by `cardTitleId`, a title on the calendar has no card, and the keyboard was left on
   the page.
 - **The form re-seeds from a changed pass rather than being rebuilt on a React key, and the
@@ -464,4 +467,65 @@ Settled:
 - **The genre select is labelled through `htmlFor`/`id` like every other field.** A wrapping `<label>`
   makes the select's accessible name absorb its own option text, which made `getByLabel('Platform')`
   match two controls.
+
+## Searching your notes
+
+Built for #6 in `docs/plans/games-board-next.md` on 9 October 2026, from a workshop the same day.
+**The bar's half** — the *Titles | Notes* switch, the results, the cache key — is in
+`docs/games-igdb.md`, under **Search on the board**, because `frontend/src/search/` is that file's.
+What is here is the server's half, `NoteService.SearchAsync` behind `GET /api/notes/search`, and
+the journal's, which opens at the note found.
+
+### What matches
+
+- **Every word, in any order, each one matched as the characters it is.** One `ILIKE '%word%'`
+  per word, all of which have to hold, so *temple boss* finds *the boss in the water temple*. The
+  plan said the exact phrase; the user picked every word at pickup. The words are split on whatever
+  whitespace separates them, which `char.IsWhiteSpace` counts the ideographic space a Japanese
+  keyboard types among.
+- **`ILIKE`, not full-text search.** Notes get written in Japanese and Korean: Postgres's `english`
+  configuration would mangle that text, and no configuration splits Japanese into words. `sendOnEnter`
+  already guards the input method for the same people. At this scale no index is needed;
+  `pg_trgm` is the upgrade if one ever is.
+- **Each word is escaped, the escape character first.** `ILIKE` reads `%` as anything, `_` as any
+  one character, and `\` as "take the next literally", so unescaped, *50%* would find every note
+  with a 50 in it. The backslash goes first, or the escapes added for the other two are escaped in
+  turn. `NoteSearchTests` has a case for each of the three, each finding a second note when its
+  escape is taken out.
+- **Yours, and one board's.** Scoped through `n.LogEntry.UserId`, as every query on `notes` is,
+  and through the title's hobby, because a result opens this board's drawer, which could not open
+  a film from the games board. The board is required and has to exist: an unknown one would answer
+  with nothing, which reads as "you never wrote that".
+- **Newest first, at most fifty, and the answer says when there were more.** It takes fifty-one and
+  keeps fifty, rather than counting every match. `id` breaks a tie, as it does for a title's passes.
+  A search is narrowed by another word rather than paged, and the board says so.
+- **At most 200 characters.** Every word is a clause in the query, so the length is what bounds
+  how many there are. An empty or blank search is a 400, as is a missing or unknown board.
+- **The title is the card's**: the English name leading and the romaji under it, for anime, by the
+  downcast both board projections use, in the terminal projection where a downcast is safe.
+
+### Opening the journal at the note
+
+- **The note is brought into view and given the keyboard**, once the title has loaded, so a
+  screen reader reads the note the search was for rather than the journal from its top. It is
+  `aria-current` in its list and takes focus with `tabIndex={-1}`.
+- **After `useModalPanel`'s focus, in the same component.** The panel takes the keyboard as it
+  opens; on a title already in the cache both run on the first render, and effects run in the
+  order they are declared, so the note's comes second and wins. In `NoteList`, a child, it would
+  run first and lose.
+- **Once, not on every change to the title.** The effect depends on whether the title has loaded,
+  not on the title: a write refetches it with the note still there, and taking the keyboard back
+  each time would take it out of the field being typed into. *Leaves the keyboard where it went
+  when the pass is refetched* in `EntryDrawer.test.tsx` holds it.
+- **Marked with a bar of the accent beside it**, until the journal closes, and the words it was
+  found by marked inside it as they are in the results. Picked at the workshop over the note tinted,
+  which was a red wash on Ember and put two tints on one note, and over a ring that fades, which
+  leaves nothing to say which note it was once you look away. The negative margin and the padding
+  cancel, so the note's text stays in line with the others and the bar sits in the margin. No
+  outline, because the bar is what shows where the keyboard is.
+- **Every pass's list is told which note**, and the one holding it marks it, because the note can
+  be on an earlier pass.
+- **The board sets it on every opening**, as it does `askHowLong`, so a note found once is never
+  marked in the next journal opened by another door. It is state rather than part of the history
+  entry: a reload brings the journal back, at its top.
 

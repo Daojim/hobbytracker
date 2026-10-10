@@ -1503,6 +1503,154 @@ describe('EntryDrawer', () => {
 });
 
 /**
+ * Opened from a note a search found: scrolled to that note, with a bar beside it and the words
+ * it was found by marked in it, and the keyboard on it.
+ *
+ * jsdom lays nothing out and has no `scrollIntoView` at all, so the scroll is asserted as asked
+ * for, on the element it was asked of. Where the note lands on screen is the browser's question,
+ * and `e2e/search.spec.ts` asks it.
+ */
+describe('EntryDrawer, opened at a note', () => {
+  let scrolled: Element[];
+
+  beforeEach(() => {
+    scrolled = [];
+    Element.prototype.scrollIntoView = vi.fn(function scrollIntoView(this: Element) {
+      scrolled.push(this);
+    });
+  });
+
+  afterEach(() => {
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  function openAt(noteId: number, words: string[]) {
+    return renderWithProviders(
+      <EntryDrawer
+        hobby="games"
+        mediaId={3003}
+        onClose={vi.fn()}
+        atNote={{ noteId, words }}
+        {...fromBoard('games')}
+      />,
+    );
+  }
+
+  const twoNotes = () =>
+    gameDetail({
+      logEntries: [
+        logEntry({
+          id: 7,
+          notes: [
+            note({ id: 9, body: 'finally beat radiance' }),
+            note({ id: 8, body: 'radiance again tomorrow', writtenAt: '2026-08-19T23:02:00+00:00' }),
+          ],
+        }),
+      ],
+    });
+
+  it('marks the note it was opened at, and no other', async () => {
+    // The other note has the word in it too. It was not the one pressed.
+    journalServer({ detail: twoNotes() });
+
+    openAt(9, ['radiance']);
+
+    const marked = await screen.findByRole('listitem', { current: true });
+    expect(marked).toHaveTextContent('finally beat radiance');
+    expect(screen.getAllByRole('listitem', { current: true })).toHaveLength(1);
+  });
+
+  it('marks the words it was found by, in that note alone', async () => {
+    journalServer({ detail: twoNotes() });
+
+    openAt(9, ['RADIANCE', 'beat']);
+
+    const marked = await screen.findByRole('listitem', { current: true });
+    expect([...marked.querySelectorAll('mark')].map((mark) => mark.textContent)).toEqual([
+      'beat',
+      'radiance',
+    ]);
+    expect(document.querySelectorAll('mark')).toHaveLength(2);
+  });
+
+  it('brings the note into view and takes the keyboard to it', async () => {
+    // Focus first, so a screen reader reads the note the search was for; the panel took the
+    // keyboard as it opened, before there was a note to go to.
+    journalServer({ detail: twoNotes() });
+
+    openAt(9, ['radiance']);
+
+    const marked = await screen.findByRole('listitem', { current: true });
+    await waitFor(() => expect(marked).toHaveFocus());
+    expect(scrolled).toEqual([marked]);
+  });
+
+  it('finds a note on an earlier pass', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9, status: 'InProgress', notes: [note({ id: 12, body: 'Steel Soul' })] }),
+          logEntry({
+            id: 7,
+            status: 'Completed',
+            completedAt: '2024-11-02T18:00:00+00:00',
+            notes: [note({ id: 4, body: 'what a finish' })],
+          }),
+        ],
+      }),
+    });
+
+    openAt(4, ['finish']);
+
+    const finished = await screen.findByRole('region', { name: 'Completed Nov 2, 2024' });
+    const marked = await within(finished).findByRole('listitem', { current: true });
+    expect(marked).toHaveTextContent('what a finish');
+    await waitFor(() => expect(marked).toHaveFocus());
+  });
+
+  it('leaves the keyboard where it went when the pass is refetched', async () => {
+    // A write refetches the title, and the note is still there afterwards. Taking the keyboard
+    // back to it each time would take it out of the field being typed into.
+    //
+    // The refetch answers with the rating saved, as the API does. A title that came back the
+    // same would keep its old object, because the cache shares what has not changed, and an
+    // effect that hung on the title rather than on its having loaded would never be tested.
+    const journal = journalServer({ detail: twoNotes() });
+    server.use(
+      http.get('/api/games/:id', () => {
+        const saved = journal.saved.at(-1)?.body['rating'];
+        const detail = twoNotes();
+        detail.logEntries[0]!.rating = typeof saved === 'number' ? saved : null;
+        return HttpResponse.json(detail);
+      }),
+    );
+
+    openAt(9, ['radiance']);
+    await waitFor(() =>
+      expect(screen.getByRole('listitem', { current: true })).toHaveFocus(),
+    );
+
+    await userEvent.type(rating(), '8');
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+
+    expect(rating()).toHaveFocus();
+    expect(scrolled).toHaveLength(1);
+  });
+
+  it('marks nothing, and leaves the keyboard on the journal, when opened any other way', async () => {
+    journalServer({ detail: twoNotes() });
+
+    open();
+    await screen.findByText('finally beat radiance');
+
+    expect(screen.queryByRole('listitem', { current: true })).not.toBeInTheDocument();
+    expect(document.querySelectorAll('mark')).toHaveLength(0);
+    expect(scrolled).toEqual([]);
+    expect(screen.getByRole('dialog')).toHaveFocus();
+  });
+});
+
+/**
  * The same drawer, opened on a film.
  *
  * Its own describe rather than cases threaded through the one above, because almost nothing

@@ -9,6 +9,7 @@ import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library
 import { AUTOSAVE_MS } from '../journal/fields';
 import type { LibraryItem, LogEntry, LogStatus } from '../api/types';
 import { game, gameDetail, journalServer, logEntry, note, searchServer } from '../test/games';
+import { noteMatch, noteSearchServer } from '../test/notes';
 import { movie, movieDetail, movieJournalServer, movieSearchServer } from '../test/movies';
 import { tvShowDetail, tvJournalServer } from '../test/tv';
 import { BackButton, renderWithProviders } from '../test/render';
@@ -844,6 +845,165 @@ describe('BoardPage', () => {
     await userEvent.type(note, 'Chapter 7/9');
 
     expect(note).toHaveValue('Chapter 7/9');
+  });
+
+  it('opens a note found by search in its journal, at that note, with its words marked', async () => {
+    // The fourth way into the drawer, and the only one that says where in the journal to go.
+    boardServer();
+    searchServer();
+    noteSearchServer({
+      notes: [noteMatch({ id: 9, mediaId: 3003, title: 'Celeste', body: 'finally beat radiance' })],
+    });
+    journalServer({
+      detail: gameDetail({
+        title: 'Celeste',
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'finally beat radiance' })] })],
+      }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: 'Notes' }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search your notes' }), 'radiance');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    await userEvent.click(await within(results).findByRole('button', { name: /finally beat radiance/ }));
+
+    const drawer = await screen.findByRole('dialog', { name: 'Celeste' });
+    const marked = await within(drawer).findByRole('listitem', { current: true });
+    expect(marked).toHaveTextContent('finally beat radiance');
+    expect([...marked.querySelectorAll('mark')].map((mark) => mark.textContent)).toEqual(['radiance']);
+  });
+
+  it('hands focus back to the note found when the journal it opened closes', async () => {
+    boardServer();
+    searchServer();
+    noteSearchServer({
+      notes: [noteMatch({ id: 9, mediaId: 3003, title: 'Celeste', body: 'finally beat radiance' })],
+    });
+    journalServer({
+      detail: gameDetail({
+        title: 'Celeste',
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'finally beat radiance' })] })],
+      }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: 'Notes' }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search your notes' }), 'radiance');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    await userEvent.click(await within(results).findByRole('button', { name: /finally beat radiance/ }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Close' }));
+
+    await waitFor(() =>
+      expect(within(results).getByRole('button', { name: /finally beat radiance/ })).toHaveFocus(),
+    );
+  });
+
+  it('marks nothing in a journal opened from its card, after one opened from a note', async () => {
+    // The board says which note on every opening, as it says whether to ask how long, so a
+    // note found once is not marked again by the next door. The search's server first: MSW
+    // answers with the handler stated last, and the board's columns have to be the board's.
+    searchServer();
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3003, title: 'Celeste' })] } });
+    noteSearchServer({
+      notes: [noteMatch({ id: 9, mediaId: 3003, title: 'Celeste', body: 'finally beat radiance' })],
+    });
+    journalServer({
+      detail: gameDetail({
+        title: 'Celeste',
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'finally beat radiance' })] })],
+      }),
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: 'Notes' }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search your notes' }), 'radiance');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    await userEvent.click(await within(results).findByRole('button', { name: /finally beat radiance/ }));
+    expect(await screen.findByRole('listitem', { current: true })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await userEvent.click(cardsNamed('Celeste')[0]!);
+
+    await screen.findByText('finally beat radiance');
+    expect(screen.queryByRole('listitem', { current: true })).not.toBeInTheDocument();
+  });
+
+  it('takes the keyboard to the note found when its title is already in the cache', async () => {
+    // Opened a second time, the title is there on the journal's first render, so the panel and
+    // the note both take the keyboard in the same commit. The note has to take it second. Every
+    // other case opens on an empty cache, where the title arrives later and the order is moot.
+    boardServer();
+    searchServer();
+    noteSearchServer({
+      notes: [noteMatch({ id: 9, mediaId: 3003, title: 'Celeste', body: 'finally beat radiance' })],
+    });
+    journalServer({
+      detail: gameDetail({
+        title: 'Celeste',
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'finally beat radiance' })] })],
+      }),
+    });
+
+    renderWithProviders(<BoardPage />, { ...BOARD_ROUTE, keepsCache: true });
+    await userEvent.click(await screen.findByRole('radio', { name: 'Notes' }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search your notes' }), 'radiance');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    const found = await within(results).findByRole('button', { name: /finally beat radiance/ });
+    await userEvent.click(found);
+    await waitFor(() => expect(screen.getByRole('listitem', { current: true })).toHaveFocus());
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(found).toHaveFocus());
+
+    await userEvent.click(found);
+
+    await waitFor(() => expect(screen.getByRole('listitem', { current: true })).toHaveFocus());
+  });
+
+  it('shows a note rewritten in the journal as it now reads, in the notes found behind it', async () => {
+    // The search is cached under the library's prefix, which every write in the journal
+    // settles, so a note corrected in the drawer is corrected in the results under it.
+    boardServer();
+    searchServer();
+    let body = 'wathcer knights';
+    server.use(
+      http.get('/api/notes/search', () =>
+        HttpResponse.json({
+          notes: [noteMatch({ id: 9, mediaId: 3003, title: 'Celeste', body })],
+          more: false,
+        }),
+      ),
+    );
+    journalServer({
+      detail: gameDetail({
+        title: 'Celeste',
+        logEntries: [logEntry({ id: 7, notes: [note({ id: 9, body: 'wathcer knights' })] })],
+      }),
+    });
+    server.use(
+      http.put('/api/notes/9', async ({ request }) => {
+        body = ((await request.json()) as { body: string }).body;
+        return HttpResponse.json(note({ id: 9, logEntryId: 7, body }));
+      }),
+    );
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: 'Notes' }));
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search your notes' }), 'knights');
+    const results = await screen.findByRole('region', { name: 'Search results' });
+    await userEvent.click(await within(results).findByRole('button', { name: /wathcer knights/ }));
+
+    const drawer = await screen.findByRole('dialog', { name: 'Celeste' });
+    await userEvent.click(
+      await within(drawer).findByRole('button', { name: 'Edit the note from Aug 20, 2026, 9:30 PM' }),
+    );
+    const box = within(drawer).getByRole('textbox', { name: 'Note from Aug 20, 2026, 9:30 PM' });
+    await userEvent.clear(box);
+    await userEvent.type(box, 'watcher knights{Enter}');
+
+    expect(
+      await within(results).findByRole('button', { name: /watcher knights/ }),
+    ).toBeInTheDocument();
   });
 });
 

@@ -24,7 +24,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
 | 5 | Stats | M–L | **Shipped 2 October 2026 and deployed on the 3rd** (PR #52), after a workshop the same day. See its section |
-| 6 | Search your notes | S–M | Planned |
+| 6 | Search your notes | M | **Built 9 October 2026** (PR #76), the day it was picked up and workshopped: a *Titles \| Notes* switch beside the box, every word in any order, a card per title, and a note opening its journal at the note with its words marked in the accent, the user's pick over bold. Not deployed yet. See its section |
 | 7 | Export the board to a spreadsheet | S–M | **Shipped and deployed 4 October 2026** (PR #61), the day it was workshopped: a three-sheet workbook from a row in Settings. See its section |
 | 8 | Delete my account | S–M | **Shipped and deployed 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. See its section |
 | 9 | A read-only share link | M | **Shipped and deployed 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. See its section |
@@ -520,7 +520,11 @@ aggregates that became facts, the years the page needed of its own, and a year o
 
 ---
 
-## 6. Search your notes · S–M
+## 6. Search your notes · built
+
+**Built 9 October 2026** (PR #76), the day it was picked up, after two rounds of questions the
+same day. Not deployed yet. The plan below is as it was written. What was decided and built
+follows it, from **Decided at pickup** on.
 
 **What.** Find the note where the user wrote about that boss fight, and open that title's journal.
 
@@ -553,6 +557,173 @@ so `notes/search` doesn't collide.
 - Matching is case-insensitive.
 - A Japanese substring matches.
 - An empty `q` returns 400.
+
+### Decided at pickup
+
+Asked on 9 October 2026, before anything was drawn. All four were the session's
+recommendations. Two of them widen the plan (every word, and opening at the note), and the
+grouping is a question the plan did not ask.
+
+| Choice | Picked | Against |
+|---|---|---|
+| Where it lives | **A switch on the bar, *Titles \| Notes*.** One box, and the word typed stays when the switch flips. The box's name and placeholder follow the switch | a box of its own beside the bar; one box searching both, which sends a phrase from a note to IGDB and answers it with a strip of unrelated games above the notes |
+| A query of several words | **Every word, in any order**, each matched literally, so `50%` is still `50%`. Japanese, written without spaces, is one word however long | the exact phrase, the plan's wording |
+| What a result opens | **The journal, at that note**: scrolled to it and marked, an earlier pass's note included. Closing hands the keyboard back to the result | the journal at its top, as a card opens it |
+| Several notes on one title | **Under their title**, titles ordered by their newest match. The server's list stays flat and newest first, and the board groups it | one row per note, newest first, a title repeated for each |
+
+Given rather than asked:
+- **Every board gets it.** `BoardSearch` is every hobby's, so holding it to games would be a
+  branch on the slug, as #12 found.
+- **Each board searches its own notes** (`hobby=`), so a result always opens in that board's
+  drawer.
+- **`ILIKE`**, newest first, capped at 50, as planned.
+
+### Decided from the renders
+
+Shot from the real components behind a throwaway `?sw=`/`?nr=`/`?hl=`/`?nm=` switch, Vite alone,
+with every `/api/` request answered in the browser from the #13 workshop's staged board, and notes
+written so that *boss* matches five notes on three games. One private page:
+https://claude.ai/artifact/PBqDz6PzyGfJkrU942oAzR. Three picks were the recommendations; the
+match was the user's, over bold.
+
+| Choice | Picked | Against |
+|---|---|---|
+| The switch | **A, beside the box**: the phone switcher's segments in small, 60×28. The box is 530px at 1440 rather than 576, and 216px at 390 rather than 358 | B, tabs above the box, 30px taller at every width and reading as a second row of tabs; C, inside the box, 47×24 in 12px type |
+| The results | **A, a card per title with its cover, in a grid**: three across at 1440, two from 768, one on a phone | B, one column of text with no covers; C, the title strip's sideways form, about 32 characters a line |
+| The match | **A, the accent at 25% behind each word**, the user's pick. `fg` on it is 5.48:1 or better, and it stands 1.41–1.72:1 off the card. **On Ember that is red behind text**, which `design.md` ruled out, and the page said so in bold beside the option | B, bold, the recommendation; C, an underline in the accent, which is what a link looks like here |
+| The note in the journal | **B, a 2px bar of the accent beside it**, until the journal closes | A, the note tinted with the accent at 10%; C, a ring that fades after two seconds |
+
+Found before the pick: **the drop tint cannot mark a match.** `--drop`, the colour a column takes
+under a held card, sits 1.02:1 from the card's surface on Dusk and Blood Red, and on Dusk a
+tinted word showed no mark at all. It was the first thing rendered, and the page kept those shots.
+
+Said on the page as what will be built, and not objected to: the box is *Search your notes* in
+Notes, with *Search your notes…* in it; *Nothing in your notes matched “x”.*; at 50, *The 50 most
+recent. Another word narrows it.*; Discover's line hides in Notes; **the switch starts on Titles
+every time the board loads**; `/`, Escape and × work in either mode.
+
+### Built
+
+No migration and no new variable. The write-ups are **Searching your notes** in
+`docs/journal.md` (the server and the journal), **Search on the board** in `docs/games-igdb.md`
+(the bar), and **Searching your notes** in `docs/design.md` (the looks and their numbers).
+
+- **The server.** `GET /api/notes/search?q=&hobby=` on `NotesController`, beside `notes/{id:int}`
+  without meeting it. `NoteService.SearchAsync` adds one `ILIKE` per word, each escaped with the
+  escape character first, scoped to your passes and to the board, newest first with the id as the
+  tie-break. It takes fifty-one and keeps fifty, so `NoteSearchResult.More` says when there were
+  more without counting them. Each match carries the title as a card names it, the anime's romaji
+  under its English one, and the cover. The controller refuses a blank `q`, one over 200
+  characters, and a board missing or unknown, the last through `ILibraryService.HobbyExistsAsync`,
+  the library's own check.
+- **The bar.** `BoardSearch` has the switch, a radio group named *Search in*, beside the box in a
+  `max-w-2xl` row. Two queries, of which only the switch's is enabled. The notes' is keyed
+  `noteSearchKey` under `['library', hobby]`. The box's name and placeholder follow the switch,
+  Discover's line hides in Notes, and `onOpenNote` is required, taking the words with the note.
+- **The results.** `search/NoteResults.tsx` groups the flat list into a card per title, each note
+  a button with an id of its own, `noteResultId`. `lib/match.ts` has `wordsOf`, `matchRuns` and
+  `snippetOf`, and `lib/Marked.tsx` has `MATCH_MARK` and `Marked`. They are in `lib/` because the
+  journal marks the same words.
+- **The journal.** `EntryDrawer` takes `atNote`, and once the title has loaded gives the note the
+  keyboard and scrolls it into view, after `useModalPanel` has given it to the panel. `NoteList`
+  takes `found`: that note is `aria-current`, focusable, wears the bar, and marks its words.
+- **The board.** `BoardPage` holds `atNote` and sets it on every opening. `openJournalFrom` takes
+  its options as an object now, and the note's door hands the keyboard back by `noteResultId`.
+
+### Tests
+
+Written first and shown red, the server and the client separately, each against its contract
+alone: the two records on the server, and on the client the new modules' names with empty bodies.
+
+- **The backend gained `NoteSearchTests`, 24 cases**, every one red against the route that did not
+  exist yet, at its 404. 803 in all.
+- **Vitest gained 70 cases and three files**: `lib/match.test.ts` (20), `lib/Marked.test.tsx`,
+  `search/NoteResults.test.tsx` (7), one in `api/notes.test.ts`, 11 in `BoardSearch.test.tsx`, 6
+  in `EntryDrawer.test.tsx`, 5 in `BoardPage.test.tsx`, and 18 in `index.css.test.ts`, two on each
+  of the nine palettes. Of the 67 written before the build, 60 were red and 7 were guards, green
+  as guards should be: nothing marked with no words, a short note shown from its start, and the
+  journal opened by another door marking nothing. 1,175 in 59 files.
+- **The e2e suite gained three specs** in `search.spec.ts`, all red first at the switch that was
+  not there: a note opening its journal at the note on an earlier pass, under twelve newer notes,
+  wholly on screen and focused; the words staying when the switch flips back; and the switch
+  beside the box inside the phone's gutter.
+- **Three guards were added while planning the faults**, green against the build and each red
+  only with its own fault (F10, F16 and F22 below): the notes asked nothing from Titles, the
+  journal opened twice with the title cached, and a card opened after a note.
+
+The finished build ran 803 backend cases, 1,175 Vitest cases in 59 files and 201 e2e specs, all
+green, and typechecks. The first full e2e run had one red: *clicking away from the drawer closes
+it, and so does Escape*, the flake CLAUDE.md measures under **Tests**, at its Escape half as in
+#15, during a run that had Vitest beside it. Alone it then passed 10 of 10 on this branch, and a
+second full run with nothing beside it was green, 201 of 201 in 5.5 minutes.
+
+Each fault was planted alone by a script that restored the file byte for byte, with hashes
+compared afterwards. Backend faults ran the whole backend suite, frontend faults the eight Vitest
+files #6 touched (456 cases), and the two marked *in a browser* the three new specs.
+
+| Fault planted | Red |
+|---|---|
+| B1. The search without the user | *Another_persons_note_never_matches* alone, of 803 |
+| B2. The search without the board | *A_note_on_another_board_never_matches* alone |
+| B3. Words not escaped | the three *What_LIKE_reads_as_a_pattern* cases |
+| B4. The escape character escaped last | the `50%` and `a_b` cases, whose escapes were escaped in turn |
+| B5. The whole search as one phrase | *Every_word…* and *An_ideographic_space…* |
+| B6. Words split on a plain space alone | *An_ideographic_space_separates_words_too* alone |
+| B7. No cap on what comes back | *At_most_fifty…* alone |
+| B8. Fifty exactly called more | *Fifty_exactly_is_not_more* alone |
+| B9. Ordered by id alone | *The_newest_note_comes_first_across_titles* alone |
+| B10. No tie-break | *Notes_written_at_the_same_moment…* alone |
+| B11. An anime named by its romaji | *An_anime_is_named_the_way_its_card_names_it* alone |
+| B12. A blank search let through, the check weakened to `IsNullOrEmpty` | **nothing**: MVC's binder hands a query of spaces over as null, so it is still refused. Kept as `IsNullOrWhiteSpace`, which says the rule rather than leaning on a binder setting, and the controller says why |
+| B12b. No check that the search says something | the three *A_search_for_nothing_is_refused* cases |
+| B13. No limit on the length | *…two_hundred_characters…* alone |
+| B14. Any board name let through | the unknown board alone; a missing one is still refused |
+| F1. Words read as a pattern | the four *reads … as the characters it is* cases whose characters mean something to a regular expression. `50%` does not |
+| F2. The shorter of two words tried first | *marks the longer of two words…* alone |
+| F3. A snippet cut between the halves of an emoji | *never starts halfway through a character…* alone |
+| F4. A snippet from the first word's match only | *starts from the first match of any word…* alone |
+| F5. A note's line breaks kept in a result | *gives a short note whole, on one line* alone |
+| F6. Words split on a plain space alone | *splits a search on whatever whitespace…* alone |
+| F7. A card per note rather than per title | *lists the notes under their titles…* alone |
+| F8. No space between a note's date and its text | **only a text check, not the name**, which it was written for: an accessible name keeps a block apart from what follows it, in jsdom and in a browser. So the space and its comment came out, and the check reads the date running into the ellipsis |
+| F9. IGDB asked from Notes | *…and asks IGDB nothing* alone |
+| F10. Your notes asked from Titles | *asks your notes nothing while it searches titles* alone, added for it. Every other case in the bar's file stayed green with the requests refused, which is the MSW trap now in CLAUDE.md |
+| F11. The note opened without its words | 2, the bar's and the page's |
+| F12. Discover's offer left up in Notes | *takes Discover's offer away…* alone |
+| F13. The box keeps the titles' name in Notes | 12, every case that finds the box by its name in Notes |
+| F14. The results cached outside the library's prefix | *shows a note rewritten in the journal…* alone |
+| F15. The note given the keyboard again on every refetch | **nothing at first**: the case's server answered the refetch with the same title, and the cache kept the old object, so the effect never ran again. It answers with the rating saved now, as the API does, and goes red alone |
+| F16. The note's effect before the panel's | *takes the keyboard to the note found when its title is already in the cache* alone, added for it |
+| F17. The note never scrolled to | 2 in the drawer's file. In a browser, *a note found opens its journal at the note, in view…* at `toBeInViewport` |
+| F18. The note never given the keyboard | 4 |
+| F19. The words marked in every note | *marks the words it was found by, in that note alone* alone |
+| F20. The note found not marked | 8 |
+| F21. The note's door handing the keyboard back by the title | 2 |
+| F22. A note found once kept for the next door | *marks nothing in a journal opened from its card…* alone, added for it |
+| F23. The mark painted with the drop tint, `bg-drop/100` | the tint standing off the card, on all nine palettes |
+| F24. A fainter mark, the accent at 10% | the same nine |
+| F25. A mark that is no token at an opacity, `bg-drop` | all eighteen, because the class no longer says what to measure |
+| E2. The switch under the box, *in a browser* | *the switch sits beside the box…* on a phone, and nothing else |
+
+### What the plan got wrong, or left out
+
+- **The drop tint cannot mark a match.** The plan named highlighting but no look, and the obvious
+  one failed on Dusk. The renders found it before the pick, and `index.css.test.ts` now reads the
+  mark's class to measure it on every theme.
+- **"Capped at 50" needed a way to say so.** Fifty results with no sign of a fifty-first read as
+  everything there is. The server takes one more than it keeps.
+- **Opening at the note is three things the plan did not list**: the words go with it, so the
+  journal can mark them; the keyboard goes to it, after the panel's own; and its door needs an id
+  by the note, since one title can have several notes found.
+- **The result carries more than the plan said**: the cover, for the card, and the anime's second
+  title, which every other place a card's name appears already shows.
+- **The board is required.** The plan's route had `hobby=` without saying what its absence means.
+  A search across boards would find notes no drawer on this board can open.
+- **MSW refuses an unasked-for request without failing the test.** So a bar that also searched
+  your notes while on Titles stayed green until a case asserted the notes were asked nothing. It
+  was added while planning the faults, with two more that were green against the build and went
+  red only with their fault: the journal opened twice with the title cached, where the panel and
+  the note take the keyboard in one commit, and a card opened after a note, which must mark nothing.
 
 ---
 

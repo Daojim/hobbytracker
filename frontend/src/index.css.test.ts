@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { css, paletteAfter } from './test/palette';
+import { MATCH_MARK } from './lib/Marked';
 import { THEMES } from './theme/theme';
+
+/**
+ * What a word a note search found is painted with: a token at an opacity, read out of the class
+ * the mark wears, so the ground measured below is the one on screen. A mark that stopped being
+ * one token at one opacity fails here rather than going unmeasured.
+ */
+const MARK_TINT = /\bbg-([a-z-]+)\/(\d+)\b/.exec(MATCH_MARK);
 
 function luminance(hex: string): number {
   const value = hex.trim().replace('#', '');
@@ -113,6 +121,27 @@ describe('contrast', () => {
         const tint = over(value('danger'), value('surface'), 0.1);
 
         expect(contrast(value(token), tint)).toBeGreaterThanOrEqual(4.5);
+      });
+
+      // A word a note search found, marked in a result's card and in the journal, both of which
+      // are `surface`. The user's pick at the #6 workshop on 9 October 2026, over bold.
+      const markTint = () => {
+        expect(MARK_TINT, `${MATCH_MARK} is not one token at an opacity`).not.toBeNull();
+        const [, token, percent] = MARK_TINT!;
+
+        return over(value(token!), value('surface'), Number(percent) / 100);
+      };
+
+      it('fg reads on the tint of a word a search found', () => {
+        // The lowest on 9 October 2026: 5.48 on Dusk.
+        expect(contrast(value('fg'), markTint())).toBeGreaterThanOrEqual(4.5);
+      });
+
+      it('the tint of a word a search found stands off the card it is on', () => {
+        // The first tint tried was `--drop`, the colour a column takes under a held card. It sat
+        // 1.02:1 off the card on Dusk and Blood Red, and on Dusk a marked word showed no mark at
+        // all. The floor is Ember's 1.41, the faintest that read in the renders.
+        expect(contrast(markTint(), value('surface'))).toBeGreaterThanOrEqual(1.4);
       });
     });
   }

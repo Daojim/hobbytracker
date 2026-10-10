@@ -492,6 +492,36 @@ export interface Note {
   writtenAt: string;
 }
 
+/**
+ * A note a search of your notes found: the note, and what the board shows it under — the title
+ * as its card names it — and opens, that title's journal.
+ */
+export interface NoteMatch {
+  id: number;
+  logEntryId: number;
+  mediaId: number;
+  /** The name a card leads with, which for anime is MAL's English one where there is one. */
+  title: string;
+  /** The card's second name, the romaji under an English anime title. Null for every other. */
+  subtitle: string | null;
+  coverUrl: string | null;
+  /** The whole note. Which part of it a result shows is `snippetOf`'s to decide. */
+  body: string;
+  /** An instant, as on {@link Note}. */
+  writtenAt: string;
+}
+
+/**
+ * The notes on one board with every word of a search in them, newest first and flat. The board
+ * groups them under their titles, in this order.
+ */
+export interface NoteSearchResult {
+  /** At most fifty, the most recent. */
+  notes: NoteMatch[];
+  /** Whether there were more than fifty. */
+  more: boolean;
+}
+
 export interface LogEntry {
   id: number;
   mediaId: number;

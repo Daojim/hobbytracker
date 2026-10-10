@@ -1,7 +1,8 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
-import { addNote, deleteNote, updateNote } from './notes';
+import { addNote, deleteNote, searchNotes, updateNote } from './notes';
+import { noteMatch } from '../test/notes';
 import type { Note } from './types';
 
 const note: Note = {
@@ -48,5 +49,24 @@ describe('deleteNote', () => {
     server.use(http.delete('/api/notes/5', () => new HttpResponse(null, { status: 204 })));
 
     await expect(deleteNote(5)).resolves.toBeUndefined();
+  });
+});
+
+describe('searchNotes', () => {
+  it("asks one board's notes for every word of the search, sent as it was typed", async () => {
+    // The server splits the words, so the search goes over whole: splitting it here as well
+    // would be a second copy of a rule the two must agree on.
+    let asked: URLSearchParams | undefined;
+    const found = { notes: [noteMatch()], more: false };
+    server.use(
+      http.get('/api/notes/search', ({ request }) => {
+        asked = new URL(request.url).searchParams;
+        return HttpResponse.json(found);
+      }),
+    );
+
+    expect(await searchNotes('games', 'temple  50%')).toEqual(found);
+    expect(asked?.get('q')).toBe('temple  50%');
+    expect(asked?.get('hobby')).toBe('games');
   });
 });
