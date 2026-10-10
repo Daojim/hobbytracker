@@ -637,7 +637,7 @@ shuffled.
         any order over one board's notes, and a note found opening its journal at the note with
         its words marked. The renders found the drop tint invisible behind a word on Dusk, so a
         word found wears the accent, the user's pick over bold. Seven of the eight choices were
-        the recommendation (PR #76)
+        the recommendation (PR #76, deployed)
       - [x] export to a spreadsheet — a workbook of three sheets from a row in Settings: every
         game as its card shows it, every playthrough and every note, whatever the board is
         showing. Every choice but one was the recommendation, from renders (PR #61, deployed)

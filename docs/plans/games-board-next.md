@@ -24,7 +24,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 3 | Hours in the column headers | S–M | **Shipped and deployed 1 October 2026** (PR #46), games only. See its section |
 | 4 | "How long will it take me?" | S–M | **Shipped and deployed 2 October 2026** (PR #50), after a workshop the same day. See its section |
 | 5 | Stats | M–L | **Shipped 2 October 2026 and deployed on the 3rd** (PR #52), after a workshop the same day. See its section |
-| 6 | Search your notes | M | **Built 9 October 2026** (PR #76), the day it was picked up and workshopped: a *Titles \| Notes* switch beside the box, every word in any order, a card per title, and a note opening its journal at the note with its words marked in the accent, the user's pick over bold. Not deployed yet. See its section |
+| 6 | Search your notes | M | **Shipped 9 October 2026 and deployed on the 10th** (PR #76), the day it was picked up and workshopped: a *Titles \| Notes* switch beside the box, every word in any order, a card per title, and a note opening its journal at the note with its words marked in the accent, the user's pick over bold. See its section |
 | 7 | Export the board to a spreadsheet | S–M | **Shipped and deployed 4 October 2026** (PR #61), the day it was workshopped: a three-sheet workbook from a row in Settings. See its section |
 | 8 | Delete my account | S–M | **Shipped and deployed 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. See its section |
 | 9 | A read-only share link | M | **Shipped and deployed 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. See its section |
@@ -35,7 +35,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 
-Production runs `ba3290c`'s code, which was `main` on 9 October 2026. Deploying is the runbook in
+Production runs `83ca03c`'s code, which was `main` on 10 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -520,10 +520,13 @@ aggregates that became facts, the years the page needed of its own, and a year o
 
 ---
 
-## 6. Search your notes · built
+## 6. Search your notes · shipped
 
-**Built 9 October 2026** (PR #76), the day it was picked up, after two rounds of questions the
-same day. Not deployed yet. The plan below is as it was written. What was decided and built
+**Shipped 9 October 2026 and deployed on the 10th** (PR #76), the day it was picked up, after two
+rounds of questions the same day. No migration and no new variable. Both images were rebuilt and
+recreated, the API first. The public site serves a new bundle carrying the bar's words and the
+results' rules, each counted 0 in the one before it, and the route answers 401 without a session
+where it answered an empty 404. The plan below is as it was written. What was decided and built
 follows it, from **Decided at pickup** on.
 
 **What.** Find the note where the user wrote about that boss fight, and open that title's journal.
