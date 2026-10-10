@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, column, seed, today, todayOnCard } from './support/board';
+import { card, column, entriesFor, seed, today, todayOnCard } from './support/board';
 
 /**
  * The way a game gets onto the board in the first place.
@@ -231,4 +231,86 @@ test('the old search address lands on the board', async ({ page }) => {
 
   await expect(page.getByRole('searchbox', { name: 'Search games' })).toBeVisible();
   await expect(column(page, 'Backlog')).toBeVisible();
+});
+
+/** Writes a note on a pass through the API, which stamps when it was written. */
+async function noteOn(page: Page, entryId: number, body: string): Promise<void> {
+  const written = await page.request.post(`/api/log-entries/${entryId}/notes`, { data: { body } });
+  expect(written.ok(), `note "${body}"`).toBeTruthy();
+}
+
+test.describe('searching your notes', () => {
+  test('a note found opens its journal at the note, in view, and gets the keyboard back', async ({
+    page,
+  }) => {
+    // Hollow Knight finished in July with a note about the finish, and a replay since with a
+    // dozen of its own. The one searched for is on the earlier pass, under all twelve, which is
+    // far below where the journal opens.
+    const mediaId = await seed(page.request, 'Hollow Knight', 'Completed', {
+      completedAt: '2026-07-04',
+    });
+    const [finished] = await entriesFor(page.request, mediaId);
+    await noteOn(page, finished!.id, 'Radiance is the hardest boss I have ever beaten.');
+
+    const replay = await page.request.post('/api/log-entries', {
+      data: { mediaId, status: 'InProgress' },
+    });
+    const { id: replayId } = (await replay.json()) as { id: number };
+    for (let day = 1; day <= 12; day += 1) {
+      await noteOn(page, replayId, `Steel Soul, day ${day}. Still alive.`);
+    }
+    await page.reload();
+
+    await page.getByRole('radio', { name: 'Notes' }).click();
+    await page.getByRole('searchbox', { name: 'Search your notes' }).fill('boss hardest');
+    const found = page
+      .getByRole('region', { name: 'Search results' })
+      .getByRole('button', { name: /Radiance is the hardest boss/ });
+    await found.click();
+
+    // Scrolled to, wholly on screen, with the keyboard on it and the words it was found by
+    // marked in it. jsdom can only say the scroll was asked for; this is where it lands.
+    const drawer = page.getByRole('dialog', { name: 'Hollow Knight' });
+    const marked = drawer.locator('li[aria-current="true"]');
+    await expect(marked).toContainText('Radiance is the hardest boss I have ever beaten.');
+    await expect(marked).toBeFocused();
+    await expect(marked).toBeInViewport({ ratio: 1 });
+    await expect(marked.locator('mark')).toHaveText(['hardest', 'boss']);
+
+    await page.keyboard.press('Escape');
+
+    await expect(drawer).toBeHidden();
+    await expect(found).toBeFocused();
+  });
+
+  test('the words stay when the switch flips back to titles', async ({ page }) => {
+    await page.getByRole('radio', { name: 'Notes' }).click();
+    await page.getByRole('searchbox', { name: 'Search your notes' }).fill('zeppelin');
+    await expect(page.getByText('Nothing in your notes matched “zeppelin”.')).toBeVisible();
+
+    await page.getByRole('radio', { name: 'Titles' }).click();
+
+    await expect(page.getByRole('searchbox', { name: 'Search games' })).toHaveValue('zeppelin');
+    await expect(page.getByText('Nothing matched “zeppelin”.')).toBeVisible();
+  });
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+    test('the switch sits beside the box, inside the gutter, and the page does not widen', async ({
+      page,
+    }) => {
+      // Picked at 390 at the #6 workshop, where the box is 216px wide beside it. jsdom has no
+      // layout, so this is the only place that is held.
+      const box = (await page.getByRole('searchbox', { name: 'Search games' }).boundingBox())!;
+      const choice = (await page.getByRole('radiogroup', { name: 'Search in' }).boundingBox())!;
+
+      expect(box.x + box.width).toBeLessThanOrEqual(choice.x);
+      expect(choice.y).toBeLessThan(box.y + box.height);
+      expect(choice.x + choice.width).toBeLessThanOrEqual(390 - 16);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        390,
+      );
+    });
+  });
 });

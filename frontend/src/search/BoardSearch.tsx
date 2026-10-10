@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
+import { searchNotes } from '../api/notes';
+import { noteSearchKey } from '../board/keys';
 import { hobbyDefinition } from '../hobbies';
+import { wordsOf } from '../lib/match';
 import { useDebounced } from '../lib/useDebounced';
 import { discoverPath } from '../shell/hobbies';
+import { NoteResults } from './NoteResults';
 import { SearchResult } from './SearchResult';
 import { useAddToBoard } from './useAddToBoard';
 
@@ -28,6 +32,12 @@ import { useAddToBoard } from './useAddToBoard';
  * thing about search that this file cannot do for itself — by the time the prop changed, the
  * debounced term had already settled, and the query keyed on both was away to the new provider
  * with the old word before anything here could clear it.
+ *
+ * **It searches your notes as well**, from a switch beside the box: what you wrote, on this board,
+ * rather than what there is to add. One box rather than a second one, and never both at once,
+ * picked at the #6 workshop: a phrase from a note sent to IGDB comes back as a strip of games
+ * nobody asked about. The words stay when the switch flips, so a search that found nothing on one
+ * side is one press from the other.
  */
 export interface BoardSearchProps {
   hobby: string;
@@ -37,7 +47,29 @@ export interface BoardSearchProps {
    * rather than the bar's, so the page says what opening it means: the bar only says which title.
    */
   onOpen: (mediaId: number) => void;
+
+  /**
+   * Opens the journal at a note a search found, with the words it was found by, which the
+   * journal marks in it. Required for `onOpen`'s reason: the bar only ever sits over a board.
+   */
+  onOpenNote: (mediaId: number, noteId: number, words: readonly string[]) => void;
 }
+
+/** What the bar searches: the provider's titles, or the notes on this board. */
+type SearchIn = 'titles' | 'notes';
+
+/** The switch's two halves, Titles first because adding titles is the bar's first job. */
+const SEARCH_IN: readonly { value: SearchIn; label: string }[] = [
+  { value: 'titles', label: 'Titles' },
+  { value: 'notes', label: 'Notes' },
+];
+
+/**
+ * What the box is called, and says inside it, while it searches notes. The same on every board,
+ * so not a hobby's word: a note is a note whatever it was written about.
+ */
+const NOTES_LABEL = 'Search your notes';
+const NOTES_PLACEHOLDER = 'Search your notes…';
 
 /** Long enough that a typed word is one search, short enough that it does not feel stuck. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -48,11 +80,15 @@ const FIELDS = 'input, textarea, select';
 /** dnd-kit's own mark for the card in hand: a sortable, pressed. */
 const CARRIED = '[aria-roledescription="sortable"][aria-pressed="true"]';
 
-export function BoardSearch({ hobby, onOpen }: BoardSearchProps) {
+export function BoardSearch({ hobby, onOpen, onOpenNote }: BoardSearchProps) {
   const definition = hobbyDefinition(hobby);
   const [term, setTerm] = useState('');
+  // Titles every time the board loads, and not remembered: a board that opened on Notes would
+  // send the next game's name to your notes. The page's key on the hobby starts each board here.
+  const [searchIn, setSearchIn] = useState<SearchIn>('titles');
   const boxRef = useRef<HTMLInputElement>(null);
   const settled = useDebounced(term.trim(), SEARCH_DEBOUNCE_MS);
+  const words = wordsOf(settled);
 
   const results = useQuery({
     // Keyed on the hobby, and dispatched by it too: `hobbies/` decides which endpoint a term
@@ -61,8 +97,16 @@ export function BoardSearch({ hobby, onOpen }: BoardSearchProps) {
     // you would find out.
     queryKey: ['search', hobby, settled],
     queryFn: () => definition.search.run(settled),
-    // An empty box is not a search for nothing; it is not a search.
-    enabled: settled !== '',
+    // An empty box is not a search for nothing; it is not a search. And a search of your notes
+    // is not one of IGDB's, which would answer a phrase from a note with games.
+    enabled: settled !== '' && searchIn === 'titles',
+  });
+
+  const notes = useQuery({
+    // Under the library's prefix, so a note changed in the journal is changed here: see the key.
+    queryKey: noteSearchKey(hobby, settled),
+    queryFn: () => searchNotes(hobby, settled),
+    enabled: settled !== '' && searchIn === 'notes',
   });
 
   // What is on the board already and where, which columns a title can go to, and the add itself —
@@ -124,9 +168,12 @@ export function BoardSearch({ hobby, onOpen }: BoardSearchProps) {
 
   // Whether there is anything worth taking room from the board for. An idle box is a bar and
   // nothing else; the strip arrives with results, with "nothing matched", or with a failure, and
-  // leaves again when the box is emptied.
+  // leaves again when the box is emptied. Asked of whichever search the switch is on.
   const searching = settled !== '';
-  const showStrip = searching && (results.isPending || results.error !== null || results.data !== undefined);
+  const inNotes = searchIn === 'notes';
+  const answer = inNotes ? notes : results;
+  const showStrip =
+    searching && (answer.isPending || answer.error !== null || answer.data !== undefined);
 
   return (
     <div
@@ -141,44 +188,77 @@ export function BoardSearch({ hobby, onOpen }: BoardSearchProps) {
         }
       }}
     >
-      {/* The button is a sibling of the label, never a child of it. A wrapping label takes its
-          text content as the input's accessible name, so a button inside would make the box
-          announce itself as "Search games Clear search" — and the four specs that locate it by
-          name would stop finding it. */}
-      <div className="relative max-w-xl">
-        <label className="block">
-          <span className="sr-only">{definition.search.label}</span>
-          <input
-            ref={boxRef}
-            type="search"
-            value={term}
-            onChange={(event) => setTerm(event.target.value)}
-            placeholder={definition.search.placeholder}
-            // pr-9 leaves the button its corner. The arbitrary variant hides WebKit's own
-            // cancel button, which Chrome draws inside a type="search" box as soon as it has
-            // content — without it there are two × to choose from, one of them unstyled and
-            // unlabelled.
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 pr-9 text-sm [&::-webkit-search-cancel-button]:appearance-none"
-          />
-        </label>
+      {/* The box and the switch beside it, which was picked at the #6 workshop over tabs above
+          the box, which read as a second row of hobbies, and over the switch inside the box,
+          whose halves were 24px tall. The cost is the box's width: 530px here where it was 576,
+          and 216 on a phone, where the placeholder's examples are cut short. The box keeps its
+          name, so nothing is lost but the examples. */}
+      <div className="flex max-w-2xl items-stretch gap-2">
+        {/* The button is a sibling of the label, never a child of it. A wrapping label takes its
+            text content as the input's accessible name, so a button inside would make the box
+            announce itself as "Search games Clear search" — and the four specs that locate it by
+            name would stop finding it. */}
+        <div className="relative min-w-0 flex-1">
+          <label className="block">
+            {/* The box's name says what it searches, so a screen reader hears the switch flip. */}
+            <span className="sr-only">{inNotes ? NOTES_LABEL : definition.search.label}</span>
+            <input
+              ref={boxRef}
+              type="search"
+              value={term}
+              onChange={(event) => setTerm(event.target.value)}
+              placeholder={inNotes ? NOTES_PLACEHOLDER : definition.search.placeholder}
+              // pr-9 leaves the button its corner. The arbitrary variant hides WebKit's own
+              // cancel button, which Chrome draws inside a type="search" box as soon as it has
+              // content — without it there are two × to choose from, one of them unstyled and
+              // unlabelled.
+              className="w-full rounded-lg border border-line bg-surface px-3 py-2 pr-9 text-sm [&::-webkit-search-cancel-button]:appearance-none"
+            />
+          </label>
 
-        {term !== '' && (
-          // Only when there is something to clear. A × that sits there doing nothing on an empty
-          // box reads as a control that has stopped working, which is the reasoning the hobby
-          // nav already follows for the five hobbies that do not exist yet.
-          <button
-            type="button"
-            aria-label="Clear search"
-            onClick={clear}
-            className="absolute inset-y-0 right-0 flex items-center rounded-r-lg px-3 text-muted hover:text-fg"
-          >
-            {/* The glyph is decoration; the button's name is the aria-label. */}
-            <span aria-hidden="true">×</span>
-          </button>
-        )}
+          {term !== '' && (
+            // Only when there is something to clear. A × that sits there doing nothing on an empty
+            // box reads as a control that has stopped working, which is the reasoning the hobby
+            // nav already follows for the five hobbies that do not exist yet.
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={clear}
+              className="absolute inset-y-0 right-0 flex items-center rounded-r-lg px-3 text-muted hover:text-fg"
+            >
+              {/* The glyph is decoration; the button's name is the aria-label. */}
+              <span aria-hidden="true">×</span>
+            </button>
+          )}
+        </div>
+
+        {/* A radio group, for the column switcher's reason: a closed set where exactly one is
+            current, which a screen reader can say. Its look is that switcher's in small: the same
+            well, the chosen half raised. */}
+        <div
+          role="radiogroup"
+          aria-label="Search in"
+          className="flex shrink-0 gap-0.5 rounded-lg border border-line-soft bg-well p-1"
+        >
+          {SEARCH_IN.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={searchIn === value}
+              onClick={() => setSearchIn(value)}
+              className={`rounded-md px-3 text-sm ${
+                searchIn === value ? 'bg-surface text-fg shadow-card' : 'text-muted hover:text-fg'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {term === '' && definition.discover !== null && (
+      {/* Not in Notes, where it would be offering titles to somebody looking for a note. */}
+      {term === '' && !inNotes && definition.discover !== null && (
         // Only while the box is empty, which is exactly when somebody might not know what to
         // search for; once there is typing, the strip is the answer. A sibling of the label
         // rather than inside it, for the clear button's reason: a wrapping label would take this
@@ -203,45 +283,72 @@ export function BoardSearch({ hobby, onOpen }: BoardSearchProps) {
           aria-label="Search results"
           className="mt-3 rounded-xl border border-line-soft bg-well p-3"
         >
-          {results.isPending && <p className="text-sm text-muted">Searching…</p>}
+          {inNotes ? (
+            <>
+              {notes.isPending && <p className="text-sm text-muted">Searching…</p>}
 
-          {results.error !== null && (
-            // The client keeps the API's distinction between "IGDB is unhappy" (502) and "this app
-            // is broken" (500), so flattening it back into "something went wrong" here would throw
-            // away the only part worth reading.
-            <p role="alert" className="text-sm text-danger">
-              {results.error.message}
-            </p>
-          )}
+              {notes.error !== null && (
+                <p role="alert" className="text-sm text-danger">
+                  {notes.error.message}
+                </p>
+              )}
 
-          {board.error !== null && (
-            <p role="alert" className="text-sm text-danger">
-              {board.error.message}
-            </p>
-          )}
+              {notes.data?.notes.length === 0 && (
+                <p className="text-sm text-muted">Nothing in your notes matched “{settled}”.</p>
+              )}
 
-          {results.data?.length === 0 && (
-            <p className="text-sm text-muted">Nothing matched “{settled}”.</p>
-          )}
-
-          {results.data !== undefined && results.data.length > 0 && (
-            // Sideways, so the strip costs the board one band of height rather than a screenful.
-            // Rendered in the order IGDB ranked them: the database has no idea that ordering
-            // exists, so re-sorting here would be discarding the only relevance there is.
-            <ul className="flex gap-3 overflow-x-auto pb-1">
-              {results.data.map((hit) => (
-                <SearchResult
-                  key={hit.id}
-                  hit={hit}
-                  onBoard={board.statusOf(hit.id)}
-                  adding={board.isAdding(hit.id)}
-                  onAdd={board.add}
-                  onOpen={onOpen}
-                  columns={board.columns}
-                  definition={definition}
+              {notes.data !== undefined && notes.data.notes.length > 0 && (
+                <NoteResults
+                  notes={notes.data.notes}
+                  more={notes.data.more}
+                  words={words}
+                  onOpen={(mediaId, noteId) => onOpenNote(mediaId, noteId, words)}
                 />
-              ))}
-            </ul>
+              )}
+            </>
+          ) : (
+            <>
+              {results.isPending && <p className="text-sm text-muted">Searching…</p>}
+
+              {results.error !== null && (
+                // The client keeps the API's distinction between "IGDB is unhappy" (502) and "this app
+                // is broken" (500), so flattening it back into "something went wrong" here would throw
+                // away the only part worth reading.
+                <p role="alert" className="text-sm text-danger">
+                  {results.error.message}
+                </p>
+              )}
+
+              {board.error !== null && (
+                <p role="alert" className="text-sm text-danger">
+                  {board.error.message}
+                </p>
+              )}
+
+              {results.data?.length === 0 && (
+                <p className="text-sm text-muted">Nothing matched “{settled}”.</p>
+              )}
+
+              {results.data !== undefined && results.data.length > 0 && (
+                // Sideways, so the strip costs the board one band of height rather than a screenful.
+                // Rendered in the order IGDB ranked them: the database has no idea that ordering
+                // exists, so re-sorting here would be discarding the only relevance there is.
+                <ul className="flex gap-3 overflow-x-auto pb-1">
+                  {results.data.map((hit) => (
+                    <SearchResult
+                      key={hit.id}
+                      hit={hit}
+                      onBoard={board.statusOf(hit.id)}
+                      adding={board.isAdding(hit.id)}
+                      onAdd={board.add}
+                      onOpen={onOpen}
+                      columns={board.columns}
+                      definition={definition}
+                    />
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </section>
       )}

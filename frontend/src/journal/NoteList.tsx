@@ -1,7 +1,27 @@
 import { useId, useState } from 'react';
+import { Marked } from '../lib/Marked';
 import { formatJournalDateTime } from '../lib/time';
 import { ConfirmDelete } from './ConfirmDelete';
 import type { Note } from '../api/types';
+
+/** A stable handle on a note in the journal, for a search to open the journal at. */
+export const noteRowId = (noteId: number) => `note-${noteId}`;
+
+/** The note a search opened the journal at, and the words it was found by. */
+export interface FoundNote {
+  noteId: number;
+  words: readonly string[];
+}
+
+/**
+ * How the note a search found is marked: a bar of the accent beside it, until the journal closes.
+ * Picked at the #6 workshop over the note tinted and over a ring that fades, because it puts no
+ * colour behind the words, which carry their own marks. The negative margin and the padding
+ * cancel, so its text stays in line with every other note's and the bar sits in the margin.
+ *
+ * No outline: the keyboard is on the note, and the bar is what shows where.
+ */
+const FOUND = '-ml-3 border-l-2 border-accent pl-2.5 outline-none';
 
 /**
  * Enter sends what is in the box; Shift+Enter puts a line in it.
@@ -43,6 +63,11 @@ export interface NoteListProps {
   onWrite: (body: string) => void;
   onRewrite: (noteId: number, body: string) => void;
   onDelete: (noteId: number) => void;
+  /**
+   * The note a search found, if the journal was opened from one, which may be on another pass:
+   * every pass's list is told, and the one that holds it marks it.
+   */
+  found?: FoundNote | null;
 }
 
 /**
@@ -60,6 +85,7 @@ export function NoteList({
   onWrite,
   onRewrite,
   onDelete,
+  found = null,
 }: NoteListProps) {
   const ids = useId();
   const [composing, setComposing] = useState(composeOpen);
@@ -126,9 +152,18 @@ export function NoteList({
       {notes.length > 0 && (
         <ul className="flex flex-col gap-2">
           {notes.map((entry) => (
-            <li key={entry.id} className="flex flex-col gap-1">
+            <li
+              key={entry.id}
+              id={noteRowId(entry.id)}
+              // The note the journal was opened for. Current in the list, which a screen reader
+              // says, and able to hold the keyboard, which the drawer moves to it once it is here.
+              aria-current={found?.noteId === entry.id ? true : undefined}
+              tabIndex={found?.noteId === entry.id ? -1 : undefined}
+              className={`flex flex-col gap-1 ${found?.noteId === entry.id ? FOUND : ''}`}
+            >
               <NoteRow
                 note={entry}
+                words={found?.noteId === entry.id ? found.words : NO_WORDS}
                 editing={editing === entry.id}
                 busy={busy}
                 onEdit={() => setEditing(entry.id)}
@@ -153,8 +188,13 @@ export function NoteList({
   );
 }
 
+/** What every note but a found one marks: nothing. */
+const NO_WORDS: readonly string[] = [];
+
 interface NoteRowProps {
   note: Note;
+  /** The words of the search that found it, marked in its body. None for every other note. */
+  words: readonly string[];
   editing: boolean;
   busy: boolean;
   confirming: boolean;
@@ -168,6 +208,7 @@ interface NoteRowProps {
 
 function NoteRow({
   note,
+  words,
   editing,
   busy,
   confirming,
@@ -262,8 +303,11 @@ function NoteRow({
         />
       </span>
 
-      {/* Whitespace preserved: a note written across several lines was written that way. */}
-      <p className="text-sm whitespace-pre-wrap">{note.body}</p>
+      {/* Whitespace preserved: a note written across several lines was written that way. The
+          marks change nothing else about it, so the text reads exactly as written. */}
+      <p className="text-sm whitespace-pre-wrap">
+        <Marked text={note.body} words={words} />
+      </p>
     </>
   );
 }

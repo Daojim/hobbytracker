@@ -11,13 +11,62 @@ namespace HobbyTracker.Api.Controllers;
 /// route per action rather than a shared prefix.
 ///
 /// There is no list route. Notes come back with their entry on <see cref="LogEntryDto"/>, so a
-/// second request would be asking for something the client already has.
+/// second request would be asking for something the client already has. The search is the one
+/// read across titles, which no entry carries.
 /// </summary>
 [ApiController]
 [Authorize]
 [Route("api")]
-public class NotesController(INoteService notes) : ControllerBase
+public class NotesController(INoteService notes, ILibraryService library) : ControllerBase
 {
+    /// <summary>
+    /// Your notes on one board with every word of <paramref name="q"/> in them, in any order and
+    /// any case, newest first and at most fifty. See <see cref="NoteSearchResult"/>.
+    ///
+    /// <c>notes/search</c> sits beside <c>notes/{id:int}</c> without meeting it, because the
+    /// other's constraint takes digits only.
+    /// </summary>
+    /// <param name="q">What to look for. Whitespace separates the words, every one of which has to be in the note.</param>
+    /// <param name="hobby">The board whose notes to search, by its slug. Required: a result opens that board's journal.</param>
+    [HttpGet("notes/search")]
+    [ProducesResponseType<NoteSearchResult>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<NoteSearchResult>> Search(
+        [FromQuery] string? q, [FromQuery] string? hobby, CancellationToken cancellationToken)
+    {
+        // Blank as well as empty, although MVC's binder already hands a query of spaces over as
+        // null (measured: with this weakened to IsNullOrEmpty, `q=%20%20%20` was still a 400).
+        // The rule is said here rather than left to a binder setting, and the service would
+        // answer a search with no words in it with every note on the board.
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            ModelState.AddModelError(nameof(q), "Say what to look for.");
+        }
+        else if (q.Length > NoteService.SearchMaxLength)
+        {
+            ModelState.AddModelError(
+                nameof(q), $"A search is {NoteService.SearchMaxLength} characters at most.");
+        }
+
+        // Named and known. An unknown board would otherwise answer with no notes, which reads
+        // as "you never wrote that" rather than "that is not a board".
+        if (string.IsNullOrWhiteSpace(hobby))
+        {
+            ModelState.AddModelError(nameof(hobby), "Say which board's notes to search.");
+        }
+        else if (!await library.HobbyExistsAsync(hobby, cancellationToken))
+        {
+            ModelState.AddModelError(nameof(hobby), $"Unknown hobby '{hobby}'.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        return Ok(await notes.SearchAsync(hobby!, q!, cancellationToken));
+    }
+
     [HttpGet("notes/{id:int}", Name = nameof(GetNote))]
     [ProducesResponseType<NoteDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
