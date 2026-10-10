@@ -62,6 +62,12 @@ have given it: the server works them out with the drag's own code, so an add and
 disagree. A result already on your board says which column it is in, and its name opens its
 journal, so a game just found can be written about without going to look for its card.
 
+A switch beside the box searches your notes instead, on every board: every word you type, in any
+order and any case, newest first, under the titles they were written about. Each word is matched
+as the characters it is, so a note that says *50%* is found by *50%*, and Japanese is matched as
+typed, which is why it is a plain substring search rather than full-text search. A note found opens
+its journal at that note, scrolled to, with the words marked in it and the keyboard on it.
+
 Metadata comes from [IGDB](https://api-docs.igdb.com/) for games,
 [TMDB](https://developer.themoviedb.org/) for films and television, and
 [MyAnimeList](https://myanimelist.net/apiconfig/references/api/v2) for anime, and is cached
@@ -160,6 +166,7 @@ See [Running it](#running-it-locally) for how to fill it.
 | `GET PUT DELETE /api/log-entries/{id}` | one pass. Deleting it moves its notes to the current pass, and takes them only with the title's last |
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date |
+| `GET /api/notes/search?q=&hobby=` | your notes on one board with every word of `q` in them, in any order and any case, newest first. Fifty at most, and it says when there were more |
 | `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column |
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls. `notFinished: true` puts a finish back on the pass it was made on |
 | `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
@@ -575,6 +582,12 @@ to prevent something, the test for it is checked by reintroducing the thing.
       The renders found the new sentence running straight on from a pass's hours and platform in
       a wide drawer, so a confirm with something to say takes a line of its own, measured in a
       real browser because jsdom has no layout
+- [x] Searching your notes, from a switch beside the search box: every word in any order, on
+      every board, and a note found opens its journal at that note with the words marked. A plain
+      substring search rather than full-text, because notes get written in Japanese, with each
+      word escaped so *50%* means fifty per cent. The renders found the obvious highlighter
+      invisible on one theme, so a word found wears the theme's accent instead, the user's pick
+      over bold
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

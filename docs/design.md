@@ -35,6 +35,7 @@ the header.
 | A share | **A banner across the top, then the board under the owner's name** when they ticked it, which is never in the banner. Picked over the recommended heading. **A share addresses nobody**: twelve phrases written to the owner have a second form. See **Sharing a board** |
 | Your data | **A row in Settings after Columns**, and after Sharing where a board can be shared: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
 | Deleting your account | **A tinted row under it, on every board, that opens into the warning**: what it takes in each hobby's words, a word to type, and a filled button. Afterwards the sign-in card reads *Account deleted*. Picked on 4 October 2026 in two rounds. See **Deleting your account** |
+| Searching your notes | **A *Titles \| Notes* switch beside the search box**, a card per title with its cover for the notes found, **the accent at 25% behind each word found**, and a bar of the accent beside the note the journal opens at. Picked on 9 October 2026 from renders; the mark was the user's, over bold. See **Searching your notes** |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
 | Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
@@ -48,7 +49,9 @@ The user's own words on red, which is the principle the whole theme layer is sha
 Ember is that theme, and its surfaces are **neutral charcoal rather than red-tinted** — tinting them
 was mocked up and rejected by eye, because a red ground shifts the eleven genre hues against it and those
 mean something. So red appears where the app is speaking — links, focus, the current choice — and
-never behind text or beneath a cover. Its accent is `#f2545b`, a true red; it began as a vermilion and
+never behind text or beneath a cover, with one exception the user chose: since #6 on 9 October
+2026, a word a search of your notes found wears the accent at 25% behind it, on Ember as on every
+theme. See **Searching your notes**. Its accent is `#f2545b`, a true red; it began as a vermilion and
 read as orange. **On Ember's near-black surface a red has to sit fairly light to clear 4.5:1 at all**
 — `#ef4444` lands at 4.58 and `#e5484d` at 4.38 — so the deeper, more saturated reds are simply not
 available. A fact about the ground rather than a preference, and the contrast test is what says so.
@@ -607,6 +610,35 @@ deletes, and how, is `docs/auth.md`'s.
   on screen once the counts are in.
 - **The sign-in card's heading takes the keyboard**, so it is `focus:outline-none`: the page puts
   focus there, and a ring round a heading nobody tabbed to reads as a fault.
+
+### Searching your notes
+
+Four looks were picked at the #6 workshop on 9 October 2026, from the real board and drawer with
+a throwaway switch in them, shot at 1440 and 390 on Shelf Light and Shelf Dark, and the match on
+all eight themes: https://claude.ai/artifact/PBqDz6PzyGfJkrU942oAzR. Three were the
+recommendations. What each does, and why, is in `docs/games-igdb.md` and `docs/journal.md`.
+
+| | Picked | Against |
+|---|---|---|
+| The switch | **Beside the box**, the column switcher's segments in small, 60 × 28 | tabs above it, 30px taller; inside it, 47 × 24 |
+| The results | **A card per title with its cover**, three across at 1440 | one column of text; the title strip's sideways cards |
+| The match | **The accent at 25% behind the word**, the user's pick | bold, the recommendation; an underline in the accent, which reads as a link |
+| The note opened at | **A 2px bar of the accent beside it** | the note tinted with the accent at 10%; a ring that fades |
+
+- **The drop tint was tried first and cannot mark text.** `--drop` is the colour a column takes
+  under a held card, and the obvious highlighter. It sits 1.02:1 off the card's `surface` on Dusk
+  and on Blood Red, and on Dusk the marked words showed nothing at all. Those shots are on the
+  page. It is a ground meant to be read as a whole column changing colour, not as a word.
+- **The accent at 25% over `surface`**: `fg` on it measures 5.48:1 on Dusk at the lowest and 12.0
+  on Frost at the highest, and the tint stands 1.41:1 off the card on Ember at the faintest and
+  1.72 on Console. `index.css.test.ts` holds both on every theme, the second at 1.4, and **reads
+  the token and the opacity out of `MATCH_MARK` itself**, so the ground measured is the one
+  painted: a mark changed to `bg-drop` or to a fainter accent goes red there.
+- **On Ember that is red behind text**, which this file said Ember never has. It is the one place
+  it does, picked with that written beside the option in bold. Gold on Blood Red.
+- **The note's bar is the accent as a mark**, beside the text rather than behind it, so on Ember
+  the red stays where the app is speaking. The tinted note was the accent at 10%, and its muted
+  date measured 4.52:1 on Dusk, the tightest number on the page.
 
 ### The page's ground
 

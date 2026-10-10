@@ -131,8 +131,9 @@ Sixteen sites, of which three were subtler than the rest:
   strangers' replays and `Latest` able to pick a stranger's entry; **`Latest` decides the column, so
   the symptom is your own Backlog title sitting under Completed.** Un-scoping `Latest` alone also
   breaks reordering, because `ReorderAsync` renumbers through `row.Latest`.
-- **`NoteService` has no column to filter** — all six queries reach through `n.LogEntry!.UserId`.
-  That is what makes a note id enough on its own at the API.
+- **`NoteService` has no column to filter** — every query on `notes` reaches through
+  `n.LogEntry!.UserId`, the search's included. That is what makes a note id enough on its own at
+  the API.
 - **`BoardPositions.TopOfColumnAsync` is `static` and takes the context**, so it is out of reach of
   injection and takes a `userId`. Left alone, one person's backlog decides where another's new cards
   land.
@@ -142,6 +143,12 @@ Sixteen sites, of which three were subtler than the rest:
 somebody else's pass of the same game could be that pass, and your notes would be written into
 their journal. Without the title, a pass of yours on another game could. `DeletingAPassTests` has
 a case for each, and each went red with its predicate taken out.
+
+**Searching your notes reads every note of yours on a board, and needs both halves of its scope
+too** (#6, 9 October 2026). Without the user, somebody else's note about the same game would be a
+result, with its words, in your strip. Without the board, a note about a film would be a result on
+the games board, opening a drawer that cannot open a film. `NoteSearchTests` has a case for each,
+and each went red alone with its predicate taken out.
 
 **Left unscoped deliberately:** `GameCatalogService.RefreshLibraryAsync` and
 `HltbService.BackfillAsync` — both select on "any user has logged this" and write only shared
