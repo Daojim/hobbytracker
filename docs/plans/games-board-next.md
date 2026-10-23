@@ -29,13 +29,13 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 8 | Delete my account | S–M | **Shipped and deployed 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. See its section |
 | 9 | A read-only share link | M | **Shipped and deployed 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. See its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
-| 11 | A release window that has begun | S + S | **Built 23 October 2026** (PR #78), the day it was picked up and workshopped: only a day counts down, and a window sits at the last day it could come out, under a heading of its own. The order was not in the plan. Not deployed yet. See its section |
+| 11 | A release window that has begun | S + S | **Shipped and deployed 23 October 2026** (PR #78), the day it was picked up and workshopped: only a day counts down, and a window sits at the last day it could come out, under a heading of its own. The order was not in the plan. See its section |
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 
-Production runs `83ca03c`'s code, which was `main` on 10 October 2026. Deploying is the runbook in
+Production runs `f70a9cb`'s code, which was `main` on 23 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -1226,11 +1226,14 @@ menu. The fix would be to catch it on the panel's container, as the card menu do
 
 ---
 
-## 11. A release window that has begun · built
+## 11. A release window that has begun · shipped
 
-**Built 23 October 2026** (PR #78), the day it was picked up, after a workshop the same day. Not
-deployed yet. The plan below is as it was written. What was decided and built follows it, from
-**Decided from the renders** on.
+**Shipped and deployed 23 October 2026** (PR #78), the day it was picked up, after a workshop the
+same day. No migration and no new variable. Both images were rebuilt and recreated, the API first,
+and no base image had moved. The public site serves a new bundle carrying the quarter's heading and
+the cancelled title's rule, each counted 0 in the one before it, and the running API carries
+`ByLastPossibleDay` where `ByReleaseDate` was. The plan below is as it was written. What was
+decided and built follows it, from **Decided from the renders** on.
 
 **What.** The *Coming soon* calendar under the board says how far off each title is. For a title
 announced only as a year, a quarter or a month, it measures from the window's first day. Once that

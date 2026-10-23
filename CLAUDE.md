@@ -656,7 +656,7 @@ shuffled.
         window was measured from its first day, so a title not out yet read "276 days ago". Only
         a day counts down now, and a window sits at its last day under a heading of its own,
         which stopped headings repeating. The order was not in the plan; the renders found it.
-        Every choice was the recommendation (PR #78)
+        Every choice was the recommendation (PR #78, deployed)
       - [x] the journal from a search result — a result on your board opens its journal from its
         name, in the accent: the user's pick from renders over a card's plain name. A journal
         opened from the calendar now hands the keyboard back, which it never did (PR #68,
