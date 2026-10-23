@@ -103,9 +103,10 @@ export function formatDayShort(day: Day, today: Day = todayHere()): string {
 /**
  * A release window, exactly as precisely as it was announced and never a word more.
  *
- * The precision is what stops this inventing a day. IGDB states "Q1 2027" as a date like any
- * other — as 31 March, the last day of the window — so a formatter reading the date alone would
- * print a day nobody said, and would be wrong by up to a year about which one.
+ * The precision is what stops this inventing a day. A vague window still arrives as real days:
+ * the API sends "Q1 2027" as 1 January to 31 March, and IGDB stated it as the 31st. A formatter
+ * reading the date alone would print a day nobody said, and would be wrong by up to a year about
+ * which one.
  *
  * Null precision is a title nobody has asked a provider about, which is not the same as one
  * with no date: it reads as released and never reaches the calendar at all.
@@ -135,7 +136,28 @@ export function formatRelease(day: Day | null, precision: ReleasePrecision | nul
 }
 
 /**
- * How far off it is, in the units a person would actually say.
+ * Whether a row counts down to its release, in words and in its bar.
+ *
+ * **A day, and nothing vaguer.** A window says when it was announced for and nothing finer, so
+ * there is nothing to count to. Counted from its first day, *2026* read "295 days ago" in
+ * October, with a full bar, and *2027* read "in 2 months" about a whole year. The label already
+ * says everything that was announced: the rule
+ * {@link formatRelease} keeps, and {@link isRecentRelease} keeps for the badge.
+ *
+ * **And never for a title that is not coming.** A cancelled title stays on the calendar so you
+ * can find out it is dead, and that outranks the date it was once given. Counting to the date
+ * said it was still on its way.
+ */
+export function countsDown(
+  precision: ReleasePrecision | null,
+  status: ReleaseStatus | null,
+): boolean {
+  return precision === 'Day' && status !== 'Cancelled';
+}
+
+/**
+ * How far off a day is, in the units a person would actually say. Only for a row that
+ * {@link countsDown}.
  *
  * Vaguer than the date on purpose once it is more than a few weeks out: "in 8 months" is what
  * somebody means, and counting out 243 days implies a precision the announcement rarely has.
@@ -169,7 +191,7 @@ export function describeDistance(day: Day, today: Day = todayHere()): string | n
 }
 
 /**
- * How far along the wait is, nought to one, for the bar beside a row.
+ * How far along the wait is, nought to one, for the bar beside a row that {@link countsDown}.
  *
  * Measured against a fixed horizon rather than against the furthest title in the list. Relative
  * would look better and would make every bar jump whenever anything was added or removed, which
@@ -202,8 +224,20 @@ export function releaseProgress(day: Day | null, today: Day = todayHere()): numb
  * quarter, or the grouping would claim more than the publisher did — which is the same rule
  * {@link formatRelease} follows, applied to the shape of the list rather than to one label. A
  * naive "start of month" grouping gets exactly this wrong.
+ *
+ * **No heading repeats, and that takes the server's order as well as this.** The server lists a
+ * window after every day it could be, the narrowest first among those closing on one day, so a
+ * month's days are followed by the quarter that closes with it and the year after that. Each
+ * heading's titles therefore arrive together.
  */
 export type ReleaseGroup = string;
+
+/**
+ * How many months ahead a month or a quarter keeps a heading of its own. Beyond it, a month
+ * heading is more precision than the reader needs and more rows of headings than titles, and
+ * the year gathers them.
+ */
+const OWN_HEADING_MONTHS = 12;
 
 export function releaseGroup(
   day: Day | null,
@@ -221,19 +255,29 @@ export function releaseGroup(
     return 'no-date';
   }
 
-  // Announced only as a quarter or a year: the year is as fine as the heading may go.
-  if (precision === 'Quarter' || precision === 'Year') {
+  const monthsAway = (month: number) => (parts.year - now.year) * 12 + (month - now.month);
+
+  // Announced only as a year: the year is as fine as the heading may go.
+  if (precision === 'Year') {
     return String(parts.year);
+  }
+
+  // A quarter heads itself while the month it closes on still has a heading of its own, so
+  // "Q1 2027" comes straight after March's. Filed under its year, it sat between March and April
+  // under a second "2027". Further out it joins its year, with the months it covers.
+  if (precision === 'Quarter') {
+    const quarter = Math.floor((parts.month - 1) / 3) + 1;
+
+    return monthsAway(quarter * 3) < OWN_HEADING_MONTHS
+      ? `${parts.year}-Q${quarter}`
+      : String(parts.year);
   }
 
   if (parts.year === now.year && parts.month === now.month) {
     return 'this-month';
   }
 
-  // Beyond a year out, a month heading is more precision than the reader needs and more rows of
-  // headings than titles. The year gathers them.
-  const monthsAway = (parts.year - now.year) * 12 + (parts.month - now.month);
-  return monthsAway < 12
+  return monthsAway(parts.month) < OWN_HEADING_MONTHS
     ? `${parts.year}-${String(parts.month).padStart(2, '0')}`
     : String(parts.year);
 }
@@ -246,6 +290,12 @@ export function formatGroup(group: ReleaseGroup, noDateLabel: string): string {
 
   if (group === 'this-month') {
     return 'This month';
+  }
+
+  // Read as the label under it reads, so a quarter's heading and its titles say the same thing.
+  const quarter = /^(\d{4})-Q([1-4])$/.exec(group);
+  if (quarter !== null) {
+    return `Q${quarter[2]} ${quarter[1]}`;
   }
 
   const match = /^(\d{4})-(\d{2})$/.exec(group);
@@ -270,9 +320,10 @@ export const NEWLY_OUT_DAYS = 14;
 /**
  * Whether a title came out recently enough to say so on its card.
  *
- * **Day precision only.** A title announced for "Q1 2027" carries 31 March, and calling it new
- * on 1 April would be announcing a day nobody said — the same rule {@link formatRelease} keeps,
- * applied to a badge. A vaguer window is never new; it simply arrives.
+ * **Day precision only.** A title announced for "Q1 2027" reaches Backlog on 1 April having come
+ * out on a day nobody named, and calling it new would be announcing one — the same rule
+ * {@link formatRelease} keeps, applied to a badge, and {@link countsDown} applied to the calendar.
+ * A vaguer window is never new; it simply arrives.
  */
 export function isRecentRelease(
   day: Day | null,

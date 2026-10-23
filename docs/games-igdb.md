@@ -553,6 +553,63 @@ Backlog with the ordinary titles. Two things follow that are worth stating:
   is exactly the non-termination the null-precision clause exists to avoid. If a rumour becomes a
   real announcement, a fresh search or `POST /api/games/refresh` picks it up.
 
+### What a window says, and where it sits
+
+**Only a day counts down.** A row says how far off a title is, *in 12 days*, and fills a bar to
+match, only when a day was announced and the title is not cancelled. That is `countsDown` in
+`lib/release.ts`. A window prints its label, *Q4 2026*, and nothing beside it, begun or not. A
+cancelled title prints its date and *Cancelled*.
+
+It used to count every dated row from `release_date`, which for a window is its **first** day.
+Found on 4 October 2026 as *Witchbrook · 2026 · 276 days ago* with a full bar, and rendered from
+the local catalogue on 23 October as four more faults of the same kind:
+
+- *2027 · in 2 months*, on seven titles in October, about a whole year.
+- *Q4 2026 · today* on 1 October, the day the window opened.
+- *Nov 2026 · in 9 days* above *Nov 5, 2026 · in 13 days*, with a fuller bar.
+- *Dec 9, 2026 · in 3 months · Cancelled*, counting to a date that is not coming.
+
+The label was always right, because `formatRelease` reads the precision, and `isRecentRelease`
+already kept the badge to a day. The count and the bar were the two readers that did not.
+
+**Each title sits at the last day it could come out.** `LibraryService.ByLastPossibleDay` orders
+the calendar on `release_end`, then `release_date` descending, then the title, with the undated
+last. Among windows closing on one day the narrowest goes first, which is the latest first day
+first: a day on 31 December, then December, then Q4, then the year. A window comes once everything
+surely sooner has, and rises as it closes.
+
+**And a quarter heads itself** while the month it closes on still has a heading of its own, twelve
+months out. Further out it joins its year with the months it covers. A year was always its own
+heading.
+
+The two halves are one decision, because the order is what keeps the headings from repeating.
+Ordered on the first day, as the calendar was until 23 October 2026, and with a quarter filed
+under its year:
+
+| what was on the list | what the headings read |
+|---|---|
+| a quarter and a month both opening on 1 October | *2026, This month, 2026, This month* |
+| Q1 2027, a day in February, then Q2 2027 | *2027, Jan 2027, Feb 2027, 2027* |
+
+**React logged both** as *Encountered two children with the same key*, because a group's key is
+its heading. That console line is the only sign of it there was, and nothing in the suite was
+reading it. `never repeats a heading` in `ComingSoon.test.tsx` lists the headings for a list
+holding every precision, already begun and not, in the server's order.
+
+**A month window files with that month's days, and that needed no change.** It has always headed
+itself as a month, and in the new order it comes after the month's last dated title.
+
+**The fixture is why no test caught any of this.** `upcomingItem` sent the given day as both ends
+of the window, and the quarter case passed 31 March, the window's last day. The API sends the
+first. So no case ever handed the calendar a first day that had already gone. It now builds the
+window through `windowAround`, the test's copy of `ReleaseWindow.For`, and the existing cases had
+to stay green on the corrected shape before any new one was written. They did. It is the stub
+trap in `docs/games-hltb.md` arriving from a test's own fixture: a shape the API never sends
+proves nothing about the shape it does.
+
+Every choice was picked from renders of the real calendar on 23 October 2026, and every pick was
+the recommendation. The choices and the page are in `docs/plans/games-board-next.md`, #11.
+
 ### The backfill is a thing you run, and the sweep is not
 
 `ReleaseRefreshWorker` is the first time-driven worker in the app. It copies `HltbWorker`'s three

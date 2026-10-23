@@ -6,7 +6,7 @@ import { boardServer, libraryItem } from '../test/library';
 import { TOKEN, sharedServer } from '../test/share';
 import { sharedUpcomingQuery } from '../share/queries';
 import { renderWithProviders } from '../test/render';
-import type { LibraryItem } from '../api/types';
+import type { LibraryItem, ReleasePrecision } from '../api/types';
 
 /**
  * The release calendar under the board.
@@ -17,19 +17,69 @@ import type { LibraryItem } from '../api/types';
  */
 const TODAY = new Date('2026-09-15T16:00:00Z');
 
-/** A title on the calendar. Dated in full, since an undated one is the interesting exception. */
+/**
+ * A title on the calendar, its window shaped the way the API sends one.
+ *
+ * Dated to the day unless `releasePrecision` says otherwise, since an undated one is the
+ * interesting exception. A vaguer window is built as `ReleaseWindow.For` builds it on the
+ * server: `releaseDate` is the first day of the month, quarter or year that `day` falls in, and
+ * `releaseEnd` the last.
+ *
+ * It used to send `day` as both ends, which the API never does, and that is how a window read
+ * from its first day stayed green: no case here ever handed the calendar a first day already
+ * gone. A quarter written as 31 March went on measuring from 31 March.
+ */
 function upcomingItem(
   title: string,
-  releaseDate: string | null,
+  day: string | null,
   overrides: Partial<LibraryItem> = {},
 ): LibraryItem {
-  return libraryItem({
-    title,
-    releaseDate,
-    releaseEnd: releaseDate,
-    releasePrecision: releaseDate === null ? 'Unknown' : 'Day',
-    ...overrides,
-  });
+  const precision = overrides.releasePrecision ?? (day === null ? 'Unknown' : 'Day');
+  const [releaseDate, releaseEnd] = day === null ? [null, null] : windowAround(day, precision);
+
+  return libraryItem({ title, releaseDate, releaseEnd, releasePrecision: precision, ...overrides });
+}
+
+/** The first and last day of the unit `day` falls in, at the precision it was announced at. */
+function windowAround(day: string, precision: ReleasePrecision): [string, string] {
+  const [year, month] = day.split('-').map(Number) as [number, number];
+  const first = (m: number) => `${year}-${String(m).padStart(2, '0')}-01`;
+  const last = (m: number) =>
+    `${year}-${String(m).padStart(2, '0')}-${new Date(Date.UTC(year, m, 0)).getUTCDate()}`;
+
+  switch (precision) {
+    case 'Month':
+      return [first(month), last(month)];
+    case 'Quarter': {
+      const opens = Math.floor((month - 1) / 3) * 3 + 1;
+      return [first(opens), last(opens + 2)];
+    }
+    case 'Year':
+      return [first(1), last(12)];
+    default:
+      return [day, day];
+  }
+}
+
+/** A row on the calendar, by the title it names. */
+function rowOf(title: string): HTMLElement {
+  return screen.getByText(title).closest('li')!;
+}
+
+/**
+ * The line under a row's title: the window, and anything said beside it. The only paragraph on a
+ * row whose title is a button, which it is wherever the calendar can open a journal.
+ */
+function lineOf(title: string): string | null | undefined {
+  return rowOf(title).querySelector('p')?.textContent;
+}
+
+/**
+ * A row's bar, which is decoration and hidden from every query that goes by role or by text. Its
+ * fill is the one thing on a row with a width of its own, so a row without one has no bar.
+ */
+function barOf(title: string): Element | null {
+  return rowOf(title).querySelector('[style*="width"]');
 }
 
 function renderCalendar(upcoming: LibraryItem[], hobby = 'games') {
@@ -108,21 +158,59 @@ describe('ComingSoon', () => {
   });
 
   it('never prints a day that was not announced', async () => {
-    // The negative assertion, and the only kind that catches this. IGDB states "Q1 2027" as
-    // 31 March — a real day — so a row that printed the date it carries would look entirely
+    // The negative assertion, and the only kind that catches this. "Q1 2027" arrives as
+    // 1 January to 31 March, two real days, so a row that printed either would look entirely
     // plausible and would be a fabrication. The heading has to hold the same line: a quarter
-    // cannot sit under "Mar 2027" either.
+    // cannot sit under "Jan 2027" or "Mar 2027" either.
     renderCalendar([
       upcomingItem('Vague', '2027-03-31', { releasePrecision: 'Quarter' }),
     ]);
 
     await screen.findByText('Vague');
 
-    expect(screen.getByText(/Q1 2027/)).toBeInTheDocument();
-    expect(screen.queryByText(/Mar 31/)).not.toBeInTheDocument();
+    expect(lineOf('Vague')).toBe('Q1 2027');
+    expect(screen.queryByText(/Jan 1|Mar 31/)).not.toBeInTheDocument();
 
     const groups = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'));
-    expect(groups).toEqual(['2027']);
+    expect(groups).toEqual(['Q1 2027']);
+  });
+
+  it('never repeats a heading', async () => {
+    // In the order the server sends: a window after every day it could be, and the narrowest
+    // first when several close on one day. Each window heads itself at the precision it was
+    // announced at. A quarter used to file under its year, so a list holding one, a later
+    // month and a year read "2027, Apr 2027, 2027", and React logged a duplicate key.
+    renderCalendar([
+      upcomingItem('Out This Month', '2026-09-26'),
+      upcomingItem('Sometime This Month', '2026-09-01', { releasePrecision: 'Month' }),
+      upcomingItem('Sometime This Quarter', '2026-07-01', { releasePrecision: 'Quarter' }),
+      upcomingItem('Out In November', '2026-11-03'),
+      upcomingItem('Sometime Next Quarter', '2026-10-01', { releasePrecision: 'Quarter' }),
+      upcomingItem('Sometime This Year', '2026-01-01', { releasePrecision: 'Year' }),
+      upcomingItem('Out In January', '2027-01-15'),
+      upcomingItem('Early Next Year', '2027-01-01', { releasePrecision: 'Quarter' }),
+      upcomingItem('Out In April', '2027-04-07'),
+      upcomingItem('Spring Next Year', '2027-04-01', { releasePrecision: 'Quarter' }),
+      upcomingItem('Sometime Next Year', '2027-01-01', { releasePrecision: 'Year' }),
+      upcomingItem('Undated', null),
+    ]);
+
+    await screen.findByText('Undated');
+
+    const groups = screen.getAllByRole('group').map((group) => group.getAttribute('aria-label'));
+    expect(groups).toEqual([
+      'This month',
+      'Q3 2026',
+      'Nov 2026',
+      'Q4 2026',
+      '2026',
+      'Jan 2027',
+      'Q1 2027',
+      'Apr 2027',
+      'Q2 2027',
+      '2027',
+      'No date yet',
+    ]);
   });
 
   it('says how far off a title is in words as well as in a date', async () => {
@@ -131,6 +219,104 @@ describe('ComingSoon', () => {
     await screen.findByText('Soon');
 
     expect(screen.getByText(/in 11 days/)).toBeInTheDocument();
+  });
+
+  it('counts down to a day, in words and in its bar', async () => {
+    // What the count and the bar are for, and the half of the rule below that must survive it.
+    // A title out today reaches the calendar only from a list fetched yesterday, because the
+    // server moves it to Backlog on the day, which is why "today" is said rather than counted.
+    renderCalendar([
+      upcomingItem('Out Today', '2026-09-15'),
+      upcomingItem('Out Tomorrow', '2026-09-16'),
+      upcomingItem('Out In Twelve Days', '2026-09-27'),
+    ]);
+
+    await screen.findByText('Out Today');
+
+    expect(lineOf('Out Today')).toBe('Sep 15, 2026 · today');
+    expect(lineOf('Out Tomorrow')).toBe('Sep 16, 2026 · tomorrow');
+    expect(lineOf('Out In Twelve Days')).toBe('Sep 27, 2026 · in 12 days');
+
+    for (const title of ['Out Today', 'Out Tomorrow', 'Out In Twelve Days']) {
+      expect(barOf(title)).not.toBeNull();
+    }
+  });
+
+  it('says nothing about how far off a window is once it has begun', async () => {
+    // The bug this file once missed. A window is stored as its first and last day, and the row
+    // measured from the first, so Witchbrook, announced for 2026, said "2026 · 295 days ago"
+    // with a full bar from January until it came out. Once a window has begun nobody knows how
+    // far off the title is, and the label already says everything that was announced.
+    renderCalendar([
+      upcomingItem('Sometime This Year', '2026-06-01', { releasePrecision: 'Year' }),
+      upcomingItem('Sometime This Quarter', '2026-08-01', { releasePrecision: 'Quarter' }),
+      upcomingItem('Sometime This Month', '2026-09-20', { releasePrecision: 'Month' }),
+    ]);
+
+    await screen.findByText('Sometime This Year');
+
+    expect(lineOf('Sometime This Year')).toBe('2026');
+    expect(lineOf('Sometime This Quarter')).toBe('Q3 2026');
+    expect(lineOf('Sometime This Month')).toBe('Sep 2026');
+    expect(screen.queryByText(/ago/)).not.toBeInTheDocument();
+
+    for (const title of ['Sometime This Year', 'Sometime This Quarter', 'Sometime This Month']) {
+      expect(barOf(title)).toBeNull();
+    }
+  });
+
+  it('says nothing on the day a window opens, rather than calling it today', async () => {
+    // A window's first day is the day it was measured from, so on 1 October the row announced
+    // "Q4 2026 · today" about a title that could come out on any day until New Year's Eve.
+    vi.setSystemTime(new Date('2026-10-01T16:00:00Z'));
+
+    renderCalendar([
+      upcomingItem('Opens This Quarter', '2026-10-01', { releasePrecision: 'Quarter' }),
+      upcomingItem('Opens This Month', '2026-10-01', { releasePrecision: 'Month' }),
+    ]);
+
+    await screen.findByText('Opens This Quarter');
+
+    expect(lineOf('Opens This Quarter')).toBe('Q4 2026');
+    expect(lineOf('Opens This Month')).toBe('Oct 2026');
+  });
+
+  it('says nothing about how far off a window is before it begins either', async () => {
+    // Counted to its first day, a window reads as the day the title comes out, when that is
+    // only the earliest it could. Seven titles announced for 2027 all said "in 2 months" in
+    // October, and a month said "in 9 days" above a day in that month saying "in 13 days".
+    renderCalendar([
+      upcomingItem('Sometime Next Year', '2027-06-01', { releasePrecision: 'Year' }),
+      upcomingItem('Sometime Next Quarter', '2027-02-01', { releasePrecision: 'Quarter' }),
+      upcomingItem('Sometime In November', '2026-11-10', { releasePrecision: 'Month' }),
+    ]);
+
+    await screen.findByText('Sometime Next Year');
+
+    expect(lineOf('Sometime Next Year')).toBe('2027');
+    expect(lineOf('Sometime Next Quarter')).toBe('Q1 2027');
+    expect(lineOf('Sometime In November')).toBe('Nov 2026');
+
+    for (const title of ['Sometime Next Year', 'Sometime Next Quarter', 'Sometime In November']) {
+      expect(barOf(title)).toBeNull();
+    }
+  });
+
+  it('stops counting a title that is never coming', async () => {
+    // A cancelled title stays on the calendar so you find out it is dead, and that outranks its
+    // date. Counting to the date said it was still on its way: "in 3 months · Cancelled" with
+    // its bar filling, or "196 days ago" once the date had gone.
+    renderCalendar([
+      upcomingItem('Never Coming', '2026-12-09', { releaseStatus: 'Cancelled' }),
+      upcomingItem('Long Gone', '2026-03-03', { releaseStatus: 'Cancelled' }),
+    ]);
+
+    await screen.findByText('Never Coming');
+
+    expect(lineOf('Never Coming')).toBe('Dec 9, 2026 · Cancelled');
+    expect(lineOf('Long Gone')).toBe('Mar 3, 2026 · Cancelled');
+    expect(barOf('Never Coming')).toBeNull();
+    expect(barOf('Long Gone')).toBeNull();
   });
 
   it('says when a title is never coming rather than leaving it looking patient', async () => {

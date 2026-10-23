@@ -31,7 +31,7 @@ off the routing table; see **Sharing a board** in `docs/auth.md`.
 | `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date |
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column, **with the hours its header says over the whole column** |
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
-| `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, soonest first and the undated last. **Not paged** |
+| `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, each at the last day it could come out and the undated last. **Not paged.** See **What a window says, and where it sits** in `docs/games-igdb.md` |
 | `GET /api/library/export?hobby=` | everything on your board for the spreadsheet in Settings: every title in every column, the calendar's too, with every pass of yours and every note, in the board's order. **Not paged.** See `docs/export.md` |
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls. **`notFinished: true` puts a finish back**: the finished pass itself moves, without its finish |
 | `POST /api/library/{mediaId}` | put a title on your board, in a column — what a tile's +, ▶ and ✓ call. **201** with the card; **409** when it is already on your board |

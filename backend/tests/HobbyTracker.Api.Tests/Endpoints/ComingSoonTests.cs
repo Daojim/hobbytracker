@@ -209,15 +209,36 @@ public sealed class ComingSoonTests(PostgresFixture postgres) : DatabaseTestBase
     }
 
     [Fact]
-    public async Task Orders_by_the_first_possible_day_with_the_undated_last()
+    public async Task Orders_by_the_last_possible_day_with_the_undated_last()
     {
-        var soon = await GivenReadyToShipAsync("Soon", "1", new DateOnly(2026, 11, 3), ReleasePrecision.Day);
-        var later = await GivenReadyToShipAsync("Later", "2", new DateOnly(2027, 6, 1), ReleasePrecision.Year);
-        var never = await GivenReadyToShipAsync("No Date", "3", null, ReleasePrecision.Unknown);
+        // A window goes after every day it could be. Ordered by its first day, as this used to
+        // be, a title announced for "2026" led the calendar from January, above titles with a
+        // real day in November, and two windows opening on one day split a heading in two.
+        var thisYear = await GivenReadyToShipAsync("This Year", "1", new DateOnly(2026, 6, 1), ReleasePrecision.Year);
+        var soon = await GivenReadyToShipAsync("Soon", "2", new DateOnly(2026, 11, 3), ReleasePrecision.Day);
+        var nextYear = await GivenReadyToShipAsync("Next Year", "3", new DateOnly(2027, 6, 1), ReleasePrecision.Year);
+        var never = await GivenReadyToShipAsync("No Date", "4", null, ReleasePrecision.Unknown);
 
         var upcoming = await UpcomingAsync();
 
-        upcoming.Select(item => item.MediaId).ShouldBe([soon, later, never]);
+        upcoming.Select(item => item.MediaId).ShouldBe([soon, thisYear, nextYear, never]);
+    }
+
+    [Fact]
+    public async Task Puts_the_narrowest_window_first_when_several_close_on_one_day()
+    {
+        // A day on New Year's Eve, December, Q4 and the whole year all close on 31 December. The
+        // narrowest goes first, so December's heading comes before the quarter's and the
+        // quarter's before the year's, and none of them is split. The titles run the other way
+        // alphabetically, so the title cannot be what puts them in this order.
+        var year = await GivenReadyToShipAsync("Atlas", "1", new DateOnly(2026, 6, 1), ReleasePrecision.Year);
+        var quarter = await GivenReadyToShipAsync("Myst", "2", new DateOnly(2026, 11, 1), ReleasePrecision.Quarter);
+        var month = await GivenReadyToShipAsync("Pax", "3", new DateOnly(2026, 12, 1), ReleasePrecision.Month);
+        var day = await GivenReadyToShipAsync("Zoo", "4", new DateOnly(2026, 12, 31), ReleasePrecision.Day);
+
+        var upcoming = await UpcomingAsync();
+
+        upcoming.Select(item => item.MediaId).ShouldBe([day, month, quarter, year]);
     }
 
     [Fact]

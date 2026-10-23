@@ -6,7 +6,7 @@ namespace HobbyTracker.Api.Domain;
 ///
 /// It is what stops the calendar inventing a day nobody said. "Q1 2027" is stored as the
 /// window 1 January to 31 March with this reading <see cref="Quarter"/>, so the agenda can
-/// order on the first day of the window while printing only what was actually announced.
+/// order on the last day of the window while printing only what was actually announced.
 ///
 /// <para>
 /// <b>Null on <see cref="Media.ReleasePrecision"/> is a third state, and the most important

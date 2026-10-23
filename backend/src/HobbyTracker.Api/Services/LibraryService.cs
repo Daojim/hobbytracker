@@ -1080,21 +1080,37 @@ public sealed class LibraryService(
     };
 
     /// <summary>
-    /// The calendar's order: soonest first, and the titles nobody has announced a date for last.
+    /// The calendar's order: each title at the last day it could come out, and the titles
+    /// nobody has announced a date for last.
+    ///
+    /// <para>
+    /// <b>The last day rather than the first, which is what this used to order on.</b> At its
+    /// first day a window led the list from the day it opened: a title announced for "2026" sat
+    /// above November's real days all year, and a quarter and a month opening on 1 October split
+    /// one heading in two. After every day it could be, a window comes once everything surely
+    /// sooner has, and rises as it closes. The client heads each window at the precision it was
+    /// announced at, and this order is what keeps those headings from repeating.
+    /// </para>
+    ///
+    /// <para>
+    /// Among windows closing on one day the narrowest goes first, which is the latest first day
+    /// first: a day on 31 December, then December, then Q4, then the year.
+    /// </para>
     ///
     /// Not a <see cref="LibrarySort"/> member, because that enum is the per-column sort control's
     /// vocabulary and is mirrored by hand on the client. It needs <b>no downcast</b>, which is
     /// the dividend for putting these columns on <c>media</c> — <c>Title</c> and <c>Length</c>
     /// below both carry one.
     /// </summary>
-    private static IQueryable<BoardRow> ByReleaseDate(IQueryable<BoardRow> query) => query
-        .OrderBy(row => row.Media.ReleaseDate == null)
-        .ThenBy(row => row.Media.ReleaseDate)
+    private static IQueryable<BoardRow> ByLastPossibleDay(IQueryable<BoardRow> query) => query
+        .OrderBy(row => row.Media.ReleaseEnd == null)
+        .ThenBy(row => row.Media.ReleaseEnd)
+        .ThenByDescending(row => row.Media.ReleaseDate)
         .ThenBy(row => row.Media.Title);
 
     private static IQueryable<BoardRow> Ordered(
         IQueryable<BoardRow> query, LibrarySort sort, LibraryPartition partition) =>
-        partition == LibraryPartition.Upcoming ? ByReleaseDate(query) : Sorted(query, sort);
+        partition == LibraryPartition.Upcoming ? ByLastPossibleDay(query) : Sorted(query, sort);
 
     private static IQueryable<BoardRow> Sorted(IQueryable<BoardRow> query, LibrarySort sort) => sort switch
     {

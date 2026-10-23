@@ -3,6 +3,7 @@ import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { upcoming } from '../api/library';
 import { genreStripe, hobbyDefinition, resolveGenre } from '../hobbies';
 import {
+  countsDown,
   describeDistance,
   formatGroup,
   formatRelease,
@@ -123,8 +124,8 @@ export function ComingSoon({ hobby, columns, query, voice, remembers, onOpen }: 
   // itself.
   const today = todayHere();
 
-  // The server has already ordered these: soonest first, undated last. Nothing re-sorts them,
-  // for the reason the search strip does not re-rank IGDB's results.
+  // The server has already ordered these: each at the last day it could come out, undated last.
+  // Nothing re-sorts them, for the reason the search strip does not re-rank IGDB's results.
   //
   // The cut takes the whole list rather than the dated part of it, which is a correction a test
   // made: cutting to the dated titles alone means a calendar holding nothing *but* undated ones
@@ -259,9 +260,15 @@ function UpcomingRow({
   const stripe = genreStripe(definition.genres, genre);
 
   const when = formatRelease(item.releaseDate, item.releasePrecision);
-  const distance = item.releaseDate === null ? null : describeDistance(item.releaseDate, today);
   const note = releaseNote(item.releaseStatus);
-  const progress = releaseProgress(item.releaseDate, today);
+
+  // A day still coming is counted down, in words and in the bar, and nothing vaguer is. A
+  // window's date is its first day, and measured from that, Witchbrook's "2026" read "295 days
+  // ago" with a full bar.
+  const counting = countsDown(item.releasePrecision, item.releaseStatus);
+  const distance =
+    counting && item.releaseDate !== null ? describeDistance(item.releaseDate, today) : null;
+  const progress = counting ? releaseProgress(item.releaseDate, today) : null;
 
   return (
     <li className="flex items-center gap-3 rounded-lg border border-card-line bg-surface p-2 shadow-card">

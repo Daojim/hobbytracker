@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   addDays,
+  countsDown,
   daysBetween,
   describeDistance,
   formatDayShort,
@@ -35,14 +36,16 @@ describe('formatRelease', () => {
   });
 
   it('never prints a day that was not announced', () => {
-    // The negative assertion, and the only kind that catches this. IGDB states a vague date as a
-    // real day — "Q1 2027" arrives as 31 March — so a formatter reading the date and ignoring
-    // the precision produces something that looks entirely plausible and is a fabrication.
-    const quarter = formatRelease('2027-03-31', 'Quarter');
+    // The negative assertion, and the only kind that catches this. A vague window still arrives
+    // as real days: the API sends "Q1 2027" as 1 January to 31 March, and IGDB stated it as the
+    // 31st. A formatter reading the date and ignoring the precision produces something that
+    // looks entirely plausible and is a fabrication, so it has to hold for any day in the window.
+    for (const day of ['2027-01-01', '2027-03-31']) {
+      const quarter = formatRelease(day, 'Quarter');
 
-    expect(quarter).toBe('Q1 2027');
-    expect(quarter).not.toContain('31');
-    expect(quarter).not.toContain('Mar');
+      expect(quarter).toBe('Q1 2027');
+      expect(quarter).not.toMatch(/Jan|Mar|31/);
+    }
   });
 
   it('says TBA for a date nobody has announced', () => {
@@ -158,6 +161,29 @@ describe('describeDistance', () => {
   });
 });
 
+describe('countsDown', () => {
+  it('counts down to a day', () => {
+    expect(countsDown('Day', null)).toBe(true);
+  });
+
+  it('never counts down to a window, begun or not', () => {
+    // A window says when it was announced for, and nothing finer. Counted from its first day it
+    // said "295 days ago" all year once begun, and "in 2 months" about the whole of 2027 before.
+    expect(countsDown('Month', null)).toBe(false);
+    expect(countsDown('Quarter', null)).toBe(false);
+    expect(countsDown('Year', null)).toBe(false);
+  });
+
+  it('has nothing to count to without a date', () => {
+    expect(countsDown('Unknown', null)).toBe(false);
+    expect(countsDown(null, null)).toBe(false);
+  });
+
+  it('stops for a title that is never coming, whatever its date', () => {
+    expect(countsDown('Day', 'Cancelled')).toBe(false);
+  });
+});
+
 describe('releaseProgress', () => {
   it('is full on the day', () => {
     expect(releaseProgress('2026-09-15', '2026-09-15')).toBe(1);
@@ -196,13 +222,28 @@ describe('releaseGroup', () => {
 
   it('never files a quarter under a month', () => {
     // The grouping half of "never announce more than the publisher did". A Q1 2027 title carries
-    // 31 March, so a naive start-of-month grouping would head it "Mar 2027" — claiming a month
-    // nobody named, and the wrong one at that.
-    expect(releaseGroup('2027-03-31', 'Quarter', today)).toBe('2027');
+    // 1 January, so a naive start-of-month grouping would head it "Jan 2027", claiming a month
+    // nobody named. It heads itself instead.
+    expect(releaseGroup('2027-01-01', 'Quarter', today)).toBe('2027-Q1');
+  });
+
+  it('gives a quarter a heading of its own while its months have theirs', () => {
+    // The server lists a window after every day it could be, so a quarter follows its last
+    // month. Filed under its year it read "2027, Apr 2027, 2027", a heading twice. A quarter
+    // already begun keeps its heading.
+    expect(releaseGroup('2026-07-01', 'Quarter', today)).toBe('2026-Q3');
+    expect(releaseGroup('2027-04-01', 'Quarter', today)).toBe('2027-Q2');
+  });
+
+  it('gathers a quarter under its year once its last month is past the horizon', () => {
+    // The months' rule. September 2027 is twelve months off, so its days file under "2027", and
+    // the quarter it closes files there with them.
+    expect(releaseGroup('2027-07-01', 'Quarter', today)).toBe('2027');
+    expect(releaseGroup('2027-09-30', 'Day', today)).toBe('2027');
   });
 
   it('never files a year under a month', () => {
-    expect(releaseGroup('2027-12-31', 'Year', today)).toBe('2027');
+    expect(releaseGroup('2027-01-01', 'Year', today)).toBe('2027');
   });
 
   it('puts a date nobody has announced in a bucket of its own', () => {
@@ -218,6 +259,10 @@ describe('formatGroup', () => {
 
   it('leaves a year heading as the year', () => {
     expect(formatGroup('2028', 'No date yet')).toBe('2028');
+  });
+
+  it('reads a quarter heading as its label does', () => {
+    expect(formatGroup('2027-Q1', 'No date yet')).toBe('Q1 2027');
   });
 
   it('takes the undated heading from the hobby rather than inventing one', () => {
