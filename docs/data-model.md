@@ -114,8 +114,9 @@ the column in `media` too and leaves the base table with no `id` at all.
   provider mapping writes `NULL`: it is only ever the state a row is created in. The two claims no
   longer share a shape, which is what the enum's own doc comment always said they did not.
 - **`release_date` and `release_end` are both ends of the announced window, truncated to its
-  unit.** `Q1 2027` is 1 January to 31 March, and the calendar sorts on the first while printing
-  neither. `release_end` exists so "is it out" is one indexable comparison rather than date
+  unit.** `Q1 2027` is 1 January to 31 March, and the calendar sorts on the last while printing
+  neither. It sorted on the first until 23 October 2026, which led the list with windows already
+  open; see **What a window says, and where it sits** in `docs/games-igdb.md`. `release_end` exists so "is it out" is one indexable comparison rather than date
   arithmetic over an enum — and it is the *last* day that decides, or a title announced for "2026"
   would appear in Backlog on 1 January. `ck_media_release_window` makes every other combination
   unreachable, because a precision with a missing end is permanently unreleased with nothing to

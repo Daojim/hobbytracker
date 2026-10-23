@@ -29,7 +29,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 8 | Delete my account | S–M | **Shipped and deployed 4 October 2026** (PR #63), the day it was workshopped: a tinted warning in Settings that asks for the word *delete*, and a session check that signs every other device out. See its section |
 | 9 | A read-only share link | M | **Shipped and deployed 5 October 2026** (PR #65), the day after its workshop: a Sharing row in Settings that opens a dialog of boxes, and the board under a banner for anybody holding the link, with nobody signed in. See its section |
 | 10 | `/` focuses the search box | S | **Shipped and deployed 4 October 2026** (PR #58). See its section |
-| 11 | A release window that has begun | S | Planned. A bug, found on 4 October 2026 while rendering #9 |
+| 11 | A release window that has begun | S + S | **Built 23 October 2026** (PR #78), the day it was picked up and workshopped: only a day counts down, and a window sits at the last day it could come out, under a heading of its own. The order was not in the plan. Not deployed yet. See its section |
 | 12 | The journal from a search result | S | **Shipped and deployed 7 October 2026** (PR #68), the day it was asked for and workshopped: a result on your board opens its journal from its name, in the accent. See its section |
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
@@ -1226,7 +1226,11 @@ menu. The fix would be to catch it on the panel's container, as the card menu do
 
 ---
 
-## 11. A release window that has begun · S
+## 11. A release window that has begun · built
+
+**Built 23 October 2026** (PR #78), the day it was picked up, after a workshop the same day. Not
+deployed yet. The plan below is as it was written. What was decided and built follows it, from
+**Decided from the renders** on.
 
 **What.** The *Coming soon* calendar under the board says how far off each title is. For a title
 announced only as a year, a quarter or a month, it measures from the window's first day. Once that
@@ -1275,6 +1279,102 @@ These are words people read, so render them before picking.
 - A window not yet begun reads what the pick says.
 - **Put the fault back.** With the distance read off `releaseDate` alone again, the begun cases
   go red.
+
+### Decided from the renders
+
+Shot from the real calendar behind throwaway `?begun=`, `?ahead=`, `?bar=`, `?cancel=` and
+`?group=` switches, with Vite alone, every `/api/` request answered in the browser, and the clock
+pinned to 23 October 2026. The titles, covers and windows were the local catalogue's 43 unreleased
+games. Four windows it had no example of were staged on real titles, and the page said so: Kena as
+October 2026, Tides of Annihilation as Q4 2026, Judas as November 2026, and Little Devil Inside as
+9 December 2026 and cancelled. Each option was shot under both orders, the first-day one and the
+last-day one, because the order changed how two of them read. It all went on one private page:
+https://claude.ai/artifact/VxWb95empNvurbRX4FtZpQ. One round, four questions, and every pick was
+the recommendation. Two of the questions were not in the plan.
+
+| Choice | Picked | Against |
+|---|---|---|
+| A window that has begun | **Its label alone, and no bar**, the plan's recommendation: *2026*, *Q4 2026*, *Oct 2026* | the window in words, *due this year*, which repeats the heading above it once a window heads itself; *within 2 months*, counted to the window's last day, a day nobody named, with a two-tone bar |
+| A window not yet begun | **Its label alone, and no bar.** A count and a bar belong to a day | counting to its first day, as before, which said *2027 · in 2 months* about a whole year and ran backwards down a list ordered by last day; a range, *in 2–14 months*, with a two-tone bar faint for most of its length |
+| A cancelled title with a date | **No count and no bar:** *Dec 9, 2026 · Cancelled* | leaving it counting toward a date that is not coming |
+| Where a window sits | **At its last day, in #11.** The narrowest first when several close on one day, and **a quarter under a heading of its own** while its last month has one | the first day, with window headings ahead of the days they cover, which repeats nothing but leads the list with its vaguest titles; leaving the order to a #16 |
+
+Found in the renders before the questions were asked:
+- **Seven titles read *2027 · in 2 months*.** That is the plan's third question with the real
+  catalogue's answer.
+- **A window on its first day read *today*:** *Q4 2026 · today* on 1 October. Begun includes the
+  day a window opens, and the plan's *ago* test would not have caught it.
+- **A cancelled title counted down**, with its bar filling, because the calendar keeps a cancelled
+  title whatever its date.
+- **Headings repeated.** The local catalogue's calendar read *2027, Jan 2027, Feb 2027, 2027*, a
+  Q2 window filed under its year after February. The staged windows opening on 1 October split
+  the top into *2026, This month, 2026, This month*. React logged *Encountered two children with
+  the same key* for each.
+- **A month read sooner than a day inside it:** *Nov 2026 · in 9 days* above *Nov 5, 2026 · in 13
+  days*, with a fuller bar.
+
+### Built
+
+- **`countsDown(precision, status)`** in `lib/release.ts`: a day, and not cancelled. `UpcomingRow`
+  asks it before `describeDistance` and `releaseProgress`, and draws no bar when there is nothing
+  to fill one with. Neither of those two changed.
+- **`releaseGroup` gives a quarter the key `2027-Q1`** while the month it closes on is inside the
+  twelve months that have headings of their own, and its year beyond. `formatGroup` reads the key
+  as the label does, *Q1 2027*. The twelve is now `OWN_HEADING_MONTHS`, since two precisions share
+  it.
+- **`LibraryService.ByLastPossibleDay`** replaces `ByReleaseDate`: `release_end`, then
+  `release_date` descending, then the title, with the undated last as before. No migration, and no
+  downcast.
+- **Comments that called a vague date the window's last day** described IGDB's shape, not the
+  API's, in `formatRelease`, `isRecentRelease`, `release.test.ts` and `ReleasePrecision`. They
+  describe what the API sends now.
+
+### Tests
+
+The fixture came first, as planned. `upcomingItem` in `ComingSoon.test.tsx` builds the window the
+API sends, through `windowAround`, the test's copy of `ReleaseWindow.For`. All 17 existing cases
+stayed green on the corrected shape before anything new was written.
+
+Then 13 cases red against the code before the change. Six are in `ComingSoon.test.tsx`: a begun
+window, a window on its first day, a window not yet begun, a cancelled title, *never repeats a
+heading*, and the quarter's heading in the existing *never prints a day that was not announced*.
+Seven are in `release.test.ts`: four for `countsDown` and three for the quarter's heading. Two new
+cases are guards and were green before: a day still counts down in words and in its bar, and a
+quarter past the horizon still joins its year. The backend's
+`Orders_by_the_first_possible_day_with_the_undated_last` became
+`Orders_by_the_last_possible_day_with_the_undated_last`, and
+`Puts_the_narrowest_window_first_when_several_close_on_one_day` is new. Both were red.
+
+The finished build ran 804 backend cases, 1,188 Vitest cases in 59 files and 201 e2e specs, all
+green, the e2e suite in 5.6 minutes. None of the e2e specs needed changing: they read the
+calendar's titles and its last heading, and neither moved.
+
+Each fault was planted alone against the finished build by a script that restored the file byte
+for byte, compared afterwards. Frontend faults ran the two Vitest files, and backend faults ran
+`ComingSoonTests`.
+
+| Fault planted | Red |
+|---|---|
+| The distance read off `releaseDate` alone again, the plan's fault | 5: begun, first day, not begun, cancelled, and *never prints a day that was not announced* |
+| The bar drawn for every dated row again | 3: begun, not begun, cancelled |
+| A cancelled title counted again | 2: `countsDown`'s case and the row's |
+| A quarter filed under its year again | 4: three on the quarter's heading, and *never repeats a heading* |
+| A quarter's horizon measured from its first month | *gathers a quarter under its year once its last month is past the horizon* alone |
+| The calendar ordered on the first day again | both order cases |
+| No narrowest first among windows closing on one day | *Puts_the_narrowest_window_first_when_several_close_on_one_day* alone |
+
+### What the plan got wrong, or left out
+
+- **It asked about the words and the bar, and missed the order.** Ordered on the first day, the
+  list repeated its headings. The case #11 is about made that worse, since two windows opening on
+  one day split a heading in two. Nothing showed it until a list held a quarter, a later month and
+  a year at once, and the local catalogue did.
+- **It said the label and the heading were right.** The label was. The heading was right for any
+  one title and wrong for a list, because a quarter's year heading could appear twice.
+- **It left the window not yet begun open**, and the real catalogue settled it: seven titles read
+  *in 2 months* about the whole of 2027.
+- **Begun includes the first day**, and on that day the row said *today*. A test pins it now.
+- **A cancelled title was the same fault in another shape**, and the same rule fixes it.
 
 ---
 

@@ -588,6 +588,12 @@ to prevent something, the test for it is checked by reintroducing the thing.
       word escaped so *50%* means fifty per cent. The renders found the obvious highlighter
       invisible on one theme, so a word found wears the theme's accent instead, the user's pick
       over bold
+- [x] A release window that has begun. A game announced for "2026" said it came out 276 days
+      ago, because the calendar counted from the first day of the window. Now only a game with a
+      real day counts down, and a window says what was announced and nothing more. Rendering
+      the real catalogue found the bigger fault: ordered by first day, the calendar repeated its
+      headings. Each window now sits at the last day it could come out, under a heading of its
+      own. No test had caught it, because the test data never had the shape the API sends
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 
