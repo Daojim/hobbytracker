@@ -5,7 +5,9 @@ taken to the other hobbies afterwards. The ten below are planned so a session ca
 one, in any order**, when the user names it. An eleventh, a bug in the release calendar, was added
 on 4 October 2026, and a twelfth and a thirteenth, both about the journal, on 7 October 2026. A
 fourteenth and a fifteenth followed on 8 October 2026, after a mistaken finish cost a pass its
-notes. CLAUDE.md's **What is next** points here.
+notes. A sixteenth and a seventeenth, a picker for the backlog and a Discover list from your
+ratings, were added on 23 October 2026 from suggestions the user picked. CLAUDE.md's **What is
+next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -34,6 +36,8 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
+| 16 | What should I play next? | M | **Workshopped and built 25 October 2026**, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. Not yet merged or deployed. See its section |
+| 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
 
 Production runs `f70a9cb`'s code, which was `main` on 23 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -52,6 +56,8 @@ Production runs `f70a9cb`'s code, which was `main` on 23 October 2026. Deploying
 - **#10 is the smallest** if a quick one is wanted. **Shipped 4 October 2026.**
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
   build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
+- **#17's look, whenever, and before the rest of #17.** It is a measurement rather than a build,
+  the user asked to see it, and it decides whether #17 is built at all.
 
 ## Rules every plan below follows
 
@@ -2069,6 +2075,290 @@ faults the three Vitest files, and the rows marked *in a browser* the new spec.
 - **"In the same transaction" needed a test of its own.** A command interceptor refuses the
   delete, and the notes must still be on the pass. It is green against the code before the change
   too, and red only for a move saved apart from the delete, which is the fault it exists for.
+
+---
+
+## 16. What should I play next? · built
+
+**Planned 23 October 2026**, from suggestions the user picked that day, and **workshopped and
+built on 25 October 2026**, on the branch `what-to-play-next`. The plan below is as it was
+written. What was decided and built follows it, from **Decided at pickup** on.
+
+**What.** A picker over Backlog, for the evening nothing on it stands out. Two optional factors
+narrow it: **how long you want to play** (an evening, a weekend, a few weeks) and **a genre to
+leave out**, as in *not another RPG*. With neither set it is **a complete random choice**, and that
+one lands with **a spin of a wheel**. The factors were the session's suggestion; the random choice
+and the wheel were the user's own.
+
+**It is reached for, never offered.** The board is kept for leisure, so nothing here suggests a
+game unasked, nudges a title for having waited, or keeps a record of what was picked. The picker
+answers when it is asked and says nothing otherwise.
+
+**What it builds on.** Everything it reads is already on a board row.
+- **The length is the card's**: `lengthHours`, which for a game is HowLongToBeat's All Styles
+  figure, the one Backlog's header adds up. When "How long will it take me?" has been told a pace
+  (`usePace`, per board and per browser), the length is in days at that pace, from
+  `daysToFinish` in `lib/pace.ts`, as Backlog's second line works it out. Without one it is in
+  hours.
+- **The genre is the one the card is painted as**: `resolveGenre` in `hobbies/index.ts`. A genre
+  chosen in the drawer wins over IGDB's order, so *not another RPG* leaves out what the board
+  shows as an RPG.
+- **The whole column, never a page.** A column loads 100 cards (`COLUMN_PAGE_SIZE`). Paging
+  `listColumn` with `status: 'Backlog'` to the end, as `libraryStatuses()` pages the library,
+  needs no backend change. The Backlog request already leaves the calendar's titles out, so a game
+  that is not out yet is never offered.
+- **Moving the pick is the board's own move**, from `useBoard`, so *Start playing* stamps the start
+  a drag into Playing would.
+
+**Not on a share.** Backlog shows on every share, through `ColumnFrame`, the frame both kinds of
+board draw. So the way in goes in `Column`, which only your own board draws, or somewhere else only
+your board has. Kept off a share, its words need no `Voiced` pair.
+
+### Decide at pickup
+
+Most of this is decided by eye, so render it first, at 390px as well as side by side.
+
+- **One panel or two modes.** Recommended: one panel, with the two factors above two buttons,
+  *Suggest three* and *Spin*. With no factors set, *Spin* is the complete random choice. With some
+  set, the wheel holds only what matches, and *Suggest three* draws three of the matches at
+  random. The alternative keeps them apart: a guided picker that answers with three, and a
+  separate *Surprise me* that spins over everything.
+- **The wheel.** A backlog of a hundred makes a hundred slivers, with no room on any of them for a
+  cover. Recommended: **eight titles drawn at random from the whole backlog**, each slice carrying
+  its cover, and the spin lands on one of them. Every title still has the same chance: eight in n
+  to be drawn, then one in eight to be landed on. Also worth rendering: every title as a slice in
+  its genre's colour, with the cover shown once it stops; and a reel of covers that spins and
+  slows, which suits any backlog but is not a wheel.
+- **Where the way in sits.** Recommended: Backlog's header, beside the sort control, which is
+  where the column's hours already sit on a phone. The alternative is a sentence under the empty
+  search box beside Discover's, *Not sure what to play?*, which would put what to add and what to
+  play side by side.
+- **What a second spin does.** Recommended: it leaves out the title the last one landed on, while
+  there are two or more titles to choose from. A second spin that lands on the same game reads as
+  broken.
+- **What a pick offers.** Recommended: *Start playing*, which moves it; its name, which opens its
+  journal as a name does everywhere else; and *Spin again*.
+- **The lengths in words, and where each stops.** A title with no estimate is only ever under *Any
+  length*, and the panel counts how many it left out, by the header's rule that a title with no
+  figure is counted rather than treated as short.
+- **Whether to show how long each title has waited.** Recommended: not at first. It is not on a
+  board row. `LibraryService.BacklogAsync`, which the Stats page reads, has it, but using it would
+  need a route of its own and one more copy of the `LengthHours` coalesce, which **What a fifth
+  hobby has to do** in CLAUDE.md would then have to list.
+
+### Things to get right
+
+- **The pick is made before the wheel turns.** The code chooses, and the wheel is told where to
+  land. That makes the result testable with an injected random source, and lets reduced motion
+  skip the spin and show the same pick.
+- **Nothing in the app reads `prefers-reduced-motion` yet**, so there is no precedent to copy.
+  Under it the pick shows straight away. `windowOfWidth` in `src/test/media.ts` throws on any
+  query but `min-width`, so the tests need it to answer this one too.
+- **To a screen reader the wheel is decoration.** The pick is announced in a live region, and the
+  keyboard goes to *Start playing*.
+- **Back closes it, as it closes the journal** (`useOverlayHistory`), which matters on the Android
+  phone the board is used from. If it is a dialog, its keyboard is `useModalPanel`'s, as the
+  journal's and the share dialog's are.
+- **If the slices wear genre colours, write every class name out in full.**
+  `` `fill-genre-${x}` `` generates nothing and paints a transparent slice (CLAUDE.md, **What
+  fails silently**).
+- **Games first**, from a `HobbyDefinition` block beside `stats` and `export`, with its words in
+  `hobbies/`. A films board would ask what to watch.
+
+### Tests first
+
+- **A backlog of 101 titles can land on the 101st.** Red if the picker reads only the column's
+  first page.
+- A given random value picks the title it names, and across every value each title has the same
+  chance.
+- At a pace, a title inside the chosen length is in and one outside it is out. With no pace the
+  lengths are in hours. A title with no estimate is only under *Any length*, and it is counted.
+- Leaving out RPG leaves out a title painted RPG, including one whose genre was chosen in the
+  drawer over IGDB's first.
+- When nothing matches, the panel says so and offers to widen the search. It never spins an empty
+  wheel.
+- Under reduced motion the pick shows with no spin, and it is the same pick the same random value
+  gives with motion.
+- A second spin never lands on the first one's title while there are two titles or more.
+- *Start playing* moves the title to Playing through the board's own move.
+- `SharedBoardPage` renders no way in.
+- e2e, under `page.emulateMedia({ reducedMotion: 'reduce' })`: spin, press *Start playing*, and the
+  card is in Playing after a reload. **Wait for the move to land before reloading.** A spec in
+  `journal.spec.ts` is thought to fail by reloading on the optimistic move (CLAUDE.md, **Tests**).
+- **Put the fault back:** read the first page instead of the whole column, then drop the
+  reduced-motion check. Each turns its own test red.
+
+### Decided at pickup
+
+Asked on 25 October 2026, before anything was drawn, as four questions with sketches. All four
+were the session's recommendations.
+
+| Choice | Picked | Against |
+|---|---|---|
+| The panel | **One panel, two buttons**: the two factors on top, then *Suggest three* and *Spin*. With nothing set, *Spin* is the complete random choice | two doors, a guided picker and a separate *Surprise me* with no filters; the wheel alone, with no shortlist |
+| How long | **Occasions, in hours**: an evening, a weekend, a few weeks, each a band of the `~` figure a card prints, so any card can be checked against a chip. **The pace stays out of the bands**: it is a daily average, and a weekend's play is not two average days. It appears beside a pick instead | sizes in hours, *Short*, *Medium*, *Long*; days at your pace, which would differ between a phone and a desk because the pace is per browser |
+| The genre | **Leave genres out**: every genre in the Backlog as a chip with its count, as many left out as you like, by the genre the card is painted as | one genre only, which narrows a small backlog to nothing; a chip cycling *any*, *only* and *out* |
+| Where the bands stop | **From the real backlog**, read from production, read-only, with the user's permission | the numbers alone; typical figures |
+
+**What production said, on 25 October 2026.** The local database had two titles in Backlog, too
+few to set a band by, so one read-only query over SSH read user 1's games board:
+- **The Backlog column holds six games.** There are 21 Backlog passes, and fifteen of those
+  titles are not out yet, so they are on the calendar.
+- **Five have an estimate, and all five take 28 hours or more**: 28.37, 29.15, 48.07, 67.64 and
+  130.78. The sixth, *Final Fantasy Resonance*, came out on 22 October and has none yet.
+- **Five are painted RPG** and one Shooter.
+
+So an evening and a weekend held nothing under the plan's bands, leaving out RPG left one game,
+and all six fit on a wheel of eight. Every render was staged with these six. The other columns,
+and ten more games for a bigger backlog, came from the local catalogue.
+
+### Decided from the renders
+
+Shot from the real board and a throwaway panel behind `?way=`, `?wheel=`, `?result=`, `?again=`,
+`?three=` and `?bands=` switches, Vite alone with every `/api/` request answered in the browser,
+at 1440 and 390 with each wheel's spin recorded on a phone. The page is private:
+https://claude.ai/artifact/3LYP8bU2xKYVu9TZDJ7PH3. Five of the six picks were the
+recommendations. The way in was the user's.
+
+| Choice | Picked | Against |
+|---|---|---|
+| The wheel | **Covers on the wheel**: up to eight slices, each with its cover and the card's genre stripe as an arc on the rim. With more than eight in the draw, eight are drawn at random whenever the draw changes, and the line above the wheel says so | every game a slice in its genre's colour, which on this backlog is five green slices and one blue; a reel of covers, the shortest panel, 599px after a spin against 763, but not a wheel |
+| A landed spin | **A row under the wheel**, which stays where it stopped with the slice outlined: the cover, the name, which opens the journal, the length and genre, the time at your pace, *Start playing*, and the second spin. 763px, which ends 13px above the foot of a 390 × 844 phone | a card over a faded wheel, 595px, which hides where it stopped |
+| A second spin | ***Not this one***: the game leaves the draw until the panel closes, and the line says *5 of 6 in the draw*. **Over the plan's recommendation** | *Spin again*, keeping every slice and refusing only the game just landed on, which lets three spins land on one game, another, and the first again |
+| Suggest three | **Rows**: the cover, the name, the length and genre, the time at your pace, and *Start playing* in words. 581px | tiles, three covers across, where on a phone the names wrap to three lines and the pace has no room |
+| Where the bands stop | **Four, with *A long haul***: under 5 h, 5 to 20, 20 to 50, and 50 or more. This backlog splits 0, 0, 3 and 2. The chips take a second row, 46px | the plan's three, under 4 h, 4 to 15, and 15 or more, on one row, which put all five in *A few weeks* |
+| The way in | **Backlog's header**: a die and *Pick* beside the sort control, on your board only. **The user's pick, over the recommended sentence under the search box.** Backlog's heading wraps at 1280 and 1440, which starts its cards 28px lower, and 24px on a phone. It fits on one line at 1920 | *Not sure what to play? Spin your backlog* under the search box, 0px on a desktop and 20px on a phone; a link on the year row, where both links break over two lines on a phone |
+
+**Found while rendering**, before the page went up:
+- **The first easing curve had a tail so flat** that the reel looked stopped about a second before
+  `transitionend`, and the result arrived late. The build uses easeOutCubic,
+  `cubic-bezier(0.33, 1, 0.68, 1)`: 4 seconds for the wheel.
+- **An odd number of slices puts two of one tone side by side**, the first and the last, which
+  the three-slice render shows. The build needs something to keep them apart.
+- **A left-out genre was first drawn filled**, as a chosen length is, so *chosen* and *left out*
+  looked alike. It is struck through on `sunken` instead.
+
+### Built
+
+Built on 25 October 2026, tests first, and not yet merged or deployed. The write-up is
+`docs/board.md`, **What should I play next?**, with its table of faults put back, and the look is
+`docs/design.md`'s, under the same name.
+
+- **`frontend/src/pick/`**: `draw.ts`, the arithmetic, `Wheel.tsx`, `PickPanel.tsx`, and
+  `PickButton.tsx` for Backlog's header. `wholeColumn` in `api/library.ts` and `wholeColumnKey`
+  in `board/keys.ts`. `HobbyDefinition.picker`, with games' words and bands, and `Genre.short`
+  for the chips' *RPG*. `Column` hands its frame an `action`, which a share's column never has.
+- **Two shared pieces learned something.** `useModalPanel` takes `active`, so a panel the journal
+  covers takes no keys. `windowOfWidth` answers `prefers-reduced-motion`, which nothing asked
+  before. And `boardServer` in `src/test/library.ts` now pages as the API does when a page size
+  is asked for, which is what let the 101st title be tested at all.
+- **Tests**: 21 in `draw.test.ts` and 20 in `PickPanel.test.tsx`, two for `wholeColumn` in
+  `library.test.ts`, one in `SharedBoardPage.test.tsx`, and three in `e2e/pick.spec.ts`. They
+  were shown red before the code existed, 18 failing and `draw.test.ts` unable to load, with
+  three kinds of exception, each checked by putting its fault back instead. Two assert that
+  something is absent, on a films board and on a share, and passed until there was something to
+  be absent. The three below, and the e2e spec, were written after the code.
+- **Three cases were added during the build** for promises the plan made and no case held: Escape
+  in the journal a pick opened closes the journal alone; a title moved from that journal is out of
+  the draw when you come back; and closing hands the keyboard back to *Pick*.
+
+**Where the build departs from the picks, and why:**
+- **A `line-soft` hairline between slices**, which the renders did not have, for the odd count
+  found while rendering. It is faint enough that the picked look is unchanged at six.
+- **The button is named *Pick*** and the question is its description and tooltip. Named by the
+  question, as first written, a voice saying "Pick" would not find it.
+- ***Start playing* on a phone shows Playing afterwards**, or the pick only seems to vanish from
+  Backlog. `pick.spec.ts` holds it.
+- **A pick's name opens the journal over the panel**, and Back from the journal comes back to the
+  pick. The plan said only that the name opens the journal, as a name does everywhere else.
+- **When *Not this one* has emptied the draw**, the empty state offers *Put them back* rather
+  than *Clear the filters*, and either puts everything back.
+- **The wheel lands on a timer too**, at 4.25 seconds, in case its `transitionend` never comes, so
+  the panel cannot be left spinning.
+- **How long each title has waited is not shown**, as the plan recommended and the leisure rule
+  agrees: nothing here counts a wait.
+
+**Not checked**: an iPhone, as ever, and the spin on Jimmy's own Android phone, which is the first
+thing to try after a deploy.
+
+---
+
+## 17. A Discover list from your ratings · planned
+
+**Planned 23 October 2026**, from suggestions the user picked that day. Nothing is built. **The
+first step is a look, not a build**: the user wants to see what it would suggest, and what it
+suggests decides whether there is anything to build.
+
+**What.** A fifth tab on Discover whose list is yours. The four lists now are the same for
+everybody. This one starts from the games you rated highest, asks IGDB for each one's
+`similar_games`, and shows what comes back, less what is already on your board. Each tile can say
+why it is there: *Because you rated Hollow Knight 9.5*.
+
+**The look.** Ask IGDB with the user's real ratings (the development database holds the games
+actually logged) and render the wall it would make. Read it as the other four lists were read
+before any was chosen (**What IGDB has, measured** in `docs/games-igdb.md`): whether the top of it
+is good, how far down it holds up, and what it fills with. If it is poor, #17 stops there, and
+that is a finding worth writing down.
+
+**Checked on 23 October 2026, in IGDB's documentation.** `similar_games` is a current field on
+`/games`, an array of game ids, and not one of the deprecated twins. Its neighbour `collection` is
+one, deprecated for `collections`, which matters only if a rule about series is ever wanted.
+
+**How it would work**, to be confirmed by the look:
+- **Seeds**: your finished games at or above some rating, by their IGDB ids
+  (`media.external_id`). The look decides how many, and from what rating.
+- **Two questions.** The first asks for the seeds' `similar_games`. The second asks for the games
+  those name, in one `where id = (…)` carrying `Discoverable`, which is Popular now's second
+  question. An empty `where id = ()` is an APIcalypse syntax error, so a list with nothing to ask
+  about never asks.
+- **Ranked by how many of your seeds point at a game**, then by how many people rated it.
+- **Nothing already on your board**, from any column, Dropped included. It is the first Discover
+  list that reads your board, so it is one more `ICurrentUser` call site to scope (CLAUDE.md,
+  **What fails silently**).
+- **Upserted on every view, like every list.** The cache holds IGDB's answer and never rows.
+
+### Decide at pickup
+
+After the look, and by eye where it is a matter of looks:
+
+- **The seeds.** A rating to reach, a top N, or both; and which pass's rating counts when a game
+  was played twice.
+- **Titles already on your board: left out, or shown with the ✓ chip** as the other lists show
+  them. Recommended: left out. A list for finding something new has no use for what you have.
+- **Whether a tile says why it is there.** Recommended: yes, naming the seed. A wall tile is now a
+  cover, a name and one button, so a reason changes the tile, and it is rendered at 1440, 768 and
+  390.
+- **The tab's name**, beside *New releases*, *Popular now*, *Most anticipated* and *Most played*.
+
+### Things to get right
+
+- **The cache key has to carry the seeds.** It is the list, the day and the place now, because
+  every list is the same for everybody. Keyed that way, this list would hand one person's
+  suggestions to the next person to open the tab: a stranger's data, with no error. Keyed on the
+  user alone, a new rating would not move the list until the cache expired. Keyed on the seeds,
+  both come out right.
+- **With no seeds**, nothing rated yet, the tab says how it fills, and IGDB is not asked.
+- **Both fakes have to answer it.** `FakeIgdbClient` needs the new question. `igdb-stub.mjs`
+  parses each clause rather than recognising a question whole, so its fixtures need
+  `similar_games`, and it needs the second question's shape. Add a decoy that only the filter
+  keeps off, as *Velvet Lounge* is for the other lists.
+- **Send each query body to the live API as the client builds it**, as was done for the other
+  four. The stub parses loosely, and a syntax error would reach production as a 502 on the page.
+
+### Tests first
+
+- **Seeds are yours alone.** Another user's 10 never puts a game on your list.
+- Nothing on your board is offered, from any column.
+- Games are ranked by how many of your seeds point at them.
+- The filter every list carries still holds: `themes != (42)`, with DLC, seasons and updates off.
+- With no rated finishes, the list is empty with its reason, and IGDB is never asked.
+- **Two users with different seeds get different lists on the same day.** Red with today's key.
+- A new rating changes the list without waiting for the cache to expire.
+- `A_cached_list_still_hands_out_media_ids_that_exist` holds for this list too.
+- e2e, in `discover.spec.ts`: finish a game and rate it, open the tab, see a game similar to it,
+  and add that game.
+- **Put the fault back:** key the cache without the seeds, then stop leaving out the board. Each
+  turns its own test red.
 
 ---
 
