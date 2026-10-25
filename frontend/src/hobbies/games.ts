@@ -87,11 +87,11 @@ export const GAMES: HobbyDefinition = {
     // IGDB's broadest words: it covers Skyrim, Diablo and Disco Elysium alike. A game carrying
     // both is usually a visual novel with battles in it. One line to move if that reads wrong.
     { name: 'Visual Novel', stripe: 'bg-genre-visual-novel' },
-    { name: 'Role-playing (RPG)', stripe: 'bg-genre-rpg' },
+    { name: 'Role-playing (RPG)', short: 'RPG', stripe: 'bg-genre-rpg' },
     { name: 'Shooter', stripe: 'bg-genre-shooter' },
     { name: 'Platform', stripe: 'bg-genre-platform' },
     { name: 'Fighting', stripe: 'bg-genre-fighting' },
-    { name: "Hack and slash/Beat 'em up", stripe: 'bg-genre-brawler' },
+    { name: "Hack and slash/Beat 'em up", short: "Beat 'em up", stripe: 'bg-genre-brawler' },
     { name: 'Racing', stripe: 'bg-genre-racing' },
     { name: 'Strategy', stripe: 'bg-genre-strategy' },
     { name: 'Simulator', stripe: 'bg-genre-simulator' },
@@ -245,5 +245,23 @@ export const GAMES: HobbyDefinition = {
     explains:
       'Anyone with the link sees your games, read-only. You choose what’s on it, and your notes never are.',
     credits: 'Game data from IGDB, and estimates from HowLongToBeat.',
+  },
+
+  // "What should I play next?", picked at the #16 workshop on 25 October 2026. The bands are
+  // occasions in the hours a card prints, so any card can be held against a chip, and your pace
+  // stays out of them: a pace is a daily average, and a weekend's play is not two average days.
+  // Where they stop came from the real backlog. Its six games all take 28 hours or more, so an
+  // evening and a weekend held none of them, and the fourth band is what splits the rest.
+  picker: {
+    question: 'What should I play next?',
+    start: 'Start playing',
+    bands: [
+      { label: 'An evening', range: 'under 5 h', max: 5 },
+      { label: 'A weekend', range: '5–20 h', min: 5, max: 20 },
+      { label: 'A few weeks', range: '20–50 h', min: 20, max: 50 },
+      { label: 'A long haul', range: '50 h or more', min: 50 },
+    ],
+    noLength: 'no estimate',
+    withoutLength: (titles) => `${titles} with no estimate`,
   },
 };

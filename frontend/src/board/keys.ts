@@ -31,6 +31,19 @@ export const columnKey = (
 ) => ['library', hobby, status, { sort, year }] as const;
 
 /**
+ * One column's every title, for the picker — a column on the board is one page of it.
+ *
+ * **Under the column's own prefix on purpose.** A move settles `['library', hobby, from]` and
+ * `['library', hobby, to]`, and an add, a remove or a drawer write settles `['library', hobby]`, so
+ * every one of them reaches this without naming it, where a key of its own would have been one
+ * more thing each of them had to remember. A move also *removes* the column's views nobody is
+ * looking at, which takes this with them while the picker is shut: it is read afresh each time it
+ * opens.
+ */
+export const wholeColumnKey = (hobby: string, status: LogStatus) =>
+  ['library', hobby, status, 'whole'] as const;
+
+/**
  * The year applies to every column except Backlog and On Hold.
  *
  * Kept in one place because the column's request and the drag's cache key must agree about it:

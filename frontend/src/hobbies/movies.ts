@@ -166,4 +166,8 @@ export const MOVIES: HobbyDefinition = {
   // is this block, and the board's columns and calendar need nothing more. See
   // HobbyDefinition.share.
   share: null,
+
+  // No picker yet: built on the games board first. A films board would ask what to watch, and its
+  // bands would be runtimes rather than evenings and weekends. See HobbyDefinition.picker.
+  picker: null,
 };

@@ -105,6 +105,13 @@ export interface ColumnProps {
   leaving: ColumnLeaving;
   menu: ColumnMenu;
   onOpen: OpenJournal;
+
+  /**
+   * Something only your board offers, beside the sort control: Backlog's way into "What should
+   * I play next?". Handed to the frame from here because a share's columns wear the same frame,
+   * and a share moves nothing.
+   */
+  action?: ReactNode;
 }
 
 /** A column of your own board: a drop target, and a stack of cards you can carry and open. */
@@ -123,6 +130,7 @@ export function Column({
   leaving,
   menu,
   onOpen,
+  action,
 }: ColumnProps) {
   // The ref goes on the section, and it has to. It used to hang off the card list below, which
   // is not rendered while the column is collapsed — so a closed Dropped column had no rect at
@@ -175,6 +183,7 @@ export function Column({
       pace={pace}
       dropRef={setNodeRef}
       tinted={isOver}
+      action={action}
     >
       {(items) => (
         <SortableContext
@@ -246,6 +255,9 @@ export interface ColumnFrameProps {
   /** Whether a card held over the board would land here, which tints the well. */
   tinted?: boolean;
 
+  /** Beside the sort control, on your board alone. See `ColumnProps.action`. */
+  action?: ReactNode;
+
   /** The cards, drawn from this page of the column. */
   children: (items: LibraryItem[]) => ReactNode;
 }
@@ -272,6 +284,7 @@ export function ColumnFrame({
   pace,
   dropRef,
   tinted = false,
+  action,
   children,
 }: ColumnFrameProps) {
   const headingId = useId();
@@ -341,6 +354,7 @@ export function ColumnFrame({
           )}
 
           <div className="ml-auto flex items-center gap-1">
+            {action}
             <SortSelect
               label={label}
               lengthLabel={definition.lengthLabel}

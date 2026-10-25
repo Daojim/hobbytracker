@@ -190,6 +190,9 @@ export const ANIME: HobbyDefinition = {
   // is this block, and the board's columns and calendar need nothing more. See
   // HobbyDefinition.share.
   share: null,
+
+  // No picker yet: built on the games board first. See HobbyDefinition.picker.
+  picker: null,
 };
 
 /**

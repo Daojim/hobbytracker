@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { activityYears } from '../api/library';
+import { activityYears, wholeColumn } from '../api/library';
+import { PICK_BUTTON_ID, PickButton } from '../pick/PickButton';
+import { PickPanel, pickTitleId } from '../pick/PickPanel';
 import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
 import { noteResultId } from '../search/NoteResults';
@@ -17,7 +19,7 @@ import { useMediaQuery } from '../lib/useMediaQuery';
 import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { useBoard } from './useBoard';
 import { YearPicker } from './YearPicker';
-import { ALL_MANUAL, yearFor, yearsKey } from './keys';
+import { ALL_MANUAL, wholeColumnKey, yearFor, yearsKey } from './keys';
 import { BOARD_GAP, SIDE_BY_SIDE, boardTracks } from './grid';
 import { useHiddenColumns } from './hiddenColumns';
 import { columnsFor, hobbyDefinition } from '../hobbies';
@@ -118,9 +120,24 @@ function Board({ hobby }: { hobby: Hobby }) {
   // once is never marked in the next journal opened by another door.
   const [atNote, setAtNote] = useState<FoundNote | null>(null);
 
+  // Whether "What should I play next?" is open: a history entry, as the journal is, so a phone's
+  // Back closes it. A pick's name opens the journal on top of it, as a second entry, and Back from
+  // the journal comes back to the pick where it was. The entry holds an id because the journal's
+  // does; the picker is only ever open for the one Backlog, so it opens for 1.
+  const { openFor: pickFor, open: openPick, close: closePick } = useOverlayHistory('pick');
+  const picking = pickFor !== null;
+
   const { data: years } = useQuery({
     queryKey: yearsKey(hobby),
     queryFn: () => activityYears(hobby),
+  });
+
+  // The whole Backlog, which the picker draws from — a column on the board is one page of it.
+  // Asked for only while the picker is open, and afresh each time it opens.
+  const whole = useQuery({
+    queryKey: wholeColumnKey(hobby, 'Backlog'),
+    queryFn: () => wholeColumn(hobby, 'Backlog'),
+    enabled: picking,
   });
 
   // Set during render, which is React's own way of adjusting state to something that arrived
@@ -163,6 +180,17 @@ function Board({ hobby }: { hobby: Hobby }) {
     openedFrom.current = null;
   }, [journalFor]);
 
+  // And when the picker closes, back to the button that opened it, by id for the same reason.
+  const wasPicking = useRef(false);
+  useEffect(() => {
+    if (picking) {
+      wasPicking.current = true;
+    } else if (wasPicking.current) {
+      wasPicking.current = false;
+      document.getElementById(PICK_BUTTON_ID)?.focus();
+    }
+  }, [picking]);
+
   // A card asking whether it was finished takes the keyboard when it starts asking, as the
   // journal's question does: the menu item or the drag that asked has gone. Here rather than in
   // the card, and when the question changes rather than when the card mounts, because a refetch
@@ -176,8 +204,9 @@ function Board({ hobby }: { hobby: Hobby }) {
     }
   }, [leavingFor, leavingTo]);
 
-  // Every way into the drawer: a card, a calendar row, a search result's name, or a note a search
-  // found. Each names the element the keyboard goes back to.
+  // Every way into the drawer: a card, a calendar row, a search result's name, a note a search
+  // found, or a pick's name in "What should I play next?". Each names the element the keyboard
+  // goes back to.
   function openJournalFrom(
     returnTo: string,
     mediaId: number,
@@ -325,6 +354,13 @@ function Board({ hobby }: { hobby: Hobby }) {
                         askHowLong: options?.askHowLong,
                       })
                     }
+                    // Backlog's way into the picker, on a board whose hobby has one. Handed to
+                    // the column here, because only your own board draws a Column.
+                    action={
+                      status === 'Backlog' && definition.picker !== null ? (
+                        <PickButton question={definition.picker.question} onPick={() => openPick(1)} />
+                      ) : undefined
+                    }
                   />
                 ))}
               </div>
@@ -382,6 +418,28 @@ function Board({ hobby }: { hobby: Hobby }) {
           columns={columns}
           onMove={(from, to) => board.moveAndWait(journalFor, from, to)}
           onPutBack={(to) => board.putBackAndWait(journalFor, to)}
+        />
+      )}
+
+      {picking && definition.picker !== null && (
+        <PickPanel
+          hobby={hobby}
+          items={whole.data}
+          error={whole.error}
+          // Under the journal a pick's name opened, kept with its pick for Back.
+          covered={journalFor !== null}
+          // Start playing moves to Playing, so it is offered only while the board draws Playing:
+          // the card menu's rule, or the pick would go somewhere off screen.
+          canStart={columns.some(({ status }) => status === 'InProgress')}
+          onStart={(item) => {
+            // The board's own move, so the start is stamped as a drag into Playing stamps it.
+            board.move(item.mediaId, 'Backlog', 'InProgress');
+            // On a phone, show the column it went to, or it only seems to vanish from Backlog.
+            setShown('InProgress');
+            closePick();
+          }}
+          onOpen={(mediaId) => openJournalFrom(pickTitleId(mediaId), mediaId)}
+          onClose={closePick}
         />
       )}
     </main>

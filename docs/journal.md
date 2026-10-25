@@ -298,7 +298,10 @@ Settled:
   reader the board behind is inert, and letting the keyboard walk out onto it would make that promise
   false for anyone who reads by tabbing. **That keyboard is `lib/useModalPanel.ts`**, moved out of
   `EntryDrawer` on 5 October 2026 when the share dialog in Settings needed the same promise kept,
-  so the two cannot drift. Planting Escape-does-nothing there turns both dialogs' tests red.
+  so the two cannot drift. Planting Escape-does-nothing there turns both dialogs' tests red. **The
+  picker wears it too since #16, and gave it `active`**: a pick's name opens this drawer over the
+  picker, which stays mounted for Back and takes no keys meanwhile, or this drawer's Escape would
+  close both.
 - **The phone's Back closes it, which is why the drawer's openness is a history entry.** Android has
   one Back button and it means *out of this*; over an open drawer it took the board, which on a phone
   is the whole app. Opening pushes an entry so the press has something of its own to pop, and closing
@@ -348,8 +351,9 @@ Settled:
   Refetches remount the card while the drawer is open, so the node captured at open time is usually
   detached. **Each door has an id of its own**: `cardTitleId` in `src/board/Card.tsx`,
   `calendarTitleId` in `src/board/ComingSoon.tsx`, `resultTitleId` in
-  `src/search/SearchResult.tsx`, and since #6 `noteResultId` in `src/search/NoteResults.tsx`, by
-  the note rather than the title, because one title can have several notes found. One id would not
+  `src/search/SearchResult.tsx`, since #6 `noteResultId` in `src/search/NoteResults.tsx`, by
+  the note rather than the title, because one title can have several notes found, and since #16
+  `pickTitleId` in `src/pick/PickPanel.tsx`, a pick's name, which opens the drawer over the picker. One id would not
   do, because a title on your board is very often a card and a search result at once, and two
   elements cannot share one. `BoardPage` keeps the id of whichever was pressed. **The calendar's door lost the keyboard until 7 October 2026**: it was
   handed back by `cardTitleId`, a title on the calendar has no card, and the keyboard was left on

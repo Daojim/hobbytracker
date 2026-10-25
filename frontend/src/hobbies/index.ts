@@ -11,6 +11,7 @@ export type {
   Genre,
   HobbyDefinition,
   JournalSection,
+  LengthBand,
   PassFields,
   SearchHit,
   TitleDetail,
