@@ -36,6 +36,7 @@ the header.
 | Your data | **A row in Settings after Columns**, and after Sharing where a board can be shared: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
 | Deleting your account | **A tinted row under it, on every board, that opens into the warning**: what it takes in each hobby's words, a word to type, and a filled button. Afterwards the sign-in card reads *Account deleted*. Picked on 4 October 2026 in two rounds. See **Deleting your account** |
 | Searching your notes | **A *Titles \| Notes* switch beside the search box**, a card per title with its cover for the notes found, **the accent at 25% behind each word found**, and a bar of the accent beside the note the journal opens at. Picked on 9 October 2026 from renders; the mark was the user's, over bold. See **Searching your notes** |
+| What should I play next? | **A dialog opened by a die and *Pick* in Backlog's header**: two rows of chips, a line saying what is in the draw, then a wheel of up to eight covers or three suggestions as rows. Picked on 25 October 2026 from renders of the real backlog. The header button was the user's, over a sentence under the search box. See **What should I play next?** |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
 | Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
@@ -639,6 +640,52 @@ recommendations. What each does, and why, is in `docs/games-igdb.md` and `docs/j
 - **The note's bar is the accent as a mark**, beside the text rather than behind it, so on Ember
   the red stays where the app is speaking. The tinted note was the accent at 10%, and its muted
   date measured 4.52:1 on Dusk, the tightest number on the page.
+
+### What should I play next?
+
+**A dialog over the board: two rows of chips, a count, then a wheel of covers or three rows.**
+Picked at the #16 workshop on 25 October 2026 from renders of the real app on Jimmy's real
+Backlog, six games read from production, with each wheel's spin recorded on a phone. The page is
+private: https://claude.ai/artifact/3LYP8bU2xKYVu9TZDJ7PH3. Five of the six picks were the
+recommendations, and the way in was the user's. What it does is `docs/board.md`'s.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| The wheel | **Covers on the wheel**, up to eight | a slice per title in its genre's colour, which on a backlog of five RPGs and a shooter was five green slices and one blue; a reel of covers, the shortest panel but not a wheel |
+| A landed spin | **A row under the wheel**, which stays where it stopped | a card over the faded wheel, 168px shorter, which hides where it stopped |
+| A second spin | ***Not this one***, the game off the wheel until the panel closes | *Spin again*, every slice kept |
+| Suggest three | **Rows** | three covers across, where on a phone a name wraps to three lines |
+| The bands | **Four, with *A long haul***, a second row of chips | three, on one row, which put all five estimates in one band |
+| The way in | **A die and *Pick* in Backlog's header. The user's pick** | a sentence under the search box, 0px on a desktop; a link on the year row, which broke over two lines on a phone |
+
+- **The share dialog's frame, higher on the screen.** `max-w-md`, `rounded-xl border border-line
+  bg-surface p-5 shadow-xl`, over the journal's `bg-scrim`, at `pt-[8vh]` on a phone and
+  `pt-[10vh]` from 768px where the share dialog sits at 12vh, because the wheel needs the room.
+  Measured in the built panel: 641px before a spin, 747 with a pick under the wheel that has no
+  pace line and 763 with one. On a 390 × 844 phone that ends above the foot of the screen, which
+  `pick.spec.ts` holds.
+- **The lengths are radios and the genres toggles.** A length chip is `rounded-lg border px-2.5
+  py-1 text-xs`, its label and count over its range in 11px, and the one chosen is `bg-fg
+  text-surface`. A genre chip is `rounded-full`, and one left out is struck through on `bg-sunken`
+  in `text-muted`: drawn filled first, as a chosen length is, chosen and left out looked alike.
+  Their counts are the whole backlog's, and the line under them says what is in the draw.
+- **The wheel is 300px across at most**, slices in `fill-well` and `fill-sunken` by turns. **The
+  build adds a `line-soft` hairline between slices that the renders did not have**: with an odd
+  number of slices the first and the last share a tone, and the three-slice render drew them as
+  one. The card's genre stripe is an arc six units wide on the rim, from whole class names in
+  `RIM`. The slice it lands on is outlined in the accent, red on Ember and gold on Blood Red, and
+  the pointer is `fill-fg`.
+- **It turns for 4 seconds on easeOutCubic**, `cubic-bezier(0.33, 1, 0.68, 1)`. The first curve
+  rendered had a tail so flat that the reel looked stopped about a second before its
+  `transitionend`, and the result arrived late.
+- **The pick's row is `bg-well` in `border-line-soft`**, a 48px cover, the name in the accent as a
+  search result on your board wears it, the facts and the pace in `text-xs text-muted`, and *Start
+  playing* and *Not this one* as small bordered buttons on `bg-surface`.
+- **The header button is `rounded border border-line bg-surface px-1.5 py-0.5 text-xs`**, with a
+  14px die drawn in `currentColor`. It is named *Pick*, what it says, so a voice asking for it
+  finds it, and described by the question, which is also its tooltip. **Backlog's heading wraps
+  at 1280 and 1440**, which starts its cards 28px lower than on a board without it, and 24px on a
+  phone. It fits on one line at 1920.
 
 ### The page's ground
 

@@ -823,6 +823,74 @@ a hobby whose pass records no hours never compares, whatever words it has.
 | Backlog's pace line on every column | *is Backlog's alone* |
 | The pace read once rather than subscribed to | `Column.test.tsx`'s *hears a new one* |
 
+### What should I play next?
+
+**A panel over the board that picks from the Backlog column**, opened by *Pick* in Backlog's
+header. Built on 25 October 2026 for #16 in `docs/plans/games-board-next.md`, which has every
+choice and the workshop that made them. Its look is `docs/design.md`'s, under **What should I play
+next?**. What belongs here is how it reads the board and what it does to it.
+
+- **It draws from the whole column, never a page.** A column on the board loads 100 cards.
+  `wholeColumn` in `api/library.ts` pages `listColumn` to the end, as `libraryStatuses()` pages
+  the library, so a backlog of 101 can land on the 101st. No backend change: the Backlog request
+  already leaves the calendar's titles out, so a game that is not out yet is never offered.
+- **Its key is under the column's own prefix**, `['library', hobby, 'Backlog', 'whole']`, so a
+  move, an add, a remove and a drawer write all reach it without naming it. That matters in one
+  place: a pick's name opens its journal over the panel, the journal's heading can move the title,
+  and the panel it goes back to has already lost it. It is asked for only while the panel is open,
+  and afresh each time.
+- **The draw is `pick/draw.ts`, and the panel only says it.** A band of the length a card prints,
+  genres left out by the one the card is painted as (`resolveGenre`, so a genre chosen in the
+  journal wins), and the titles said no to. A title with no length is in no band. It is under *Any*
+  alone, and the line under the chips counts how many a band left out, by the column header's rule.
+- **The pick is made before anything moves.** `spinFor` names the slice and the wheel is told where
+  to land, so a test names the pick with a random value, and reduced motion shows the same pick
+  with no spin. It is the first thing in the app to read `prefers-reduced-motion`, so
+  `windowOfWidth` in `src/test/media.ts` answers that query now as well as `min-width`.
+- **Every title has the same chance.** A wheel holds at most eight (`WHEEL_SLICES`), drawn
+  uniformly from the draw, and the spin lands uniformly on one: eight in n, then one in eight.
+  *Not this one* takes the title out of the draw until the panel closes and fills its slot from
+  the rest, which keeps the wheel fair. `draw.test.ts` counts it over 12,000 wheels.
+- **Its openness is a history entry, as the journal's is** (`useOverlayHistory('pick')`), so a
+  phone's Back closes it. A pick's name pushes the journal as a second entry over it, and Back from
+  the journal comes back to the pick where it was. While covered the panel stays mounted and takes
+  no keys, through `useModalPanel`'s `active`: listening, it would close itself on the Escape meant
+  for the journal, and Back would go two steps.
+- ***Start playing* is the board's own move**, `board.move(id, 'Backlog', 'InProgress')`, so the
+  start is stamped as a drag into Playing stamps it, and the panel closes. On a phone the switcher
+  goes to Playing, or the pick only seems to vanish from Backlog. It is offered only while the
+  board draws Playing, by the card menu's rule.
+- **Not on a share.** `Column` hands the frame an `action` beside its sort control, and
+  `SharedColumn` hands it nothing, so its words need no `Voiced` pair.
+- **Games only, as a choice in the hobby files rather than a branch.** `HobbyDefinition.picker`
+  holds the question, *Start playing* and the bands, because a length is the hobby's: a film's
+  would be a runtime nobody counts in weekends.
+
+**One consequence worth knowing rather than fixing:** a pick past the column's first 100 has no
+card in the cache, so *Start playing* moves it without the optimistic write and the reorder that
+follows one, and it arrives in Playing wherever its old position puts it. It reaches Playing either
+way. Only its place in a hand-made order is left to the next drag.
+
+**Checked by putting each fault back**, one at a time, against the finished feature:
+
+| Fault | What goes red |
+|---|---|
+| The first page only | `wholeColumn`'s test, and *draws from the whole Backlog, so the 101st title can be picked* |
+| Reduced motion ignored | *shows the pick at once under reduced motion*, and the nine cases that land through it |
+| The way in drawn by the frame, on a share too | *offers no way to pick what to play* in `SharedBoardPage.test.tsx` |
+| *Not this one* leaving the title in the draw | *takes a game said no to out of the draw* |
+| A genre by IGDB's first rather than the one painted | four cases in `draw.test.ts` and two in the panel's |
+| No estimate read as nought | *never hold a title with no estimate*, and the panel's band counts |
+| The covered panel still listening | *keeps Escape in the journal a pick opened for the journal* |
+| The whole column under a key of its own | *takes a title moved from the journal a pick opened out of the draw* |
+| *Start playing* offered without Playing on the board | *offers no Start playing while Playing is taken off the board* |
+| The wheel always the first eight | *gives every title in a big draw the same chance of a slice* |
+| The keyboard not handed back to *Pick* | *closes on Escape and hands the keyboard back to Pick* |
+| The keyboard left where it was on landing | the three cases that land |
+| *Start playing* closing without moving | `pick.spec.ts`'s reload case and its phone case |
+| A phone left on Backlog after *Start playing* | `pick.spec.ts`'s phone case |
+| A films board given a picker | *is not offered on a board whose hobby has no picker yet* |
+
 ### A share of the board
 
 **A share is the board, read-only, by somebody holding its link:** `/share/:token`, outside the

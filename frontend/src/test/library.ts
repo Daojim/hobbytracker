@@ -146,11 +146,22 @@ export function boardServer(
       const theirs = asked !== null && asked !== hobby;
       const items = theirs ? [] : ((status === null ? undefined : columns[status]) ?? []);
 
-      return HttpResponse.json(
-        libraryPage(items, {
+      // Paged as the API pages, when a page size is asked for: a column of 101 answers 100 and
+      // says there are 101, and the 101st is on page 2. Without this a fixture over a page long
+      // hands the whole column to a reader that only asked for one page, and a reader that never
+      // asks for the second passes.
+      const pageSize = Number(url.searchParams.get('pageSize') ?? items.length);
+      const page = Number(url.searchParams.get('page') ?? 1);
+      const shown = pageSize > 0 ? items.slice((page - 1) * pageSize, page * pageSize) : items;
+
+      return HttpResponse.json({
+        ...libraryPage(shown, {
+          total: items.length,
           hours: theirs || status === null ? NO_HOURS : (hours[status] ?? NO_HOURS),
         }),
-      );
+        page,
+        pageSize: pageSize > 0 ? pageSize : 100,
+      });
     }),
 
     http.post('/api/library/:mediaId/status', async ({ params, request }) => {

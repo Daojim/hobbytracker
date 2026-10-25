@@ -35,7 +35,7 @@ thing always known before an edit:
 | Touching | Read first |
 |---|---|
 | `Domain/`, `Data/`, a migration, anything about timestamps or what year a row is in | `docs/data-model.md` |
-| `LibraryService`, `LibraryController`, `frontend/src/board/` | `docs/board.md` |
+| `LibraryService`, `LibraryController`, `frontend/src/board/`, `frontend/src/pick/` | `docs/board.md` |
 | `frontend/src/journal/`, `LogEntryService`, `NoteService` | `docs/journal.md` |
 | `frontend/src/index.css`, `src/theme/`, `frontend/icons/`, `frontend/public/`, anything about colour, contrast or width | `docs/design.md` |
 | `AuthService`, `AuthController`, `AccountService`, `AccountController`, `SessionValidator`, `Program.cs`'s auth block, `frontend/src/shell/`, `frontend/src/account/` | `docs/auth.md` |
@@ -67,6 +67,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | | | |
 |---|---|---|
 | **The board** | Five columns, On Hold among them, and any but Backlog taken off in Settings. Drag or a card's `⋯` menu, manual ranking, per-column sort, one year control over the whole board, and on games each column's hours under its heading. **Every search result and Discover tile adds straight to Backlog, Playing or Completed**, dated as a drag would date it | `docs/board.md` |
+| **What should I play next?** | *Pick* in Backlog's header opens a panel: how long you want to play and genres to leave out, then a wheel of covers that spins onto one, or three suggestions. **Every title in the whole column has the same chance**, *Not this one* takes a game out of the draw, and *Start playing* is a drag's move | `docs/board.md` |
 | **Stats** | A page under the games board for a year at a time: four tiles of headline numbers, then every finish as a cover by month, your hours against HowLongToBeat game by game, your ratings point by point, and the backlog oldest first with how long each title has waited. **Every playthrough counts, where the board counts titles** | `docs/stats.md` |
 | **The spreadsheet** | The games board as an Excel workbook, from a row in Settings: every title as its card shows it, every playthrough, every note. **Everything you have, not what the board is showing** — every column, every year, and the calendar's titles. Real dates and numbers, and nothing a formula | `docs/export.md` |
 | **Deleting your account** | A tinted row in Settings, on every board, that opens into a warning naming the sign-in and counting every board, and **asks for the word *delete***. One row goes and the database cascades the rest; the catalogue stays. **Every other device is signed out at its next request**, because the session is checked against the account on every one | `docs/auth.md` |
@@ -235,7 +236,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── lib/preferenceStore.ts  a stored preference two components share, with no provider
 │       ├── lib/pace.ts   how much you play: "How long will it take me?" and Backlog's line
 │       ├── lib/voice.ts  who a page's words are to: the owner, or — on a share — nobody
-│       ├── lib/useModalPanel.ts  a modal panel's keyboard: the journal's, and the share dialog's
+│       ├── lib/useModalPanel.ts  a modal panel's keyboard: the journal's, the share dialog's and
+│       │                 the picker's
 │       ├── hobbies/      ONE FILE PER HOBBY — every word a person reads, the genre list,
 │       │                 search dispatch, and which fields a pass of that kind has
 │       ├── board/        keys.ts owns every query key, sensors.ts the drag's activation
@@ -244,6 +246,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── journal/      the drawer over the board
 │       ├── search/       the bar and result strip above the board, and the add both surfaces share
 │       ├── discover/     the Discover page: a wall of what is popular, one list at a time
+│       ├── pick/         "What should I play next?": draw.ts is its arithmetic, Wheel.tsx the
+│       │                 wheel, PickPanel.tsx the panel over the board
 │       ├── stats/        the Stats page; stats.ts is its arithmetic, done in hundredths
 │       ├── export/       the spreadsheet: sheets.ts builds the three sheets in the hobby's words,
 │       │                 download.ts loads the writer only when the row in Settings is pressed
@@ -491,6 +495,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Deleting an account | **A tinted row under *Your data* on every board, opening into a warning that asks for the word *delete***, in any case, before its filled button works. It names the sign-in, counts each board in the hobby's own word, and says the nightly backups keep a copy for about two weeks. **`DELETE /api/account` removes the `users` row and the cascades take the rest**; `SessionValidator` checks every cookie against its account, so other devices are signed out rather than left as a user with no row. Afterwards the sign-in card reads *Account deleted*. Every choice was the recommendation, from renders on 4 October 2026. `docs/auth.md`, `docs/design.md` |
 | Sharing | **One revocable link per board, from a Sharing row in Settings that opens a dialog.** Every part but Backlog is a box (Playing, On Hold, Completed, Dropped, Coming soon, Stats), **stored as the list shown**, so anything added to the app later stays off existing shares; the owner's name is a box, off until ticked; **notes never**. A share is the board, its calendar and its Stats page, read-only, under a banner, in words written to nobody, and **Stats is whole**. Unknown, stopped and switched off are **one 404**, and a share's years come only from the columns it shows. The token is plain text, so Settings can show it again, and stopping deletes the row. **Scoping stays at the call site**: a share's reads name the token's owner, and `ICurrentUser` is never swapped for one. Every choice but the banner, the user's own over a heading, was the recommendation, from renders on 4 and 5 October 2026. `docs/auth.md`, `docs/design.md` |
 | Searching notes | **A *Titles \| Notes* switch beside the search box: one box, and never both at once**, starting on Titles at every load. **Every word in any order, each matched as the characters it is by `ILIKE`** — not full-text search, because notes are written in Japanese — over one board's notes, newest first, fifty at most. A card per title with its cover, and a note found opens the journal **at that note**: scrolled to, a bar beside it, its words marked and the keyboard on it. **The words wear the accent at 25%, the user's pick over bold, which puts red behind text on Ember.** Four choices before any render and four from renders on 9 October 2026. `docs/games-igdb.md`, `docs/journal.md`, `docs/design.md` |
+| Picking what to play | **A *Pick* button in Backlog's header, the user's pick over a sentence under the search box**, opening a dialog: four bands of the hours a card prints (an evening, a weekend, a few weeks, a long haul) and genres left out by the one a card is painted as, then *Spin*, a wheel of up to eight covers, or *Suggest three*. *Not this one* takes a game out of the draw until the panel closes. **The whole column, never a page, and the pick made before the wheel turns**, so reduced motion shows the same pick. Backlog only, games only, never on a share, nothing offered unasked and nothing recorded. Four choices in words and six from renders of the real backlog on 25 October 2026. `docs/board.md`, `docs/design.md` |
 | Spreadsheet | **A three-sheet `.xlsx` of everything on the board** — Games as the cards show them, every playthrough, every note — from a row in a *Your data* group after Columns in Settings. Every column, every year and the calendar's titles, because the year control and Settings decide what you see, not what you have. ISO dates as real date cells, numbers as numbers, nothing a formula, and the HowLongToBeat link a plain address. **The server sends facts and the client writes the words**, through write-excel-file loaded when the row is pressed. Games only, from `HobbyDefinition.export`. Every choice but one was the recommendation, from renders on 4 October 2026; *All genres* and the link were the user's. `docs/export.md`, `docs/design.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named. **Only a day counts down**, in words and in a bar, and never for a cancelled title; **each title sits at the last day it could come out, with a quarter under a heading of its own**, so no heading repeats. It sat at the first day until 23 October 2026, when all four choices were picked from renders, each the recommendation. And it is **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
@@ -614,8 +619,8 @@ shuffled.
       a feature is built on the games board first and taken to the other hobbies afterwards. Ten
       were planned in `docs/plans/games-board-next.md`, one section each, to be picked up in any
       order, an eleventh, a bug, was added on 4 October 2026, two about the journal on
-      7 October, and two more about it on 8 October, after a mistaken finish cost a pass its
-      notes:
+      7 October, two more about it on 8 October, after a mistaken finish cost a pass its
+      notes, and two from suggestions the user picked on 23 October:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -677,6 +682,14 @@ shuffled.
         only pass how many go with it. The renders found a sentence running on from a pass's
         facts, so a confirm with something to say takes a line of its own. Every choice was the
         recommendation, two of them widening the plan (PR #74, deployed)
+      - [x] what should I play next? — *Pick* in Backlog's header opens a panel: four bands of
+        hours and genres to leave out, then a wheel of covers or three suggestions, over the whole
+        column with every title an equal chance. The real backlog was read before anything was
+        drawn, six games all 28 hours or more, which added *A long haul*. Five of six looks were
+        the recommendation; the way in was the user's (built 25 October 2026)
+      - [ ] a Discover list from your ratings — IGDB's similar games for what you rated highest,
+        less what is on your board. **A look at the real results comes first**, and decides
+        whether it is built
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.

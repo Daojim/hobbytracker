@@ -34,6 +34,13 @@ earlier pass with its own notes below it. The column's name at the top of the pa
 title from there, as a drag would. Deleting a pass keeps what you wrote during it: its notes move
 to the current pass, and the confirm says so before anything goes.
 
+*Pick*, in the backlog's header, answers "What should I play next?" for an evening when nothing
+on it stands out. Say how long you want to play, from an evening to a long haul in HowLongToBeat's
+hours, and leave out any genre you are not in the mood for, then spin a wheel of the games' covers
+or ask for three suggestions. Every game in the backlog has the same chance, *Not this one* takes
+the one it landed on out of the draw, and *Start playing* moves the pick to Playing as a drag
+would. Nothing is offered unless you ask, and nothing is kept of what was picked.
+
 A link on the board's year row opens that year's stats: what you finished, as covers under the
 month you finished them, your hours against HowLongToBeat game by game, your ratings, how much of
 what you started you finished, and how long each game in the backlog has waited. Stats count every
@@ -594,6 +601,14 @@ to prevent something, the test for it is checked by reintroducing the thing.
       the real catalogue found the bigger fault: ordered by first day, the calendar repeated its
       headings. Each window now sits at the last day it could come out, under a heading of its
       own. No test had caught it, because the test data never had the shape the API sends
+- [x] "What should I play next?" A button in the backlog's header opens a picker: how long you
+      want to play and genres to leave out, then a wheel of covers that spins onto one, or three
+      suggestions, over the whole column rather than the hundred cards it loads. The pick is made
+      before the wheel turns, which lets a test name it and lets reduced motion show the same
+      pick with no spin. The real backlog was read before anything was drawn: six games, every one
+      28 hours or more, so the planned evening and weekend held none of them and a fourth band was
+      added. Each wheel's spin was recorded on a phone for the workshop, because motion is not a
+      still, and the recordings caught a curve whose tail made the wheel look stopped a second early
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 

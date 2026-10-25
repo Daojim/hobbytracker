@@ -258,6 +258,57 @@ export interface HobbyDefinition {
     /** The data credits at a share's foot — in Settings on your board, which a visitor has not got. */
     credits: string;
   } | null;
+
+  /**
+   * "What should I play next?": a picker over the Backlog column, reached from its header, or
+   * null for a board that does not offer one yet — which also takes the way in off the board.
+   *
+   * **Only games sets it, and that is the user's call rather than a fact about the data** — the
+   * {@link stats} rule. Every board has a Backlog with lengths and genres on its rows. What was
+   * decided on 1 October 2026 was to build each feature on the games board first, and a films
+   * board would ask what to watch.
+   *
+   * The bands are the hobby's because the length is: a game's is HowLongToBeat's estimate, where
+   * a film's would be a runtime nobody counts in weekends.
+   */
+  picker: {
+    /**
+     * The panel's heading, and the description and tooltip of *Pick*, the button in Backlog's
+     * header that opens it.
+     */
+    question: string;
+
+    /** What moves a pick to the column a title is under way in: `Start playing`. */
+    start: string;
+
+    /** How long you want to play, shortest first. See {@link LengthBand}. */
+    bands: readonly LengthBand[];
+
+    /** What a pick says where its length would be, when it has none: `no estimate`. */
+    noLength: string;
+
+    /** The titles a band leaves out for having no length: `1 with no estimate`. */
+    withoutLength(titles: number): string;
+  } | null;
+}
+
+/**
+ * One answer to "how long do you want to play?": a band of the length a card prints, in hours.
+ *
+ * **From `min` up to, but not including, `max`**, so each band starts where the one before it
+ * stops and a title is in exactly one. A missing `min` is nought and a missing `max` is no end. A
+ * title with no length is in no band: it is under *Any* alone, by the column header's rule that
+ * a title with no figure is counted rather than treated as short.
+ */
+export interface LengthBand {
+  /** The chip: `A weekend`. */
+  label: string;
+
+  /** Where it stops, under the label: `5–20 h`. */
+  range: string;
+
+  min?: number;
+  max?: number;
 }
 
 /**
@@ -483,6 +534,13 @@ export interface Genre {
    * app invented, so a rename upstream unpaints a genre rather than silently mispainting one.
    */
   name: string;
+
+  /**
+   * What the picker's chips call it, where the source's own name runs long: `RPG` for IGDB's
+   * `Role-playing (RPG)`. Absent where the name is short already. Display only: everything that
+   * matches a genre matches on {@link name}.
+   */
+  short?: string;
 
   /**
    * A whole class name, or null for a genre that is named but not painted.

@@ -108,6 +108,21 @@ describe('SharedBoardPage', () => {
       expect(share.queriesFor('Dropped')).toHaveLength(0);
     });
 
+    it('offers no way to pick what to play from the owner’s Backlog', async () => {
+      // The picker moves a title to Playing, and a share moves nothing. Its way in is handed to
+      // your board's Backlog alone, so a share's frame is never given one.
+      sharedServer({
+        columns: { Backlog: [libraryItem({ title: 'Celeste', lengthHours: 12 })] },
+        years: [2026],
+      });
+      renderShare();
+
+      await screen.findByText('Celeste');
+
+      expect(screen.queryByRole('button', { name: /Pick/ })).not.toBeInTheDocument();
+      expect(screen.queryByTitle('What should I play next?')).not.toBeInTheDocument();
+    });
+
     it('takes nothing from this browser’s own Settings', async () => {
       // Columns taken off in Settings are the visitor's view of their own board. What a share
       // shows is its owner's to say, and is stored with the share.

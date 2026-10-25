@@ -15,8 +15,17 @@ const FOCUSABLE =
  *
  * Escape is heard at the document, where the journal always heard it: focus can fall out of a
  * panel onto the body, and a key pressed then is still meant for the panel.
+ *
+ * **`active` is false while another panel covers this one**, which the picker is when a pick's
+ * name opens the journal over it. It stays mounted, so Back finds the pick where it was, and
+ * takes no keys: listening, it would close itself on the Escape meant for the journal, and Back
+ * would go two steps.
  */
-export function useModalPanel(panel: RefObject<HTMLElement | null>, onClose: () => void) {
+export function useModalPanel(
+  panel: RefObject<HTMLElement | null>,
+  onClose: () => void,
+  active = true,
+) {
   // The keyboard follows the panel in. Without this the focus is still on the page behind, and
   // the first Tab walks that rather than the panel that just opened.
   useEffect(() => {
@@ -24,6 +33,10 @@ export function useModalPanel(panel: RefObject<HTMLElement | null>, onClose: () 
   }, [panel]);
 
   useEffect(() => {
+    if (!active) {
+      return;
+    }
+
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         onClose();
@@ -53,5 +66,5 @@ export function useModalPanel(panel: RefObject<HTMLElement | null>, onClose: () 
 
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [panel, onClose]);
+  }, [panel, onClose, active]);
 }

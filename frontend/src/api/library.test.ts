@@ -8,6 +8,7 @@ import {
   listColumn,
   reorderColumn,
   transition,
+  wholeColumn,
 } from './library';
 import type { LibraryItem, PagedResult } from './types';
 
@@ -205,5 +206,42 @@ describe('libraryStatuses', () => {
       { mediaId: 1, status: 'Backlog' },
       { mediaId: 2, status: 'Dropped' },
     ]);
+  });
+});
+
+describe('wholeColumn', () => {
+  it('walks one column to its end, because the picker must be able to land on the 101st', async () => {
+    const pages: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/library', ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        pages.push(query);
+
+        const items =
+          query.get('page') === '1'
+            ? Array.from({ length: 100 }, (_, index) => ({ ...item, mediaId: index + 1 }))
+            : [{ ...item, mediaId: 101, title: 'The last one' }];
+
+        return HttpResponse.json({ ...page, items, total: 101, pageSize: 100, hours: null });
+      }),
+    );
+
+    const titles = await wholeColumn('games', 'Backlog');
+
+    expect(titles).toHaveLength(101);
+    expect(titles.at(-1)?.title).toBe('The last one');
+    expect(pages.map((query) => query.get('page'))).toEqual(['1', '2']);
+    // One column, of one board, in the order you put it in.
+    expect(pages[0]?.get('status')).toBe('Backlog');
+    expect(pages[0]?.get('hobby')).toBe('games');
+    expect(pages[0]?.get('pageSize')).toBe('100');
+    expect(pages[0]?.get('sort')).toBe('manual');
+  });
+
+  it('asks once for a column that fits on a page', async () => {
+    const seen = capture('get', '/api/library', page);
+
+    await expect(wholeColumn('games', 'Backlog')).resolves.toEqual([item]);
+    expect(new URLSearchParams(seen.url).get('page')).toBe('1');
   });
 });

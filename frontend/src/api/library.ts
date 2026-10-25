@@ -34,6 +34,29 @@ export function listColumn(query: ColumnQuery): Promise<LibraryPage> {
 }
 
 /**
+ * Every title in one column, in the order you put them in, paged through to the end.
+ *
+ * What the picker draws from. A column on the board is one page of 100, and a picker that read
+ * only that page could never land on the 101st title, so this walks the pages as
+ * `libraryStatuses` walks the library, and stops at the same 5,000. No year, because the one
+ * column that has a picker is exempt from it.
+ */
+export async function wholeColumn(hobby: string, status: LogStatus): Promise<LibraryItem[]> {
+  const titles: LibraryItem[] = [];
+
+  for (let page = 1; page <= 50; page += 1) {
+    const result = await listColumn({ hobby, status, sort: 'manual', page, pageSize: 100 });
+    titles.push(...result.items);
+
+    if (result.items.length === 0 || titles.length >= result.total) {
+      break;
+    }
+  }
+
+  return titles;
+}
+
+/**
  * Years with any activity, newest first — the year picker's options.
  *
  * Any activity rather than completions alone, because the year narrows three of the five
