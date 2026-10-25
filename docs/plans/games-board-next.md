@@ -36,10 +36,10 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 13 | A column dropdown in the journal | M | **Shipped and deployed 7 October 2026** (PR #70), the day it was planned and workshopped: the pass's heading moves the title, and leaving Completed asks first. The race with the autosave was reproduced red before the fix. See its section |
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
-| 16 | What should I play next? | M | **Workshopped and built 25 October 2026**, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. Not yet merged or deployed. See its section |
+| 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
 
-Production runs `f70a9cb`'s code, which was `main` on 23 October 2026. Deploying is the runbook in
+Production runs `fba82db`'s code, which was `main` on 25 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -2078,11 +2078,11 @@ faults the three Vitest files, and the rows marked *in a browser* the new spec.
 
 ---
 
-## 16. What should I play next? · built
+## 16. What should I play next? · shipped
 
-**Planned 23 October 2026**, from suggestions the user picked that day, and **workshopped and
-built on 25 October 2026**, on the branch `what-to-play-next`. The plan below is as it was
-written. What was decided and built follows it, from **Decided at pickup** on.
+**Planned 23 October 2026**, from suggestions the user picked that day, and **workshopped, built
+and deployed on 25 October 2026** (PR #80). The plan below is as it was written. What was decided
+and built follows it, from **Decided at pickup** on.
 
 **What.** A picker over Backlog, for the evening nothing on it stands out. Two optional factors
 narrow it: **how long you want to play** (an evening, a weekend, a few weeks) and **a genre to
@@ -2240,9 +2240,10 @@ recommendations. The way in was the user's.
 
 ### Built
 
-Built on 25 October 2026, tests first, and not yet merged or deployed. The write-up is
-`docs/board.md`, **What should I play next?**, with its table of faults put back, and the look is
-`docs/design.md`'s, under the same name.
+Built on 25 October 2026, tests first, and **shipped and deployed the same evening** (PR #80):
+the full e2e suite went 204 green first, the 201 before and `pick.spec.ts`'s three. The write-up
+is `docs/board.md`, **What should I play next?**, with its table of faults put back, and the look
+is `docs/design.md`'s, under the same name.
 
 - **`frontend/src/pick/`**: `draw.ts`, the arithmetic, `Wheel.tsx`, `PickPanel.tsx`, and
   `PickButton.tsx` for Backlog's header. `wholeColumn` in `api/library.ts` and `wholeColumnKey`

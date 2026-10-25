@@ -686,7 +686,7 @@ shuffled.
         hours and genres to leave out, then a wheel of covers or three suggestions, over the whole
         column with every title an equal chance. The real backlog was read before anything was
         drawn, six games all 28 hours or more, which added *A long haul*. Five of six looks were
-        the recommendation; the way in was the user's (built 25 October 2026)
+        the recommendation; the way in was the user's (PR #80, deployed)
       - [ ] a Discover list from your ratings — IGDB's similar games for what you rated highest,
         less what is on your board. **A look at the real results comes first**, and decides
         whether it is built
