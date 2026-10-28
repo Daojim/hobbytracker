@@ -7,7 +7,13 @@ import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm, type EntryFormHandle } from './EntryForm';
 import { HltbPin } from './HltbPin';
 import { NoteList, noteRowId, type FoundNote } from './NoteList';
-import { automaticGenre, hobbyDefinition, type BoardColumn, type TitleDetail } from '../hobbies';
+import {
+  automaticGenre,
+  genreStripe,
+  hobbyDefinition,
+  type BoardColumn,
+  type TitleDetail,
+} from '../hobbies';
 import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
 import { useJournalEntry } from './useJournalEntry';
@@ -152,6 +158,12 @@ export function EntryDrawer({
       : detail.genres.includes(detail.primaryGenre)
         ? detail.genres
         : [...detail.genres, detail.primaryGenre];
+
+  // Split by whether this hobby paints them. Choosing one with no colour is allowed and the card
+  // prints its name, but its stripe stays empty, which is how two Fire Emblem cards lost theirs
+  // while Tactical had no colour. A heading says so before the choice, not the card after it.
+  const colouredGenres = genreOptions.filter((name) => genreStripe(genres, name) !== null);
+  const uncolouredGenres = genreOptions.filter((name) => genreStripe(genres, name) === null);
 
   function deletePass(entryId: number) {
     // Read before the mutation, because by the time it answers the refetch has already changed
@@ -374,11 +386,20 @@ export function EntryDrawer({
                   says which one that is. Read against this hobby's list — TMDB's vocabulary and
                   IGDB's overlap barely at all, so the wrong list would name nothing. */}
               <option value="">{`Automatic — ${automaticGenre(genres, detail.genres) ?? 'none'}`}</option>
-              {genreOptions.map((name) => (
+              {colouredGenres.map((name) => (
                 <option key={name} value={name}>
                   {name}
                 </option>
               ))}
+              {uncolouredGenres.length > 0 && (
+                <optgroup label="No colour">
+                  {uncolouredGenres.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
 
             {/* Facts about the title, in the tracks the two controls above them share: a film's

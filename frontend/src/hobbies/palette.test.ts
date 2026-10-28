@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { hobbyDefinition } from './index';
 import { HOBBIES } from '../shell/hobbies';
+import { THEMES } from '../theme/theme';
 import type { Genre } from './types';
 
 /**
@@ -65,17 +66,70 @@ function separation(a: Oklch, b: Oklch): number {
 }
 
 /**
- * The tightest pair the palette already accepts: Strategy against Adventure, at 0.0875. Known,
- * argued over, and deliberately kept — both are warm and light and sit 20° apart.
+ * The tightest pair any palette accepts: Isekai against Mecha on the anime board, at 0.103.
  *
- * Held as the floor rather than 0.10 because raising it would fail the palette the user picked
- * against a live board, which is a worse authority than this number. A *new* pair tighter than
- * the tightest pair anybody has ever agreed to is what this catches.
+ * It was Strategy against Adventure on the games board, at 0.0875, until the games palette grew
+ * to nineteen on 28 October 2026 and moved Strategy a shade to make room, which opened that pair
+ * to 0.136. Raised to follow, because a floor held below every pair that ships stops catching
+ * anything. A *new* pair tighter than the tightest pair anybody has ever agreed to is what this
+ * catches.
  */
-const ACCEPTED_FLOOR = 0.087;
+const ACCEPTED_FLOOR = 0.103;
 
 /** The band that stays visible against every theme's surface, light or dark. */
 const LIGHTNESS = { min: 0.48, max: 0.75 };
+
+/**
+ * The faintest stripe that ships: Horror on Dusk, at 1.484:1, a hue films and anime share.
+ *
+ * Dusk is where every list's faintest stripe sits, because its card is a mid slate that a dark hue
+ * has little to stand out from, and the lightness band is not enough to keep a stripe off it. The
+ * first try at the nineteen-genre games palette put Arcade at `oklch(0.48 0.2 340)`, inside the
+ * band, and it measured 1.33:1. A *new* stripe fainter than any that has shipped is what this
+ * catches, the way the separation floor catches a new pair.
+ */
+const CONTRAST_FLOOR = 1.48;
+
+/** Every theme's card, which is the ground a stripe is read against. */
+const SURFACES = new Map(
+  [...css.matchAll(/\[data-theme='([a-z-]+)'\]\s*\{[^}]*?--surface:\s*(#[0-9a-f]{6})/g)].map(
+    ([, theme, surface]) => [theme!, surface!] as const,
+  ),
+);
+
+/** WCAG relative luminance from an OKLCH token: OKLab, then linear sRGB, clipped to the gamut. */
+function luminanceOf({ l, c, h }: Oklch): number {
+  const rad = (h * Math.PI) / 180;
+  const [a, b] = [c * Math.cos(rad), c * Math.sin(rad)];
+  const [long, medium, short] = [
+    l + 0.3963377774 * a + 0.2158037573 * b,
+    l - 0.1055613458 * a - 0.0638541728 * b,
+    l - 0.0894841775 * a - 1.291485548 * b,
+  ].map((cone) => cone ** 3) as [number, number, number];
+  const [red, green, blue] = [
+    4.0767416621 * long - 3.3077115913 * medium + 0.2309699292 * short,
+    -1.2684380046 * long + 2.6097574011 * medium - 0.3413193965 * short,
+    -0.0041960863 * long - 0.7034186147 * medium + 1.707614701 * short,
+  ].map((channel) => Math.min(1, Math.max(0, channel))) as [number, number, number];
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+/** The same luminance from a `#rrggbb` surface, through sRGB's own curve. */
+function luminanceOfHex(hex: string): number {
+  const [red, green, blue] = [1, 3, 5].map((at) => {
+    const channel = parseInt(hex.slice(at, at + 2), 16) / 255;
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  }) as [number, number, number];
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+/** WCAG's contrast ratio, which is how `index.css` has always measured a stripe against a ground. */
+function contrast(colour: Oklch, surface: string): number {
+  const [lighter, darker] = [luminanceOf(colour), luminanceOfHex(surface)].sort((x, y) => y - x);
+  return (lighter! + 0.05) / (darker! + 0.05);
+}
 
 const hueOf = (genre: Genre): Oklch => {
   const values = TOKENS.get(tokenFor(genre.stripe!));
@@ -114,6 +168,16 @@ describe.each(BUILT)('the %s palette', (slug) => {
     }
   });
 
+  it('keeps every stripe as visible as the faintest one that ships, on every theme', () => {
+    for (const genre of genres) {
+      for (const [theme, surface] of SURFACES) {
+        const ratio = contrast(hueOf(genre), surface);
+        expect(ratio, `${genre.name} on ${theme} at ${ratio.toFixed(2)}:1`)
+          .toBeGreaterThanOrEqual(CONTRAST_FLOOR);
+      }
+    }
+  });
+
   it('has no two genres that are the same colour at stripe width', () => {
     // Within one hobby only, and that is the whole scope of the claim: a board is one hobby, so
     // a film's stripe is never read against a game's. It is what let the films palette reuse the
@@ -134,6 +198,14 @@ describe.each(BUILT)('the %s palette', (slug) => {
 });
 
 describe('genre hues', () => {
+  it('are measured against every theme the app offers', () => {
+    // The contrast check above loops over what this reads out of index.css, so a pattern that
+    // stopped matching would make it pass by measuring nothing at all.
+    const offered = THEMES.map((theme) => theme.value).filter((value) => value !== 'system');
+
+    expect([...SURFACES.keys()].sort()).toEqual([...offered].sort());
+  });
+
   it('are defined once each, and never inside a theme', () => {
     // Content, not chrome: a genre means the same thing whatever the app is wearing. A second
     // declaration inside a `[data-theme]` block would make the colour theme-dependent, and the

@@ -81,13 +81,18 @@ wrapper.
   same block** on the same argument, Google's blue meaning Google in every theme. **Note the
   constraint on the names**: `index.css.test.ts` reads tokens with `/^\s*(--[a-z-]+):/`, so a token
   containing a **digit** is silently skipped rather than reported.
-- **There are two genre lists now, and they may reuse each other's hues.** A board is one hobby, so
+- **There are four genre lists now, and they may reuse each other's hues.** A board is one hobby, so
   a film's stripe is only ever read against the other films'. **`src/hobbies/palette.test.ts` is
   what holds all of it**: that every genre a built hobby names is painted, that the class names a
   token `index.css` actually defines — Tailwind generates nothing for one that does not, and the
-  stripe renders transparent with no error — that every lightness is in `[0.48, 0.75]`, and that no
-  two hues *within one list* are closer than the 0.087 the games palette already accepts. The
-  measurement `index.css` asks for is now arithmetic the suite does.
+  stripe renders transparent with no error — that every lightness is in `[0.48, 0.75]`, that no
+  stripe is fainter than **1.48:1** against any theme's card, and that no two hues *within one list*
+  are closer than **0.103**. Both floors are the worst that already ships, the faintest stripe
+  (Horror on Dusk) and the tightest pair (anime's Isekai and Mecha), so each catches something new
+  being worse than anything agreed. **Raise a floor when what set it is fixed**: the pair one was
+  Strategy and Adventure at 0.087 until the games palette moved Strategy in October 2026, and a
+  floor left below every pair that ships catches nothing. The measurement `index.css` asks for is
+  now arithmetic the suite does.
 - **Whether a card has a border is a token too** — shadow does almost nothing against Console's deep
   ground, so Console keeps an outline and the others do not, which would otherwise have needed a
   component to know which theme it was in.
@@ -123,6 +128,16 @@ Each is invisible in development and each has a test that was checked by breakin
   **3.8:1** on the dark theme for the life of the board, and then `--danger-fg` was set near-white on
   every theme, which is right where the fill is a deep red and **2.07:1** where the fill is a light
   salmon. **The fill and its ink move in opposite directions per theme.**
+- **A genre stripe too faint to see.** The lightness band `palette.test.ts` checks was taken to be
+  the guarantee, and it is not. Dusk's card is a mid slate, `#3b4552`, every list's faintest stripe
+  is on it, and a magenta at the band's floor, `oklch(0.48 0.2 340)`, measured **1.33:1** there.
+  Nothing announces that; the stripe is only hard to find. The games list's own darkest three were
+  already fainter on Dusk than anything `index.css` had written down: Beat 'em up 1.61:1, Fighting
+  1.63 and Platform 1.72, where the lowest recorded was Beat 'em up on Blood Red at 1.91, and Puzzle
+  is 1.85 on Almanac. The suite now measures every stripe against every theme's `--surface`, held to
+  the faintest that ships, and checks it found all eight themes, because a pattern that matched none
+  would pass by measuring nothing. Checked both ways on 28 October 2026: the 1.33 magenta put back
+  fails it, and so does the pattern broken.
 - **`localStorage` is not in the test globals by default.** jsdom implements it, but Node 22+ declares
   the name itself and the environment will not overwrite a global that already exists — so it is
   present and answers to nothing. `src/test/setup.ts` supplies one, and the condition asks whether the
@@ -139,7 +154,13 @@ Each is invisible in development and each has a test that was checked by breakin
   `Column` carries `transition-colors`, so a column's well animates to the new palette while the
   cards and the page ground switch instantly. A shot taken straight after the click catches every
   well one theme behind, which looks exactly like a token that failed to apply — and telling those
-  two apart costs far more than the half-second the wait costs.
+  two apart costs far more than the half-second the wait costs. **Every theme on one page works
+  too**, because each palette block is an attribute selector rather than `:root` alone and `@theme
+  inline` resolves at the element: the genre workshop rendered the real `CardFace` under eight
+  `data-theme` wrappers from a Vite entry in the gitignored `frontend/workshop.local/` (`*.local`).
+  **The wrapper needs `bg-sunken text-fg`**, which `BoardPage`'s `<main>` carries. Without them the
+  text colour resolves at `<body>`, outside the theme, and the first shots had black titles on dark
+  cards.
 - **A new theme has three lists to join, and there used to be a fourth that failed silently.**
   `THEMES` in `src/theme/theme.ts` is what the menu reads; the pre-paint script in `index.html`
   carries its own literal copy and stamps *nothing* for a name outside it — deliberately, since that

@@ -1110,6 +1110,35 @@ describe('EntryDrawer', () => {
     expect(await screen.findByLabelText('Genre')).toHaveValue('Metroidvania');
   });
 
+  it('puts the genres with no colour under a heading of their own', async () => {
+    // Choosing one is allowed, and the card prints its name, but its stripe stays empty. That is
+    // how Radiant Dawn and Fortune's Weave lost theirs while Tactical had no colour, so the list
+    // says it before the choice rather than the card after it.
+    journalServer({
+      detail: gameDetail({
+        genres: ['Adventure', 'Indie', 'Platform'],
+        primaryGenre: null,
+        logEntries: [logEntry({ id: 7 })],
+      }),
+    });
+
+    open();
+
+    const select = await screen.findByLabelText('Genre');
+    const uncoloured = within(select).getByRole('group', { name: 'No colour' });
+    expect(within(uncoloured).getAllByRole('option').map((option) => option.textContent)).toEqual(
+      ['Indie'],
+    );
+
+    // The automatic option and the coloured genres stay above it, in IGDB's order.
+    expect(within(select).getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'Automatic — Platform',
+      'Adventure',
+      'Platform',
+      'Indie',
+    ]);
+  });
+
   it('writes the genre against the game, not the pass', async () => {
     // A property of the title: what kind of game it is does not change between playthroughs
     // the way the platform you played it on does. So it saves on its own, not with the form.
