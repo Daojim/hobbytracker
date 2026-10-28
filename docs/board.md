@@ -843,6 +843,10 @@ next?**. What belongs here is how it reads the board and what it does to it.
   genres left out by the one the card is painted as (`resolveGenre`, so a genre chosen in the
   journal wins), and the titles said no to. A title with no length is in no band. It is under *Any*
   alone, and the line under the chips counts how many a band left out, by the column header's rule.
+- **The rim's colours are `RIM` in `Wheel.tsx`**, whole class names because Tailwind reads source
+  text, so a genre the games list paints and `RIM` forgets spins with no arc and no error.
+  `Wheel.test.ts` holds the two together; it named Music first when eight genres were added on 28
+  October 2026.
 - **The pick is made before anything moves.** `spinFor` names the slice and the wheel is told where
   to land, so a test names the pick with a random value, and reduced motion shows the same pick
   with no spin. It is the first thing in the app to read `prefers-reduced-motion`, so
@@ -889,6 +893,7 @@ way. Only its place in a hand-made order is left to the next drag.
 | The keyboard left where it was on landing | the three cases that land |
 | *Start playing* closing without moving | `pick.spec.ts`'s reload case and its phone case |
 | A phone left on Backlog after *Start playing* | `pick.spec.ts`'s phone case |
+| A genre given a colour and no arc on the rim | *draws every genre the games board paints as an arc on its rim*, added with the eight new genres |
 | A films board given a picker | *is not offered on a board whose hobby has no picker yet* |
 
 ### A share of the board

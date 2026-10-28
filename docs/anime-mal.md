@@ -315,7 +315,7 @@ no merging step. `hobbies/anime.ts` names thirteen:
 - **The top four are MAL *themes* rather than genres**, and that is the point of the ordering:
   they say what an evening is *like* where the broad words say what it is about. Visual Novel's
   placement argument, on a catalogue that has far more of them.
-- **Thirteen, where games has eleven and the two TMDB lists have ten.** Anime genuinely carries
+- **Thirteen, where games had eleven at the time and the two TMDB lists have ten.** Anime genuinely carries
   more axes that mean different evenings, and cutting to ten would have to lose one of Sci-Fi or
   Fantasy, which between them cover most of the catalogue.
 - **Demographics are deliberately unpainted.** Shounen, Seinen, Shoujo and Josei say who a thing
@@ -325,9 +325,11 @@ no merging step. `hobbies/anime.ts` names thirteen:
   is the same evening on either board, and the year-in-review page is the one screen that will put
   two hobbies together. Only the seven words anime owns outright are minted in `index.css`.
 
-Its floor is Isekai against Mecha at 0.103, then Iyashikei against Sci-Fi at 0.107. Both clear
-the 0.087 this palette already accepts between Strategy and Adventure, and thirteen hues is two
-more than anything else here has had to fit.
+Its floor is Isekai against Mecha at 0.103, then Iyashikei against Sci-Fi at 0.107. Both cleared
+the 0.087 the games list accepted then, between Strategy and Adventure, and thirteen hues was two
+more than anything else here had had to fit. **Since the games list was repainted in October 2026,
+Isekai against Mecha is the tightest pair in any list**, so it is the floor `palette.test.ts` holds
+every list to: an anime colour moved closer than that fails the suite.
 
 ## Keeping anime off the television board
 

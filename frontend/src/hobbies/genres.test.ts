@@ -21,8 +21,80 @@ describe('automaticGenre', () => {
     expect(automaticGenre(GAMES, ['Role-playing (RPG)', 'Visual Novel'])).toBe('Visual Novel');
   });
 
+  it('puts Music and Card & Board above RPG, for the same reason', () => {
+    // Each names what playing the game is like. Of the 149 well-known IGDB games this placement
+    // decides, nearly all are rhythm or card games IGDB also calls an RPG, a Shooter or a Platform
+    // game. Hi-Fi Rush, Balatro and Slay the Spire, as IGDB tags them:
+    expect(
+      automaticGenre(GAMES, ['Music', 'Platform', "Hack and slash/Beat 'em up", 'Adventure']),
+    ).toBe('Music');
+    expect(
+      automaticGenre(GAMES, ['Strategy', 'Turn-based strategy (TBS)', 'Indie', 'Card & Board Game']),
+    ).toBe('Card & Board Game');
+    expect(
+      automaticGenre(GAMES, [
+        'Role-playing (RPG)',
+        'Strategy',
+        'Turn-based strategy (TBS)',
+        'Adventure',
+        'Indie',
+        'Card & Board Game',
+      ]),
+    ).toBe('Card & Board Game');
+  });
+
+  it('puts Tactical, Turn-based and Real-time strategy just above Strategy', () => {
+    // Below RPG and Shooter on purpose. IGDB's best-known Tactical games are shooters, and its
+    // Turn-based tag sits on turn-based JRPGs, so above either it would recolour them. Fire Emblem
+    // Engage stays an RPG and Metal Gear Solid a Shooter until a journal says otherwise:
+    expect(
+      automaticGenre(GAMES, [
+        'Adventure',
+        'Role-playing (RPG)',
+        'Strategy',
+        'Tactical',
+        'Turn-based strategy (TBS)',
+      ]),
+    ).toBe('Role-playing (RPG)');
+    expect(automaticGenre(GAMES, ['Adventure', 'Shooter', 'Tactical'])).toBe('Shooter');
+
+    // Above Strategy, which nearly every one of them carries as well. 13 Sentinels,
+    // Civilization VI and StarCraft II:
+    expect(automaticGenre(GAMES, ['Adventure', 'Simulator', 'Strategy', 'Tactical'])).toBe(
+      'Tactical',
+    );
+    expect(
+      automaticGenre(GAMES, ['Simulator', 'Strategy', 'Turn-based strategy (TBS)']),
+    ).toBe('Turn-based strategy (TBS)');
+    expect(automaticGenre(GAMES, ['Real Time Strategy (RTS)', 'Strategy'])).toBe(
+      'Real Time Strategy (RTS)',
+    );
+
+    // Tactical first of the three, so a tactics game reads as one rather than as turn-based.
+    expect(
+      automaticGenre(GAMES, ['Strategy', 'Tactical', 'Turn-based strategy (TBS)']),
+    ).toBe('Tactical');
+  });
+
+  it('puts Sport below Racing and above Simulator', () => {
+    // Above Racing, Forza Horizon and Need for Speed would turn Sport. Wii Sports, then Forza
+    // Horizon 4:
+    expect(automaticGenre(GAMES, ['Simulator', 'Sport'])).toBe('Sport');
+    expect(automaticGenre(GAMES, ['Racing', 'Sport', 'Adventure'])).toBe('Racing');
+  });
+
+  it('puts Quiz/Trivia low and Arcade last, where they colour only what nothing else describes', () => {
+    // IGDB tags Banjo-Kazooie Quiz/Trivia for its quiz, and Mario Kart Arcade. Wii Party and
+    // Pac-Man are each tagged with nothing else.
+    expect(automaticGenre(GAMES, ['Platform', 'Quiz/Trivia', 'Adventure'])).toBe('Platform');
+    expect(automaticGenre(GAMES, ['Quiz/Trivia'])).toBe('Quiz/Trivia');
+    expect(automaticGenre(GAMES, ['Racing', 'Arcade'])).toBe('Racing');
+    expect(automaticGenre(GAMES, ['Adventure', 'Arcade'])).toBe('Adventure');
+    expect(automaticGenre(GAMES, ['Arcade'])).toBe('Arcade');
+  });
+
   it('paints nothing rather than picking a colour at random', () => {
-    expect(automaticGenre(GAMES, ['Indie', 'Arcade'])).toBeNull();
+    expect(automaticGenre(GAMES, ['Indie', 'Pinball'])).toBeNull();
     expect(automaticGenre(GAMES, [])).toBeNull();
     expect(automaticGenre(GAMES, null)).toBeNull();
   });
@@ -88,6 +160,8 @@ describe('genreStripe', () => {
     // nothing and the stripe renders transparent with no symptom at all.
     expect(genreStripe(GAMES, 'Shooter')).toBe('bg-genre-shooter');
     expect(genreStripe(GAMES, 'Visual Novel')).toBe('bg-genre-visual-novel');
+    expect(genreStripe(GAMES, 'Tactical')).toBe('bg-genre-tactical');
+    expect(genreStripe(GAMES, 'Turn-based strategy (TBS)')).toBe('bg-genre-turn-based');
   });
 
   it('paints nothing for a genre it does not know', () => {

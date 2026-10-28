@@ -27,20 +27,29 @@ const TURNS = 5;
 /**
  * The card's genre stripe, drawn as an arc on the rim: whole class names, because Tailwind reads
  * the source and an interpolated `stroke-genre-${x}` generates nothing — an arc with no colour,
- * and no error.
+ * and no error. Exported for `Wheel.test.ts`, which holds it to the games list: a genre given a
+ * colour there and not a line here spins with no arc.
  */
-const RIM: Record<string, string> = {
+export const RIM: Record<string, string> = {
   'bg-genre-visual-novel': 'stroke-genre-visual-novel',
+  'bg-genre-music': 'stroke-genre-music',
+  'bg-genre-card-board': 'stroke-genre-card-board',
   'bg-genre-rpg': 'stroke-genre-rpg',
   'bg-genre-shooter': 'stroke-genre-shooter',
   'bg-genre-platform': 'stroke-genre-platform',
   'bg-genre-fighting': 'stroke-genre-fighting',
   'bg-genre-brawler': 'stroke-genre-brawler',
   'bg-genre-racing': 'stroke-genre-racing',
+  'bg-genre-sport': 'stroke-genre-sport',
+  'bg-genre-tactical': 'stroke-genre-tactical',
+  'bg-genre-turn-based': 'stroke-genre-turn-based',
+  'bg-genre-real-time': 'stroke-genre-real-time',
   'bg-genre-strategy': 'stroke-genre-strategy',
   'bg-genre-simulator': 'stroke-genre-simulator',
   'bg-genre-puzzle': 'stroke-genre-puzzle',
+  'bg-genre-quiz': 'stroke-genre-quiz',
   'bg-genre-adventure': 'stroke-genre-adventure',
+  'bg-genre-arcade': 'stroke-genre-arcade',
 };
 
 /** The wheel's radius, in the units of a 320-square drawing centred on nought. */

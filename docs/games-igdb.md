@@ -328,12 +328,13 @@ token in `index.css`. **The ordering lives on the client on purpose**: a priorit
 plus a palette here would be two orderings that must agree, which is the failure this codebase has
 already paid for once over which pass the board calls current.
 
-Ordered **specific before generic**, and deliberately short — `Indie`, `Arcade` and most of IGDB's
-twenty-odd are absent because they say almost nothing about what an evening with the game is like.
-Eleven hues is already past what anyone with common colour-vision deficiency can separate, which is
-why **the card prints the genre's name as well as painting it** and why the stripe is `aria-hidden`.
-Match on the trimmed, lower-cased name, so IGDB renaming a parenthetical does not silently unpaint a
-genre.
+Ordered **specific before generic**. **Nineteen of IGDB's twenty-three since 28 October 2026**,
+picked by the user from the whole list with how common each genre is beside it. Indie,
+Point-and-click, MOBA and Pinball were left out, and Indie in particular says nothing about what an
+evening with the game is like. Nineteen hues is far past what anyone with common colour-vision
+deficiency can separate, which is why **the card prints the genre's name as well as painting it**
+and why the stripe is `aria-hidden`. Match on the trimmed, lower-cased name, so IGDB renaming a
+parenthetical does not silently unpaint a genre.
 
 **`Visual Novel` is first in the list, above even RPG**, and that placement is the one here worth
 defending rather than assuming. It names the *form* rather than the subject, so a game that is one is
@@ -341,6 +342,29 @@ an evening of reading however else it is tagged; `Role-playing (RPG)` is one of 
 and covers Skyrim, Diablo and Disco Elysium alike. A title carrying both is usually a visual novel
 with battles in it. **One line in `GENRES` to move**, and the drawer's genre select overrides it per
 title regardless.
+
+**Where the eight added in October go was measured, not reasoned.** IGDB's 9,900 best-known main
+games (ten ratings or more) were run through each candidate order, and so was every card on every
+board in production, so each placement could say which cards it would change. IGDB tags noisily,
+and that noise is what decided the order:
+
+| Placement | Why | What it costs |
+|---|---|---|
+| Music and Card & Board Game **above RPG**, under Visual Novel | They name the form, Visual Novel's argument. The 149 well-known games that depend on it are nearly all rhythm or card games IGDB also tags RPG, Shooter or Platform: Rez, Crypt of the NecroDancer, Slay the Spire, Yu-Gi-Oh! | A few RPGs with a card or music side: Final Fantasy VIII reads Card & Board, Deltarune reads Music |
+| Tactical, Turn-based strategy and Real-time strategy **just above Strategy**, in that order | IGDB's best-known Tactical games are shooters (Counter-Strike, Far Cry 4), and its Turn-based tag sits on turn-based JRPGs (Persona, Trails, Metaphor). Above RPG, Tactical would have repainted every Metal Gear Solid, and Apex Legends and The Escapists on other boards | A Fire Emblem stays an RPG until its journal picks Tactical. **The user's choice, over the recommendation** to put Tactical above RPG |
+| Sport **below Racing**, above Simulator | Above Racing, 208 games move to Sport, Forza Horizon and Need for Speed among them | Rocket League reads Racing |
+| Quiz/Trivia **just above Adventure** | IGDB tags Banjo-Kazooie Quiz/Trivia for its quiz, and Platform has to win that | — |
+| Arcade **last** | There it colours 67 games nothing else described: Pac-Man, WarioWare, Fruit Ninja. Above Puzzle it takes Peggle and Tetris 99 | — |
+
+On the boards as they stood, the new order changed three cards and all three became Tactical:
+Radiant Dawn and Fortune's Weave, whose journals had already picked a genre with no colour, and 13
+Sentinels, from Strategy.
+
+**The journal says which genres paint nothing.** The drawer's Genre select lists a title's coloured
+genres first and the rest under a *No colour* heading. Picking one is still allowed, since a value
+chosen has to outlive the list (the platform select's rule), but its stripe stays empty, and that is
+exactly how two Fire Emblem cards lost theirs while Tactical had no colour. The drawer is every
+hobby's, so a film's Family or Fantasy sits under the heading too, which is just as true there.
 
 **Its class name is the first with a hyphen in it, and the test that nearly refused it is the lesson.**
 `genres.test.ts` asserted `/^bg-genre-[a-z]+$/` — a rule invented from ten names that happened to be
@@ -353,18 +377,32 @@ violated it. Widened rather than worked around.
   nothing to paint**, or an ungenred card's contents would shift left of its neighbours'.
 - **Every colour sits in `L ∈ [0.48, 0.75]`**, the band that stays visible against every theme's
   ground — which is why none needs a `dark:` counterpart. Lightness varies as well as hue, as a second
-  axis of separation.
+  axis of separation. **The band is not enough on its own**: every stripe also has to clear 1.48:1
+  against every theme's card, because Dusk's mid-slate card made a magenta inside the band nearly
+  invisible. See **A genre stripe too faint to see** in `docs/design.md`.
 - **Whole literal class names.** Tailwind v4 scans source text; `` `bg-genre-${x}` `` generates nothing
   and the stripe silently renders transparent.
 
 **The palette is settled**, repainted by the user against a live board — the set it replaced had three
 pairs under 0.10 apart in OKLab, which at a 4px stripe is the same colour twice. **Measure before
 changing one**: the arithmetic is written down beside the values in `index.css`, and the pair a person
-notices is rarely the closest pair. The floor is Strategy against Adventure at 0.087, known and
-accepted. **Visual Novel was measured before it was added**, as that rule asks: `oklch(0.64 0.19 328)`
-sits 0.150 from Fighting and 0.152 from Racing, both in the comfortable band. The magenta corner was
-the only room left — a cyan around hue 200 lands 0.091 from Shooter, which is the same colour twice at
-stripe width.
+notices is rarely the closest pair. The floor was Strategy against Adventure at 0.087, known and
+accepted, until October 2026. **Visual Novel was measured before it was added**, as that rule asks:
+`oklch(0.64 0.19 328)` sits 0.150 from Fighting and 0.152 from Racing, both in the comfortable band.
+The magenta corner was the only room left — a cyan around hue 200 lands 0.091 from Shooter, which is
+the same colour twice at stripe width.
+
+**On 28 October 2026 it grew to nineteen, and two of the eleven moved a shade to make room.**
+Strategy went darker and redder and Platform lighter, each by under 0.05, which ended this list's two
+tightest pairs: Strategy and Adventure went from 0.087 to 0.136, and Platform and Fighting from 0.116
+to 0.138. An optimiser placed the eight new colours with every pair at least 0.128 apart and no
+stripe fainter than the list's own faintest, Beat 'em up on Dusk at 1.61:1. The user then picked
+between two finished palettes, rendered on the real `CardFace` in all eight themes beside today's: the
+three rarest new genres in colour (closest pair 0.116), or as quiet near-greys (0.128). Quiet won,
+because the coloured three put two more pinks beside Visual Novel's magenta and an ochre among the
+golds. **Tactical took teal** over blue-violet, as the one new colour that is not a purple, a red or a
+green, and the only new one on a card that day. Both picks were the recommendation. The workshop
+page is private: https://claude.ai/artifact/AQT8WQc6Nyc2mYajVDxKJR.
 
 **`POST /api/games/refresh` is the IGDB backfill**, and it has no UI — a maintenance action of the
 same tier as fixing a bad `hltb_id` in psql. It re-fetches every IGDB-sourced title **in the library**

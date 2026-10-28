@@ -75,10 +75,13 @@ export const GAMES: HobbyDefinition = {
         : `Takes ${title} off your board.`,
 
   /**
-   * Ordered specific before generic. `Indie`, `Arcade` and most of the rest of IGDB's vocabulary
-   * are absent on purpose: they say almost nothing about what an evening with the game is like,
-   * and eleven hues is already more than anyone can tell apart at a glance — which is why the
-   * card prints the genre's name as well as painting it.
+   * Ordered specific before generic. Nineteen of IGDB's twenty-three since 28 October 2026, and
+   * every placement was measured against IGDB's 9,900 best-known games before it was chosen.
+   * `Indie`, `Point-and-click`, `MOBA` and `Pinball` were left out when the user was shown the
+   * whole list; Indie in particular says nothing about what an evening with the game is like. A
+   * journal can still pick one, and the drawer lists them under *No colour*. Nineteen hues is far
+   * more than anyone can tell apart at a glance, which is why the card prints the genre's name as
+   * well as painting it.
    */
   genres: [
     // Above RPG, and that is the one placement here worth defending. Visual Novel is the most
@@ -87,16 +90,41 @@ export const GAMES: HobbyDefinition = {
     // IGDB's broadest words: it covers Skyrim, Diablo and Disco Elysium alike. A game carrying
     // both is usually a visual novel with battles in it. One line to move if that reads wrong.
     { name: 'Visual Novel', stripe: 'bg-genre-visual-novel' },
+    // Above RPG too, for Visual Novel's reason: each names the form. The 149 well-known games
+    // these two places decide are nearly all rhythm or card games IGDB also calls an RPG, a
+    // Shooter or a Platform game — Rez, Crypt of the NecroDancer, Slay the Spire, Yu-Gi-Oh!. The
+    // misses are a few RPGs with a card or music side to them: Final Fantasy VIII, Deltarune.
+    { name: 'Music', stripe: 'bg-genre-music' },
+    { name: 'Card & Board Game', short: 'Card & Board', stripe: 'bg-genre-card-board' },
     { name: 'Role-playing (RPG)', short: 'RPG', stripe: 'bg-genre-rpg' },
     { name: 'Shooter', stripe: 'bg-genre-shooter' },
     { name: 'Platform', stripe: 'bg-genre-platform' },
     { name: 'Fighting', stripe: 'bg-genre-fighting' },
     { name: "Hack and slash/Beat 'em up", short: "Beat 'em up", stripe: 'bg-genre-brawler' },
     { name: 'Racing', stripe: 'bg-genre-racing' },
+    // Below Racing, or Forza Horizon and Need for Speed turn Sport. Above Simulator, which had
+    // painted 162 of the well-known sports games, Wii Sports among them.
+    { name: 'Sport', stripe: 'bg-genre-sport' },
+    // Just above Strategy, which nearly all of them carry as well, and below the action genres on
+    // purpose. IGDB's best-known Tactical games are shooters (Counter-Strike, Far Cry) and its
+    // Turn-based tag sits on turn-based JRPGs, so higher up either would recolour those. A Fire
+    // Emblem stays an RPG until its journal picks Tactical: the user chose that over putting
+    // Tactical above RPG. Tactical leads the three so a tactics game reads as one.
+    { name: 'Tactical', stripe: 'bg-genre-tactical' },
+    { name: 'Turn-based strategy (TBS)', short: 'TBS', stripe: 'bg-genre-turn-based' },
+    { name: 'Real Time Strategy (RTS)', short: 'RTS', stripe: 'bg-genre-real-time' },
     { name: 'Strategy', stripe: 'bg-genre-strategy' },
     { name: 'Simulator', stripe: 'bg-genre-simulator' },
     { name: 'Puzzle', stripe: 'bg-genre-puzzle' },
+    // Low, so it colours party and trivia games and not Banjo-Kazooie, which IGDB tags for its
+    // quiz.
+    { name: 'Quiz/Trivia', stripe: 'bg-genre-quiz' },
     { name: 'Adventure', stripe: 'bg-genre-adventure' },
+    // Last, where it colours only what nothing else describes: Pac-Man, WarioWare, Fruit Ninja,
+    // none of which had a colour before. Higher up it takes games better described by something
+    // else, because IGDB uses the word for a style as often as for a genre: above Puzzle, Peggle
+    // and Tetris 99; above Racing, Mario Kart.
+    { name: 'Arcade', stripe: 'bg-genre-arcade' },
   ],
 
   search: {

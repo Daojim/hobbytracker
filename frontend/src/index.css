@@ -499,9 +499,12 @@
  * spent, and it is the one claim to revisit if a year-in-review page ever puts both on a screen.
  *
  * Every lightness sits in [0.48, 0.75] — the band that stays visible against every theme's
- * surface, light or dark, which is why none of them needs a variant. Lightness varies as well as
- * hue because eleven hues is past what anyone with common colour-vision deficiency can separate;
- * the card prints the genre's name for the same reason.
+ * surface, light or dark, which is why none of them needs a variant. **The band is necessary and
+ * not sufficient**: Dusk's card is a mid slate, every list's faintest stripe is on it, and a
+ * magenta at 0.48 measured 1.33:1 there. So every stripe also has to clear the faintest that
+ * already ships, Horror on Dusk at 1.48:1, and `palette.test.ts` measures that on every theme.
+ * Lightness varies as well as hue because a dozen hues is past what anyone with common
+ * colour-vision deficiency can separate; the card prints the genre's name for the same reason.
  *
  * **Measure before changing one — the pair a person notices is rarely the closest pair.** Convert
  * each to OKLab (L, C·cos H, C·sin H) and take the Euclidean distance: under 0.10 is
@@ -526,27 +529,55 @@
    * and they are the second set: the first had Platform/Puzzle, Fighting/Racing and
    * Simulator/Puzzle all under 0.10 apart, which at a 4px stripe is the same colour.
    *
-   * The floor here is Strategy against Adventure at 0.087, which is known and was accepted: both
-   * are warm and light and sit 20° apart. Dropping Adventure's chroma to 0.06 opens it to 0.119
-   * and makes the most generic genre the quiet one, if it ever becomes annoying in practice.
+   * **Two of them moved a shade on 28 October 2026, to make room for eight more.** Strategy went
+   * darker and redder, from oklch(0.68 0.15 60), and Platform lighter, from oklch(0.52 0.17 260).
+   * Each moved under 0.05, half the distance at which two stripes read as one colour, and between
+   * them they ended this list's two tightest pairs: Strategy against Adventure went from 0.087 to
+   * 0.136, and Platform against Fighting from 0.116 to 0.138. Platform got easier to see as well,
+   * from 1.72:1 to 1.97:1 on Dusk.
    */
   --color-genre-rpg: oklch(0.6 0.17 140);
   --color-genre-shooter: oklch(0.68 0.15 240);
-  --color-genre-platform: oklch(0.52 0.17 260);
+  --color-genre-platform: oklch(0.55 0.18 255);
   --color-genre-fighting: oklch(0.52 0.17 300);
   --color-genre-brawler: oklch(0.52 0.17 20);
   --color-genre-racing: oklch(0.75 0.13 0);
-  --color-genre-strategy: oklch(0.68 0.15 60);
+  --color-genre-strategy: oklch(0.64 0.16 50);
   --color-genre-simulator: oklch(0.55 0.06 80);
   --color-genre-puzzle: oklch(0.75 0.13 160);
   --color-genre-adventure: oklch(0.75 0.13 80);
 
   /* Measured before it was added, as the note above asks. Its nearest neighbour is Fighting at
      0.150 and then Racing at 0.152 — both inside the comfortable band, and well clear of the
-     0.087 floor this palette already accepts between Strategy and Adventure. The magenta corner
+     0.087 floor the palette accepted then, between Strategy and Adventure. The magenta corner
      was the only room left: a cyan around hue 200 lands 0.091 from Shooter, which is the same
      colour twice at stripe width. */
   --color-genre-visual-novel: oklch(0.64 0.19 328);
+
+  /*
+   * The eight added on 28 October 2026, making nineteen. An optimiser found the room and the
+   * user picked from renders of real cards in all eight themes: every pair in the list at least
+   * 0.128 apart, and no stripe fainter on any theme's card than the faintest the list already
+   * had, Beat 'em up on Dusk at 1.61:1. The room was mostly on the cool side, because the warm
+   * side was full.
+   *
+   * Five are as saturated as the rest. The three that the fewest well-known games would wear —
+   * Turn-based strategy, Arcade and Quiz/Trivia — are quiet near-greys. Coloured, they cost 0.012
+   * of separation and put two more pinks beside Visual Novel's magenta and an ochre among the
+   * golds and browns. **Tactical is teal**, the one new colour that is not a purple, a red or a
+   * green, because it is the one that was on the board the day it was chosen: Fire Emblem's.
+   *
+   * `sport` is IGDB's word with a hue of its own. Anime's `sports`, MAL's word, is a vivid green
+   * 0.06 from RPG's, which on the games board would be one colour twice.
+   */
+  --color-genre-music: oklch(0.64 0.2 10);
+  --color-genre-card-board: oklch(0.64 0.2 285);
+  --color-genre-sport: oklch(0.49 0.11 160);
+  --color-genre-tactical: oklch(0.61 0.1 190);
+  --color-genre-turn-based: oklch(0.5 0.06 260);
+  --color-genre-real-time: oklch(0.75 0.16 305);
+  --color-genre-quiz: oklch(0.75 0.04 255);
+  --color-genre-arcade: oklch(0.63 0.06 315);
 
   /*
    * The films list, and the same exercise: three whole palettes were rendered as real 4px
@@ -556,8 +587,8 @@
    * mood, and Drama is on about half of TMDB's catalogue.
    *
    * Its floor is Horror against Drama at 0.120, and **nothing here is under 0.10** — which the
-   * games list above cannot say. That is not this palette being better designed; it is ten hues
-   * being easier to separate than eleven.
+   * games list above could not say until October 2026. That was not this palette being better
+   * designed; it was ten hues being easier to separate than eleven.
    */
   --color-genre-documentary: oklch(0.66 0.04 120);
   --color-genre-animation: oklch(0.68 0.16 150);
@@ -613,8 +644,10 @@
    * like, and a title carrying nothing else then paints as nothing, which is honest.
    *
    * Its floor is Isekai against Mecha at 0.103, then Iyashikei against Sci-Fi at 0.107. Both
-   * clear the 0.087 this palette already accepts between Strategy and Adventure, and thirteen
-   * hues is two more than anything else here has had to fit.
+   * cleared the 0.087 the games list accepted then, between Strategy and Adventure, and thirteen
+   * hues was two more than anything else here had had to fit. Since the games list was repainted
+   * in October 2026, **Isekai against Mecha is the tightest pair in any list**, so it is the floor
+   * `palette.test.ts` holds every list to.
    *
    * The hues are chosen for what each genre feels like, which is the films list's rule: Isekai
    * is a portal-teal, Mecha the steel-blue of the machine, Iyashikei a soft mint that is the
