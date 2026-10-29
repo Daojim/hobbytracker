@@ -185,12 +185,18 @@ goes by title.
 - **The year control is the board's own `YearPicker`**, so a year it keeps on offer when the list
   has not got it — an address naming a year before the list arrives — is kept here too. Changing
   it replaces the address, so Back returns to the board rather than through every year tried.
-- **A month stops at six covers and says "+2"**, and a busy year's chart shows the six quickest and
-  six slowest with *Show all*. The backlog shows six with *Show all 14*, the wording the renders
-  had.
+- **Every finish is a cover, however busy the month.** A month stopped at six covers and said
+  "+2" until 29 October 2026. A stack starts with the month's first finish, so the cap kept the
+  oldest six and hid the newest, and October 2026's "+1" was a game finished the night before.
+  The tile took the slot the seventh cover fills, so showing all seven cost the panel nothing.
+  Picked from renders over four ways of opening the rest; see **Stats** in `docs/design.md`.
+  A busy year's chart still shows the six quickest and six slowest with *Show all*, and the
+  backlog six with *Show all 14*, the wording the renders had.
 - **The months reflow rather than swap.** One list: across on a wide screen, a stack per month
   with the first finish at the bottom; a row per month on a phone, where the months still to come
-  are left off. A screen reader and a test meet one of each.
+  are left off. A screen reader and a test meet one of each. **Under All years a year piles at
+  most four covers across** instead of standing in a stack, because its column has the room and
+  a stack of 2025's 28 would make the panel 1,755px tall.
 - **The months still to come are not dimmed**, which the renders showed with an opacity. A month's
   label is `text-muted`, held at 4.5:1 on every theme, and an opacity takes it under — the rule
   the hobby nav's *Soon* is written down for in `docs/design.md`.
@@ -265,9 +271,10 @@ going*. The completion query filtered Backlog out before counting, *and* the cou
 so taking either away changed nothing and the test could not say which held the rule. The filter
 went, and the counts are the rule.
 
-**Frontend**: `stats/stats.test.ts` (20), `stats/StatsPage.test.tsx` (25), one each in
+**Frontend**: `stats/stats.test.ts` (20), `stats/StatsPage.test.tsx` (26), one each in
 `lib/time.test.ts` and `lib/rating.test.ts`, and three in `board/BoardPage.test.tsx`. End to end,
-`e2e/stats.spec.ts` has 3, one of them at 390px.
+`e2e/stats.spec.ts` has 4, one of them at 390px. The last five rows were planted on 29 October
+2026, when the cap went.
 
 | Fault planted | Red |
 |---|---|
@@ -284,7 +291,6 @@ went, and the counts are the rule.
 | Days waited counted in UTC | *counts the days here, so 11:30pm yesterday is yesterday* |
 | "Added" said of a title the history knows | the three `waited` cases and the page's backlog wording |
 | Every timed game shown in a busy year | *shows six of each in a busy year* |
-| No cap on a month's covers | *stops a month at six covers* |
 | The whole history fetched before the latest year | both *opens on the latest year* cases |
 | A year control while the years load | the same two |
 | A hobby with no Stats page kept on the page | *goes to the board itself for a hobby with no Stats page* |
@@ -292,6 +298,11 @@ went, and the counts are the rule.
 | The note on "added" always shown | *explains "added" only when a title says it* |
 | The way in on every board | *offers no stats on a board whose hobby has no Stats page yet* |
 | The way in without the year | both of the board's *offers the stats* cases |
+| A month capped at six again | *shows every cover a busy month has, the newest included* |
+| A year capped at six under All years | *shows every finish of a busy year under All years* |
+| A year stacked rather than piled | end to end, *piles a year at most four covers across under All years* |
+| A pile with no ceiling of four | the same, where a year on its own put all five in one row |
+| A pile filled from the top | the same, with the fifth below the first four rather than above |
 
 **One fault was planted badly and is worth knowing about.** *The month helper in UTC* was first
 written as formatting the instant's UTC date in the journal zone, which happens to give the right

@@ -282,7 +282,9 @@ describe('StatsPage', () => {
       })).toBeInTheDocument();
     });
 
-    it('stops a month at six covers and says how many more', async () => {
+    it('shows every cover a busy month has, the newest included', async () => {
+      // A stack starts from the month's first finish, so a cap on it kept the oldest and hid the
+      // newest: in October 2026 it hid a game finished the night before.
       renderYear(
         '2026',
         stats({
@@ -295,9 +297,24 @@ describe('StatsPage', () => {
       const march = within(await section('Finished each month')).getByRole('list', {
         name: 'March',
       });
-      expect(within(march).getAllByRole('img')).toHaveLength(6);
-      expect(within(march).getByText('+2')).toBeInTheDocument();
-      expect(within(march).getByText('and 2 more')).toBeInTheDocument();
+      expect(within(march).getAllByRole('img')).toHaveLength(8);
+      expect(within(march).getByRole('img', { name: 'March 8' })).toBeInTheDocument();
+      expect(within(march).queryByText(/more/)).not.toBeInTheDocument();
+    });
+
+    it('shows every finish of a busy year under All years', async () => {
+      renderYear(
+        'all',
+        stats({
+          finished: Array.from({ length: 28 }, (_, index) =>
+            finish({ title: `2025 no. ${index + 1}`, completedAt: `2025-06-${String(index + 1).padStart(2, '0')}T16:00:00Z` }),
+          ),
+        }),
+      );
+
+      const year = within(await section('Finished each year')).getByRole('list', { name: '2025' });
+      expect(within(year).getAllByRole('img')).toHaveLength(28);
+      expect(within(year).getByRole('img', { name: '2025 no. 28' })).toBeInTheDocument();
     });
 
     it('files every finish under its year under All years, the undated last', async () => {

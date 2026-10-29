@@ -430,7 +430,7 @@ numbers mean is `docs/stats.md`'s.
 |---|---|---|
 | Layout | **Tiles, then panels two across** — 1,140px tall at 1440 | One centred sheet, read down — 1,937px. The same length on a phone |
 | Completion | **A bar**: finished in the accent, still going a lighter step of it, dropped apart, with a legend in words | The counts in a sentence |
-| Finished each month | **Covers, a stack per month**, six and then "+N" | A column of counts per month. Covers are 578px on a phone against 241 |
+| Finished each month | **Covers, a stack per month**: six and then "+N" until 29 October 2026, and every one since. See **Every cover** below | A column of counts per month. Covers are 578px on a phone against 241 |
 | Against HowLongToBeat | **A bar per game either side of the estimate**, sorted, six of each end in a busy year | The three quickest and three slowest, with covers. 518px on a phone against 361 |
 | Ratings | **A column per whole point**, 1 to 10 | One bar in three bands, which puts an 8.0 and a 9.5 together |
 | Backlog | **Oldest first**, six and then *Show all* | How many have waited under a month, 1–3 months and so on |
@@ -455,6 +455,28 @@ numbers mean is `docs/stats.md`'s.
   rest, so a long name is cut rather than the chart.
 - **The hours behind each bar show on hover and on keyboard focus**, in a small label above the row
   in `bg-fg` and `text-sunken` — the page's own ink and ground swapped, so it reads on every theme.
+
+**Every cover, since 29 October 2026.** October 2026 was the first month past six, and its "+1"
+was the newest finish, from the night before: a stack starts at the bottom with the month's first
+finish, so the cap kept the oldest six. Five ways to see the rest were rendered on the real page
+with the user's own 61 finishes, read from production, in Shelf Light and Shelf Dark at 1440 and
+390px. The workshop page is private: https://claude.ai/artifact/T4WsNvmuAddG5o8F9fLrw9. Both picks
+were the recommendation.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| The panel | **Every cover, no cap.** Seven covers are 495px at 1440, the same as six and a "+1", because the tile took the slot the seventh fills | "+1" opening the rest in place, the user's idea; six and "+1" opening one of the three below |
+| Somewhere with names | **Nothing.** A cover's name stays its tooltip | a popover over the month, 288px wide, which cut three of October's seven names short; a dialog in the share dialog's frame, with each game's day, hours and rating; a page of its own, the user's other idea, 2,240px tall for 2026 and needing a second address for a share |
+
+- **Under All years a year piles, at most four across**, the first finish at the bottom left and
+  the newest on top, as a month's stack runs. A year's column is several covers wide where a
+  month's is one, and 2025's 28 as a stack would make the panel 1,755px tall. Piled, all 61 fit
+  in the 495px the panel already was. Four is what three years left each pile on the renders,
+  and it is kept as a ceiling, so a year on its own is a pile rather than a strip across the
+  panel. On a phone a year is a row that wraps, as a month is.
+- **Each cover in the busiest month adds 60px at 1440**: five is 375px, six 435 and seven 495, and
+  the Ratings panel beside it is 205px. A month of ten would make the panel 675px. Nothing stops it
+  growing, and nothing in the user's history comes near.
 
 ### Sharing a board
 
