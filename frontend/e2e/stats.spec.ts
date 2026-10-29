@@ -101,6 +101,35 @@ test('lays the numbers out four across and the panels two across at 1440px', asy
   expect(ratings.x).toBeGreaterThan(months.x + months.width);
 });
 
+test('piles a year at most four covers across under All years, the first at the bottom', async ({ page }) => {
+  // Every finish is shown, so a year's covers pile rather than stand one above another: 2025's
+  // 28 would make the panel 1,755px tall as a stack. A year alone has the panel's whole width, and
+  // the pile still stops at four, so it reads as a column of the chart rather than a strip.
+  const titles = ['Celeste', 'Hades', 'Hollow Knight', 'Outer Wilds', 'Stardew Valley'];
+  for (const [index, title] of titles.entries()) {
+    await seed(page.request, title, 'Completed', { completedAt: `2025-06-0${index + 1}T12:00:00` });
+  }
+
+  await page.goto('/board/games/stats/all');
+
+  const covers = section(page, 'Finished each year')
+    .getByRole('list', { name: '2025' })
+    .getByRole('img');
+  await expect(covers).toHaveCount(titles.length);
+  const boxes = await Promise.all(titles.map((title, index) => boxOf(covers.nth(index), title)));
+
+  // The first four finishes make the bottom row, oldest at the left.
+  for (const [index, box] of boxes.slice(1, 4).entries()) {
+    expect(box.y, `${titles[index + 1]} shares the first row`).toBeCloseTo(boxes[0]!.y, 0);
+    expect(box.x, `${titles[index + 1]} sits right of the one before`).toBeGreaterThan(boxes[index]!.x);
+  }
+
+  // And the fifth starts the row above, as a month's stack grows up from its first finish.
+  expect(boxes[4]!.y + boxes[4]!.height, 'Stardew Valley starts the row above').toBeLessThanOrEqual(
+    boxes[0]!.y,
+  );
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 

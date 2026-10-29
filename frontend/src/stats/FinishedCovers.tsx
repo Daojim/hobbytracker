@@ -18,13 +18,6 @@ const MONTHS = [
   'December',
 ];
 
-/**
- * How many covers a month shows before it says how many more. Six stacks about as tall as the
- * ratings chart beside it at desktop widths, and a busy month would otherwise make the panel as
- * tall as the month was busy.
- */
-const STACK = 6;
-
 interface Group {
   key: string;
   /** What is printed under the stack: `Mar`, or a year. */
@@ -41,6 +34,16 @@ interface Group {
  * run twelve stacks of every year together. Picked from rendered comparisons on 2 October 2026
  * over columns of counts: it shows what you played, and the stack's height is still the count.
  *
+ * **Every cover, however busy the month.** A month stopped at six and said "+1" until 29 October
+ * 2026. A stack starts with the month's first finish, so the cap kept the oldest and hid the
+ * newest, and the tile took the very slot the seventh cover fills. Picked from renders of the
+ * user's own finishes over four ways of opening the rest: in place, a popover, a dialog and a page.
+ *
+ * **A year piles rather than stacks.** Under All years a year's column is several covers wide, and
+ * a stack of 2025's 28 would make the panel 1,755px tall. At most four across, the first finish at
+ * the bottom left, so a year still reads as a column of the chart — four is what three years left
+ * each pile on the renders, and as a ceiling it keeps a year on its own from becoming a strip.
+ *
  * **One list that reflows rather than two that take turns.** Across on a wide screen, a stack per
  * month with the first finish at the bottom; on a phone, a row per month with the covers in a
  * line. The same elements either way, so a screen reader and a test meet one of each.
@@ -50,49 +53,47 @@ export function FinishedCovers({ finished, year }: { finished: Finish[]; year: n
     return <Nothing>{year === undefined ? 'Nothing finished yet.' : `Nothing finished in ${year} yet.`}</Nothing>;
   }
 
+  // A pile under All years, a stack under a year: the width a group's column has is the difference.
+  const piled = year === undefined;
+
   return (
     <ol className="mt-3 space-y-1.5 sm:flex sm:gap-1.5 sm:space-y-0">
-      {groups(finished, year).map((group) => {
-        const shown = group.finishes.slice(0, STACK);
-        const more = group.finishes.length - shown.length;
-
-        return (
-          <li
-            key={group.key}
-            // A month still to come is left off a phone, where it would be a row with nothing in
-            // it; across, it keeps the year's twelve in place. Not dimmed with an opacity: the
-            // label is text-muted already, which is held at 4.5:1, and fading it takes it under.
-            className={`items-center gap-2 sm:flex-1 sm:flex-col-reverse sm:gap-1 ${
-              group.ahead ? 'hidden sm:flex' : 'flex'
-            }`}
+      {groups(finished, year).map((group) => (
+        <li
+          key={group.key}
+          // A month still to come is left off a phone, where it would be a row with nothing in
+          // it; across, it keeps the year's twelve in place. Not dimmed with an opacity: the
+          // label is text-muted already, which is held at 4.5:1, and fading it takes it under.
+          className={`items-center gap-2 sm:flex-1 sm:flex-col-reverse sm:gap-1 ${
+            group.ahead ? 'hidden sm:flex' : 'flex'
+          }`}
+        >
+          {/* Named on the list below rather than read twice. */}
+          <span
+            aria-hidden="true"
+            className="w-10 shrink-0 text-xs text-muted sm:w-auto sm:text-center sm:text-[0.6875rem]"
           >
-            {/* Named on the list below rather than read twice. */}
-            <span
-              aria-hidden="true"
-              className="w-10 shrink-0 text-xs text-muted sm:w-auto sm:text-center sm:text-[0.6875rem]"
-            >
-              {group.label}
-            </span>
+            {group.label}
+          </span>
 
-            <ul
-              aria-label={group.name}
-              className="flex flex-wrap gap-1 sm:min-h-[7.5rem] sm:w-full sm:flex-col-reverse sm:flex-nowrap sm:items-center sm:justify-start"
-            >
-              {shown.map((finish, index) => (
-                <li key={`${finish.mediaId}-${index}`} className="sm:w-full sm:max-w-10">
-                  <Cover finish={finish} />
-                </li>
-              ))}
-              {more > 0 && (
-                <li className="flex aspect-[5/7] w-8 items-center justify-center rounded bg-hover text-xs font-medium text-muted sm:w-full sm:max-w-10">
-                  <span aria-hidden="true">+{more}</span>
-                  <span className="sr-only">and {more} more</span>
-                </li>
-              )}
-            </ul>
-          </li>
-        );
-      })}
+          <ul
+            aria-label={group.name}
+            className={
+              piled
+                ? // Four across at most: four w-10 covers and the three gap-1s between them. Rows
+                  // fill from the bottom, so the first finish sits where a stack's would.
+                  'flex flex-wrap gap-1 sm:min-h-[7.5rem] sm:w-full sm:max-w-43 sm:flex-wrap-reverse sm:content-start sm:justify-center'
+                : 'flex flex-wrap gap-1 sm:min-h-[7.5rem] sm:w-full sm:flex-col-reverse sm:flex-nowrap sm:items-center sm:justify-start'
+            }
+          >
+            {group.finishes.map((finish, index) => (
+              <li key={`${finish.mediaId}-${index}`} className={piled ? 'sm:w-10' : 'sm:w-full sm:max-w-10'}>
+                <Cover finish={finish} />
+              </li>
+            ))}
+          </ul>
+        </li>
+      ))}
     </ol>
   );
 }
