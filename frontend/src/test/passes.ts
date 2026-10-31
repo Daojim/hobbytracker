@@ -21,6 +21,7 @@ export function note(overrides: Partial<Note> = {}): Note {
     logEntryId: 1,
     body: 'finally beat radiance',
     writtenAt: '2026-08-21T01:30:00+00:00',
+    pictures: [],
     ...overrides,
   };
 }
@@ -49,25 +50,51 @@ export interface PassFixture {
   saveErrors?: Record<string, string[]>;
   /** Answers the delete with this status instead, for the unhappy path. */
   deleteStatus?: number;
+  /** Answers a note's write, either kind, with a field error instead. */
+  noteErrors?: Record<string, string[]>;
 }
 
-/** What each of the five writes was asked to do, for a test to assert on afterwards. */
+/**
+ * What each of the writes was asked to do, for a test to assert on afterwards.
+ *
+ * A note with pictures is a form rather than JSON, and lands in `pictured` and `repictured`
+ * instead of `written` and `rewritten`, each picture as the text its stand-in bytes were made
+ * of. Apart, so every test of a note of words reads exactly as it did before pictures.
+ */
 export interface PassCalls {
   saved: { id: number; body: Record<string, unknown> }[];
   deleted: number[];
   written: { entryId: number; body: string }[];
   rewritten: { id: number; body: string }[];
+  pictured: { entryId: number; body: string; pictures: string[]; thumbnails: number }[];
+  repictured: { id: number; body: string; keep: number[]; pictures: string[] }[];
   dropped: number[];
 }
 
-export function passServer({ saveErrors, deleteStatus }: PassFixture = {}): PassCalls {
+/** Whether a request is the form write, which carries pictures. */
+const isForm = (request: Request) =>
+  request.headers.get('content-type')?.startsWith('multipart/form-data') ?? false;
+
+/** A form's pictures, each read back as the text its stand-in bytes were made of. */
+const picturesIn = (form: FormData, field: string) =>
+  Promise.all(form.getAll(field).map((value) => (value as Blob).text()));
+
+export function passServer({ saveErrors, deleteStatus, noteErrors }: PassFixture = {}): PassCalls {
   const calls: PassCalls = {
     saved: [],
     deleted: [],
     written: [],
     rewritten: [],
+    pictured: [],
+    repictured: [],
     dropped: [],
   };
+
+  const refused = () =>
+    HttpResponse.json(
+      { title: 'One or more validation errors occurred.', status: 400, errors: noteErrors },
+      { status: 400 },
+    );
 
   server.use(
     http.put('/api/log-entries/:id', async ({ params, request }) => {
@@ -97,17 +124,55 @@ export function passServer({ saveErrors, deleteStatus }: PassFixture = {}): Pass
     }),
 
     http.post('/api/log-entries/:entryId/notes', async ({ params, request }) => {
+      if (noteErrors !== undefined) {
+        return refused();
+      }
+
+      const entryId = Number(params['entryId']);
+
+      if (isForm(request)) {
+        const form = await request.formData();
+        const body = String(form.get('body') ?? '');
+        calls.pictured.push({
+          entryId,
+          body,
+          pictures: await picturesIn(form, 'pictures'),
+          thumbnails: form.getAll('thumbnails').length,
+        });
+
+        return HttpResponse.json(note({ body }), { status: 201 });
+      }
+
       const { body } = (await request.json()) as { body: string };
-      calls.written.push({ entryId: Number(params['entryId']), body });
+      calls.written.push({ entryId, body });
 
       return HttpResponse.json(note({ body }), { status: 201 });
     }),
 
     http.put('/api/notes/:id', async ({ params, request }) => {
-      const { body } = (await request.json()) as { body: string };
-      calls.rewritten.push({ id: Number(params['id']), body });
+      if (noteErrors !== undefined) {
+        return refused();
+      }
 
-      return HttpResponse.json(note({ id: Number(params['id']), body }));
+      const id = Number(params['id']);
+
+      if (isForm(request)) {
+        const form = await request.formData();
+        const body = String(form.get('body') ?? '');
+        calls.repictured.push({
+          id,
+          body,
+          keep: form.getAll('keep').map(Number),
+          pictures: await picturesIn(form, 'pictures'),
+        });
+
+        return HttpResponse.json(note({ id, body }));
+      }
+
+      const { body } = (await request.json()) as { body: string };
+      calls.rewritten.push({ id, body });
+
+      return HttpResponse.json(note({ id, body }));
     }),
 
     http.delete('/api/notes/:id', ({ params }) => {

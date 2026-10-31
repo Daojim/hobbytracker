@@ -44,6 +44,8 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
     releaseStatus: null,
 
     latestNotePreview: null,
+    latestNotePicture: null,
+    latestNotePictures: 0,
     ...overrides,
   };
 }

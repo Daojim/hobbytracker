@@ -131,6 +131,21 @@ else in the suite is quietly running against an origin it never mentioned.
   `/etc/mime.types`: `application/manifest+json`, `image/png`, `image/svg+xml` and
   `image/vnd.microsoft.icon`. **A file that is not there comes back `200 text/html`**, by
   `try_files`, so a missing icon looks like success to anything that checks only the status.
+- **A picture in a note is the first thing the API serves that Cloudflare would keep, and
+  `private` is what stops it.** Since #18 a note's pictures are read from
+  `GET /api/note-pictures/{id}` and `/{id}/thumbnail`. Cloudflare keeps the file types it knows at
+  its edge by default and hands its copy to anyone who asks, signed in or not, so the addresses end
+  in no file extension, and the answer says `private, max-age=31536000, immutable`, which keeps
+  every cache but the browser's out. `nosniff` goes with it. Checked through the e2e suite's Vite
+  proxy rather than at `<origin>`, which has not been measured yet: the deploy that carries #18 is
+  where to measure it, with `curl -sI` on a picture's address, signed in, looking for no
+  `cf-cache-status: HIT`.
+- **Kestrel keeps the note form's size limit, and answers past it with a 400.** The form write
+  refuses a request larger than any note can need, 8,716,288 bytes, before reading any of it. MVC
+  reads the form, so the refusal arrives as one it could not read: a 400 under no field rather
+  than a 413. A body sent anyway is answered while it is still arriving, and the connection drops;
+  through Vite's proxy that was a 502 one time in four, which is why the e2e case asks with
+  `Expect: 100-continue`. Caddy in front has not been measured doing it; the app never sends one.
 - **Cloudflare turns the icons' `no-cache` into four hours.** Caddy sends `no-cache` for every
   file outside `/assets`, and `index.html` and the manifest reach a browser that way. The PNGs,
   `favicon.svg` and `favicon.ico` do not. Measured at `<origin>` on 3 October 2026, they arrive
@@ -171,6 +186,12 @@ Each check reads what `main` has gained since the commit the server is on:
   be in the server's `.env` first; the first of **The things that fail quietly here** says what
   happens otherwise. **The value is the maintainer's to place**, never a session's to write. Hand
   over a command that moves it from where it already lives without printing it.
+- **The admin's account, once, with the deploy that carries #18.** An account's pictures are
+  capped at 1 GB unless its `users.role` is `admin`, the user's choice for their own account, and
+  nothing in the app grants it. After the deploy, the maintainer runs the one `UPDATE`, naming
+  their own row: `update users set role = 'admin' where id = <id>;`, through the database's own
+  credentials as **Proving it** shows. Before it, that account is capped like any other, which
+  for a while costs nothing: 1 GB is over ten thousand of the user's pictures.
 - **A migration.** Run `git diff --stat <deployed>..main -- backend/src/HobbyTracker.Api/Data/Migrations`.
   It applies itself when the new API starts, and nothing runs it backwards on the server, so the
   last nightly backup is the undo. Know when that ran before deploying one that drops or renames
@@ -330,6 +351,23 @@ Eastern is in the next night's dump, not that morning's. It pipes a `pg_dump` th
 `BACKUP_DIR`, on a different physical disk from the database. Each dump is written under a partial
 name and tested before it counts, and 14 days are kept. On 1 October 2026 there were sixteen, the
 newest from 04:30 that morning. A dump is plain SQL.
+
+**Since #18 the dump carries every picture in every note, every night**, because they are kept in
+Postgres (see `docs/data-model.md`). A picture is already compressed, so `gzip` does little for
+it, and a plain dump writes `bytea` as hex on its row's one line, two characters a byte, which
+`gzip` then takes back down to about the picture's own size. Measured on 30 October 2026, before
+any picture: the latest dump was 171,519 bytes for everything ever logged, and the backup disk
+had 870 GB free. One screenshot is about 90 KB, so a few hundred pictures will outweigh the rest
+of the database, and fourteen days of dumps hold each picture fourteen times, which the disk will
+not notice for a long while. **A row's restore is as before**: a picture's row is one line of the
+`COPY` block, its bytes included.
+
+**A restore that turns the database back reuses picture ids, and a browser keeps a picture for a
+year.** The picture routes answer `immutable`, on the ground that a new picture is a new id, and
+that stops being true if the sequences go back with the rows. Restoring rows, as below, leaves
+the sequences where they are and changes nothing. A whole restore to an earlier night would let a
+new picture take the id of one written after that night, and a browser that showed the old one
+would show it again. Clearing the site's data in that browser is the fix, if it ever happens.
 
 **The first restore was on 8 October 2026**: a pass and its nine notes, deleted together by a
 cascade (#15 in `docs/plans/games-board-next.md`), put back from that night's dump. Three things it

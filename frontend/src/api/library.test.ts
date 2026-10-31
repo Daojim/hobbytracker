@@ -34,6 +34,8 @@ const item: LibraryItem = {
   releasePrecision: null,
   releaseStatus: null,
   latestNotePreview: null,
+  latestNotePicture: null,
+  latestNotePictures: 0,
 };
 
 const page: PagedResult<LibraryItem> = { items: [item], total: 1, page: 1, pageSize: 25 };

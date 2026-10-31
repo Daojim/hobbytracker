@@ -38,6 +38,19 @@ public sealed partial class SqlRecorder : DbCommandInterceptor
     public static bool ReadsNotes(string sql) => NotesTable().IsMatch(sql);
 
     /// <summary>
+    /// Whether a command reads a note's pictures, which every read that carries notes should.
+    /// Not <see cref="ReadsNotes"/>'s word: with snake-case names a word boundary falls only
+    /// where an underscore does not, so neither pattern matches the other's table.
+    /// </summary>
+    public static bool ReadsPictures(string sql) => PicturesTable().IsMatch(sql);
+
+    /// <summary>
+    /// Whether a command reads a picture's bytes, which only the two picture routes should. A
+    /// picture has no navigation to its bytes, so this table is the only way to them.
+    /// </summary>
+    public static bool ReadsPictureBytes(string sql) => PictureBytesTable().IsMatch(sql);
+
+    /// <summary>
     /// A host that records every command into <paramref name="recorder"/>, beside the interceptors
     /// production already has — <c>ConfigureDbContext</c> adds to the options rather than
     /// replacing them, so the history recorder is still there.
@@ -101,4 +114,10 @@ public sealed partial class SqlRecorder : DbCommandInterceptor
 
     [GeneratedRegex(@"\bnotes\b", RegexOptions.IgnoreCase)]
     private static partial Regex NotesTable();
+
+    [GeneratedRegex(@"\bnote_pictures\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PicturesTable();
+
+    [GeneratedRegex(@"\bnote_picture_bytes\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PictureBytesTable();
 }

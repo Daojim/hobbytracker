@@ -41,6 +41,17 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     public DbSet<Note> Notes => Set<Note>();
 
     /// <summary>
+    /// The pictures in each note, without their bytes. Child of notes, cascade deleted.
+    /// </summary>
+    public DbSet<NotePicture> NotePictures => Set<NotePicture>();
+
+    /// <summary>
+    /// Each picture's bytes and its thumbnail's. Child of note_pictures, cascade deleted, and
+    /// read by the picture routes and nothing else.
+    /// </summary>
+    public DbSet<NotePictureBytes> NotePictureBytes => Set<NotePictureBytes>();
+
+    /// <summary>
     /// When each pass arrived in each column. Child of log_entries, cascade deleted, and written
     /// by StatusHistoryRecorder during a save rather than by any service.
     /// </summary>

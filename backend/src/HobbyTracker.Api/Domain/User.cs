@@ -10,11 +10,20 @@ public class User
 
     public required string DisplayName { get; set; }
 
+    /// <summary>The role a new account is given, which is every account sign-in makes.</summary>
+    public const string UserRole = "user";
+
     /// <summary>
-    /// Coarse authorization role, e.g. "user" or "admin". Still unused: sign-in sets it to "user"
-    /// and nothing reads it. It is here for the day a route needs more than "is signed in".
+    /// The role of the account the app is run for. Only ever set by hand, with an
+    /// <c>UPDATE</c> on its row: nothing in the app grants it.
     /// </summary>
-    public string Role { get; set; } = "user";
+    public const string AdminRole = "admin";
+
+    /// <summary>
+    /// Coarse authorization role, <see cref="UserRole"/> or <see cref="AdminRole"/>. Its one
+    /// reader is the cap on an account's pictures, which the admin's account does not have.
+    /// </summary>
+    public string Role { get; set; } = UserRole;
 
     public DateTimeOffset CreatedAt { get; set; }
 

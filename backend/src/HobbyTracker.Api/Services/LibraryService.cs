@@ -220,7 +220,7 @@ public sealed class LibraryService(
     /// </summary>
     private async Task<IReadOnlyList<LibraryItemDto>> CalendarAsync(
         int ownerId,
-        Expression<Func<BoardRow, string?>> note,
+        CardNote note,
         string? hobby,
         CancellationToken cancellationToken)
     {
@@ -350,7 +350,7 @@ public sealed class LibraryService(
         var passes = await db.LogEntries
             .AsNoTracking()
             .Include(entry => entry.Media)
-            .Include(entry => entry.Notes)
+            .Include(entry => entry.Notes).ThenInclude(note => note.Pictures)
             .Where(entry => entry.UserId == userId && onBoard.Contains(entry.MediaId))
             .OrderByDescending(entry => entry.LoggedAt)
             .ThenByDescending(entry => entry.Id)
@@ -416,7 +416,7 @@ public sealed class LibraryService(
     /// </summary>
     private async Task<LibraryPage> PageAsync(
         int ownerId,
-        Expression<Func<BoardRow, string?>> note,
+        CardNote note,
         string? hobby,
         LogStatus? status,
         int? year,
@@ -447,28 +447,38 @@ public sealed class LibraryService(
     }
 
     /// <summary>
+    /// What a card says about the newest note, as three expressions over a board row: its words
+    /// cut to a preview, its first picture, and how many pictures it has. Three rather than one
+    /// object, because each lands in a field of its own and the card stays flat on the wire.
+    /// </summary>
+    private sealed record CardNote(
+        Expression<Func<BoardRow, string?>> Preview,
+        Expression<Func<BoardRow, NotePictureDto?>> Picture,
+        Expression<Func<BoardRow, int>> Pictures);
+
+    /// <summary>
     /// A board row as the card it is drawn as, with the card's note left for the caller to say.
     ///
     /// <para>
     /// <b>One projection for your board and for a share of it</b>, so the two cannot drift: a share
-    /// shows a stranger the board its owner sees, less one field. That field is handed in as an
-    /// expression rather than chosen by a condition in here, because a condition is a <c>CASE</c>
+    /// shows a stranger the board its owner sees, less the note. The note is handed in as
+    /// expressions rather than chosen by a condition in here, because a condition is a <c>CASE</c>
     /// around the subquery and the subquery still goes to the database: a share would read every
-    /// note and then throw it away. Handed <see cref="NoNote"/>, the slot is a constant and the SQL
-    /// never names <c>notes</c> at all.
+    /// note and then throw it away. Handed <see cref="NoNote"/>, the slots are constants and the
+    /// SQL never names <c>notes</c> or <c>note_pictures</c> at all.
     /// </para>
     ///
     /// <para>
-    /// The note is spliced in by swapping the lambda's second parameter for the note's body, which
-    /// is <c>ReleaseWindow.NotOutOn</c>'s trick: EF Core cannot translate an <c>Invoke</c>, and
-    /// what it is handed here is the very tree the projection was when the note was written inline.
+    /// Each slot is spliced in by swapping one of the lambda's parameters for the slot's body,
+    /// which is <c>ReleaseWindow.NotOutOn</c>'s trick: EF Core cannot translate an
+    /// <c>Invoke</c>, and what it is handed here is the very tree the projection was when the
+    /// note was written inline.
     /// </para>
     /// </summary>
-    private static Expression<Func<BoardRow, LibraryItemDto>> CardsWith(
-        Expression<Func<BoardRow, string?>> note)
+    private static Expression<Func<BoardRow, LibraryItemDto>> CardsWith(CardNote note)
     {
-        Expression<Func<BoardRow, string?, LibraryItemDto>> card =
-            (row, latestNote) => new LibraryItemDto(
+        Expression<Func<BoardRow, string?, NotePictureDto?, int, LibraryItemDto>> card =
+            (row, latestNote, latestPicture, latestPictures) => new LibraryItemDto(
                 row.Media.Id,
 
                 // Which of a title's two names leads, for the one hobby that has two.
@@ -559,15 +569,23 @@ public sealed class LibraryService(
                 row.Media.ReleasePrecision,
                 row.Media.ReleaseStatus,
 
-                // The last thing written about this title, or nothing: the caller's to say. See
-                // LatestNoteOf, which is a board's, and NoNote, which is a share's.
-                latestNote);
+                // The last thing written about this title, or nothing, and its pictures: the
+                // caller's to say. See LatestNoteOf, which is a board's, and NoNote, which is a
+                // share's.
+                latestNote,
+                latestPicture,
+                latestPictures);
 
         var row = card.Parameters[0];
-        var spliced = new Rebind(note.Parameters[0], row).Visit(note.Body);
+        var body = card.Body;
+        body = new Rebind(card.Parameters[1], Splice(note.Preview, row)).Visit(body);
+        body = new Rebind(card.Parameters[2], Splice(note.Picture, row)).Visit(body);
+        body = new Rebind(card.Parameters[3], Splice(note.Pictures, row)).Visit(body);
 
-        return Expression.Lambda<Func<BoardRow, LibraryItemDto>>(
-            new Rebind(card.Parameters[1], spliced).Visit(card.Body), row);
+        return Expression.Lambda<Func<BoardRow, LibraryItemDto>>(body, row);
+
+        static Expression Splice<T>(Expression<Func<BoardRow, T>> slot, ParameterExpression row) =>
+            new Rebind(slot.Parameters[0], row).Visit(slot.Body);
     }
 
     /// <summary>
@@ -585,13 +603,22 @@ public sealed class LibraryService(
     /// </para>
     ///
     /// <para>
+    /// <b>The three find the same note, the newest, each for itself</b>: the words, the first
+    /// picture, and the count all come from it, so a card never draws an older note's picture
+    /// beside a newer note's words. Each carries the predicate and the order the others do, and
+    /// they must go on agreeing. A note that is a picture alone answers empty words rather than
+    /// none, which is how a card still knows its title has notes for <i>Remove from board</i> to
+    /// warn about.
+    /// </para>
+    ///
+    /// <para>
     /// In the terminal projection rather than in BoardQuery for the genre downcast's reason, and it
     /// matters more here: a subquery that fails to translate throws and names itself, where the
     /// same thing in BoardQuery would empty the board and say nothing at all.
     /// </para>
     /// </summary>
-    private static Expression<Func<BoardRow, string?>> LatestNoteOf(int ownerId) =>
-        row => row.Media.LogEntries
+    private static CardNote LatestNoteOf(int ownerId) => new(
+        Preview: row => row.Media.LogEntries
             .Where(entry => entry.UserId == ownerId)
             .SelectMany(entry => entry.Notes)
             .OrderByDescending(note => note.WrittenAt)
@@ -599,13 +626,34 @@ public sealed class LibraryService(
             .Select(note => note.Body.Length > NotePreviewLength
                 ? note.Body.Substring(0, NotePreviewLength)
                 : note.Body)
-            .FirstOrDefault();
+            .FirstOrDefault(),
+
+        // The first by its place in the note, which is the one a card draws. Never the bytes:
+        // the card draws the thumbnail, which the picture's id is enough to ask for.
+        Picture: row => row.Media.LogEntries
+            .Where(entry => entry.UserId == ownerId)
+            .SelectMany(entry => entry.Notes)
+            .OrderByDescending(note => note.WrittenAt)
+            .ThenByDescending(note => note.Id)
+            .Select(note => note.Pictures
+                .OrderBy(picture => picture.Position)
+                .Select(picture => new NotePictureDto(picture.Id, picture.Width, picture.Height))
+                .FirstOrDefault())
+            .FirstOrDefault(),
+
+        Pictures: row => row.Media.LogEntries
+            .Where(entry => entry.UserId == ownerId)
+            .SelectMany(entry => entry.Notes)
+            .OrderByDescending(note => note.WrittenAt)
+            .ThenByDescending(note => note.Id)
+            .Select(note => note.Pictures.Count)
+            .FirstOrDefault());
 
     /// <summary>
-    /// What a share's cards carry: nothing, as a constant, so a share's SQL never reaches
-    /// <c>notes</c>. A note is the journal, and a share is the board.
+    /// What a share's cards carry: nothing, as constants, so a share's SQL never reaches
+    /// <c>notes</c> or a note's pictures. A note is the journal, and a share is the board.
     /// </summary>
-    private static readonly Expression<Func<BoardRow, string?>> NoNote = _ => null;
+    private static readonly CardNote NoNote = new(_ => null, _ => null, _ => 0);
 
     /// <summary>
     /// What a column's header says about how long its titles take: the figure each card prints,
@@ -1326,9 +1374,9 @@ public sealed class LibraryService(
                 row.Media.ReleasePrecision,
                 row.Media.ReleaseStatus,
 
-                // As in ListAsync, predicate and all. This copy has to exist: it is what a drag
-                // or a menu move answers with, and a field arriving null here and populated on
-                // the next refetch would flicker.
+                // As in ListAsync, predicate and all, the preview and the two picture fields
+                // alike. This copy has to exist: it is what a drag or a menu move answers with,
+                // and a field arriving null here and populated on the next refetch would flicker.
                 row.Media.LogEntries
                     .Where(entry => entry.UserId == userId)
                     .SelectMany(entry => entry.Notes)
@@ -1337,6 +1385,23 @@ public sealed class LibraryService(
                     .Select(note => note.Body.Length > NotePreviewLength
                         ? note.Body.Substring(0, NotePreviewLength)
                         : note.Body)
+                    .FirstOrDefault(),
+                row.Media.LogEntries
+                    .Where(entry => entry.UserId == userId)
+                    .SelectMany(entry => entry.Notes)
+                    .OrderByDescending(note => note.WrittenAt)
+                    .ThenByDescending(note => note.Id)
+                    .Select(note => note.Pictures
+                        .OrderBy(picture => picture.Position)
+                        .Select(picture => new NotePictureDto(picture.Id, picture.Width, picture.Height))
+                        .FirstOrDefault())
+                    .FirstOrDefault(),
+                row.Media.LogEntries
+                    .Where(entry => entry.UserId == userId)
+                    .SelectMany(entry => entry.Notes)
+                    .OrderByDescending(note => note.WrittenAt)
+                    .ThenByDescending(note => note.Id)
+                    .Select(note => note.Pictures.Count)
                     .FirstOrDefault()))
             .FirstOrDefaultAsync(cancellationToken);
     }

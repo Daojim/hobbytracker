@@ -163,7 +163,13 @@ describe('SharedBoardPage', () => {
       sharedServer({
         columns: {
           Backlog: [
-            libraryItem({ title: 'Celeste', latestRating: 9.5, latestNotePreview: 'A NOTE' }),
+            libraryItem({
+              title: 'Celeste',
+              latestRating: 9.5,
+              latestNotePreview: 'A NOTE',
+              latestNotePicture: { id: 41, width: 1920, height: 1080 },
+              latestNotePictures: 1,
+            }),
           ],
         },
         years: [2026],
@@ -175,6 +181,9 @@ describe('SharedBoardPage', () => {
       expect(within(card).queryByRole('button')).not.toBeInTheDocument();
       expect(within(card).getByRole('img', { name: 'Rated 9.5 out of 10' })).toBeInTheDocument();
       expect(screen.queryByText('A NOTE')).not.toBeInTheDocument();
+      // Nor a picture: the picture route would answer a visitor with a 401, and a card that
+      // asked would draw a broken picture where the note was.
+      expect(card.querySelector('img[src^="/api/note-pictures"]')).toBeNull();
 
       // dnd-kit stamps every sortable it registers with this; a share registers none.
       expect(document.querySelector('[aria-roledescription]')).toBeNull();

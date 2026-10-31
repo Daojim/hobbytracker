@@ -91,7 +91,7 @@ describe('exportSheets', () => {
       'Finished',
       'Notes',
     ]);
-    expect(headers(notes)).toEqual(['Title', 'Playthrough', 'Written', 'Note']);
+    expect(headers(notes)).toEqual(['Title', 'Playthrough', 'Written', 'Pictures', 'Note']);
   });
 
   it('builds a board of another hobby from its own words and its own fields', () => {
@@ -415,6 +415,41 @@ describe('exportSheets', () => {
     ]);
     expect(down(notes, 'Title')).toEqual(['Hollow Knight', 'Hollow Knight', 'Celeste', 'Hollow Knight']);
     expect(row(games, 1)['Latest note']).toMatchObject({ value: 'Mantis Lords first try' });
+  });
+
+  it('counts the pictures in every note, so a note of pictures alone is not a blank row', () => {
+    // The pictures themselves stay out of the file: its cells are text, and a download of them
+    // would be a feature of its own. Decided at the #18 pickup.
+    const picture = { id: 41, width: 1920, height: 1080 };
+    const { notes } = build([
+      title({
+        passes: [
+          logEntry({
+            notes: [
+              note({ id: 8, body: '', pictures: [picture], writtenAt: '2026-09-02T00:00:00+00:00' }),
+              note({ id: 7, body: 'Words alone', writtenAt: '2026-09-01T00:00:00+00:00' }),
+            ],
+          }),
+        ],
+      }),
+    ]);
+
+    expect(down(notes, 'Pictures')).toEqual([1, 0]);
+    // An empty cell, as an empty note is: no words were written, and none are made up for it.
+    expect(down(notes, 'Note')).toEqual([undefined, 'Words alone']);
+  });
+
+  it('says how many pictures the newest note has when it has no words, and its words when it has', () => {
+    // What a screen reader hears for the card's thumbnail, in the cell the card's note is cut from.
+    const picture = (id: number) => ({ id, width: 1920, height: 1080 });
+    const latest = (body: string, pictures: ReturnType<typeof picture>[]) =>
+      row(build([title({ passes: [logEntry({ notes: [note({ body, pictures })] })] })]).games, 1)[
+        'Latest note'
+      ];
+
+    expect(latest('', [picture(41)])).toMatchObject({ value: 'A picture' });
+    expect(latest('', [picture(41), picture(42)])).toMatchObject({ value: '2 pictures' });
+    expect(latest('The clock tower', [picture(41)])).toMatchObject({ value: 'The clock tower' });
   });
 
   it('freezes the header and the titles, sizes every column, and wraps only the notes', () => {

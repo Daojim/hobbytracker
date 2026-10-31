@@ -11,8 +11,8 @@ public interface IAccountService
     Task<AccountDto> SummaryAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes your account and everything that is yours: every pass on every board, every note,
-    /// the history of every move, and every sign-in. The catalogue stays, because it is
+    /// Deletes your account and everything that is yours: every pass on every board, every note
+    /// and every picture in one, the history of every move, and every sign-in. The catalogue stays, because it is
     /// everybody's.
     /// </summary>
     Task DeleteAsync(CancellationToken cancellationToken);
@@ -59,7 +59,12 @@ public sealed class AccountService(HobbyTrackerDbContext db, ICurrentUser user) 
         var notes = await db.Notes
             .CountAsync(note => note.LogEntry!.UserId == userId, cancellationToken);
 
-        return new AccountDto(signedInWith, boards, notes);
+        // And a picture through its note, the same way. Counted apart from the notes, as the
+        // warning says them, because a note that is a picture alone is still one note.
+        var pictures = await db.NotePictures
+            .CountAsync(picture => picture.Note!.LogEntry!.UserId == userId, cancellationToken);
+
+        return new AccountDto(signedInWith, boards, notes, pictures);
     }
 
     public async Task DeleteAsync(CancellationToken cancellationToken)
@@ -67,10 +72,12 @@ public sealed class AccountService(HobbyTrackerDbContext db, ICurrentUser user) 
         var userId = user.Id;
 
         // One statement, and the database takes the rest: users cascades to auth_identities and
-        // log_entries, and log_entries to notes and status_changes. The cascades are the
-        // configurations' and the migrations' (LogEntryConfiguration, AuthIdentityConfiguration,
-        // NoteConfiguration, StatusChangeConfiguration), so nothing is loaded into memory to be
-        // deleted a row at a time, and no row can be missed by a list kept here.
+        // log_entries, log_entries to notes and status_changes, and notes to their pictures and
+        // the pictures to their bytes. The cascades are the configurations' and the migrations'
+        // (LogEntryConfiguration, AuthIdentityConfiguration, NoteConfiguration,
+        // StatusChangeConfiguration, NotePictureConfiguration, NotePictureBytesConfiguration), so
+        // nothing is loaded into memory to be deleted a row at a time, and no row can be missed
+        // by a list kept here.
         //
         // ExecuteDelete passes the change tracker by, and so StatusHistoryRecorder with it. That
         // is the trap data-model.md names for writing a status, and it does not apply here: a

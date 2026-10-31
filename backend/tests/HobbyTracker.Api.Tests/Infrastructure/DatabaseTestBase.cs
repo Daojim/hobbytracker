@@ -394,6 +394,40 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
         });
 
     /// <summary>
+    /// A picture in a note, with its bytes, straight into both tables. Whose it is follows the
+    /// note, as everything about a note does. A real PNG by default, so a test that reads it back
+    /// through the picture route reads a picture.
+    /// </summary>
+    protected Task<int> GivenPictureAsync(
+        int noteId,
+        int position = 0,
+        byte[]? bytes = null,
+        string contentType = "image/png",
+        int width = 3,
+        int height = 2) => WithDbAsync(async db =>
+        {
+            var stored = new NotePictureBytes
+            {
+                Picture = new NotePicture
+                {
+                    NoteId = noteId,
+                    Position = position,
+                    ContentType = contentType,
+                    Width = width,
+                    Height = height,
+                    ByteCount = (bytes ?? Pictures.Png).Length + Pictures.Webp.Length,
+                },
+                Bytes = bytes ?? Pictures.Png,
+                Thumbnail = Pictures.Webp,
+                ThumbnailType = "image/webp",
+            };
+
+            db.NotePictureBytes.Add(stored);
+            await db.SaveChangesAsync(Ct);
+            return stored.PictureId;
+        });
+
+    /// <summary>
     /// Somebody to own rows. Respawn truncates <c>users</c> between tests, so each one makes its
     /// own rather than sharing a fixture — which is also what lets a test make two.
     /// </summary>

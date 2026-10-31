@@ -2,6 +2,7 @@ import type { CellObject, Row } from 'write-excel-file/browser';
 import type { ExportTitle, LogEntry, Note } from '../api/types';
 import { BOARD_STATUSES, resolveGenre, type HobbyDefinition } from '../hobbies';
 import { HLTB_TIER_LABELS, hltbGameUrl, type HltbEstimates } from '../journal/fields';
+import { picturesInWords } from '../lib/pictures';
 import { formatRelease, type Day } from '../lib/release';
 import { journalDateInput, journalMinute, todayHere } from '../lib/time';
 
@@ -167,6 +168,15 @@ interface NoteRow {
   number: number;
 }
 
+/** A note's words, or how many pictures it has when it has none: what the card says for it. */
+function latestNote(note: Note | undefined): string | undefined {
+  if (note === undefined || note.body !== '' || note.pictures.length === 0) {
+    return note?.body;
+  }
+
+  return picturesInWords(note.pictures.length);
+}
+
 /**
  * Newest first, and by id between two written in the same instant — the rule the card's latest
  * note is picked by, so the sheet's latest note is the card's.
@@ -272,8 +282,9 @@ export function exportSheets(
       cell: ({ title }) => (title.hltbId === null ? null : text(hltbGameUrl(title.hltbId))),
     },
 
-    // What the card's two lines are cut from, whole: the newest note across every pass.
-    { header: 'Latest note', width: 44, cell: ({ notes }) => text(notes[0]?.note.body) },
+    // What the card's two lines are cut from, whole: the newest note across every pass. A note
+    // of pictures alone says how many, as the card's thumbnail does to a screen reader.
+    { header: 'Latest note', width: 44, cell: ({ notes }) => text(latestNote(notes[0]?.note)) },
   ];
 
   const passColumns: (Column<PassRow> | false)[] = [
@@ -292,6 +303,11 @@ export function exportSheets(
     { header: 'Title', width: 40, cell: ({ title }) => text(title.title) },
     { header: words.pass, width: 11, cell: ({ number: counted }) => number(counted) },
     { header: 'Written', width: 17, cell: ({ note }) => minuteOf(note.writtenAt) },
+
+    // How many pictures the note has, so a note of pictures alone is not a blank row. The
+    // pictures themselves stay out: a cell holds text, and a download of them would be a feature
+    // of its own. Before the note, which is the one column wide enough to scroll past.
+    { header: 'Pictures', width: 8, cell: ({ note }) => number(note.pictures.length) },
 
     // Exactly as typed, line breaks and all, so it wraps; a note is at most 4,000 characters and a
     // cell holds 32,767, so nothing is cut.

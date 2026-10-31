@@ -92,9 +92,12 @@ test('the row downloads the board as a workbook of three sheets', async ({ page 
 
   // The note as it was typed, and when it was written, here, to the minute. A real date cell: the
   // reader's types call a date cell's value the Date constructor, and it hands back an instance.
-  const [, noteRow] = notes!;
-  expect(noteRow![3]).toBe('=Farewell is brutal');
-  const writtenCell = noteRow![2];
+  // By header, as the Games sheet is read: a position went stale when Pictures joined the sheet.
+  const [noteHeader, noteRow] = notes!;
+  const noteAt = (column: string) => noteRow![noteHeader!.indexOf(column)];
+  expect(noteAt('Note')).toBe('=Farewell is brutal');
+  expect(noteAt('Pictures')).toBe(0);
+  const writtenCell = noteAt('Written');
   expect(writtenCell).toBeInstanceOf(Date);
   expect(minuteOf(writtenCell as unknown as Date)).toBe(minuteOf(wallClockHere(note.writtenAt)));
 });

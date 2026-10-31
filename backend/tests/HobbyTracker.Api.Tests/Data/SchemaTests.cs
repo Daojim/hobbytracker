@@ -1092,6 +1092,209 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
         left.ShouldBe([someoneElse]);
     }
 
+    // ------------------------------------------------------- pictures in notes
+
+    [Fact]
+    public async Task A_picture_and_its_bytes_are_kept_in_two_tables()
+    {
+        var noteId = await GivenANoteAsync();
+        byte[] bytes = [0x52, 0x49, 0x46, 0x46, 0x00, 0xff];
+
+        await WithDbAsync(async db =>
+        {
+            db.NotePictureBytes.Add(Stored(Picture(noteId, width: 1920, height: 1080), bytes));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var picture = await WithDbAsync(db => db.Notes
+            .Where(note => note.Id == noteId)
+            .SelectMany(note => note.Pictures)
+            .Select(p => new { p.Width, p.Height })
+            .SingleAsync(Ct));
+        picture.ShouldBe(new { Width = 1920, Height = 1080 });
+
+        (await WithDbAsync(db => db.NotePictureBytes.Select(b => b.Bytes).SingleAsync(Ct)))
+            .ShouldBe(bytes);
+
+        // The split is the point: every read that carries a note's pictures reads this table,
+        // and a picture in one of its columns would come out of the database every time a
+        // journal opened. Slow rather than wrong, which is why nothing else would notice.
+        var bytesColumns = await WithDbAsync(async db =>
+        {
+            await db.Database.OpenConnectionAsync(Ct);
+            await using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = """
+                select count(*) from information_schema.columns
+                where table_name = 'note_pictures' and data_type = 'bytea'
+                """;
+            return (long)(await command.ExecuteScalarAsync(Ct))!;
+        });
+        bytesColumns.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Rejects_two_pictures_in_one_place_in_a_note()
+    {
+        // Their order is what a card reads its picture from, the first, so two in one place
+        // would make which one a card shows a matter of how the database felt that day.
+        var noteId = await GivenANoteAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.NotePictureBytes.AddRange(
+                Stored(Picture(noteId, position: 0)),
+                Stored(Picture(noteId, position: 0)));
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        exception.InnerException.ShouldBeOfType<PostgresException>()
+            .SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
+    }
+
+    [Theory]
+    [InlineData("image/svg+xml")]
+    [InlineData("text/html")]
+    [InlineData("image/gif")]
+    public async Task Rejects_a_picture_that_is_not_jpeg_png_or_webp(string contentType)
+    {
+        // The picture route answers with the type stored here. The service reads it from the
+        // bytes, and this is what keeps a mistake in that from serving a page, or an SVG that
+        // carries script, from the app's own address.
+        var noteId = await GivenANoteAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.NotePictureBytes.Add(Stored(Picture(noteId, contentType: contentType)));
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_note_pictures_content_type");
+    }
+
+    [Theory]
+    [InlineData("image/svg+xml")]
+    [InlineData("text/html")]
+    public async Task Rejects_a_thumbnail_that_is_not_jpeg_png_or_webp(string thumbnailType)
+    {
+        var noteId = await GivenANoteAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.NotePictureBytes.Add(Stored(Picture(noteId), thumbnailType: thumbnailType));
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_note_picture_bytes_thumbnail_type");
+    }
+
+    [Theory]
+    [InlineData(0, 1080, 1000)]
+    [InlineData(1920, 0, 1000)]
+    [InlineData(1920, 1080, 0)]
+    public async Task Rejects_a_picture_with_nothing_in_it(int width, int height, int byteCount)
+    {
+        // Each is read from the bytes, so nought is a reading that went wrong: an <img> drawn
+        // nought wide, or a picture the account's total never counts.
+        var noteId = await GivenANoteAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.NotePictureBytes.Add(Stored(
+                Picture(noteId, width: width, height: height, byteCount: byteCount)));
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_note_pictures_size");
+    }
+
+    [Fact]
+    public async Task Deleting_a_note_takes_its_pictures_and_their_bytes()
+    {
+        var noteId = await GivenANoteAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.NotePictureBytes.AddRange(
+                Stored(Picture(noteId, position: 0)),
+                Stored(Picture(noteId, position: 1)));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await WithDbAsync(async db =>
+        {
+            db.Notes.Remove(await db.Notes.SingleAsync(note => note.Id == noteId, Ct));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.NotePictures.CountAsync(Ct))).ShouldBe(0);
+        (await WithDbAsync(db => db.NotePictureBytes.CountAsync(Ct))).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Deleting_an_account_takes_its_pictures_and_nobody_elses()
+    {
+        // Deleting an account is one delete of the users row, and the database does the rest:
+        // users to log_entries to notes to pictures to their bytes. Nothing in the service
+        // knows pictures exist, so this is the whole of what keeps them from outliving it.
+        var mine = await GivenANoteAsync();
+        var someoneElse = await GivenUserAsync("Someone Else");
+        var theirs = await GivenANoteAsync(someoneElse);
+
+        await WithDbAsync(async db =>
+        {
+            db.NotePictureBytes.AddRange(Stored(Picture(mine)), Stored(Picture(theirs)));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        await WithDbAsync(async db =>
+        {
+            db.Users.Remove(await db.Users.SingleAsync(user => user.Id == UserId, Ct));
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.NotePictures.Select(p => p.NoteId).ToListAsync(Ct)))
+            .ShouldBe([theirs]);
+        (await WithDbAsync(db => db.NotePictureBytes.Select(b => b.Picture!.NoteId).ToListAsync(Ct)))
+            .ShouldBe([theirs]);
+    }
+
+    /// <summary>A note on a pass of a game, by default this test's user's.</summary>
+    private async Task<int> GivenANoteAsync(int? userId = null)
+    {
+        var mediaId = await GivenAGameAsync(externalId: $"{userId ?? UserId}");
+        var entryId = await GivenLogEntryAsync(mediaId, userId: userId);
+        return await GivenNoteAsync(entryId);
+    }
+
+    private static NotePicture Picture(
+        int noteId,
+        int position = 0,
+        string contentType = "image/webp",
+        int width = 1920,
+        int height = 1080,
+        int byteCount = 90_000) => new()
+        {
+            NoteId = noteId,
+            Position = position,
+            ContentType = contentType,
+            Width = width,
+            Height = height,
+            ByteCount = byteCount,
+        };
+
+    /// <summary>
+    /// A picture with its bytes, added together by adding this. Not a real picture: the schema
+    /// keeps whatever it is given, and reading the bytes is the service's.
+    /// </summary>
+    private static NotePictureBytes Stored(
+        NotePicture picture, byte[]? bytes = null, string thumbnailType = "image/webp") => new()
+        {
+            Picture = picture,
+            Bytes = bytes ?? [0x52, 0x49, 0x46, 0x46],
+            Thumbnail = [0x52, 0x49, 0x46, 0x46],
+            ThumbnailType = thumbnailType,
+        };
+
     private async Task<int> GivenAnAnimeAsync(
         string externalId = "1",
         int? episodes = null,

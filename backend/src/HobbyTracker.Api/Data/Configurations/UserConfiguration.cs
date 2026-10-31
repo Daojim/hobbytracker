@@ -11,7 +11,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.ToTable("users");
 
         builder.Property(u => u.DisplayName).HasMaxLength(100);
-        builder.Property(u => u.Role).HasMaxLength(50).HasDefaultValue("user");
+        builder.Property(u => u.Role).HasMaxLength(50).HasDefaultValue(User.UserRole);
 
         // Defaulted in the database so a row inserted by hand (psql, a fixture, a later
         // seeding script) still gets a timestamp.

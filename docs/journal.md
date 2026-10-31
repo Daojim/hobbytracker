@@ -533,3 +533,134 @@ the journal's, which opens at the note found.
   marked in the next journal opened by another door. It is state rather than part of the history
   entry: a reload brings the journal back, at its top.
 
+## Pictures in notes
+
+Built for #18 in `docs/plans/games-board-next.md` on 30 October 2026, from a workshop the same
+day: a picture in a note, pasted, dropped or picked, and a note that can be a picture alone, in
+the user's words *"just paste the image of a save file and call it a day"*. On every board at
+once, because a note is the same thing on every board. **Where else it lives**: the two tables
+and the account's cap in `docs/data-model.md`, the card's thumbnail in `docs/board.md`, the
+spreadsheet's count in `docs/export.md`, the picture routes and the share in `docs/auth.md`, the
+look in `docs/design.md`, and the deploy's one `UPDATE` in `docs/deploy.md`.
+
+### The box
+
+- **Three ways in, and one path.** A paste, a drop and the picker all hand their files to
+  `usePictureDraft.add`, which refuses what the server would and shrinks what it takes. On a
+  desktop the paste is the quick one, since a Win+Shift+S snip is already on the clipboard. On
+  the Android phone it is the picker, a picture-frame icon before *Add note*, because `image/*`
+  there offers the gallery and the camera.
+- **A paste with words in it is words.** Measured in the user's Firefox 159 with a throwaway probe
+  that logged each paste: a snip is one PNG and nothing else, Discord's *Copy image* a PNG and some
+  HTML, and **Excel a row as plain text, HTML and RTF beside a 1011×201 PNG of the cells**. Taking
+  every picture would turn a pasted row into a picture of it, so `picturesPasted` in
+  `NoteBox.tsx` lets any paste carrying `text/plain` go ahead as the browser's, and takes the
+  files of one that carries none, preventing it so no file name lands as words. Word and OneNote
+  were not tried; both put words on the clipboard.
+- **A file held over the box dashes its border and says so**: *Drop to add the picture*, or *the
+  pictures* for several. **A file dropped anywhere else on the journal is taken and ignored**,
+  by `ignoreDrops` on the panel and on the backdrop, because Chromium opens a dropped file in the
+  tab when nothing takes it, which loses the draft and the drawer, and once the box invites a drop
+  a near miss is likely.
+- **A waiting picture sits inside the box's border, under the words**, 56px with an × each,
+  *Take this picture out* to a screen reader. **Each is an object URL**, which holds the shrunk
+  picture in memory until it is revoked, so it is revoked when its picture is taken out, when a
+  send clears the box, and when the box goes.
+- **What the box refuses, it refuses before anything is sent**, in the words the server would
+  use: *A note holds four pictures. Take one out to add another.* past four, kept and new
+  counted together; *Only pictures can go in a note.* for any other file; and *That picture
+  couldn't be opened, so it wasn't added.* for a picture the browser cannot decode, an iPhone's
+  HEIC in Firefox. One line, under the box, where the drawer's own errors go.
+- **The shrink is `lib/shrink.ts`**: a long edge of 1920 and WebP at 85, JPEG at 85 where a
+  browser cannot write WebP, picked by reading the user's own pictures at each size. A thumbnail
+  is made beside it, fitting 192 by 96, drawn from the shrunk picture by halving on the way down
+  so it does not shimmer. Saving again keeps only the pixels, so a phone photo loses its location
+  with everything else the file recorded. **Both engines turn a photo by its EXIF when they decode
+  it, whatever `imageOrientation` says**: measured in Chromium 151 and Firefox 153, `'none'`
+  included. `'from-image'` states what is wanted, and the e2e suite proves the photo upright.
+- **The words and the pictures go in one request, written in one save**, and never ahead of the
+  note: a picture uploaded on paste would leave a row behind whenever the drawer closed first.
+  **A note of words alone still goes as JSON**, so nothing about it changed. While a note with
+  pictures is on its way, *Add note* reads *Adding…* and *Save note* *Saving…*, the words are
+  read-only and the pictures dimmed.
+- **The box is cleared only once the note is written.** `onWrite` is the mutation's promise, so a
+  send that fails keeps the words and the pictures in the box, under *Not added.* and what the
+  server said, as a refused move says *Not moved.* A refused rewrite says *Not saved.* Closing the
+  drawer before sending still loses them, as it always lost unsent words.
+- **The edit box is the same box**: it shows the note's pictures from their thumbnails, each with
+  its ×, and takes new ones the same three ways. A note that has pictures, or gains one, is
+  rewritten as a form naming the ones it keeps, so taking one out or emptying the words beside one
+  means what it says. A note of words that stays one is rewritten as JSON, as it always was.
+- **Words or a picture is enough to send**, from Enter or from the button, which ask the same
+  question.
+
+### How a note shows them
+
+- **A collage under the words**, picked over thumbnails and over every picture whole. A lone
+  picture is shown whole, as wide as the column and at most 320px tall; two or more are 16:9 tiles,
+  two to a row and cropped to fill them, three being one across and two under it. Under the words
+  because that is the order they were made in. **A note that is a picture alone has no empty line
+  for its words.**
+- **Every picture is drawn at its stored size**, as the `<img>`'s own `width` and `height`, so its
+  space is held before it arrives. A journal opened at a note a search found scrolls to it, and
+  pictures above it arriving afterwards would push it back out of view.
+- **Pressing one opens a lightbox**, `Lightbox` in `NotePictures.tsx`: over everything, on
+  near-black, the picture fitted to the window and never enlarged, because blowing up a 537px snip
+  only blurs it. ‹ › and the arrow keys step through the note's pictures, with the note's date and
+  *1 of 2* above. A portal to the document's body, so nothing the drawer is inside can hold it to
+  the drawer's box.
+- **Escape, × and Back close it, and the journal stays open.** Its openness is a history entry of
+  its own, `useOverlayHistory('picture')`, for the journal's reason: Android's one Back means *out
+  of this*. While it is up the drawer's `useModalPanel` is told it is not `active`, as the picker
+  is under the journal, or the drawer would close on the Escape meant for the picture. The keyboard
+  goes back to the picture last shown, by id.
+
+### The server's half
+
+- **Two actions on each route, told apart by `[Consumes]`**: the JSON write as it was, and a
+  `multipart/form-data` one taking `NoteForm`: the words, the pictures in order, a thumbnail each
+  in the same order, and on a rewrite the ids it keeps. Both actions carry `[Consumes]`, because an
+  action with none matches every type and the two would be ambiguous.
+- **The rules are `NoteService`'s**, because whether a note with no words is empty depends on the
+  pictures it keeps. A note needs words or a picture; four at most, kept and new together; one
+  thumbnail to each picture; a picture at most 2 MB and a thumbnail 64 KB; only JPEG, PNG or WebP,
+  **read from the first bytes by `PictureFormat`, never from the type the request names**; and
+  1 GB an account, picture and thumbnail counted together, unless its `role` is `admin`. Each is a
+  `NoteWriteOutcome`, and the controller names its field and says it in the box's words. A kept id
+  that is not this note's is refused, which is what stops a rewrite carrying a picture out of
+  somebody else's note.
+- **`PictureFormat` reads the header and decodes nothing**: PNG's IHDR, JPEG's first frame header
+  after walking its segments, and WebP's three forms. Chromium writes every WebP in the extended
+  one, VP8X, because it embeds a colour profile. A header that says nought wide is not a picture.
+- **The route refuses a request bigger than any note needs**, 8,716,288 bytes, by
+  `[RequestSizeLimit]`, and that is Kestrel's to keep: a request that says it is larger is
+  refused before any of it is read. **MVC answers it as a 400 under no field**, not a 413,
+  because it reads the form and Kestrel's refusal reaches it as a form it could not read.
+- **The picture routes answer `private, max-age=31536000, immutable` and `nosniff`**, from an
+  address with no file extension. A picture's bytes never change, since a new picture is a new id.
+
+### The things that fail quietly here
+
+- **`MultipartBodyLengthLimit` limits each part of a form, not the request, and the test server
+  keeps no `[RequestSizeLimit]` at all.** A backend test of the route's limit therefore passed
+  because the service refused the oversized picture too. The limit is proved in
+  `e2e/pictures.spec.ts`, against Kestrel, and `[RequestFormLimits]` went, since it said something
+  it did not do.
+- **An oversized body sent anyway is answered while it is still going**, and through Vite's proxy
+  that ended in a 502 or a hang one run in four. So the spec asks with `Expect: 100-continue`,
+  straight to the API: Kestrel asks for the body only once something starts reading it, and a
+  refusal that comes back instead proves nothing read it.
+- **jsdom's `FormData`, `Blob` and `File` do not meet Node's `fetch`.** A form holding a jsdom file
+  stalled for good on its way through MSW, and an MSW handler reading a form with
+  `request.formData()` stalled until the global `File` was Node's, because that is what Node builds
+  the parsed files from. `src/test/setup.ts` puts Node's three in their place, measured on
+  30 October 2026.
+- **Firefox gives a paste made in a script an empty clipboard**, no types and no files, where
+  Chromium hands the files through. The e2e paste case is Chromium's for that reason; the shrink
+  is reached through the picker in Firefox.
+- **An `<img alt="">` has the role *presentation*, not *img***, which is right here, since the button
+  around it carries the name. A test finds the picture as an element.
+- **A test drawer's `onClose` is a mock, so the journal never closes in Vitest.** A test that the
+  lightbox's Escape leaves the journal open has to assert `onClose` was not called; a heading still
+  there proves nothing.
+

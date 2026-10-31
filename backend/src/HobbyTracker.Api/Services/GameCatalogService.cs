@@ -299,7 +299,7 @@ public sealed class GameCatalogService(
         var entries = await db.LogEntries
             .AsNoTracking()
             .Include(entry => entry.Media)
-            .Include(entry => entry.Notes)
+            .Include(entry => entry.Notes).ThenInclude(note => note.Pictures)
             // The game above is shared catalogue; these are yours. This is the one query in the
             // codebase that spans both, and the split is the whole rule in miniature.
             .Where(entry => entry.MediaId == mediaId && entry.UserId == userId)

@@ -59,6 +59,49 @@ the column in `media` too and leaves the base table with no `id` at all.
   (#15, 9 October 2026). So the cascade delete takes notes only when a title's whole journal goes:
   its last pass deleted, Remove from board, an account deleted. Until #15 it took them with any
   pass, and that is how nine notes were lost.
+- **A note's pictures are two tables, and the split is the point** (#18, 30 October 2026).
+  `note_pictures` holds what the drawer draws: `id`, `note_id`, `position`, `content_type`,
+  `width`, `height` and `byte_count`. `note_picture_bytes` holds the picture's bytes and its
+  thumbnail's, keyed by the picture. Every read that carries a note brings its pictures with it,
+  and bytes in those rows would come out of the database every time a journal opened: slow rather
+  than wrong, which is why nothing else would notice. **A picture has no navigation to its bytes**,
+  so no `Include` can reach them, exactly as a pass has no collection of its `status_changes`. The
+  two picture routes read them, each selecting the one column it answers with. Held twice:
+  `SchemaTests` finds no `bytea` column on `note_pictures`, and `NotePicturesEndpointTests` reads
+  every route that carries notes through `SqlRecorder` and finds `note_pictures` and never
+  `note_picture_bytes`.
+- **Pictures are kept in Postgres**, decided at the #18 pickup over a volume and over a storage
+  service. The cascades are the whole of the deleting and the nightly dump the whole of the
+  backing up; on a volume each cascade becomes code that deletes files, and S3 or R2 is an outside
+  connection with keys to keep. The cost is the dump, which carries every picture every night; see
+  **Backups** in `docs/deploy.md`.
+- **`content_type` and `thumbnail_type` are the database's to check**, against JPEG, PNG and WebP,
+  because the picture routes answer with them. The service reads the type from the bytes
+  (`PictureFormat`) and never from the request; the check is what keeps a mistake in that from
+  storing `text/html`, which would be a page served from the app's own address. `width`, `height`
+  and `byte_count` are above nought by `ck_note_pictures_size`, since each is read from the bytes
+  and nought is a reading gone wrong.
+- **`byte_count` is the picture and its thumbnail together**, which is what an account's 1 GB adds
+  up. Kept beside what the drawer reads, so the cap is a sum over `note_pictures` and never reads a
+  byte. Counting the picture alone would let a stream of tiny pictures, each with a 64 KB
+  thumbnail, walk past it.
+- **One picture to a place in a note**, unique on `(note_id, position)`, because the first is the
+  one a card draws. A rewrite puts new pictures after the kept ones, often in the very place one
+  is leaving in the same save, and EF Core sends the delete ahead of the insert. That was
+  measured on 30 October 2026 rather than assumed: putting new pictures after every place the
+  note had ever used instead made no difference a test could see, so the simpler rule stayed, and
+  `A_rewrite_that_swaps_pictures_puts_none_where_another_is_leaving` goes red with a 500 if EF
+  ever stops.
+- **A note with no words stores an empty body**, so `notes.body` stays `NOT NULL` and nothing that
+  read a body before pictures existed meets a null. The rule that a note needs words or a picture
+  is the service's, because whether no words is empty depends on the pictures a rewrite keeps.
+- **Pictures go wherever their note goes.** They cascade from `notes` and their bytes from them,
+  so deleting a note, a title's last pass, *Remove from board* and an account all take them with
+  no code of their own. Deleting one pass of several moves its notes to the current pass, and the
+  pictures go with them because they hang off the note rather than the pass.
+- **`users.role` has its first reader**, the account cap: an account whose role is `admin` has
+  none, the user's choice at the #18 pickup for their own account. Nothing in the app grants it;
+  it is one `UPDATE`, in `docs/deploy.md`.
 - **`log_entries.hours_played` is per pass**, `numeric(5,2)`, for every reason `platform` is.
   Same precision as `hltb_main_story_hours`, because comparing them is the point. Named "played"
   rather than "to complete" because a pass can be `InProgress` or `Dropped`.

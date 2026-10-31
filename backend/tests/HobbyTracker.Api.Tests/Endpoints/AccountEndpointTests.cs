@@ -37,7 +37,7 @@ public sealed class AccountEndpointTests(PostgresFixture postgres) : DatabaseTes
     // ------------------------------------------------------- what it would take
 
     [Fact]
-    public async Task Counts_the_titles_on_every_board_and_every_note()
+    public async Task Counts_the_titles_on_every_board_and_every_note_and_picture()
     {
         var hollowKnight = await GivenGameAsync("Hollow Knight", externalId: "1");
         var celeste = await GivenGameAsync("Celeste", externalId: "2");
@@ -55,8 +55,10 @@ public sealed class AccountEndpointTests(PostgresFixture postgres) : DatabaseTes
         await GivenLogEntryAsync(frieren, LogStatus.Backlog);
 
         await GivenNoteAsync(first, "Mantis Lords first try");
-        await GivenNoteAsync(first, "Pantheon 5 still beats me");
-        await GivenNoteAsync(film, "Heptapods");
+        var screenshots = await GivenNoteAsync(first, "Pantheon 5 still beats me");
+        await GivenPictureAsync(screenshots, position: 0);
+        await GivenPictureAsync(screenshots, position: 1);
+        await GivenPictureAsync(await GivenNoteAsync(film, "Heptapods"));
 
         var account = await ReadAsync<AccountDto>(await Client.GetAsync("/api/account", Ct));
 
@@ -71,6 +73,10 @@ public sealed class AccountEndpointTests(PostgresFixture postgres) : DatabaseTes
             new BoardTitlesDto("anime", 1),
         ]);
         account.Notes.ShouldBe(3);
+
+        // Counted apart from the notes they are in, as the warning says them: "41 notes and 12
+        // pictures". A note that is a picture alone is still one note.
+        account.Pictures.ShouldBe(3);
     }
 
     [Fact]
@@ -87,13 +93,14 @@ public sealed class AccountEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         var theirs = await GivenLogEntryAsync(shared, LogStatus.Completed, userId: stranger);
         await GivenLogEntryAsync(frieren, LogStatus.InProgress, userId: stranger);
-        await GivenNoteAsync(theirs, "Theirs");
+        await GivenPictureAsync(await GivenNoteAsync(theirs, "Theirs"));
         await GivenNoteAsync(theirs, "Theirs again");
 
         var account = await ReadAsync<AccountDto>(await Client.GetAsync("/api/account", Ct));
 
         account.Boards.ShouldBe([new BoardTitlesDto("games", 1)]);
         account.Notes.ShouldBe(1);
+        account.Pictures.ShouldBe(0);
     }
 
     [Fact]
@@ -103,6 +110,7 @@ public sealed class AccountEndpointTests(PostgresFixture postgres) : DatabaseTes
 
         account.Boards.ShouldBeEmpty();
         account.Notes.ShouldBe(0);
+        account.Pictures.ShouldBe(0);
     }
 
     [Fact]

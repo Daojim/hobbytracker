@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { API_PORT } from './e2e/support/api';
 import { CONNECTION_STRING } from './e2e/support/database';
 
 const STUB_PORT = 5399;
@@ -6,7 +7,6 @@ const HLTB_STUB_PORT = 5398;
 const GOOGLE_STUB_PORT = 5397;
 const TMDB_STUB_PORT = 5396;
 const MAL_STUB_PORT = 5395;
-const API_PORT = 5202;
 const WEB_PORT = 5174;
 
 /** Enforced by the stub, so removing the bearer from the typed client fails a spec. */

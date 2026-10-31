@@ -1,5 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { addNote, deleteNote, updateNote } from '../api/notes';
+import {
+  addNote,
+  deleteNote,
+  updateNote,
+  type NotePictures,
+  type PictureUpload,
+} from '../api/notes';
 import { mediaKey } from '../board/keys';
 
 /**
@@ -12,6 +18,7 @@ import { mediaKey } from '../board/keys';
  * rest of this hook. A card carries the last thing you wrote about a title now, so writing,
  * rewriting or taking back a note all move something on the board — which was not true when
  * this was written, and the comment here went on saying so for a while after it stopped being.
+ * A note with pictures is no different: the card draws the newest note's first one.
  *
  * Both are scoped to the hobby, which they were not while a drawer knew only a media id — the
  * board hands it down now, because the journal has to know whose fields to render anyway.
@@ -25,12 +32,28 @@ export function useNotes(hobby: string, mediaId: number) {
     ]);
 
   const write = useMutation({
-    mutationFn: ({ entryId, body }: { entryId: number; body: string }) => addNote(entryId, body),
+    mutationFn: ({
+      entryId,
+      body,
+      pictures = [],
+    }: {
+      entryId: number;
+      body: string;
+      pictures?: readonly PictureUpload[];
+    }) => addNote(entryId, body, pictures),
     onSuccess: () => void refresh(),
   });
 
   const rewrite = useMutation({
-    mutationFn: ({ noteId, body }: { noteId: number; body: string }) => updateNote(noteId, body),
+    mutationFn: ({
+      noteId,
+      body,
+      pictures,
+    }: {
+      noteId: number;
+      body: string;
+      pictures?: NotePictures;
+    }) => updateNote(noteId, body, pictures),
     onSuccess: () => void refresh(),
   });
 

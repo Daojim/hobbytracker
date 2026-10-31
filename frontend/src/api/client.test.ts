@@ -32,6 +32,33 @@ describe('apiJson', () => {
     await expect(apiJson<{ id: number }>('/api/thing')).resolves.toEqual({ id: 7 });
   });
 
+  it('sends a form as it is, and leaves its type to the browser', async () => {
+    // A form's type carries the boundary its parts are split on, which only the browser knows
+    // once it has written the body. A Content-Type set by hand has none, and the server cannot
+    // read a form it cannot split.
+    let type: string | null = null;
+    let words: FormDataEntryValue | null = null;
+    let picture: FormDataEntryValue | null = null;
+    server.use(
+      http.post('/api/form', async ({ request }) => {
+        type = request.headers.get('content-type');
+        const form = await request.formData();
+        words = form.get('body');
+        picture = form.get('pictures');
+        return HttpResponse.json({ id: 1 });
+      }),
+    );
+    const form = new FormData();
+    form.append('body', 'the clock tower');
+    form.append('pictures', new Blob(['not really a picture'], { type: 'image/webp' }), 'a.webp');
+
+    await apiJson('/api/form', { method: 'POST', body: form });
+
+    expect(type).toMatch(/^multipart\/form-data; boundary=/);
+    expect(words).toBe('the clock tower');
+    expect(picture).toBeInstanceOf(Blob);
+  });
+
   it('surfaces a validation problem as a message rather than "request failed"', async () => {
     server.use(
       http.post('/api/log-entries', () =>

@@ -11,6 +11,7 @@ describe('getAccount', () => {
           signedInWith: ['google'],
           boards: [{ hobby: 'games', titles: 36 }],
           notes: 41,
+          pictures: 12,
         }),
       ),
     );
@@ -19,6 +20,7 @@ describe('getAccount', () => {
       signedInWith: ['google'],
       boards: [{ hobby: 'games', titles: 36 }],
       notes: 41,
+      pictures: 12,
     });
   });
 });

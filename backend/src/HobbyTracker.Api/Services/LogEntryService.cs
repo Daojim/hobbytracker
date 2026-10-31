@@ -48,13 +48,15 @@ public sealed class LogEntryService(
         var (normalisedPage, normalisedSize) = Paging.Normalise(page, pageSize);
 
         // Notes are on the DTO, so they have to be loaded: an entry read without this maps to
-        // a DTO reporting no notes at all, silently, with nothing failing to compile.
+        // a DTO reporting no notes at all, silently, with nothing failing to compile. Their
+        // pictures too, for the same reason, and never the pictures' bytes: a picture has no way
+        // to them, so no Include can reach them.
         var userId = user.Id;
 
         var query = db.LogEntries
             .AsNoTracking()
             .Include(entry => entry.Media)
-            .Include(entry => entry.Notes)
+            .Include(entry => entry.Notes).ThenInclude(note => note.Pictures)
             // Yours, and the total below counts the same rows -- a page scoped without its
             // count reports somebody else's passes as pages you can never reach.
             .Where(entry => entry.UserId == userId);
@@ -90,7 +92,7 @@ public sealed class LogEntryService(
         var entry = await db.LogEntries
             .AsNoTracking()
             .Include(e => e.Media)
-            .Include(e => e.Notes)
+            .Include(e => e.Notes).ThenInclude(note => note.Pictures)
             .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, cancellationToken);
 
         return entry is null ? null : LogEntryDto.From(entry);
@@ -157,7 +159,7 @@ public sealed class LogEntryService(
 
         var entry = await db.LogEntries
             .Include(e => e.Media)
-            .Include(e => e.Notes)
+            .Include(e => e.Notes).ThenInclude(note => note.Pictures)
             .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, cancellationToken);
 
         if (entry is null)
@@ -186,7 +188,8 @@ public sealed class LogEntryService(
     {
         var userId = user.Id;
 
-        // With its notes, because they are not deleted with it while another pass stays.
+        // With its notes, because they are not deleted with it while another pass stays. Not
+        // their pictures, which hang off the notes and go wherever the notes go.
         var pass = await db.LogEntries
             .Include(e => e.Notes)
             .FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId, cancellationToken);

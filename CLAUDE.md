@@ -36,7 +36,7 @@ thing always known before an edit:
 |---|---|
 | `Domain/`, `Data/`, a migration, anything about timestamps or what year a row is in | `docs/data-model.md` |
 | `LibraryService`, `LibraryController`, `frontend/src/board/`, `frontend/src/pick/` | `docs/board.md` |
-| `frontend/src/journal/`, `LogEntryService`, `NoteService` | `docs/journal.md` |
+| `frontend/src/journal/`, `LogEntryService`, `NoteService`, `NotePicturesController`, `PictureFormat`, `lib/shrink.ts` | `docs/journal.md` |
 | `frontend/src/index.css`, `src/theme/`, `frontend/icons/`, `frontend/public/`, anything about colour, contrast or width | `docs/design.md` |
 | `AuthService`, `AuthController`, `AccountService`, `AccountController`, `SessionValidator`, `Program.cs`'s auth block, `frontend/src/shell/`, `frontend/src/account/` | `docs/auth.md` |
 | `StatsService`, `StatsController`, `HoursTally`, `frontend/src/stats/` | `docs/stats.md` |
@@ -73,6 +73,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Deleting your account** | A tinted row in Settings, on every board, that opens into a warning naming the sign-in and counting every board, and **asks for the word *delete***. One row goes and the database cascades the rest; the catalogue stays. **Every other device is signed out at its next request**, because the session is checked against the account on every one | `docs/auth.md` |
 | **A share link** | One read-only link per board, made from a row in Settings that opens a dialog: a box for each part but Backlog, and the owner's name off until ticked. **Anybody holding it sees the board, its calendar and its Stats with nobody signed in**, under a banner, in words written to nobody, and never a note. Stopping kills the address for everyone | `docs/auth.md` |
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
+| **Pictures in notes** | Pasted, dropped or picked into a note, four at most, **shrunk in the browser** to a 1920 edge as WebP, and sent with the words in one request; a note can be a picture alone. A collage under the words, a lightbox Back closes, and on a card the newest note's first picture. **Kept in Postgres with the bytes apart from what a journal reads**, never on a share, and 1 GB an account but the admin's | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. **A switch beside it searches your notes instead**, on every board: every word in any order, and a note found opens its journal at the note | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
 | **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
@@ -236,8 +237,10 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── lib/preferenceStore.ts  a stored preference two components share, with no provider
 │       ├── lib/pace.ts   how much you play: "How long will it take me?" and Backlog's line
 │       ├── lib/voice.ts  who a page's words are to: the owner, or — on a share — nobody
-│       ├── lib/useModalPanel.ts  a modal panel's keyboard: the journal's, the share dialog's and
-│       │                 the picker's
+│       ├── lib/useModalPanel.ts  a modal panel's keyboard: the journal's, the share dialog's,
+│       │                 the picker's and a note picture's lightbox
+│       ├── lib/shrink.ts a picture redrawn in the browser before it is sent; jsdom has no
+│       │                 canvas, so Vitest replaces it and Playwright proves it
 │       ├── hobbies/      ONE FILE PER HOBBY — every word a person reads, the genre list,
 │       │                 search dispatch, and which fields a pass of that kind has
 │       ├── board/        keys.ts owns every query key, sensors.ts the drag's activation
@@ -495,6 +498,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Deleting an account | **A tinted row under *Your data* on every board, opening into a warning that asks for the word *delete***, in any case, before its filled button works. It names the sign-in, counts each board in the hobby's own word, and says the nightly backups keep a copy for about two weeks. **`DELETE /api/account` removes the `users` row and the cascades take the rest**; `SessionValidator` checks every cookie against its account, so other devices are signed out rather than left as a user with no row. Afterwards the sign-in card reads *Account deleted*. Every choice was the recommendation, from renders on 4 October 2026. `docs/auth.md`, `docs/design.md` |
 | Sharing | **One revocable link per board, from a Sharing row in Settings that opens a dialog.** Every part but Backlog is a box (Playing, On Hold, Completed, Dropped, Coming soon, Stats), **stored as the list shown**, so anything added to the app later stays off existing shares; the owner's name is a box, off until ticked; **notes never**. A share is the board, its calendar and its Stats page, read-only, under a banner, in words written to nobody, and **Stats is whole**. Unknown, stopped and switched off are **one 404**, and a share's years come only from the columns it shows. The token is plain text, so Settings can show it again, and stopping deletes the row. **Scoping stays at the call site**: a share's reads name the token's owner, and `ICurrentUser` is never swapped for one. Every choice but the banner, the user's own over a heading, was the recommendation, from renders on 4 and 5 October 2026. `docs/auth.md`, `docs/design.md` |
 | Searching notes | **A *Titles \| Notes* switch beside the search box: one box, and never both at once**, starting on Titles at every load. **Every word in any order, each matched as the characters it is by `ILIKE`** — not full-text search, because notes are written in Japanese — over one board's notes, newest first, fifty at most. A card per title with its cover, and a note found opens the journal **at that note**: scrolled to, a bar beside it, its words marked and the keyboard on it. **The words wear the accent at 25%, the user's pick over bold, which puts red behind text on Ember.** Four choices before any render and four from renders on 9 October 2026. `docs/games-igdb.md`, `docs/journal.md`, `docs/design.md` |
+| Pictures in notes | **Kept in Postgres, in two tables with the bytes apart**, on every board at once. In by a paste, a drop or a picker button, **a paste carrying words being words** (Excel puts a picture of the cells beside them), and sent with the words in one request, never ahead. **Shrunk in the browser to a 1920 edge as WebP at 85**, with a small copy for the card. Four to a note, 2 MB a picture, and **1 GB an account unless `users.role` is `admin`**, the user's choice for their own, the column's first reader. A collage under the words, a lightbox Back closes, the edit box taking pictures as the compose box does, a *Pictures* count in the spreadsheet, and pictures counted in the deletion warning. **On a card, the newest note's first picture 28px tall, the user's pick over the words *A picture***. Six choices in words and seven from renders on 30 October 2026. `docs/journal.md`, `docs/data-model.md`, `docs/design.md` |
 | Picking what to play | **A *Pick* button in Backlog's header, the user's pick over a sentence under the search box**, opening a dialog: four bands of the hours a card prints (an evening, a weekend, a few weeks, a long haul) and genres left out by the one a card is painted as, then *Spin*, a wheel of up to eight covers, or *Suggest three*. *Not this one* takes a game out of the draw until the panel closes. **The whole column, never a page, and the pick made before the wheel turns**, so reduced motion shows the same pick. Backlog only, games only, never on a share, nothing offered unasked and nothing recorded. Four choices in words and six from renders of the real backlog on 25 October 2026. `docs/board.md`, `docs/design.md` |
 | Spreadsheet | **A three-sheet `.xlsx` of everything on the board** — Games as the cards show them, every playthrough, every note — from a row in a *Your data* group after Columns in Settings. Every column, every year and the calendar's titles, because the year control and Settings decide what you see, not what you have. ISO dates as real date cells, numbers as numbers, nothing a formula, and the HowLongToBeat link a plain address. **The server sends facts and the client writes the words**, through write-excel-file loaded when the row is pressed. Games only, from `HobbyDefinition.export`. Every choice but one was the recommendation, from renders on 4 October 2026; *All genres* and the link were the user's. `docs/export.md`, `docs/design.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
@@ -553,6 +557,8 @@ here**.
 | **A MAL node carries `id`, `title` and `main_picture` whatever `fields` asks for, and nothing else.** A column added to `anime` without a word added to `MalClient.Fields` fills with nulls for ever — and a null there is **indistinguishable from a title MAL has nothing to say about**. `MalClientTests` asserts the list rather than trusting it | `docs/anime-mal.md` |
 | **MAL answers `0`, not null, for a figure nobody has filled in** — an unaired cour's episode count and duration, an unrated title's mean. Nought is not merely a lie a card would print: `ck_anime_counts_positive` and `ck_anime_mean_score_range` **refuse the write**, so an ordinary search becomes a 500 | `docs/anime-mal.md` |
 | **MSW's `onUnhandledRequest: 'error'` fails the request, not the test.** A request no test stated is refused and printed, and the suite stays green unless something waits on its answer — so a request that must never be made needs a case asserting it was not | **Tests**, above |
+| **The test server keeps no `[RequestSizeLimit]`, and `MultipartBodyLengthLimit` limits each part of a form rather than the request.** A backend test of a route's size limit passes because something further in refused the request, and the limit was never what refused it. Prove one against Kestrel in the e2e suite, asking with `Expect: 100-continue` so the answer comes before any body is sent | `docs/journal.md` |
+| **A read that carries a pass's notes has to `ThenInclude` their pictures**, or every note in it arrives with none and nothing fails: `NoteDto.From` maps what was loaded. Eleven reads do. A new one, a detail page's say, joins them and the `ReadsThatCarryNotes` list in `NotePicturesEndpointTests`, which proves each brings its pictures and never their bytes | `docs/journal.md` |
 | **A spy on `Storage.prototype` refuses nothing in the frontend suite.** `src/test/setup.ts` supplies a `localStorage` that implements `Storage` without being one, so a test of storage refusing passes without storage ever refusing — green over the very fallback it names, which is how the hidden-columns store's first version of that test went. Spy on the instance: `vi.spyOn(localStorage, 'setItem')` | `docs/design.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
 | **A null `media.release_precision` means *nobody has asked a provider* and must read as *released*.** Every row that existed before the release calendar carries it. Get it backwards and the migration empties every user's Backlog column on deploy day — no error, no log line, just a board with its queue gone. It is `games.hltb_checked_at`'s distinction, and `Unknown` is the *different* claim that a provider was asked and had no date. **No provider mapping writes null any more**, only the absence of one, so the two states no longer share a shape | `docs/data-model.md` |
@@ -576,7 +582,9 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 | `tv_seasons` | `media_id` + `season_number` (composite PK), `name`, `episode_count`, `air_date` |
 | `anime` | `media_id` (PK **and** FK to media), `english_title`, `media_type`, `episode_count`, `episode_runtime_seconds` (**MAL's own unit**), `total_runtime_minutes` (**generated**, and it converts), `start_season`, `start_year`, `air_status`, `source_material`, `genres`, `primary_genre`, `studios`, `mean_score`. **No seasons table** — a cour is its own MAL entry |
 | `log_entries` | `id`, `user_id` (**NOT NULL**), `media_id`, `status`, `position`, `rating`, `platform`, `hours_played`, `season_number`, `episode_number`, `started_at`, `completed_at`, `logged_at` |
-| `notes` | `id`, `log_entry_id`, `body`, `written_at` |
+| `notes` | `id`, `log_entry_id`, `body` (**empty, never null, on a note that is a picture alone**), `written_at` |
+| `note_pictures` | `id`, `note_id` (**cascades**), `position` (unique in its note), `content_type` (**JPEG, PNG or WebP, checked**), `width`, `height`, `byte_count` (the picture and its thumbnail). What the drawer draws, and **no bytes**: every read that carries notes reads this |
+| `note_picture_bytes` | `picture_id` (key, **cascades**), `bytes`, `thumbnail`, `thumbnail_type`. Read by the two picture routes and nothing else; a picture has no navigation to it |
 | `status_changes` | `id`, `log_entry_id`, `from_status` (**null when the pass was made**), `to_status`, `changed_at`. Written by `StatusHistoryRecorder` during the save, never by a service; a shuffle inside ten minutes folds away |
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
@@ -690,6 +698,12 @@ shuffled.
       - [ ] a Discover list from your ratings — IGDB's similar games for what you rated highest,
         less what is on your board. **A look at the real results comes first**, and decides
         whether it is built
+      - [x] pictures in notes — pasted, dropped or picked, shrunk in the browser to a 1920 edge as
+        WebP, sent with the words in one request, and a note that can be a picture alone. Two
+        tables in Postgres with the bytes apart, a collage under the words, a lightbox Back
+        closes, and on the card the newest note's first picture 28px tall, the user's pick over
+        the words *A picture*. Four to a note, and 1 GB an account but the admin's. On every
+        board at once. Built on 30 October 2026; not yet merged
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
@@ -783,18 +797,20 @@ being wrong. Both rows are marked below.
   The exposure is resources: unbounded rows into `media`, the IGDB quota against a 4 req/s limit,
   TMDB's against roughly 40 req/s, and unbounded HowLongToBeat lookups **from whatever address the
   app is deployed on**, at a site with a documented history of blocking unofficial clients. That
-  last one is the real risk. Until the setting exists the gate belongs *in front of* the app rather
+  last one is the real risk. **Since #18 the disk is one too**: pictures are capped at 1 GB an
+  account, which bounds one account and not how many get made, and every nightly dump holds them
+  again. Sign-up was kept open when that was weighed at the #18 pickup. Until the setting exists the gate belongs *in front of* the app rather
   than in it. Design when it is wanted: a bool on `AuthOptions`, checked in
   `AuthService.SignInAsync` **before creating a user** so existing accounts keep working while it
   is off, and flippable by environment variable without a rebuild. One wrinkle — throwing inside
   `OnCreatingTicket` surfaces as a 500, and a refusal wants a real error path.
 - **`Season` is not in the game-type filter**, so "Mario Kart" returns ten *Mario Kart Tour: … Tour*
   seasons and none of the actual games. One id in one clause. Nobody has asked for it.
-- **`users.role` is read by nothing.** It defaults to `"user"` and exists for a day that has not come.
-  **One consequence: any signed-in account can call the five refresh routes.** The IGDB and TMDB
-  refreshes re-fetch every title *anybody* has logged. With sign-up open, that is the same exposure
-  as `Auth:AllowNewAccounts` above. An admin role checked on those routes would give `role` its
-  first reader.
+- **`users.role` has one reader, the cap on an account's pictures**, which `admin` does not have
+  (#18). It defaults to `"user"`, and nothing in the app grants `admin`: it is one `UPDATE`, in
+  `docs/deploy.md`. **Any signed-in account can still call the five refresh routes.** The IGDB and
+  TMDB refreshes re-fetch every title *anybody* has logged. With sign-up open, that is the same
+  exposure as `Auth:AllowNewAccounts` above. The same role checked on those routes would close it.
 - **A board column stops at 100 titles.** `COLUMN_PAGE_SIZE` is `Paging.MaxPageSize`. Past it,
   `Column.tsx` says *Showing 100 of N* and offers no way to see the rest; a large Backlog, or any
   import, will hit it. The fix is a *Load more* on Discover's shape. Anything that needs a whole

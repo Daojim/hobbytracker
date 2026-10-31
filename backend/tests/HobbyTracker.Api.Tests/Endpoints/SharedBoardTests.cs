@@ -141,7 +141,15 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
 
                 var expected = own with
                 {
-                    Items = [.. own.Items.Select(item => item with { LatestNotePreview = null })],
+                    Items =
+                    [
+                        .. own.Items.Select(item => item with
+                        {
+                            LatestNotePreview = null,
+                            LatestNotePicture = null,
+                            LatestNotePictures = 0,
+                        }),
+                    ],
                 };
 
                 JsonSerializer.Serialize(shared, Json).ShouldBe(JsonSerializer.Serialize(expected, Json), query);
@@ -178,12 +186,13 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
     // ---------------------------------------------------------------- notes, never
 
     [Fact]
-    public async Task No_route_a_share_reaches_reads_a_note()
+    public async Task No_route_a_share_reaches_reads_a_note_or_a_picture()
     {
         // The most a share can be asked to show — every part and the name — over a board with a
-        // note on every pass in every column and on the calendar. Asserted on the SQL as well as
-        // on the answers: a note read and then dropped, or left out by a CASE around the
-        // subquery that reads it, answers with the same JSON as one never read.
+        // note on every pass in every column and on the calendar, each with a picture in it.
+        // Asserted on the SQL as well as on the answers: a note read and then dropped, or left
+        // out by a CASE around the subquery that reads it, answers with the same JSON as one
+        // never read.
         await GivenAFullBoardAsync();
         var share = await ShareAsync(EveryPart, showsName: true);
 
@@ -200,6 +209,7 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
         (await owner.GetAsync("/api/library?hobby=games&status=Backlog", Ct)).StatusCode
             .ShouldBe(HttpStatusCode.OK);
         recorder.Commands.ShouldContain(sql => SqlRecorder.ReadsNotes(sql));
+        recorder.Commands.ShouldContain(sql => SqlRecorder.ReadsPictures(sql));
         recorder.Clear();
 
         var answers = new List<string>();
@@ -212,6 +222,8 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
 
         recorder.Commands.ShouldNotBeEmpty();
         recorder.Commands.Where(SqlRecorder.ReadsNotes).ShouldBeEmpty();
+        recorder.Commands.Where(SqlRecorder.ReadsPictures).ShouldBeEmpty();
+        recorder.Commands.Where(SqlRecorder.ReadsPictureBytes).ShouldBeEmpty();
         answers.ShouldAllBe(answer => !answer.Contains("NOTE", StringComparison.Ordinal));
     }
 
@@ -567,7 +579,7 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
             var entry = await GivenLogEntryAsync(
                 mediaId, status, rating: status == LogStatus.Completed ? 9m : null,
                 startedAt: started, completedAt: completed);
-            await GivenNoteAsync(entry, $"NOTE on {title}");
+            await GivenPictureAsync(await GivenNoteAsync(entry, $"NOTE on {title}"));
         }
 
         // A finish with hours against an estimate, so the column's comparison has something to
@@ -584,7 +596,7 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
         // And one on the calendar: in Backlog, and not out until next year.
         var witchbrook = await GivenGameAsync("Witchbrook", externalId: "99");
         var waiting = await GivenLogEntryAsync(witchbrook, LogStatus.Backlog);
-        await GivenNoteAsync(waiting, "NOTE on Witchbrook");
+        await GivenPictureAsync(await GivenNoteAsync(waiting, "NOTE on Witchbrook"));
         await GivenReleaseWindowAsync(witchbrook, new DateOnly(2027, 3, 1), ReleasePrecision.Quarter);
     }
 
