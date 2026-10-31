@@ -39,9 +39,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
-| 18 | Pictures in notes | M–L | **Built 30 October 2026**, the day it was planned and workshopped, tests first, all seven steps; **not yet merged**. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
+| 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 
-Production runs `808a6d8`'s code, which was `main` on 29 October 2026. Deploying is the runbook in
+Production runs `bbd2c34`'s code, which was `main` on 31 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -2365,9 +2365,10 @@ After the look, and by eye where it is a matter of looks:
 
 ---
 
-## 18. Pictures in notes · built
+## 18. Pictures in notes · shipped
 
-**Planned 30 October 2026**, at the user's request, and built the same day; see **Built** below.
+**Planned 30 October 2026**, at the user's request, built the same day, and **deployed on
+31 October 2026** (PR #84); see **Built** below.
 Lines were read at `808a6d8`.
 
 **What.** A note can carry pictures: a screenshot of where you are in a game, or of its save screen
@@ -2643,10 +2644,12 @@ the card's thumbnail was the user's own pick.
 ### Built
 
 Built on 30 October 2026, the day it was planned and workshopped, tests first, all seven steps, on
-`pictures-in-notes`. **Not yet merged or deployed.** The write-up is `docs/journal.md`,
-**Pictures in notes**, with the tables in `docs/data-model.md`, the card in `docs/board.md`, the
-share and the scoping in `docs/auth.md`, the look in `docs/design.md`, the spreadsheet in
-`docs/export.md`, and the deploy's one `UPDATE`, Cloudflare and the backups in `docs/deploy.md`.
+`pictures-in-notes`, and **shipped and deployed early on 31 October 2026** (PR #84): the full e2e
+suite went 210 green first, the 205 before and `pictures.spec.ts`'s five. The write-up is
+`docs/journal.md`, **Pictures in notes**, with the tables in `docs/data-model.md`, the card in
+`docs/board.md`, the share and the scoping in `docs/auth.md`, the look in `docs/design.md`, the
+spreadsheet in `docs/export.md`, and the deploy's one `UPDATE`, Cloudflare and the backups in
+`docs/deploy.md`.
 
 - **The backend**: `NotePicture` and `NotePictureBytes` and the migration `AddNotePictures`;
   `PictureFormat`, which reads a picture's type and size from its header; `NoteForm`,
@@ -2723,11 +2726,20 @@ asks what the box took in now.
 - **`ItemAsync` could take the column's card whole** and end its copy of the projection. Noted in
   `docs/board.md`, not done.
 
-### Left before it ships
+### The deploy, and what it left
 
-- **Merge the pull request.**
-- **Deploy by `docs/deploy.md`**, then run the one `UPDATE` that gives the user's account
-  `role = 'admin'`, and check a picture's address at `<origin>` for no `cf-cache-status: HIT`.
+- **Deployed at about 01:45 Eastern on 31 October 2026**, `808a6d8` to `bbd2c34`: api and caddy
+  both recreated, api first, and no base image moved. `AddNotePictures` is the newest migration in
+  production's history, and the API's log names it. At `<origin>` the script and the stylesheet
+  carry the box's and the lightbox's words and the four rules the collage adds, none of which they
+  held before, and `GET /api/note-pictures/{id}` went from an empty 404 to a 401 signed out.
+- **Cloudflare, signed out**: a picture's address answered 401 with `cf-cache-status: DYNAMIC`,
+  Cloudflare's word for an address nothing in the zone makes eligible for its cache. **The
+  signed-in look is still to be had**: the first real picture's request in the browser's network
+  panel, with no `cf-cache-status: HIT`.
+- **The admin's `UPDATE` was handed to the maintainer**, as `docs/deploy.md` says it is theirs. The
+  session that deployed tried it and was refused by Claude Code's auto mode as a permission grant.
+  Until it runs, the user's account is capped like any other, which costs nothing for a long while.
 - **The user's own check**: a real Win+Shift+S snip pasted in Firefox, which no script can make,
   and on the Android phone a photo from the gallery and one from the camera.
 
