@@ -730,6 +730,40 @@ recommendations, and the way in was the user's. What it does is `docs/board.md`'
   at 1280 and 1440**, which starts its cards 28px lower than on a board without it, and 24px on a
   phone. It fits on one line at 1920.
 
+### Pictures in notes
+
+Picked at the #18 workshop on 30 October 2026, from renders of the real drawer and card with the
+user's own pictures, a status screen, a stats snip, a save screen and a photo of the TV, shrunk as
+the app shrinks them: https://claude.ai/artifact/LC4VHgD3xZxkAWqqLipK7F. Seven choices over two
+rounds; six were the recommendation, and the card's thumbnail was the user's own pick. What it
+does is `docs/journal.md`'s, under **Pictures in notes**.
+
+- **A note's pictures are a collage under its words.** A lone picture is whole, as wide as the
+  column and at most 320px tall (`max-h-80`), so a status screen reads at a glance and a photo is
+  not cropped. Two or more are 16:9 tiles (`aspect-video`, `object-cover`), two to a row at
+  `gap-1.5`, three being one across and two under it. The five staged notes took 1,316px at drawer
+  width, against 710 as 72px thumbnails and 2,911 with every picture whole.
+- **A waiting picture sits inside the compose box's border, under the words**: 56px squares with a
+  20px × in `bg-fg`/`text-surface` at the corner, dimmed while the note is on its way. The border
+  belongs to the box rather than the textarea now, so the picture is inside it, and it turns the
+  accent while anything in the box has the keyboard, which is the box's focus ring. A file held over
+  it dashes the border in the accent and lays *Drop to add the picture* over it on `surface/85`.
+- **The way in is a picture frame before *Add note***, a 24px bordered icon button named *Add a
+  picture* on hover and to a screen reader, picked over the words as a second button the width of
+  the first. The edit box has it before *Save note*.
+- **The lightbox is near-black on every theme**, `bg-black/90` with its date and count in
+  `text-white/75`, and its ‹ › on `black/50` circles. A picture is looked at on black whatever the
+  app is wearing, which is the HowLongToBeat chip's argument for a fixed colour: the thing shown is
+  not the app's. It fits the picture to the window and never enlarges one, because a 537px snip
+  only blurs.
+- **A card draws its newest note's first picture 28px tall** (`h-7`), before the words at
+  `gap-1.5`, from the small copy made when it was sent. **The user's pick over the words *A
+  picture***, made knowing the costs the page showed: a card whose newest note is only pictures
+  grows 12px, and at 28px the picture cannot be read. **Held to twice as wide as tall in the
+  build** (`max-w-14`, `object-cover`), which the renders did not show, because a panorama drawn at
+  28px tall by its own shape would run across the card. Every picture the workshop drew is inside
+  that, so the pick looks as it was picked.
+
 ### The page's ground
 
 **The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at

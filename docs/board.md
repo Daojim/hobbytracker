@@ -27,8 +27,9 @@ off the routing table; see **Sharing a board** in `docs/auth.md`.
 | `GET /api/log-entries?mediaId=&status=&page=&pageSize=` | the journal, newest first |
 | `POST /api/log-entries` | record a pass through a title |
 | `GET PUT DELETE /api/log-entries/{id}` | |
-| `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
-| `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date |
+| `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite. **JSON for words alone; `multipart/form-data` for a note with pictures**, two actions told apart by `[Consumes]`. See **Pictures in notes** in `docs/journal.md` |
+| `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date. A JSON `PUT` leaves the note's pictures alone; a form `PUT` names the ones it keeps |
+| `GET /api/note-pictures/{id}` and `/{id}/thumbnail` | a picture in a note, and the small copy a card draws, as the type they were kept as. `private, max-age=31536000, immutable` and `nosniff`. **404** for another account's, **401** signed out, share link or not |
 | `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column, **with the hours its header says over the whole column** |
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
 | `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, each at the last day it could come out and the undated last. **Not paged.** See **What a window says, and where it sits** in `docs/games-igdb.md` |
@@ -117,6 +118,36 @@ you said the first time round. Two consequences, both load-bearing:
 Cut to `LibraryService.NotePreviewLength` (200) on the wire — far enough out that what a reader sees
 cut is always the client's two-line clamp, which is what lets the cut answer to the card's width and
 the density setting as a character count cannot.
+
+**Since #18 the newest note brings its pictures too**: `latestNotePicture`, its first picture's id
+and size, and `latestNotePictures`, how many it has. The card draws the first from its thumbnail
+beside the words, and says how many to a screen reader; `docs/design.md`, **Pictures in notes**,
+has how it looks. Four things hold it together:
+
+- **A note that is a picture alone answers empty words, never none.** Null is how a card knows its
+  title has no notes, and it is what tells *Remove from board* not to warn that notes go with it.
+  Leaving those notes out of the preview instead would let a title whose only notes are pictures
+  leave the board with no warning: #14's nine notes again, as pictures.
+  `A_card_whose_newest_note_is_a_picture_alone_still_has_a_note` and the card's *says its notes go
+  with it when the only one is a picture* each go red when it is taken out.
+- **The slot is three expressions now**, `CardNote`'s preview, picture and count, each spliced in by
+  `Rebind` as the one was. They each find the newest note for themselves, with the same `UserId`
+  predicate and the same order, so a card never draws an older note's picture beside a newer
+  note's words, nor a stranger's picture on your card
+  (`UserScopingTests.Someone_elses_picture_never_reaches_my_card`). Three expressions rather than
+  one object, so the card stays flat on the wire. `NoNote` is three constants, and a share's SQL
+  names neither `notes` nor `note_pictures`.
+- **`ItemAsync` keeps its copy of all three**, for the preview's reason, and
+  `A_moved_card_carries_the_same_picture_the_column_does` holds the two together. It reads the same
+  rows `CardsWith` does and could take the column's card whole; that would end the copy and is not
+  done here.
+- **What EF writes for the picture, measured on 30 October 2026**: the count is a correlated scalar
+  subquery like the preview, and the first picture, a nested `FirstOrDefault` of an object, is a
+  `ROW_NUMBER()` over `note_pictures` partitioned by note and ordered by place, joined on the newest
+  note's id after the page is cut. That window ranks every row of the table, everyone's, which is
+  cheap because the table is narrow, the bytes being elsewhere, and the `(note_id, position)` index
+  feeds it in order. A scalar subquery for each of the three fields is the change if it ever
+  shows in a profile.
 
 ### Board semantics
 
@@ -913,8 +944,10 @@ of their own board, and what a share shows is its owner's to say, stored with th
 `Card`s to carry and open. `ColumnFrame` is everything a column is apart from its cards (the well,
 the heading and count, the hours, the fold, the sort control, the empty and loading states), and
 both wear it, so they cannot drift. `SharedColumn` hands it `CardFace` with no handlers, exactly as
-the drag preview draws a card, and with `latestNotePreview` set to null: the server sends no note on
-a share, and a note that ever arrived would still not be printed. Nothing is registered with
+the drag preview draws a card, and with `latestNotePreview` set to null, and since #18 the picture
+and its count too: the server sends no note on a share, and a note or a picture that ever arrived
+would still not be drawn. The picture route would answer a visitor 401 anyway, which would draw a
+broken picture where the note was. Nothing is registered with
 dnd-kit, so nothing can be pressed, carried or dropped onto.
 
 - **Where a column's answer comes from is a `ColumnRequest`**, a key and a function. `columnQuery`

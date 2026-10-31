@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from './server';
 
@@ -54,6 +55,25 @@ if (typeof globalThis.localStorage?.clear !== 'function') {
     writable: true,
   });
 }
+
+/**
+ * Node's `FormData`, `Blob` and `File` in place of jsdom's, which a form carrying a file cannot
+ * get through the environment's `fetch` with.
+ *
+ * The environment's `fetch` is Node's, and a note with pictures is sent as a form. jsdom's three
+ * do not meet Node's: its `FormData` refuses a Node `Blob`, its `File` has no `text()` or
+ * `stream()`, and a form holding one of its files stalled for good on the way through MSW.
+ * Node's own form went through, but an MSW handler reading it with `request.formData()` still
+ * stalled until the global `File` was Node's too, because that is what Node builds the parsed
+ * files from. Measured on 30 October 2026; a form of words alone went through every way.
+ *
+ * A browser's are all one family, and the app meets nothing else, so this is a gap in the harness
+ * rather than a case the app has to survive. Node's `FormData` is not exported anywhere, so it is
+ * taken from the one place Node hands one out: a body read as a form.
+ */
+const NodeFormData = (await new Response(new URLSearchParams()).formData())
+  .constructor as typeof FormData;
+Object.assign(globalThis, { FormData: NodeFormData, Blob: NodeBlob, File: NodeFile });
 
 // `error` rather than `warn`: an unhandled request means the client asked for a URL the test did
 // not expect, which is usually the bug the test was written to catch.

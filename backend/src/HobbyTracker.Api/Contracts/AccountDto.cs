@@ -17,10 +17,15 @@ namespace HobbyTracker.Api.Contracts;
 /// with nothing on it is left out rather than sent as nought.
 /// </param>
 /// <param name="Notes">Every note on every board.</param>
+/// <param name="Pictures">
+/// Every picture in those notes, counted apart from them: a note that is a picture alone is
+/// still one note, and the warning names both.
+/// </param>
 public sealed record AccountDto(
     IReadOnlyList<string> SignedInWith,
     IReadOnlyList<BoardTitlesDto> Boards,
-    int Notes);
+    int Notes,
+    int Pictures);
 
 /// <summary>
 /// How many titles one board holds: every title with a pass of yours on it, however many

@@ -56,7 +56,9 @@ export function SharedColumn({
         <ul className="flex flex-col gap-cardgap">
           {items.map((item) => (
             <li key={item.mediaId} className={CARD_CLASS}>
-              <CardFace item={{ ...item, latestNotePreview: null }} />
+              <CardFace
+                item={{ ...item, latestNotePreview: null, latestNotePicture: null, latestNotePictures: 0 }}
+              />
             </li>
           ))}
         </ul>

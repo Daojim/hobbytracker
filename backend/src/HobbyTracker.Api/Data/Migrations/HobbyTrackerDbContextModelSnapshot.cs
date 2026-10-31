@@ -368,6 +368,87 @@ namespace HobbyTracker.Api.Data.Migrations
                     b.ToTable("notes", (string)null);
                 });
 
+            modelBuilder.Entity("HobbyTracker.Api.Domain.NotePicture", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ByteCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("byte_count");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("content_type");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer")
+                        .HasColumnName("height");
+
+                    b.Property<int>("NoteId")
+                        .HasColumnType("integer")
+                        .HasColumnName("note_id");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer")
+                        .HasColumnName("position");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer")
+                        .HasColumnName("width");
+
+                    b.HasKey("Id")
+                        .HasName("pk_note_pictures");
+
+                    b.HasIndex("NoteId", "Position")
+                        .IsUnique()
+                        .HasDatabaseName("ix_note_pictures_note_id_position");
+
+                    b.ToTable("note_pictures", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_note_pictures_content_type", "content_type IN ('image/jpeg', 'image/png', 'image/webp')");
+
+                            t.HasCheckConstraint("ck_note_pictures_size", "width > 0 AND height > 0 AND byte_count > 0");
+                        });
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.NotePictureBytes", b =>
+                {
+                    b.Property<int>("PictureId")
+                        .HasColumnType("integer")
+                        .HasColumnName("picture_id");
+
+                    b.Property<byte[]>("Bytes")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("bytes");
+
+                    b.Property<byte[]>("Thumbnail")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("thumbnail");
+
+                    b.Property<string>("ThumbnailType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("thumbnail_type");
+
+                    b.HasKey("PictureId")
+                        .HasName("pk_note_picture_bytes");
+
+                    b.ToTable("note_picture_bytes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_note_picture_bytes_thumbnail_type", "thumbnail_type IN ('image/jpeg', 'image/png', 'image/webp')");
+                        });
+                });
+
             modelBuilder.Entity("HobbyTracker.Api.Domain.Source", b =>
                 {
                     b.Property<int>("Id")
@@ -870,6 +951,30 @@ namespace HobbyTracker.Api.Data.Migrations
                     b.Navigation("LogEntry");
                 });
 
+            modelBuilder.Entity("HobbyTracker.Api.Domain.NotePicture", b =>
+                {
+                    b.HasOne("HobbyTracker.Api.Domain.Note", "Note")
+                        .WithMany("Pictures")
+                        .HasForeignKey("NoteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_note_pictures_notes_note_id");
+
+                    b.Navigation("Note");
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.NotePictureBytes", b =>
+                {
+                    b.HasOne("HobbyTracker.Api.Domain.NotePicture", "Picture")
+                        .WithOne()
+                        .HasForeignKey("HobbyTracker.Api.Domain.NotePictureBytes", "PictureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_note_picture_bytes_note_pictures_picture_id");
+
+                    b.Navigation("Picture");
+                });
+
             modelBuilder.Entity("HobbyTracker.Api.Domain.StatusChange", b =>
                 {
                     b.HasOne("HobbyTracker.Api.Domain.LogEntry", "LogEntry")
@@ -947,6 +1052,11 @@ namespace HobbyTracker.Api.Data.Migrations
             modelBuilder.Entity("HobbyTracker.Api.Domain.Media", b =>
                 {
                     b.Navigation("LogEntries");
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.Note", b =>
+                {
+                    b.Navigation("Pictures");
                 });
 
             modelBuilder.Entity("HobbyTracker.Api.Domain.Source", b =>

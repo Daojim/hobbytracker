@@ -365,6 +365,42 @@ describe('Card', () => {
     expect(container.querySelector('[data-note]')).toBeNull();
   });
 
+  it("draws the newest note's first picture beside its words, from the small copy", () => {
+    // The user's pick at the #18 workshop, over the words "A picture". From the thumbnail made
+    // when the picture was sent, or the board would download every card's newest picture to
+    // show it 28px tall. Its size is drawn before it arrives, so the words beside it do not jump.
+    const { container } = renderCard(
+      libraryItem({
+        latestNotePreview: 'The clock tower, at last.',
+        latestNotePicture: { id: 41, width: 1920, height: 1080 },
+        latestNotePictures: 2,
+      }),
+    );
+
+    const line = container.querySelector('[data-note]');
+    const picture = line?.querySelector('img');
+    expect(picture).toHaveAttribute('src', '/api/note-pictures/41/thumbnail');
+    expect(picture).toHaveAttribute('width', '1920');
+    expect(picture).toHaveAttribute('height', '1080');
+    // What a screen reader hears for it, since a 28px picture says nothing to one.
+    expect(picture).toHaveAttribute('alt', '2 pictures');
+    expect(line).toHaveTextContent('The clock tower, at last.');
+  });
+
+  it('draws a note of pictures alone as its picture, with no words beside it', () => {
+    const { container } = renderCard(
+      libraryItem({
+        latestNotePreview: '',
+        latestNotePicture: { id: 41, width: 537, height: 331 },
+        latestNotePictures: 1,
+      }),
+    );
+
+    const line = container.querySelector('[data-note]');
+    expect(line?.querySelector('img')).toHaveAttribute('alt', 'A picture');
+    expect(line).toHaveTextContent(/^$/);
+  });
+
   it('keeps the options shut until they are asked for', () => {
     const { menu } = renderCard(libraryItem({ title: 'Celeste' }));
 
@@ -559,6 +595,23 @@ describe('Card', () => {
         title: 'Celeste',
         entryCount: 1,
         latestNotePreview: 'Golden strawberry, finally.',
+      }),
+      true,
+    );
+
+    expect(screen.getByText('Takes Celeste off your board, and its notes.')).toBeInTheDocument();
+  });
+
+  it('says its notes go with it when the only one is a picture', () => {
+    // #14's nine notes again, as pictures: a note with no words is still a note, and a card
+    // that took empty words for none would let it leave the board with no warning.
+    renderCard(
+      libraryItem({
+        title: 'Celeste',
+        entryCount: 1,
+        latestNotePreview: '',
+        latestNotePicture: { id: 41, width: 1920, height: 1080 },
+        latestNotePictures: 1,
       }),
       true,
     );

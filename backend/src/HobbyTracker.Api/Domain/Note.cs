@@ -17,7 +17,17 @@ public class Note
     public int LogEntryId { get; set; }
     public LogEntry? LogEntry { get; set; }
 
+    /// <summary>
+    /// The words. Empty, never null, on a note that is a picture alone, so nothing that read a
+    /// body before pictures existed meets a null.
+    /// </summary>
     public required string Body { get; set; }
+
+    /// <summary>
+    /// Pictures in it, four at most. Without their bytes, which are kept apart; see
+    /// <see cref="NotePicture"/>.
+    /// </summary>
+    public ICollection<NotePicture> Pictures { get; set; } = [];
 
     /// <summary>
     /// When it was written. Server-stamped and deliberately not settable by a caller, for the

@@ -183,4 +183,21 @@ public sealed record LibraryItemDto(
     /// </summary>
     ReleaseStatus? ReleaseStatus,
 
-    string? LatestNotePreview);
+    /// <summary>
+    /// The words of the newest note on any pass of yours, cut to a preview. <b>Null means no
+    /// note at all; empty means the newest is a picture alone</b>, and a card still knows its
+    /// title has notes for <i>Remove from board</i> to warn about. Null on a share.
+    /// </summary>
+    string? LatestNotePreview,
+
+    /// <summary>
+    /// The newest note's first picture, which the card draws from its thumbnail beside the
+    /// words. Null when that note has none, and on a share.
+    /// </summary>
+    NotePictureDto? LatestNotePicture,
+
+    /// <summary>
+    /// How many pictures the newest note has: what a screen reader hears for the thumbnail, as
+    /// <i>A picture</i> or <i>2 pictures</i>. Nought when it has none, and on a share.
+    /// </summary>
+    int LatestNotePictures);

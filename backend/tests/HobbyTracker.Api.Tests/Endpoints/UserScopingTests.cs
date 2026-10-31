@@ -181,6 +181,65 @@ public sealed class UserScopingTests(PostgresFixture postgres) : DatabaseTestBas
     }
 
     [Fact]
+    public async Task Pictures_cannot_be_written_onto_someone_elses_pass()
+    {
+        var (_, entryId) = await GivenTheirsAsync();
+
+        var response = await Client.PostAsync(
+            $"/api/log-entries/{entryId}/notes", PictureForm("Mine now"), Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await WithDbAsync(db => db.NotePictures.CountAsync(Ct))).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Someone_elses_note_cannot_be_given_pictures_or_have_its_own_taken()
+    {
+        var (_, entryId) = await GivenTheirsAsync();
+        var noteId = await GivenNoteAsync(entryId, "Theirs");
+        var pictureId = await GivenPictureAsync(noteId);
+
+        var response = await Client.PutAsync($"/api/notes/{noteId}", PictureForm("Rewritten"), Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
+        (await WithDbAsync(db => db.Notes.SingleAsync(n => n.Id == noteId, Ct))).Body.ShouldBe("Theirs");
+        (await WithDbAsync(db => db.NotePictures.Select(p => p.Id).ToListAsync(Ct))).ShouldBe([pictureId]);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("/thumbnail")]
+    public async Task Someone_elses_picture_is_not_there(string which)
+    {
+        // A picture has no owner of its own either. It is reached through its note and the
+        // note's pass, and a picture id is a number anybody can count up to.
+        var (_, entryId) = await GivenTheirsAsync();
+        var pictureId = await GivenPictureAsync(await GivenNoteAsync(entryId, "Theirs"));
+
+        (await Client.GetAsync($"/api/note-pictures/{pictureId}{which}", Ct))
+            .StatusCode.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task Someone_elses_picture_cannot_be_kept_in_my_note()
+    {
+        // Keeping names a stored picture by its id, so it is the one way a request could reach
+        // across into somebody else's journal and carry a picture back out of it.
+        var (_, theirEntry) = await GivenTheirsAsync();
+        var theirPicture = await GivenPictureAsync(await GivenNoteAsync(theirEntry, "Theirs"));
+        var mine = await GivenNoteAsync(
+            await GivenLogEntryAsync(await GivenGameAsync("Celeste", "2")), "Mine");
+
+        var response = await Client.PutAsync(
+            $"/api/notes/{mine}", PictureForm("Mine", keep: [theirPicture]), Ct);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await WithDbAsync(db => db.NotePictures.SingleAsync(p => p.Id == theirPicture, Ct)))
+            .NoteId.ShouldNotBe(mine);
+        (await WithDbAsync(db => db.NotePictures.CountAsync(p => p.NoteId == mine, Ct))).ShouldBe(0);
+    }
+
+    [Fact]
     public async Task Someone_elses_card_cannot_be_dragged()
     {
         var (mediaId, entryId) = await GivenTheirsAsync();
@@ -304,6 +363,27 @@ public sealed class UserScopingTests(PostgresFixture postgres) : DatabaseTestBas
         item.LatestNotePreview.ShouldBe("Mine");
     }
 
+    [Fact]
+    public async Task Someone_elses_picture_never_reaches_my_card()
+    {
+        // The card's picture is read beside its words and has to be scoped as they are, and a
+        // picture is the one thing worse than their words on your board. Theirs is the newer
+        // note and has the picture; mine has none.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+
+        var theirs = await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed, userId: await OtherAsync());
+        await GivenPictureAsync(await GivenNoteAsync(theirs, "Theirs", Eastern(2026, 1, 1, 12, 0)));
+
+        var mine = await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        await GivenNoteAsync(mine, "Mine", Eastern(2024, 1, 1, 12, 0));
+
+        var item = (await BoardAsync()).Items.ShouldHaveSingleItem();
+
+        item.LatestNotePicture.ShouldBeNull();
+        item.LatestNotePictures.ShouldBe(0);
+    }
+
     private async Task<(int MediaId, int EntryId)> GivenTheirsAsync()
     {
         var mediaId = await GivenGameAsync("Hollow Knight");
@@ -315,6 +395,27 @@ public sealed class UserScopingTests(PostgresFixture postgres) : DatabaseTestBas
             userId: await OtherAsync());
 
         return (mediaId, entryId);
+    }
+
+    /// <summary>A note with a picture in it, as the box sends one.</summary>
+    private static MultipartFormDataContent PictureForm(string body, int[]? keep = null)
+    {
+        var form = new MultipartFormDataContent { { new StringContent(body), "body" } };
+
+        foreach (var id in keep ?? [])
+        {
+            form.Add(new StringContent(id.ToString(System.Globalization.CultureInfo.InvariantCulture)), "keep");
+        }
+
+        var picture = new ByteArrayContent(Pictures.Png);
+        picture.Headers.ContentType = new("image/png");
+        form.Add(picture, "pictures", "picture.png");
+
+        var thumbnail = new ByteArrayContent(Pictures.Webp);
+        thumbnail.Headers.ContentType = new("image/webp");
+        form.Add(thumbnail, "thumbnails", "thumbnail.webp");
+
+        return form;
     }
 
     private async Task<PagedResult<LibraryItemDto>> BoardAsync() =>

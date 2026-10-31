@@ -9,6 +9,7 @@ const account = (overrides: Partial<Account> = {}): Account => ({
   signedInWith: ['google'],
   boards: [],
   notes: 0,
+  pictures: 0,
   ...overrides,
 });
 
@@ -58,6 +59,30 @@ describe('describeDeletion', () => {
       'This deletes the account you signed in to with Google, and everything on every board: '
         + `1${NBSP}game, 1${NBSP}film, 1${NBSP}show and 1${NBSP}note.`,
     );
+  });
+
+  it('counts the pictures in the notes after the notes', () => {
+    // The words picked at the #18 workshop: "…2 anime, 41 notes and 12 pictures."
+    expect(
+      describeDeletion(
+        account({ boards: [{ hobby: 'anime', titles: 2 }], notes: 41, pictures: 12 }),
+      ),
+    ).toBe(
+      'This deletes the account you signed in to with Google, and everything on every board: '
+        + `2${NBSP}anime, 41${NBSP}notes and 12${NBSP}pictures.`,
+    );
+  });
+
+  it('says one picture in the singular, and leaves none out', () => {
+    expect(
+      describeDeletion(account({ boards: [{ hobby: 'games', titles: 1 }], notes: 1, pictures: 1 })),
+    ).toBe(
+      'This deletes the account you signed in to with Google, and everything on every board: '
+        + `1${NBSP}game, 1${NBSP}note and 1${NBSP}picture.`,
+    );
+    expect(
+      describeDeletion(account({ boards: [{ hobby: 'games', titles: 1 }], notes: 1 })),
+    ).not.toMatch(/picture/);
   });
 
   it('leaves the notes out when there are none, rather than counting nought of them', () => {

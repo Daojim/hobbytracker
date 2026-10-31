@@ -6,7 +6,8 @@ one, in any order**, when the user names it. An eleventh, a bug in the release c
 on 4 October 2026, and a twelfth and a thirteenth, both about the journal, on 7 October 2026. A
 fourteenth and a fifteenth followed on 8 October 2026, after a mistaken finish cost a pass its
 notes. A sixteenth and a seventeenth, a picker for the backlog and a Discover list from your
-ratings, were added on 23 October 2026 from suggestions the user picked. CLAUDE.md's **What is
+ratings, were added on 23 October 2026 from suggestions the user picked. An eighteenth, pictures
+in notes, was added on 30 October 2026 at the user's request. CLAUDE.md's **What is
 next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
@@ -38,8 +39,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
+| 18 | Pictures in notes | M–L | **Built 30 October 2026**, the day it was planned and workshopped, tests first, all seven steps; **not yet merged**. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 
-Production runs `fba82db`'s code, which was `main` on 25 October 2026. Deploying is the runbook in
+Production runs `808a6d8`'s code, which was `main` on 29 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -2360,6 +2362,374 @@ After the look, and by eye where it is a matter of looks:
   and add that game.
 - **Put the fault back:** key the cache without the seeds, then stop leaving out the board. Each
   turns its own test red.
+
+---
+
+## 18. Pictures in notes · built
+
+**Planned 30 October 2026**, at the user's request, and built the same day; see **Built** below.
+Lines were read at `808a6d8`.
+
+**What.** A note can carry pictures: a screenshot of where you are in a game, or of its save screen
+once it is finished. A picture comes in three ways, all into one path: **pasted** into the note
+box, **dropped** on it from a folder, or **chosen** with a button that opens the file picker. On a
+desktop, pasting is the quick one, since a screenshot taken with Win+Shift+S is already on the
+clipboard. On the Android phone it is the button, because the picker there offers the gallery and
+the camera, which is where a console's screenshot or a photo of the TV is.
+
+**A note can be a picture alone.** Decided when it was planned, in the user's words: *"There might
+be scenarios where I just want to just paste the image of a save file and call it a day. Maybe I
+just want to screenshot something cool and keep it there."* The API refuses a note with no words
+today (*A note needs something in it*, `NoteRequest.Validate`), so the rule becomes words, a
+picture, or both.
+
+**What it builds on.**
+- **Whatever takes a note away already takes what hangs off it.** `notes` cascades from its pass
+  (`NoteConfiguration`), so Remove from board, deleting a title's last pass and deleting an
+  account take its pictures with no new code; `AccountService.DeleteAsync` is one
+  `ExecuteDelete`. Deleting one pass of several re-points its notes at the pass that stays
+  (`LogEntryService.DeleteAsync`, #15), and a note's pictures go where the note goes.
+- **Scoping goes through the pass**, as every query on `notes` does (`n.LogEntry.UserId`). A note
+  has no owner of its own, and neither will a picture.
+- **Ten queries read a pass's notes with it**, by `Include`: the detail read in each of the four
+  catalogue services, `HltbService.DetailAsync`, `LibraryService.ExportAsync`, and four in
+  `LogEntryService`. `NoteDto.From` is the one place a note becomes what the client reads.
+- **`SqlRecorder`** (`backend/tests/HobbyTracker.Api.Tests/Infrastructure/`, from #9) records every
+  command a host sends. It is how *no route a share reaches reads a note* is proved.
+- **`useOverlayHistory` and `useModalPanel`**, so a picture opened full size closes on Back, as the
+  journal and the picker do.
+
+**Where the pictures are kept. Recommended: Postgres**, for reasons that are this database's rather
+than a general rule.
+- **The cascades above are the whole of the deleting, and the nightly dump the whole of the backing
+  up.** On a volume, each cascade becomes code that deletes files, and `deploy/scripts/backup.sh`
+  needs a second copy beside the dump.
+- **The restore of 8 October lifted rows out of the dump's `COPY` block** (`docs/deploy.md`,
+  **Backups**). A `bytea` value in a plain dump is hex on its row's one line, so a picture comes
+  back the same way.
+- **A storage service, S3 or R2, is a new outside connection** with an account and keys to keep,
+  for nothing a database this size needs.
+- **The cost is the dump.** A picture does not compress, every dump carries every picture, and 14
+  days are kept. Measured on 30 October 2026, read-only: the latest nightly dump was 171,519 bytes
+  for everything ever logged, and the backup disk had 870 GB free. One screenshot will outweigh the
+  rest of the database, and the disk will not notice.
+
+**How it would work**, to be confirmed at pickup:
+- **Two tables.** `note_pictures` holds what the drawer needs: `id`, `note_id` (cascading from
+  `notes`), the picture's place in its note, its type, `width`, `height` and its size in bytes.
+  `note_picture_bytes` holds the bytes and nothing else, one row per picture, cascading from the
+  first. `NoteDto` carries each picture's id, width and height. **The split is the point**: the
+  ten queries above will `Include` a note's pictures to draw them, and bytes in those rows would
+  come out of the database every time a journal opened. Slow rather than wrong, which is why it
+  gets a test of its own.
+- **Shrunk in the browser before it is sent.** A screenshot of a 1440p or 4K screen is several
+  megabytes as a PNG. Drawn onto a canvas with a long edge of about 1920px and saved as WebP or
+  JPEG, it is a few hundred kilobytes. Saving it again keeps only the pixels, so a phone photo
+  loses its location with everything else the file recorded.
+- **Sent with its note, never ahead of it.** A picture waits in the box as a thumbnail, and Enter
+  or *Add note* sends the words and the pictures in one request, written in one save. Uploading on
+  paste would leave a row behind whenever the drawer closed first, and something would have to
+  sweep for them.
+- **The JSON write stays as it is.** `POST /api/log-entries/{entryId}/notes` keeps its JSON
+  action, and a second action on the same route takes `multipart/form-data`, the two told apart by
+  `[Consumes]`. Every test of the write today goes on passing untouched.
+- **A picture is read at `GET /api/note-pictures/{id}`**: no file extension, `[Authorize]`d, scoped
+  through its note and pass, and answering `Cache-Control: private, max-age=31536000, immutable`
+  with `X-Content-Type-Options: nosniff`. A picture's bytes never change, since a new picture is a
+  new id, so the browser keeps it and a journal reopens at once. A plain `<img>` asks for it,
+  carrying the session cookie because the app and the API share an origin.
+- **A note with no words stores an empty body.** `notes.body` stays `NOT NULL` and `Note.body`
+  stays a string, so nothing that reads a body today meets a null.
+
+**Not on a share.** No route a share reaches reads a note (`docs/auth.md`, **Sharing a board**),
+and a share's cards fill the note's slot with `NoNote`, a constant. The picture route is
+`[Authorize]`d, so somebody holding a share's link and a picture's id gets a 401. Nothing a share
+shows changes, and nothing here needs a `Voiced` pair.
+
+### Decide at pickup
+
+Most of this is decided by eye, so render it first: in the drawer at 1440 and the modal at 390, in
+a light theme and a dark one, with real pictures — a save screen, a busy scene and a phone photo of
+a TV.
+
+- **Where the pictures are kept.** Recommended: Postgres, as above.
+- **Every board, or games first.** Recommended: every board at once. A note is the same thing on
+  every board and `NoteList` is one component, so a games-only switch would be a branch with
+  nothing to say. The user asked for it *"for my notes section of the games board, or in
+  general"*.
+- **How small a picture is kept.** A long edge and a quality, picked by reading a real save screen
+  at each: the smallest that keeps its smallest text readable. WebP where the browser can write it,
+  with JPEG behind it, since a canvas asked for a type it cannot write hands back a PNG.
+- **The way in.** The button in the compose box, its symbol or word and where it sits beside *Add
+  note*; the waiting thumbnails, and how one is taken back out; and how the box shows a file
+  dragged over it.
+- **The edit box.** Recommended: it takes pictures as the compose box does and can take one out,
+  saved in one request with the words. One box doing one job is why Enter sends in both
+  (`docs/journal.md`), and a paste that works in one box and does nothing in the other is the same
+  near miss.
+- **How a note shows its pictures**: the size of a thumbnail, how several sit together, and whether
+  they go above the words or below them.
+- **The viewer**: what opens when a picture is pressed, and whether it steps on to the note's next
+  picture.
+- **What a card shows when its latest note is a picture**: a small thumbnail, a word in the note's
+  place, or the latest note that has words. Each changes `LatestNoteOf`; see **Things to get
+  right**.
+- **What the spreadsheet does.** Its cells are text. Recommended: a count of pictures on the Notes
+  sheet, so a picture-only note's row is not blank, and *Latest note* saying the same. The pictures
+  themselves stay out, which bends *everything you have* (`docs/export.md`); a download of them
+  would be a feature of its own.
+- **The limits.** Recommended: four pictures to a note, 2 MB a picture after the shrink, and 1 GB
+  an account. Each is the server's, and a refusal says which one it hit.
+- **Whether `Auth:AllowNewAccounts` comes first.** Sign-up is open (CLAUDE.md, **Small things**),
+  and this is the first feature a stranger could use to fill the server's disk, with the backups
+  holding it again for every night they keep. An account's cap bounds one account, not how many
+  get made.
+- **The words**: the button, each refusal, what the box says while a picture is on its way (what a
+  search tile says mid-add is still open, CLAUDE.md, **Small things**), and whether deleting an
+  account counts pictures as well as notes.
+
+### Things to get right
+
+- **The picture's address must not end in an image extension, and must say `private`.** Cloudflare
+  caches the file types it knows at its edge by default, as it does the icons (`docs/deploy.md`,
+  *Cloudflare turns the icons' `no-cache` into four hours*), and an edge copy is served to anyone
+  who asks, signed in or not. `private` keeps it out of every cache but the browser's.
+- **The server reads the bytes, never the type it is told.** JPEG, PNG and WebP, known by their
+  first bytes, and nothing else: never an SVG, which can carry script, and never a file that only
+  says it is a picture. `nosniff` stops a browser second-guessing what was stored, and a size limit
+  on the route refuses an oversized request before it is buffered.
+- **The empty-note rule moves into the service.** *A note needs something in it* is
+  `NoteRequest.Validate` today, and it sees only the body. Whether a note with no words is empty
+  now depends on the pictures it keeps, which only the service can see, so the service refuses
+  it, still as a 400 that names the field and never a 500.
+- **A card knows it has notes from its preview.** `Card.tsx` hands `item.latestNotePreview !==
+  null` to `describeRemoval`, which is how *Remove from board* knows to say *and its notes*. A
+  picture-only note's body is empty, so `LatestNoteOf` would hand the card `""`, and the card would
+  draw an empty note line. Leaving those notes out of the preview instead would let a title whose
+  only notes are pictures leave the board with no warning: #14's nine notes again, as pictures.
+  Whatever the workshop picks, the card still has to know there are notes. Both projections carry
+  the preview, `LatestNoteOf` and its copy in `ItemAsync`, and they must agree, or a move makes the
+  card's note flicker. A share's `NoNote` stays a constant.
+- **Every picture's width and height are stored and drawn**, as the `<img>`'s own attributes, so
+  its space is held before it loads. A journal opened at a note a search found scrolls to it
+  (`docs/journal.md`, **Opening the journal at the note**), and pictures above it arriving
+  afterwards would push it back out of view.
+- **A phone photo stays upright.** A phone often records which way up it was held in the file
+  rather than in the pixels. The browser has to honour that when it draws the picture onto the
+  canvas, because saving it again throws the record away.
+- **A paste that carries text as well pastes the text.** Some apps put a picture of what was copied
+  on the clipboard beside the words, with Excel's cells the case most often reported, so taking
+  every picture would turn a pasted line into a picture of it. **Measure before writing the rule**:
+  a throwaway page that logs `clipboardData.types` and `files` for each place the user copies from
+  (Win+Shift+S, *Copy image* in a browser, Excel, Word, OneNote), in the browsers the user has.
+- **A file dropped just outside the box must not take the app away.** Chromium opens a dropped file
+  in the tab when nothing takes it, which loses the draft and the drawer. Once the drawer invites a
+  drop a near miss is likely, so the drawer takes, and ignores, a drop anywhere outside the box.
+- **A failed send keeps the words and the pictures in the box**, under the error. Closing the drawer
+  before sending loses them, as it loses unsent words today. Each waiting thumbnail is an object
+  URL, revoked when its picture is sent or taken out, or when the box goes.
+- **The multipart write invalidates what the JSON write does** — `mediaKey(hobby, mediaId)` and the
+  library, in `useNotes` — because a card carries the latest note. `api/client.ts` sends JSON
+  alone, so it learns a `FormData` body, and must not set `Content-Type` for one: the browser
+  writes the boundary into that header, and a hand-written one loses it.
+
+### Tests first
+
+jsdom has no canvas, so the shrink is a module of its own that Vitest replaces, and Playwright, in
+a real browser, is what proves it.
+
+- **A note can be a picture alone, and a note with neither is refused**, naming the field. Red
+  against today's `NoteRequest`. An edit that empties the words of a picture-only note keeps it,
+  and one that takes the last picture out of a note with no words is refused.
+- **A picture is yours alone.** Another user's picture id is a 404, as another user's note is
+  (`UserScopingTests`), and no picture can be added to somebody else's pass or note.
+- **Signed out, a picture is a 401**, share link or not, and *no route a share reaches reads a
+  picture*, on `SqlRecorder`'s commands.
+- **Opening a journal never reads the bytes.** `SqlRecorder` over each read that carries notes
+  names `note_pictures` and never `note_picture_bytes`, after first proving on the picture route
+  that it sees the bytes being read.
+- **The answer's headers**: the stored type, `private`, `immutable` and `nosniff`.
+- **Only a picture is taken, and only so much.** An HTML file sent as `image/png` is refused, and
+  so are an SVG, an oversized picture, a fifth picture on a note, and a write past the account's
+  cap. Each refusal says which.
+- **Pictures go where their note goes.** Deleting the account, removing the title and deleting its
+  last pass leave no picture rows, and deleting one pass of two moves its notes' pictures with
+  them.
+- **Notes come back with their pictures**, in order and with their sizes, from every read that
+  carries notes.
+- Vitest, the box: a pasted picture waits as a thumbnail; Enter sends the words and the picture in
+  one request, which MSW reads as multipart; a picture alone sends; a paste carrying text pastes
+  the text and attaches nothing; a plain paste is unchanged; a failed send keeps both; a waiting
+  picture can be taken out; a drop takes a picture as a paste does; and the button's input asks
+  for `image/*`.
+- Vitest, the drawer: a picture is drawn at its stored size before it loads, and pressing it opens
+  the viewer, which Back closes with the journal left open.
+- **A title whose only note is a picture still warns** that *Remove from board* takes its notes.
+- The card and the Notes sheet show a picture-only note as the workshop picks.
+- e2e: paste a 2560 × 1440 screenshot into the box with a dispatched paste event, send it, reload,
+  and the picture is there, decoded, with its long edge at the cap; a phone photo held upright
+  arrives upright; and at 390 × 844 the button's input takes a picture through `setInputFiles`.
+- **Put the fault back:** move the bytes onto `note_pictures`; drop `private`; trust the type the
+  request names; take the picture when text came with it; leave picture-only notes out of the
+  card's preview; drop the `<img>`'s width and height. Each turns its own test red.
+
+### Decided at pickup
+
+Picked up on 30 October 2026, the day it was planned. Six choices were made in words before
+anything was drawn. Five were the recommendation, and the sixth was the user's own.
+
+- **Postgres**, in the two tables above, with the bytes kept apart from what the drawer reads.
+- **Every board at once.**
+- **The edit box takes pictures and can take them out.** It takes a paste, a drop or the button,
+  as the compose box does. Each picture has an × to take it out. The words and the pictures are
+  saved in one request.
+- **Four pictures to a note.**
+- **The spreadsheet counts them.** The Notes sheet gets a Pictures column, and *Latest note* says
+  so in words when the newest note is only a picture.
+- **A cap of 1 GB for every account but the user's own, which has none.** This was the user's
+  choice, made over a cap on every account: *"I want a cap per account like suggestion #1 but have
+  no limit on my account since I am the sole user."* **The server knows that account by
+  `users.role = 'admin'`.** It is the column's first reader. It needs one `UPDATE` on the user's
+  row when this deploys and no new setting on the server, and it is the role CLAUDE.md already
+  names for the refresh routes. The four-picture limit and the size limit on a picture still hold
+  for every account, the admin's included. Sign-up stays open, and `Auth:AllowNewAccounts` stays
+  on CLAUDE.md's **Small things**.
+
+**Measured the same day, in the user's Firefox 159, with a throwaway paste probe.** A snip, from
+Win+Shift+S or ShareX, carries one PNG and nothing else. Discord's *Copy image* carries one PNG
+and an `<img>` tag as HTML, with no plain text. **Excel carries the row as plain text, HTML and RTF,
+and a 1011×201 PNG of the cells.** A picture dragged out of Discord carries its link and no file.
+So the rule is that a paste with plain text in it is words: the text goes in and nothing is
+attached. A paste with no text attaches each picture it carries. Word and OneNote were not tried.
+
+**Round two's page**, private: https://claude.ai/artifact/LC4VHgD3xZxkAWqqLipK7F. It has six
+questions, drawn in the real drawer with the user's own pictures. Those are Harmony of
+Dissonance's status screen, a snip of its stats panel, Symphony of the Night's clear file and a
+photo of the TV. They are shrunk in Chromium as the app would shrink them. The harness is in the
+gitignored `frontend/workshop.local/pictures/`.
+
+### Decided from the renders
+
+Seven choices on 30 October 2026, over two rounds of questions. Six were the recommendation, and
+the card's thumbnail was the user's own pick.
+
+- **A note shows its pictures as a collage, under the words.** A lone picture is shown whole, as
+  wide as the column and up to 320px tall. Two or more are 16:9 tiles, two to a row, cropped to
+  fill. Three are one across and two under it, and four are two by two. The five staged notes
+  took 1,316px at drawer width, against 710 as thumbnails and 2,911 large.
+- **The compose box holds a waiting picture inside its border**, under the words, with an × on
+  each. **A picture-frame icon** sits before *Add note*, named *Add a picture* on hover and for a
+  screen reader. The edit box is the same, before *Save note*.
+- **Pressing a picture opens a lightbox** over everything, on near-black. It fits the picture to
+  the window, and shows a small one at its own size, because blowing up a 537px snip only blurs
+  it. ‹ › and the arrow keys step through the note's pictures, with the note's date and *1 of 2*
+  above. Escape, × and Back close it, and the journal stays open.
+- **A card shows a thumbnail 28px tall**: the newest note's first picture, in the note's line and
+  beside its words. **This was the user's pick over the words *A picture***. The cost was shown on
+  the page: a card whose newest note is only pictures grows 12px, and the thumbnail is too small
+  to read.
+- **The card's thumbnail is a small copy, made when the picture is sent.** It is about 96px tall
+  and a few KB. This was a follow-up the pick raised: drawn from the full picture, the board would
+  download 40–90 KB for every card to show it 28px tall.
+- **Kept at a 1920px long edge, as WebP at 85**, or JPEG at 85 where a browser cannot write WebP.
+  In the zoomed crops it matched the originals at about 40–90 KB a picture. The user's snips are
+  1920×1080, so the edge only ever shrinks phone photos. The user's Firefox writes WebP at about
+  Chromium's size, 90,144 bytes for the status screen against 90,764.
+- **The words as proposed on the page.** They include deleting the account counting pictures:
+  *…41 notes and 12 pictures.* With the thumbnail on the card, *A picture* and *2 pictures* are
+  what a screen reader says for it, and what the spreadsheet's *Latest note* says when the newest
+  note has no words.
+
+### Built
+
+Built on 30 October 2026, the day it was planned and workshopped, tests first, all seven steps, on
+`pictures-in-notes`. **Not yet merged or deployed.** The write-up is `docs/journal.md`,
+**Pictures in notes**, with the tables in `docs/data-model.md`, the card in `docs/board.md`, the
+share and the scoping in `docs/auth.md`, the look in `docs/design.md`, the spreadsheet in
+`docs/export.md`, and the deploy's one `UPDATE`, Cloudflare and the backups in `docs/deploy.md`.
+
+- **The backend**: `NotePicture` and `NotePictureBytes` and the migration `AddNotePictures`;
+  `PictureFormat`, which reads a picture's type and size from its header; `NoteForm`,
+  `NoteWriteOutcome` and the rules in `NoteService`; a `multipart/form-data` action beside each
+  JSON one, told apart by `[Consumes]`, with `[RequestSizeLimit]`; `NotePicturesController`;
+  a `ThenInclude` on every read that carries notes; the card's picture and count through
+  `CardNote`, three slots where there was one; `AccountDto.Pictures`; and `User.AdminRole`, the
+  role column's first reader.
+- **The frontend**: `api/client.ts` sends a form as it is; `api/notes.ts` takes pictures and names
+  their addresses; `lib/shrink.ts` and `lib/pictures.ts`; `journal/usePictureDraft.ts`,
+  `NoteBox.tsx` and `NotePictures.tsx` (the collage and the lightbox), with `NoteList` built
+  around them; the drawer's guard against a near-miss drop, and its keys held back while a
+  picture is open; the card's thumbnail; the spreadsheet's count; the warning's count.
+- **The harnesses**: `src/test/setup.ts` puts Node's `FormData`, `Blob` and `File` in place of
+  jsdom's; `test/passes.ts` records a form write apart from a JSON one; `e2e/pictures.spec.ts`;
+  and `e2e/support/api.ts`, the API's port for the config and the spec.
+
+### Tests
+
+Backend 905 and frontend 1,287, all green. **The full e2e suite, 210 specs in Chromium, went 209
+green and one red**: `export.spec.ts` read the Notes sheet by position, and *Pictures* had moved
+*Note* one place right. It reads by header now and passes. `journal.spec.ts` and
+`pictures.spec.ts`, 39 specs, passed again after the last two fixes below.
+**`pictures.spec.ts` ran once in Firefox 153**: three passed, and two skip themselves there, the
+scripted paste and the phone, each saying why.
+
+**Every fault was put back, one at a time**, by scripts that planted it, ran the tests and put the
+file back:
+
+| Step | Faults | Red on their own test |
+|---|---|---|
+| 1. Schema | 7: each check, the unique place, each cascade, the bytes on `note_pictures` | 7 |
+| 2. The writes | 19: the type taken from the request, every rule, the cap's scope and its sums, a kept id from another note, both scopes | 18; the nineteenth is a finding, below |
+| 3. The reads | 10: no `ThenInclude` anywhere, the bytes `Include`d, each route's scope, `public`, no `nosniff`, no `[Authorize]`, the thumbnail route answering the picture, the order | 10 |
+| 4. The card | 9: each slot's scope, the first picture by id, the oldest note's picture, a picture-only note left out, `ItemAsync`'s two, a share given pictures, the account's count | 9 |
+| 5. The client | 14: a form's own `Content-Type`, the paste rule, a tile with no size, the box emptied early, the drawer's keys, the drop guard, a fifth, the picker's type, a note of pictures rewritten as JSON, the arrows, the warning on the card, the card's full picture, the sheet, the warning | 14 |
+| 6. The browsers | 3: no route limit, a 2560 edge, the orientation option | 2; the third is a finding, below |
+
+**Two gaps found reviewing the built thing, each fixed with its test red first.** A paste or a
+drop while a note was on its way was taken after the send had taken its snapshot, and the clear
+that followed dropped it without a word: the box takes nothing while sending now. And a reload
+whose history still named a picture deleted since left the journal deaf to its own Escape with
+nothing over it: the drawer counts a picture open only when the journal holds it. The first
+test passed against the bug as it was first written, because the box ended empty either way; it
+asks what the box took in now.
+
+### What the plan got wrong, or left out
+
+- **EF Core sends a delete ahead of an insert into the same unique place.** The plan put new
+  pictures after every place a note had used, so none could land where one was leaving; putting
+  them straight after the kept ones changed nothing a test could see, so the simpler rule stayed
+  and the swap test is the tripwire.
+- **The route's size limit was not testable where the plan put it.** `MultipartBodyLengthLimit`
+  limits each part of a form, and the test server keeps no `[RequestSizeLimit]`, so a backend test
+  passed because the service refused the picture too. It is an e2e case now, and MVC answers it as
+  a 400 under no field, not a 413. Through Vite's proxy an oversized body sent anyway was a 502 or
+  a hang one run in four, so the case asks with `Expect: 100-continue`, straight to the API, which
+  is also the proof that nothing read the body.
+- **`imageOrientation` is not what turns a photo.** Chromium 151 and Firefox 153 both turn a photo
+  by its EXIF when they decode it, whatever the option says. The upright case proves the outcome,
+  and the option stays as a statement of intent.
+- **Firefox gives a paste made in a script an empty clipboard.** The e2e paste case is Chromium's,
+  and Firefox reaches the shrink through the picker. The user's real Firefox pastes were measured
+  with the probe.
+- **jsdom's form classes and Node's `fetch` do not meet**: a form holding a jsdom file stalled on its
+  way through MSW. `setup.ts` swaps Node's in, as it already supplied `localStorage`.
+- **The reads that carry notes are eleven, not ten**, counting the note's own `GET` and its JSON
+  rewrite, which the plan left out because they had no pictures to carry until this.
+- **The card's thumbnail is held to twice as wide as tall** (`max-w-14`, `object-cover`), and the
+  thumbnail itself fits 192 by 96. The renders never showed a panorama, and drawn by its own shape
+  at 28px tall one would run across the card. No picture the workshop drew is affected.
+- **What EF writes for the card's picture is a window over every row of `note_pictures`**,
+  measured. Cheap because the table is narrow; `docs/board.md` says what to change if it shows.
+- **`ItemAsync` could take the column's card whole** and end its copy of the projection. Noted in
+  `docs/board.md`, not done.
+
+### Left before it ships
+
+- **Merge the pull request.**
+- **Deploy by `docs/deploy.md`**, then run the one `UPDATE` that gives the user's account
+  `role = 'admin'`, and check a picture's address at `<origin>` for no `cf-cache-status: HIT`.
+- **The user's own check**: a real Win+Shift+S snip pasted in Firefox, which no script can make,
+  and on the Android phone a photo from the gallery and one from the camera.
 
 ---
 

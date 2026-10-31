@@ -75,8 +75,7 @@ async function request(path: string, options: RequestOptions): Promise<Response>
     // changes nothing — it is here so that the day the app and the API stop sharing an origin
     // is not also the day sign-in silently stops working.
     credentials: 'include',
-    headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    ...sent(body),
   });
 
   if (!response.ok) {
@@ -85,6 +84,26 @@ async function request(path: string, options: RequestOptions): Promise<Response>
   }
 
   return response;
+}
+
+/**
+ * A body as it goes on the wire: JSON for anything but a form, and a form as it is.
+ *
+ * **A form gets no `Content-Type` from here.** Its type carries the boundary its parts are split
+ * on, which the browser writes when it writes the body, and a type set by hand has none: the
+ * server cannot read a form it cannot split. Leaving the header off is what lets the browser
+ * write it. A note with pictures is the one form the app sends.
+ */
+function sent(body: unknown): Pick<RequestInit, 'headers' | 'body'> {
+  if (body === undefined) {
+    return {};
+  }
+
+  if (body instanceof FormData) {
+    return { body };
+  }
+
+  return { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
 }
 
 /**

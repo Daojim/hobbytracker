@@ -47,7 +47,11 @@ export function resetDatabase(): void {
   //
   // board_shares is named for the inventory's sake, as notes are. CASCADE from users reaches it
   // either way, and naming it says in so many words that a run ends every share link.
+  //
+  // So are note_pictures and note_picture_bytes. Their ids restart with the rest, which a
+  // browser that kept a picture for a year would mind, and a spec's browser keeps nothing
+  // from one spec to the next.
   psql(
-    'TRUNCATE notes, status_changes, log_entries, games, movies, tv_seasons, tv_shows, anime, media, board_shares, auth_identities, users RESTART IDENTITY CASCADE;',
+    'TRUNCATE note_picture_bytes, note_pictures, notes, status_changes, log_entries, games, movies, tv_seasons, tv_shows, anime, media, board_shares, auth_identities, users RESTART IDENTITY CASCADE;',
   );
 }

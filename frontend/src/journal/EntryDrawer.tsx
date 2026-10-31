@@ -2,11 +2,13 @@ import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 're
 import { finishQuestion, putBackAnswer, REPLAY_ANSWER } from '../lib/finishQuestion';
 import { formatJournalDate } from '../lib/time';
 import { useModalPanel } from '../lib/useModalPanel';
+import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { ColumnControl } from './ColumnControl';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm, type EntryFormHandle } from './EntryForm';
 import { HltbPin } from './HltbPin';
-import { NoteList, noteRowId, type FoundNote } from './NoteList';
+import { carriesFiles } from './NoteBox';
+import { NoteList, noteRowId, PICTURE_OVERLAY, type FoundNote } from './NoteList';
 import {
   automaticGenre,
   genreStripe,
@@ -18,6 +20,7 @@ import { formatHours } from '../lib/hours';
 import { ratingTone } from '../lib/rating';
 import { useJournalEntry } from './useJournalEntry';
 import { useNotes } from './useNotes';
+import type { NotePictures, PictureUpload } from '../api/notes';
 import type { LogEntry, LogStatus, UpdateLogEntry } from '../api/types';
 
 /**
@@ -120,9 +123,22 @@ export function EntryDrawer({
   // The keyboard follows the drawer in and stays there, and Escape closes it: aria-modal below
   // promises a screen reader that the board is inert while this is open, and the two are kept
   // honest together. Shared with the share dialog, which makes the same promise.
-  useModalPanel(panel, onClose);
-
+  //
+  // Not while a picture is open over it: the picture takes the keys, and the drawer listening
+  // too would close the journal on the Escape meant for the picture. The picker under the
+  // journal stands aside the same way.
+  //
+  // Open means drawn, which means a picture this journal holds. History is handed back on a
+  // reload, picture and all, and one deleted since in another tab would otherwise leave the
+  // journal deaf to its own Escape with nothing over it.
   const detail = title.data;
+  const viewing = useOverlayHistory(PICTURE_OVERLAY).openFor;
+  const pictureOpen =
+    viewing !== null &&
+    (detail?.logEntries ?? []).some((entry) =>
+      entry.notes.some((written) => written.pictures.some((picture) => picture.id === viewing)),
+    );
+  useModalPanel(panel, onClose, !pictureOpen);
 
   // A note a search found is brought into view and given the keyboard, once, when the title it
   // is in has arrived: a screen reader then reads the note the search was for, rather than the
@@ -275,17 +291,42 @@ export function EntryDrawer({
   }
 
   const notes = useNotes(hobby, mediaId);
-  const noteError = [notes.write.error, notes.rewrite.error, notes.remove.error].find(
-    (failure) => failure !== null,
-  );
+
+  // What went wrong with a note, if anything. A refused write says what it was refused for after
+  // what did not happen, as a refused move says *Not moved.*: the box keeps the words and the
+  // pictures under it, so the reader is told why they are still there.
+  const noteError =
+    notes.write.error !== null
+      ? `Not added. ${notes.write.error.message}`
+      : notes.rewrite.error !== null
+        ? `Not saved. ${notes.rewrite.error.message}`
+        : (notes.remove.error?.message ?? null);
 
   const noteProps = (entryId: number) => ({
     busy: notes.write.isPending || notes.rewrite.isPending || notes.remove.isPending,
-    error: noteError?.message ?? null,
-    onWrite: (body: string) => notes.write.mutate({ entryId, body }),
-    onRewrite: (noteId: number, body: string) => notes.rewrite.mutate({ noteId, body }),
+    error: noteError,
+    onWrite: (body: string, pictures: readonly PictureUpload[]) =>
+      notes.write.mutateAsync({ entryId, body, pictures }),
+    onRewrite: (noteId: number, body: string, pictures?: NotePictures) =>
+      notes.rewrite.mutateAsync({ noteId, body, pictures }),
     onDelete: (noteId: number) => notes.remove.mutate(noteId),
   });
+
+  // A file dropped anywhere on the journal but the note box is taken and ignored. Chromium opens
+  // a file nothing takes in the tab, which loses the draft and the drawer with it, and once the
+  // box invites a drop, a near miss is likely. The box takes its own first.
+  const ignoreDrops = {
+    onDragOver: (event: React.DragEvent) => {
+      if (carriesFiles(event)) {
+        event.preventDefault();
+      }
+    },
+    onDrop: (event: React.DragEvent) => {
+      if (carriesFiles(event)) {
+        event.preventDefault();
+      }
+    },
+  };
 
   return (
     <>
@@ -297,6 +338,7 @@ export function EntryDrawer({
       <div
         role="presentation"
         onClick={onClose}
+        {...ignoreDrops}
         className="fixed inset-0 z-10 bg-scrim"
       />
 
@@ -306,6 +348,7 @@ export function EntryDrawer({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
+        {...ignoreDrops}
         className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-xl outline-none 2xl:max-w-lg modal:inset-4 modal:m-auto modal:h-fit modal:max-h-[86vh] modal:max-w-2xl modal:rounded-xl modal:border modal:p-6 3xl:modal:max-w-3xl"
       >
         <div className="flex items-start gap-3">

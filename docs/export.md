@@ -82,7 +82,7 @@ is the API's `developers`, which only a game has.
 |---|---|
 | Games | Title, Status, Rating, Hours played, Platform, Started, Finished, Added, Playthroughs, Genre, All genres, Developers, Released, HLTB main story, HLTB main + extra, HLTB completionist, HLTB all play styles, HowLongToBeat, Latest note |
 | Playthroughs | Title, Playthrough, Status, Rating, Hours played, Platform, Started, Finished, Notes |
-| Notes | Title, Playthrough, Written, Note |
+| Notes | Title, Playthrough, Written, Pictures, Note |
 
 - **Games are in board order**: the columns as `BOARD_STATUSES` lays them out, and each column as
   it is ranked by hand. The calendar's titles are Backlog entries, so they sit in Backlog's run,
@@ -101,9 +101,19 @@ is the API's `developers`, which only a game has.
 - **Notes are newest first across the whole board**, two written in one instant told apart by id,
   as the card's latest note is. *Latest note* on the Games sheet is that same newest note, across
   every pass and whole. A card's is cut to 200 characters on the wire and two lines on screen.
+- **A note's pictures are counted, and stay out of the file**, since #18 on 30 October 2026. The
+  Notes sheet's *Pictures* column says how many each note has, so a note that is a picture alone
+  is not a blank row, and its *Note* cell is empty because no words were written. When the newest
+  note has no words, *Latest note* says *A picture* or *2 pictures*, the words a screen reader
+  hears for the card's thumbnail, from `picturesInWords` in `lib/pictures.ts`. **This bends
+  *everything you have*, decided at the #18 pickup**: a cell holds text, and a download of the
+  pictures themselves would be a feature of its own. The count comes from the pictures each note
+  already carries in `LogEntryDto`, so the route needed nothing but the `ThenInclude` every read
+  that carries notes got.
 - **The header row is bold and frozen, the Title column is frozen, and every column has the
   workshop's width.** Every cell is top-aligned, so a wrapped note does not leave its row's other
-  cells floating in the middle. Only *Note* wraps.
+  cells floating in the middle. Only *Note* wraps. *Pictures* sits before it, so the one column
+  wide enough to scroll past is the last.
 - **The tier names are HowLongToBeat's own**, from `HLTB_TIER_LABELS` in `journal/fields.ts`, which
   `hltbTiers` reads too. `hltbTiers` itself could not be reused: it drops the figures nobody has
   submitted, and the sheet wants every column on every row. The address is `hltbGameUrl` beside it,

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using HobbyTracker.Api.Contracts;
 using HobbyTracker.Api.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -79,8 +80,13 @@ public class NotesController(INoteService notes, ILibraryService library) : Cont
     /// <summary>
     /// Writes a note against a pass. Several notes per pass is the point — this is an append,
     /// never an overwrite.
+    ///
+    /// Words alone, as JSON. A note with pictures is the multipart action on the same route,
+    /// <see cref="WriteWithPictures"/>, and each says which type it takes so that a request
+    /// reaches the one that reads it.
     /// </summary>
     [HttpPost("log-entries/{entryId:int}/notes")]
+    [Consumes("application/json")]
     [ProducesResponseType<NoteDto>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -97,10 +103,41 @@ public class NotesController(INoteService notes, ILibraryService library) : Cont
     }
 
     /// <summary>
+    /// Writes a note with its pictures: the words and every picture in one request, written in
+    /// one save. Sent with its note, never ahead of it, so a drawer closed before Enter leaves no
+    /// picture behind for anything to sweep up.
+    ///
+    /// The size limits refuse a request larger than any note can need as it arrives, before it
+    /// is read; see <see cref="NoteService.RequestMaxBytes"/>.
+    /// </summary>
+    [HttpPost("log-entries/{entryId:int}/notes")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(NoteService.RequestMaxBytes)]
+    [ProducesResponseType<NoteDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    public async Task<ActionResult<NoteDto>> WriteWithPictures(
+        int entryId, [FromForm] NoteForm form, CancellationToken cancellationToken)
+    {
+        var (outcome, created) = await notes.CreateAsync(entryId, form, cancellationToken);
+
+        return outcome switch
+        {
+            NoteWriteOutcome.Written =>
+                CreatedAtRoute(nameof(GetNote), new { id = created!.Id }, created),
+            NoteWriteOutcome.NotFound => NotFound(),
+            _ => Refused(outcome),
+        };
+    }
+
+    /// <summary>
     /// Rewrites a note's body. Its date does not move — that is when you wrote it, not when you
-    /// last corrected it.
+    /// last corrected it. Its pictures stay as they are: JSON has no way to say anything about
+    /// them, so it says nothing.
     /// </summary>
     [HttpPut("notes/{id:int}")]
+    [Consumes("application/json")]
     [ProducesResponseType<NoteDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -111,9 +148,66 @@ public class NotesController(INoteService notes, ILibraryService library) : Cont
         return updated is null ? NotFound() : Ok(updated);
     }
 
+    /// <summary>
+    /// Rewrites a note's words and its pictures in one request: the pictures it keeps stay where
+    /// they were, the rest are taken out, and any new ones go after them. Its date does not move.
+    /// </summary>
+    [HttpPut("notes/{id:int}")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(NoteService.RequestMaxBytes)]
+    [ProducesResponseType<NoteDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status413PayloadTooLarge)]
+    public async Task<ActionResult<NoteDto>> RewriteWithPictures(
+        int id, [FromForm] NoteForm form, CancellationToken cancellationToken)
+    {
+        var (outcome, updated) = await notes.UpdateAsync(id, form, cancellationToken);
+
+        return outcome switch
+        {
+            NoteWriteOutcome.Written => Ok(updated),
+            NoteWriteOutcome.NotFound => NotFound(),
+            _ => Refused(outcome),
+        };
+    }
+
     [HttpDelete("notes/{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken) =>
         await notes.DeleteAsync(id, cancellationToken) ? NoContent() : NotFound();
+
+    /// <summary>
+    /// A refused write, as a 400 naming the field it was refused for. The box shows these words
+    /// after <i>Not added.</i>, so they are written to the person who pasted the picture.
+    /// </summary>
+    private ActionResult Refused(NoteWriteOutcome outcome)
+    {
+        var (field, message) = outcome switch
+        {
+            NoteWriteOutcome.Empty =>
+                (nameof(NoteForm.Body), "A note needs something in it."),
+            NoteWriteOutcome.TooManyPictures =>
+                (nameof(NoteForm.Pictures), "A note holds four pictures. Take one out to add another."),
+            NoteWriteOutcome.NotAPicture =>
+                (nameof(NoteForm.Pictures), "Only pictures can go in a note."),
+            NoteWriteOutcome.PictureTooBig =>
+                (nameof(NoteForm.Pictures), $"A picture can be {NoteService.PictureMaxBytes >> 20} MB at most."),
+            NoteWriteOutcome.ThumbnailMissing =>
+                (nameof(NoteForm.Thumbnails), "Each picture needs its thumbnail."),
+            NoteWriteOutcome.ThumbnailNotAPicture =>
+                (nameof(NoteForm.Thumbnails), "Only pictures can go in a note."),
+            NoteWriteOutcome.ThumbnailTooBig =>
+                (nameof(NoteForm.Thumbnails), $"A thumbnail can be {NoteService.ThumbnailMaxBytes >> 10} KB at most."),
+            NoteWriteOutcome.NotInThisNote =>
+                (nameof(NoteForm.Keep), "That picture is not in this note."),
+            NoteWriteOutcome.AccountFull =>
+                (nameof(NoteForm.Pictures), $"Your pictures have reached {NoteService.AccountMaxBytes >> 30} GB, the most an account keeps."),
+            _ => throw new UnreachableException($"{outcome} is not a refusal."),
+        };
+
+        ModelState.AddModelError(field, message);
+        return ValidationProblem(ModelState);
+    }
 }

@@ -265,8 +265,17 @@ export interface LibraryItem {
    *
    * The latest across *every* pass of yours, unlike everything else on this row — a replay you
    * have not written on yet still carries forward what you said the first time round.
+   *
+   * **Empty, not null, when the newest note is a picture alone.** Null is no note at all, and a
+   * card reads it to know whether *Remove from board* takes notes with it.
    */
   latestNotePreview: string | null;
+
+  /** The newest note's first picture, which the card draws from its thumbnail. */
+  latestNotePicture: NotePicture | null;
+
+  /** How many pictures the newest note has, which a screen reader hears for the thumbnail. */
+  latestNotePictures: number;
 }
 
 export interface Game {
@@ -487,9 +496,22 @@ export interface AnimeDetail extends Anime {
 export interface Note {
   id: number;
   logEntryId: number;
+  /** The words. Empty, never null, on a note that is a picture alone. */
   body: string;
   /** An instant. Stamped when you wrote it, and rewriting the body does not move it. */
   writtenAt: string;
+  /** Its pictures in their order, four at most. The bytes are read one at a time; see `pictureUrl`. */
+  pictures: NotePicture[];
+}
+
+/**
+ * A picture in a note: which one, and its size in pixels, which it is drawn at before it
+ * arrives so that nothing below it moves when it does.
+ */
+export interface NotePicture {
+  id: number;
+  width: number;
+  height: number;
 }
 
 /**
@@ -630,6 +652,8 @@ export interface Account {
   boards: BoardTitles[];
   /** Every note on every board. */
   notes: number;
+  /** Every picture in those notes, counted apart from them. */
+  pictures: number;
 }
 
 /** How many titles one board holds: each title once, however many passes it has had. */

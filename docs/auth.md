@@ -144,6 +144,24 @@ somebody else's pass of the same game could be that pass, and your notes would b
 their journal. Without the title, a pass of yours on another game could. `DeletingAPassTests` has
 a case for each, and each went red with its predicate taken out.
 
+**A picture has no owner of its own either, and is reached through its note and the note's pass**
+(#18, 30 October 2026). A picture id is a number anybody can count up to, so the two picture
+routes read `stored.Picture.Note.LogEntry.UserId`, and somebody else's picture is the same 404 as
+one that does not exist. **A rewrite's kept ids are the one place a request names a stored
+picture**, so they are checked against the note being rewritten: a rewrite of your own note
+naming somebody else's picture is refused, and the picture stays where it was. The card's
+picture and its count each carry the predicate the preview does, and the account's cap sums the
+user's own pictures alone. `UserScopingTests` has a case for each route, for the pass and note a
+form write names, for a kept id from another journal and for the card, and each went red with
+its predicate taken out.
+
+**The form write is the first a cross-site HTML form could send.** JSON cannot cross sites without
+a preflight, which nothing here answers, but `<form enctype="multipart/form-data">` can. **The
+session cookie being `SameSite=Lax` is what keeps such a post signed out**: a browser sends a Lax
+cookie on a top-level navigation and never on a cross-site POST, so it arrives as nobody and is a
+401. Lax was chosen for the sign-in's sake, above; it now carries this as well, and making the
+cookie `None` would open it.
+
 **Searching your notes reads every note of yours on a board, and needs both halves of its scope
 too** (#6, 9 October 2026). Without the user, somebody else's note about the same game would be a
 result, with its words, in your strip. Without the board, a note about a film would be a result on
@@ -182,14 +200,19 @@ a delete there would reach `ICurrentUser` with nobody signed in: a 500 where it 
 
 **One statement, and the database takes the rest.** `AccountService.DeleteAsync` is an
 `ExecuteDelete` on the `users` row, and the cascades do everything else: `users` to
-`auth_identities` and `log_entries`, and `log_entries` to `notes` and `status_changes`. Nothing is
-loaded into memory, and no list kept in the service can miss a table. The catalogue stays, a
+`auth_identities` and `log_entries`, `log_entries` to `notes` and `status_changes`, and since #18
+`notes` to `note_pictures` and those to `note_picture_bytes`. Nothing is loaded into memory, and
+no list kept in the service can miss a table: the pictures needed no line in it, and
+`SchemaTests.Deleting_an_account_takes_its_pictures_and_nobody_elses` holds the chain. The catalogue stays, a
 HowLongToBeat id somebody pinned included, because it is everybody's. `ExecuteDelete` passes the
 change tracker by, and `StatusHistoryRecorder` with it, which is `docs/data-model.md`'s trap for
 *writing* a status and does not apply here: a deleted pass takes its history with it.
 
 **A title counts once, however many passes it has had.** The warning says what you would lose as
-the board shows it, so the count is `COUNT(DISTINCT media_id)` per board rather than passes. The
+the board shows it, so the count is `COUNT(DISTINCT media_id)` per board rather than passes.
+**The pictures are counted apart from the notes they are in**, since #18, because a note that is
+a picture alone is still one note: *…41 notes and 12 pictures*, the words picked at that
+workshop, and left out when there are none. The
 providers come in the order they were linked, and they are on this contract rather than on
 `MeDto` because the warning is the one thing that reads them. The same person at Google and at
 Discord is two accounts, and the provider is what tells them apart.
@@ -357,6 +380,13 @@ tell a note never read from a note read and dropped: `CASE WHEN … THEN (SELECT
 gives the same JSON. So `Infrastructure/SqlRecorder.cs` records every command a host sends, and *no
 route a share reaches reads a note* asserts on the commands, after first proving on the owner's own
 board that the recorder can see a note being read.
+
+**Nor a picture, since #18.** A share's cards fill all three of the note's slots with constants,
+so its SQL names neither `notes` nor `note_pictures`, and the same test, now *…reads a note or a
+picture*, proves it over a board with a picture in every note, after seeing the owner's board read
+`note_pictures`. The picture routes are `[Authorize]`d like every route but a share's reads, so
+somebody holding a share's link and a picture's id gets a 401, and the shared page's cards draw no
+picture even if one arrived.
 
 - **EF 10 prunes a conditional on a captured value before it writes any SQL.** A share's
   `showNotes ? note : null`, with the flag captured, sends no `notes` either, and planting it

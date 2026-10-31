@@ -205,7 +205,7 @@ public sealed class MovieCatalogService(
 
         return db.LogEntries
             .Include(entry => entry.Media)
-            .Include(entry => entry.Notes)
+            .Include(entry => entry.Notes).ThenInclude(note => note.Pictures)
             .Where(entry => entry.MediaId == mediaId && entry.UserId == userId)
             .OrderByDescending(entry => entry.LoggedAt)
             .ThenByDescending(entry => entry.Id);

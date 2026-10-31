@@ -7,6 +7,8 @@ import { isRecentRelease } from '../lib/release';
 
 import { ratingTone } from '../lib/rating';
 import { hasFinishAhead } from '../lib/pace';
+import { picturesInWords } from '../lib/pictures';
+import { thumbnailUrl } from '../api/notes';
 import {
   type BoardColumn,
   genreStripe,
@@ -412,10 +414,31 @@ export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardF
 
             Plain text with no role, unlike the badges above it. "★ 8.5" has to be spelled out
             for a screen reader because the glyph does not say what it means; a sentence you
-            wrote yourself already reads as what it is. */}
-        {item.latestNotePreview !== null && (
+            wrote yourself already reads as what it is.
+
+            When the note has pictures, its first sits before the words, 28px tall: the user's
+            pick at the #18 workshop over the words "A picture", knowing a card whose note is only
+            pictures grows 12px and the picture is too small to read. Drawn from the small copy
+            made when it was sent, at its own size so the words beside it never jump, and named
+            for how many there are, which is what a screen reader can use of it. Held to twice as
+            wide as tall, so a panorama is cropped rather than run across the card. */}
+        {item.latestNotePreview !== null && item.latestNotePicture === null && (
           <p data-note="" className="mt-1 line-clamp-2 text-xs break-words text-muted">
             {item.latestNotePreview}
+          </p>
+        )}
+        {item.latestNotePreview !== null && item.latestNotePicture !== null && (
+          <p data-note="" className="mt-1 flex items-center gap-1.5 text-xs text-muted">
+            <img
+              src={thumbnailUrl(item.latestNotePicture.id)}
+              width={item.latestNotePicture.width}
+              height={item.latestNotePicture.height}
+              alt={picturesInWords(item.latestNotePictures)}
+              className="h-7 w-auto max-w-14 shrink-0 rounded-sm border border-line object-cover"
+            />
+            {item.latestNotePreview !== '' && (
+              <span className="line-clamp-2 break-words">{item.latestNotePreview}</span>
+            )}
           </p>
         )}
       </div>

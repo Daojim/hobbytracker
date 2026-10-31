@@ -402,6 +402,8 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
 
         item.LatestNotePreview.ShouldBeNull();
+        item.LatestNotePicture.ShouldBeNull();
+        item.LatestNotePictures.ShouldBe(0);
     }
 
     [Fact]
@@ -439,6 +441,85 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
         var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
 
         item.LatestNotePreview.ShouldBe(new string('x', 200));
+    }
+
+    [Fact]
+    public async Task A_card_carries_its_newest_notes_first_picture_and_how_many_it_has()
+    {
+        // The card draws the first as a thumbnail beside the words, and says how many there are
+        // to a screen reader. The second place is written first, so a card that took the
+        // pictures in the order their rows went in would draw the wrong one.
+        var mediaId = await GivenGameAsync("Castlevania: Harmony of Dissonance");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+        var noteId = await GivenNoteAsync(entryId, "The clock tower, at last.");
+        await GivenPictureAsync(noteId, position: 1, width: 2, height: 3);
+        var first = await GivenPictureAsync(noteId, position: 0, width: 1920, height: 1080);
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.LatestNotePreview.ShouldBe("The clock tower, at last.");
+        item.LatestNotePicture.ShouldBe(new NotePictureDto(first, 1920, 1080));
+        item.LatestNotePictures.ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task A_card_whose_newest_note_is_a_picture_alone_still_has_a_note()
+    {
+        // Empty words rather than none, because none is how a card knows there is no note at all,
+        // and it is what tells Remove from board to warn that the notes go too. A title whose
+        // notes were only pictures would otherwise leave the board with no warning.
+        var mediaId = await GivenGameAsync("Castlevania: Symphony of the Night");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.Completed);
+        var picture = await GivenPictureAsync(await GivenNoteAsync(entryId, ""));
+
+        var item = (await GetPageAsync("/api/library?hobby=games&status=Completed")).Items
+            .ShouldHaveSingleItem();
+
+        item.LatestNotePreview.ShouldBe("");
+        item.LatestNotePicture.ShouldNotBeNull().Id.ShouldBe(picture);
+        item.LatestNotePictures.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task The_newest_note_decides_whether_a_card_has_a_picture()
+    {
+        // The words and the picture come from one note, the newest, so a card never draws an
+        // older note's picture beside a newer note's words.
+        var mediaId = await GivenGameAsync("Celeste");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.InProgress);
+        await GivenPictureAsync(await GivenNoteAsync(entryId, "The summit.", Eastern(2026, 1, 1)));
+        await GivenNoteAsync(entryId, "Words alone, since.", Eastern(2026, 2, 1));
+
+        var item = (await GetPageAsync("/api/library?hobby=games")).Items.ShouldHaveSingleItem();
+
+        item.LatestNotePreview.ShouldBe("Words alone, since.");
+        item.LatestNotePicture.ShouldBeNull();
+        item.LatestNotePictures.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task A_moved_card_carries_the_same_picture_the_column_does()
+    {
+        // A move answers with the row it just wrote, and the board caches it. ItemAsync keeps its
+        // own copy of the card, and a picture in one copy and not the other would flash on and
+        // off the card with every drag.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.Backlog);
+        var noteId = await GivenNoteAsync(entryId, "");
+        await GivenPictureAsync(noteId, position: 0);
+        await GivenPictureAsync(noteId, position: 1);
+
+        var moved = await ReadAsync<LibraryItemDto>(await Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}/status", new StatusTransitionRequest(LogStatus.InProgress),
+            Json, Ct));
+        var listed = (await GetPageAsync("/api/library?hobby=games&status=InProgress")).Items
+            .ShouldHaveSingleItem();
+
+        listed.LatestNotePicture.ShouldNotBeNull();
+        listed.LatestNotePictures.ShouldBe(2);
+        moved.LatestNotePreview.ShouldBe(listed.LatestNotePreview);
+        moved.LatestNotePicture.ShouldBe(listed.LatestNotePicture);
+        moved.LatestNotePictures.ShouldBe(listed.LatestNotePictures);
     }
 
     private async Task<PagedResult<LibraryItemDto>> GetPageAsync(string url) =>

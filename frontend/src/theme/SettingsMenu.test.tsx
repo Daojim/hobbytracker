@@ -353,6 +353,7 @@ describe('SettingsMenu', () => {
         { hobby: 'movies', titles: 9 },
       ],
       notes: 41,
+      pictures: 0,
     };
 
     // With plain spaces, although the page joins each number to its word with one that never

@@ -56,10 +56,15 @@ export function describeDeletion(account: Account | null): string {
     ? `the account you signed in to with ${spoken(account.signedInWith.map(providerName))}`
     : 'your account';
 
+  // The pictures after the notes they are in, counted apart, since a note that is a picture
+  // alone is still one note: "41 notes and 12 pictures", the words picked at the #18 workshop.
   const everything = [
     ...account.boards.map((board) => titlesOn(board.hobby, board.titles)),
     ...(account.notes > 0
       ? [counted(account.notes, account.notes === 1 ? 'note' : 'notes')]
+      : []),
+    ...(account.pictures > 0
+      ? [counted(account.pictures, account.pictures === 1 ? 'picture' : 'pictures')]
       : []),
   ];
 

@@ -34,6 +34,15 @@ earlier pass with its own notes below it. The column's name at the top of the pa
 title from there, as a drag would. Deleting a pass keeps what you wrote during it: its notes move
 to the current pass, and the confirm says so before anything goes.
 
+A note can carry pictures, four at most: a screenshot pasted in, a file dropped on the box, or a
+photo picked from a phone's gallery or taken with its camera. A paste with words in it stays
+words, because Excel puts a picture of the copied cells on the clipboard beside them. Each picture
+is shrunk in the browser to 1920 pixels on its long edge before it is sent, and it goes in the
+same request as the note's words, so a note can be a picture alone. The journal lays them out
+under the words, and pressing one opens it full size, where Back closes the picture and leaves
+the journal open. A card shows the newest note's first picture, small, ahead of its words.
+Pictures never appear on a share link.
+
 *Pick*, in the backlog's header, answers "What should I play next?" for an evening when nothing
 on it stands out. Say how long you want to play, from an evening to a long haul in HowLongToBeat's
 hours, and leave out any genre you are not in the mood for, then spin a wheel of the games' covers
@@ -171,8 +180,9 @@ See [Running it](#running-it-locally) for how to fill it.
 | `POST /api/anime/refresh` | re-fetch every MAL title on the board. One request per title |
 | `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
 | `GET PUT DELETE /api/log-entries/{id}` | one pass. Deleting it moves its notes to the current pass, and takes them only with the title's last |
-| `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite |
-| `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date |
+| `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite. JSON, or a form when it carries pictures |
+| `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date, and a form rewrite names the pictures it keeps |
+| `GET /api/note-pictures/{id}`, and `thumbnail` under it | a picture in one of your notes, or the card's small copy of it. Never rewritten, so the browser keeps it |
 | `GET /api/notes/search?q=&hobby=` | your notes on one board with every word of `q` in them, in any order and any case, newest first. Fifty at most, and it says when there were more |
 | `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column |
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls. `notFinished: true` puts a finish back on the pass it was made on |
@@ -366,6 +376,18 @@ somebody's data, so scoping stays at the call site where a reviewer can see it. 
 from one write site loses that history for good, and nothing errors, so here the forgotten site is
 the risk worth designing out. A card shuffled through the columns inside ten minutes is folded away
 as the row is written, so nothing that reads the history has to know about shuffles.
+
+**Pictures are kept in Postgres, with their bytes in a table of their own.** On a volume of files,
+every cascade — a note deleted, a title taken off the board, an account deleted — becomes code that
+finds the files and deletes them, and a storage service is an outside connection with keys to
+keep. In the database the cascades are the whole of the deleting, and the nightly dump the whole of
+the backing up. The cost is that dump, which carries every picture every night. The bytes sit
+apart because every read that carries a note brings its pictures with it: kept in the same rows,
+a journal opening would pull every picture's bytes out of the database for an answer that sends
+none of them, since the browser fetches each picture from its own address. That is slow rather
+than wrong, so nothing would have noticed. A picture has no navigation to its bytes, so no
+query can reach them by accident, and a test reads every route that carries notes on the SQL and
+finds them never touched.
 
 **A card shows the number HowLongToBeat itself leads with, and it is fetched rather than
 averaged.** The site prints one headline figure above its three tiers — 42 hours for Hollow
@@ -609,6 +631,15 @@ to prevent something, the test for it is checked by reintroducing the thing.
       28 hours or more, so the planned evening and weekend held none of them and a fourth band was
       added. Each wheel's spin was recorded on a phone for the workshop, because motion is not a
       still, and the recordings caught a curve whose tail made the wheel look stopped a second early
+- [x] Pictures in notes: pasted, dropped or picked, four to a note, and a note can be a picture
+      alone. Each is shrunk in the browser before it is sent, and the server reads a file's type
+      and size from its bytes rather than from what the browser claims. They are kept in Postgres,
+      in two tables so the bytes sit apart from what a journal reads, and a test proves on the SQL
+      that none of the eleven reads carrying notes touches them. The card's 28px thumbnail was the
+      user's pick from renders over the words *A picture*. Measuring found two things a test could
+      not show by itself: Chromium and Firefox both turn a phone photo upright whatever the code
+      asks, and the test server keeps no request-size limit, so that limit is proved against the
+      real server
 - [ ] A title detail page, and a year in review
 - [ ] Books and music — each a sibling detail table plus its source integration
 
