@@ -137,9 +137,10 @@ else in the suite is quietly running against an origin it never mentioned.
   its edge by default and hands its copy to anyone who asks, signed in or not, so the addresses end
   in no file extension, and the answer says `private, max-age=31536000, immutable`, which keeps
   every cache but the browser's out. `nosniff` goes with it. Checked through the e2e suite's Vite
-  proxy rather than at `<origin>`, which has not been measured yet: the deploy that carries #18 is
-  where to measure it, with `curl -sI` on a picture's address, signed in, looking for no
-  `cf-cache-status: HIT`.
+  proxy, and at `<origin>` signed out by the deploy that carried #18, on 31 October 2026: a
+  picture's address answered 401 with `cf-cache-status: DYNAMIC`, Cloudflare's word for an address
+  nothing in the zone makes eligible for its cache. **The signed-in look has not been had yet**: a
+  real picture's request in the browser's network panel, with no `cf-cache-status: HIT`.
 - **Kestrel keeps the note form's size limit, and answers past it with a 400.** The form write
   refuses a request larger than any note can need, 8,716,288 bytes, before reading any of it. MVC
   reads the form, so the refusal arrives as one it could not read: a 400 under no field rather
@@ -191,7 +192,9 @@ Each check reads what `main` has gained since the commit the server is on:
   nothing in the app grants it. After the deploy, the maintainer runs the one `UPDATE`, naming
   their own row: `update users set role = 'admin' where id = <id>;`, through the database's own
   credentials as **Proving it** shows. Before it, that account is capped like any other, which
-  for a while costs nothing: 1 GB is over ten thousand of the user's pictures.
+  for a while costs nothing: 1 GB is over ten thousand of the user's pictures. **A session cannot
+  run it for them**: the one that deployed #18 tried, and Claude Code's auto mode refused it as a
+  permission grant.
 - **A migration.** Run `git diff --stat <deployed>..main -- backend/src/HobbyTracker.Api/Data/Migrations`.
   It applies itself when the new API starts, and nothing runs it backwards on the server, so the
   last nightly backup is the undo. Know when that ran before deploying one that drops or renames

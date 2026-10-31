@@ -703,7 +703,7 @@ shuffled.
         tables in Postgres with the bytes apart, a collage under the words, a lightbox Back
         closes, and on the card the newest note's first picture 28px tall, the user's pick over
         the words *A picture*. Four to a note, and 1 GB an account but the admin's. On every
-        board at once. Built on 30 October 2026; not yet merged
+        board at once (PR #84, deployed)
 
       **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
       +1 episode button on Watching cards.
