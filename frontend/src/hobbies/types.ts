@@ -457,8 +457,8 @@ export interface TitleDetail {
    *
    * **Deliberately not solved with a synthetic one-season list.** That would look tidier and
    * would be the same mistake as writing `season_number = 1` on every anime pass: it puts a
-   * fact in the column that nobody claimed, and every later reader — the card, the drawer, a
-   * year in review — then has to know to ignore it.
+   * fact in the column that nobody claimed, and every later reader — the card, the drawer,
+   * whatever reads a pass next — then has to know to ignore it.
    *
    * Stated per hobby rather than inferred from whatever came back, on {@link platforms}' rule.
    */

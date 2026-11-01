@@ -2757,10 +2757,7 @@ user's choice on 1 October 2026, and asked for the other hobbies' suggestions to
 - None of them gets Completed's comparison: their passes record no hours
   (`PassFields.hoursPlayed` is false).
 
-**Import a MAL list.**
-- MAL's list statuses map one-to-one onto the five columns, and MAL ids are exact.
-- **Unmeasured:** a *public* list may be readable with the client id alone
-  (`GET /users/{name}/animelist`). `anime-mal.md` assumes it needs OAuth. Measure before planning.
+**Import a MAL list: dropped by the user on 1 November 2026**, so it is not planned.
 
 **+1 episode on Watching cards (TV and anime).**
 - Anime stops at `episodeCount`.

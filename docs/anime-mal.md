@@ -58,8 +58,9 @@ than the IGDB one, and the e2e stub refuses a request without the header so that
 rather than assumed.
 
 **The client secret is deliberately not stored.** It signs the OAuth token exchange this app
-never performs. MAL shows it again on the app's configuration page if "import my MAL list" is
-ever built.
+never performs. "Import my MAL list", the one feature that would have needed it, was dropped on
+1 November 2026; MAL shows the secret again on the app's configuration page should anything ever
+need it.
 
 **Kitsu is a real fallback** if MAL withdraws client-ID access — measured working the same day
 with no credential at all, and entry-per-cour like MAL, so the card decision survives the swap
@@ -149,7 +150,7 @@ The constraint is gone, and so is its `LogEntryRules.EpisodeNeedsSeason` twin. T
 were considered and rejected:
 
 - **Writing `season_number = 1` on every anime pass.** It puts a fact in the column nobody
-  claimed, and every reader — the card, the drawer, a future year-in-review — then has to know to
+  claimed, and every reader — the card, the drawer, whatever reads a pass next — then has to know to
   ignore it.
 - **Making the constraint conditional on the hobby.** Not possible, and worth knowing *why*
   before an afternoon goes into it: a Postgres `CHECK` cannot contain a subquery, and the hobby
@@ -322,8 +323,7 @@ no merging step. `hobbies/anime.ts` names thirteen:
   was published for rather than what watching it is like, and a title carrying nothing else then
   paints as nothing — which is honest.
 - **Six hues are the films list's**, on television's shared-vocabulary argument exactly: a horror
-  is the same evening on either board, and the year-in-review page is the one screen that will put
-  two hobbies together. Only the seven words anime owns outright are minted in `index.css`.
+  is the same evening on either board, so it wears the same colour on both. Only the seven words anime owns outright are minted in `index.css`.
 
 Its floor is Isekai against Mecha at 0.103, then Iyashikei against Sci-Fi at 0.107. Both cleared
 the 0.087 the games list accepted then, between Strategy and Adventure, and thirteen hues was two
@@ -407,7 +407,7 @@ where the disagreement itself is pinned against the real figures.
   client-side debounce. `HltbThrottle` exists because HowLongToBeat is a *scrape* of a site with a
   history of blocking unofficial clients. **If MAL ever starts refusing, a floor between requests
   on `HltbThrottle`'s shape is the fix**, not a retry.
-- **No "import my MAL list".** It is the one thing that would need the OAuth flow and therefore
-  the client secret. The app registration's redirect URL was shaped for it —
-  `https://hobbytracker.daojim.me/api/auth/mal/callback` — so it is already right if it is ever
-  built.
+- **No "import my MAL list", and it was dropped on 1 November 2026, by the user's choice.** It
+  was the one thing that would have needed the OAuth flow and therefore the client secret. The
+  app registration's redirect URL was shaped for it —
+  `https://hobbytracker.daojim.me/api/auth/mal/callback` — and nothing calls it now.

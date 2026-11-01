@@ -72,8 +72,8 @@ export const ANIME: HobbyDefinition = {
    * else then paints as nothing — which is honest.
    *
    * **Six hues are the films palette's**, on television's shared-vocabulary argument exactly: a
-   * horror is the same evening on either board, and a year-in-review page is the one screen
-   * that will put two hobbies together. Only the seven words anime owns outright are minted.
+   * horror is the same evening on either board, so it wears the same colour on both. Only the
+   * seven words anime owns outright are minted.
    * The floor is Mecha against Isekai at 0.103; every other pair clears 0.107.
    */
   genres: [

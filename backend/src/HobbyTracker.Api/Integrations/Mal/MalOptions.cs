@@ -19,8 +19,9 @@ public class MalOptions
     /// no expiry, no refresh. TMDB's static-token shape rather than IGDB's.
     ///
     /// <b>There is deliberately no client secret.</b> It signs the OAuth token exchange, which
-    /// this app never performs. MAL shows it again on the app's own configuration page if
-    /// "import my MAL list" is ever built.
+    /// this app never performs. "Import my MAL list", the one feature that would have needed it,
+    /// was dropped on 1 November 2026; MAL shows it again on the app's own configuration page
+    /// should anything ever need it.
     ///
     /// Supplied via user-secrets in development, never appsettings.json. Register an app at
     /// https://myanimelist.net/apiconfig.

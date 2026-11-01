@@ -66,8 +66,7 @@ export const TV: HobbyDefinition = {
    * is not, and nobody logs them.
    *
    * **Seven hues are the films palette's, and that is deliberate.** A documentary is the same
-   * evening on either board, and the year-in-review page is the one screen that will put two
-   * hobbies together — a divergence there would be the thing you notice. Only Reality, Mystery
+   * evening on either board, so it wears the same colour on both. Only Reality, Mystery
    * and War & Politics are new. The palette was workshopped as three whole options rendered on
    * a real board in all eight themes; this is *Shared vocabulary*, floor 0.1144, and the values
    * live in `index.css` where `palette.test.ts` re-measures every pair.

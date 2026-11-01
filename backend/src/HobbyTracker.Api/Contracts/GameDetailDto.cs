@@ -4,8 +4,8 @@ using HobbyTracker.Api.Domain;
 namespace HobbyTracker.Api.Contracts;
 
 /// <summary>
-/// A single stored game with everything logged against it — the shape a detail page wants in
-/// one request rather than two.
+/// A single stored game with everything logged against it — the shape the journal drawer wants
+/// in one request rather than two.
 /// </summary>
 public sealed record GameDetailDto(
     int Id,

@@ -8,8 +8,8 @@ later.
 sharing one board, one journal and one schema. A kanban board with a drag, a journal drawer over
 it, IGDB, TMDB and MAL search, HowLongToBeat estimates, a show's season and episode on the card,
 eight themes, a release calendar for the games that are not out yet,
-and Google/Discord OAuth with every pass and note scoped to whoever wrote it. The next things to
-build are a title detail page and a year in review — see [Roadmap](#roadmap).
+and Google/Discord OAuth with every pass and note scoped to whoever wrote it. Books and music are
+on hold, and what is still open is in the [Roadmap](#roadmap).
 
 ---
 
@@ -640,8 +640,9 @@ to prevent something, the test for it is checked by reintroducing the thing.
       not show by itself: Chromium and Firefox both turn a phone photo upright whatever the code
       asks, and the test server keeps no request-size limit, so that limit is proved against the
       real server
-- [ ] A title detail page, and a year in review
-- [ ] Books and music — each a sibling detail table plus its source integration
+- [ ] A Discover list from your ratings: IGDB's similar games for what you rated highest, less
+      what is already on your board, if a look at the real results says it is worth building
+- [ ] Books and music, on hold — each would be a sibling detail table plus its source integration
 
 Architecture and schema notes for anyone (or anything) working in the repo live in
 [CLAUDE.md](CLAUDE.md), which routes to one file per area under [docs/](docs).
