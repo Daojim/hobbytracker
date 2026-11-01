@@ -5,8 +5,9 @@ follow. It doubles as a portfolio piece, so structure and explainability count a
 code — prefer the version that is easy to justify in a review over the version that is merely
 shorter.
 
-**Three documents, and they do different jobs.** `README.md` says what the app is and why the
-interesting decisions were made. **This file says how to work in the repo** — what is settled, what
+**Three documents, and they do different jobs.** `README.md` says what the app is, as a tour of
+screenshots and six of the decisions worth reading, and links the rest of a reader's story in
+`docs/`. **This file says how to work in the repo** — what is settled, what
 fails quietly, and *which file holds the rest*. **`docs/` is one file per area**, read when the work
 touches that area; the map below says which.
 
@@ -59,6 +60,14 @@ and the attribution are shared, so it says only where television differs.
 **`docs/anime-mal.md` is nobody's sibling and should be read whole.** Anime and television are
 both episodic and that is where the resemblance ends: a different provider, a different client, a
 pass with an episode and no season, and a card with two titles.
+
+**Three files in `docs/` are written for a reader rather than a session**, and the README links
+them: `design-notes.md` (all twenty decisions, six of which the README keeps short), `api.md`
+(every route) and `history.md` (what shipped, in order). They were the README's until it became a
+tour on 1 November 2026. **A route added or changed updates `api.md`, and a feature that ships
+adds its entry to `history.md`.** `docs/shots/` holds the README's screenshots: a demo account on
+a database of its own, never production, in Shelf Light and Shelf Dark as WebP at 1,760px, and
+the wheel as a GIF.
 
 ## What exists
 
@@ -729,7 +738,7 @@ shuffled.
       fifth hobby has to do**, below, is the checklist.
 
 **A completed phase gets one line, because what it *learned* is in the `docs/` file for the area
-it touched** — that is the growth rule at work, applied to this list. `README.md`'s roadmap is the
+it touched** — that is the growth rule at work, applied to this list. `docs/history.md` is the
 same history written for a reader rather than for a session.
 
 **Auth was deferred three times on purpose, and that is now history rather than guidance.** The
