@@ -179,8 +179,8 @@ describe('genreStripe', () => {
 
   it('lets a show share a hue with a film where they share the word', () => {
     // Deliberate, and the reason the TV palette adds three tokens rather than ten: a documentary
-    // is the same evening on either board, and the year-in-review page is where a divergence
-    // would show. The two words television owns outright get hues of their own.
+    // is the same evening on either board, so it wears the same colour on both. The two words
+    // television owns outright get hues of their own.
     expect(genreStripe(TV, 'Documentary')).toBe('bg-genre-documentary');
     expect(genreStripe(TV, 'Sci-Fi & Fantasy')).toBe('bg-genre-science-fiction');
     expect(genreStripe(TV, 'Reality')).toBe('bg-genre-reality');

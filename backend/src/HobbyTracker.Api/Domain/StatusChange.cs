@@ -7,7 +7,7 @@ namespace HobbyTracker.Api.Domain;
 ///
 /// Written by <c>StatusHistoryRecorder</c> as part of whatever save changed the status, and by
 /// nothing else. Recorded before anything reads it on purpose: history that was never written
-/// down cannot be recovered afterwards, and stats and the year in review are what will read it.
+/// down cannot be recovered afterwards, and the Stats page, the year in review too, reads it.
 /// </summary>
 public class StatusChange
 {

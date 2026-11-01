@@ -11,8 +11,8 @@ import { DEFAULT_HOBBY, boardPath } from './shell/hobbies';
 /**
  * One screen per hobby, and one in front of them all. The board is the app, and the search that
  * fills it sits on top of it rather than beside it. A hobby's Discover page lives under its
- * board's address, because it is a page of that board. A detail page and a year-in-review page
- * come with detail and review.
+ * board's address, because it is a page of that board, and so does its Stats page, which is the
+ * year in review as well.
  *
  * The hobby is a path parameter rather than something the board decides for itself, so a board is
  * a thing you can link to and come back to. `BoardPage` is what turns a slug nobody has built

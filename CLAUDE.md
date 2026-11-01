@@ -5,8 +5,9 @@ follow. It doubles as a portfolio piece, so structure and explainability count a
 code — prefer the version that is easy to justify in a review over the version that is merely
 shorter.
 
-**Three documents, and they do different jobs.** `README.md` says what the app is and why the
-interesting decisions were made. **This file says how to work in the repo** — what is settled, what
+**Three documents, and they do different jobs.** `README.md` says what the app is, as a tour of
+screenshots and six of the decisions worth reading, and links the rest of a reader's story in
+`docs/`. **This file says how to work in the repo** — what is settled, what
 fails quietly, and *which file holds the rest*. **`docs/` is one file per area**, read when the work
 touches that area; the map below says which.
 
@@ -60,6 +61,14 @@ and the attribution are shared, so it says only where television differs.
 both episodic and that is where the resemblance ends: a different provider, a different client, a
 pass with an episode and no season, and a card with two titles.
 
+**Three files in `docs/` are written for a reader rather than a session**, and the README links
+them: `design-notes.md` (all twenty decisions, six of which the README keeps short), `api.md`
+(every route) and `history.md` (what shipped, in order). They were the README's until it became a
+tour on 1 November 2026. **A route added or changed updates `api.md`, and a feature that ships
+adds its entry to `history.md`.** `docs/shots/` holds the README's screenshots: a demo account on
+a database of its own, never production, in Shelf Light and Shelf Dark as WebP at 1,760px, and
+the wheel as a GIF.
+
 ## What exists
 
 Everything below is built, merged and green. Nothing is half-finished.
@@ -86,9 +95,9 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
-**Four hobbies are live**, anime included. **Detail and review is the next phase** — a title
-detail page and a year in review. See **What is next**, which also lists the smaller things named
-but not built.
+**Four hobbies are live**, anime included, and **no new phase is queued**: the games board has
+one planned feature left, and books and music are on hold. See **What is next**, which also lists
+the smaller things named but not built.
 
 ## Start here
 
@@ -478,7 +487,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | | |
 |---|---|
 | Shape | Vite + React + TS SPA, client routing. Not Next.js |
-| Scope | **`/board/:hobby`, `/board/:hobby/discover/:list` and `/board/:hobby/stats/:year`, behind a session, plus `/signin`, and a share's `/share/:token` and `/share/:token/stats/:year?` outside it.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. The Stats page is the year in review's starting point; there is no detail page yet |
+| Scope | **`/board/:hobby`, `/board/:hobby/discover/:list` and `/board/:hobby/stats/:year`, behind a session, plus `/signin`, and a share's `/share/:token` and `/share/:token/stats/:year?` outside it.** Search is a bar on the board, not a screen; `/board` and `/search` both redirect to the games board. There is no title detail page and no year-in-review page, both dropped on 1 November 2026: the journal drawer holds a title, and the Stats page is the year in review |
 | Columns | Backlog · Playing · **On Hold** · Completed, **then Dropped last** — **and the labels are the hobby's**: a film or a show is Watching and Watched. `columnsFor` in `hobbies/` is the one list; the board draws it less anything taken off in Settings, and hands *that* list to every card's menu. **No columns a person names themselves** — `LogStatus` is one shared vocabulary, and the year rules and the transitions depend on what each value means |
 | On Hold | **After Playing, a plain column, and exempt from the year like Backlog** — Playing with the controller put down, so it takes Playing's rule for the dates and keeps where you were in a show. A fifth `LogStatus` with **no migration**, because `status` is unconstrained text. Position, look and width were each picked from rendered screenshots on 17 September 2026. `docs/board.md` |
 | Hiding a column | **Any but Backlog, per board, per browser, from a Columns group of checkboxes in Settings.** Not rendered, not fetched, not a drop target, not offered in a card's menu — and nothing written, so its titles are there when it comes back. Backlog stays because search adds to it. `docs/board.md` |
@@ -558,7 +567,7 @@ here**.
 | **MAL answers `0`, not null, for a figure nobody has filled in** — an unaired cour's episode count and duration, an unrated title's mean. Nought is not merely a lie a card would print: `ck_anime_counts_positive` and `ck_anime_mean_score_range` **refuse the write**, so an ordinary search becomes a 500 | `docs/anime-mal.md` |
 | **MSW's `onUnhandledRequest: 'error'` fails the request, not the test.** A request no test stated is refused and printed, and the suite stays green unless something waits on its answer — so a request that must never be made needs a case asserting it was not | **Tests**, above |
 | **The test server keeps no `[RequestSizeLimit]`, and `MultipartBodyLengthLimit` limits each part of a form rather than the request.** A backend test of a route's size limit passes because something further in refused the request, and the limit was never what refused it. Prove one against Kestrel in the e2e suite, asking with `Expect: 100-continue` so the answer comes before any body is sent | `docs/journal.md` |
-| **A read that carries a pass's notes has to `ThenInclude` their pictures**, or every note in it arrives with none and nothing fails: `NoteDto.From` maps what was loaded. Eleven reads do. A new one, a detail page's say, joins them and the `ReadsThatCarryNotes` list in `NotePicturesEndpointTests`, which proves each brings its pictures and never their bytes | `docs/journal.md` |
+| **A read that carries a pass's notes has to `ThenInclude` their pictures**, or every note in it arrives with none and nothing fails: `NoteDto.From` maps what was loaded. Eleven reads do. A new one joins them and the `ReadsThatCarryNotes` list in `NotePicturesEndpointTests`, which proves each brings its pictures and never their bytes | `docs/journal.md` |
 | **A spy on `Storage.prototype` refuses nothing in the frontend suite.** `src/test/setup.ts` supplies a `localStorage` that implements `Storage` without being one, so a test of storage refusing passes without storage ever refusing — green over the very fallback it names, which is how the hidden-columns store's first version of that test went. Spy on the instance: `vi.spyOn(localStorage, 'setItem')` | `docs/design.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
 | **A null `media.release_precision` means *nobody has asked a provider* and must read as *released*.** Every row that existed before the release calendar carries it. Get it backwards and the migration empties every user's Backlog column on deploy day — no error, no log line, just a board with its queue gone. It is `games.hltb_checked_at`'s distinction, and `Unknown` is the *different* claim that a provider was asked and had no date. **No provider mapping writes null any more**, only the absence of one, so the two states no longer share a shape | `docs/data-model.md` |
@@ -705,9 +714,11 @@ shuffled.
         the words *A picture*. Four to a note, and 1 GB an account but the admin's. On every
         board at once (PR #84, deployed)
 
-      **Noted for the other hobbies and deliberately not planned:** importing a MAL list, and a
-      +1 episode button on Watching cards.
-- [ ] **Detail and review — next.** A title detail page and a year-in-review page.
+      **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
+      Watching cards. Importing a MAL list was dropped on 1 November 2026.
+- **Detail and review — dropped on 1 November 2026**, both halves, by the user's choice. The
+      Stats page is the year in review, and the journal drawer already holds what a title detail
+      page would have shown; nothing more than its name was ever written down.
 - [x] **The release calendar** — a *Coming soon* agenda under the board, and the first half of
       *filling the board without searching*. Not a fifth status and not a fifth column: the same
       Backlog rows read the other way round, which is the whole of why release day needs no job.
@@ -720,12 +731,14 @@ shuffled.
       the Settings checkboxes were each picked from rendered screenshots before any value was written.
 - [x] **Filling the board without searching** — the calendar, then the Discover page: four of
       IGDB's lists as a wall of covers, one click to add, each list measured before it was chosen.
-- [ ] **The hobbies after it.** Books and music — each a sibling detail table deriving from
-      `Media`, plus its source integration. Add the `source_lu` row with the client, and a file
-      in `frontend/src/hobbies/`.
+- [ ] **The hobbies after it — on hold.** Decided 1 November 2026: books are on hold, and
+      whether music is built at all is undecided, so neither is picked up until the user says.
+      Each would be a sibling detail table deriving from `Media`, plus its source integration:
+      the `source_lu` row with the client, and a file in `frontend/src/hobbies/`. **What a
+      fifth hobby has to do**, below, is the checklist.
 
 **A completed phase gets one line, because what it *learned* is in the `docs/` file for the area
-it touched** — that is the growth rule at work, applied to this list. `README.md`'s roadmap is the
+it touched** — that is the growth rule at work, applied to this list. `docs/history.md` is the
 same history written for a reader rather than for a session.
 
 **Auth was deferred three times on purpose, and that is now history rather than guidance.** The

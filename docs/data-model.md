@@ -197,8 +197,8 @@ EF's back would make a future `DROP CONSTRAINT` fail.
 edits the pass in place, so until 1 October 2026 the moment of it was lost; `logged_at` says only
 when the pass was made. One row per arrival, `from_status` → `to_status` at `changed_at`, and
 **`from_status` is null when the pass was made**: by an add, by `POST /api/log-entries`, or by the
-replay a move out of Completed starts. It was recorded ahead of stats and the year in review
-because it is the one thing neither of them could backfill. **Its first reader is the Stats page**,
+replay a move out of Completed starts. It was recorded ahead of stats and the year in review,
+now one page, because it is the one thing neither could backfill. **Its first reader is the Stats page**,
 since 2 October 2026: how long a title has waited in Backlog is its pass's latest row, when that
 row says Backlog — see **How long a title has waited** in `docs/stats.md`.
 
@@ -296,8 +296,7 @@ are — and written into the file as those wall-clock parts, because an Excel da
 release date goes in as the day it is and never meets the zone, and the file is named with
 `todayHere()`, the fourth place. See `docs/export.md`.
 
-*This sentence is still a tripwire. A fifth place — a year-in-review page is the likely one —
-updates it rather than quietly falsifying it.*
+*This sentence is still a tripwire. A fifth place updates it rather than quietly falsifying it.*
 
 `IJournalClock` (`Infrastructure/JournalClock.cs`) wraps `TimeProvider` plus the zone. It exists
 so the date rules have something to ask and something a test can stop — `FrozenTimeProvider` is

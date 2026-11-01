@@ -215,8 +215,9 @@ Kids, Family, News, Soap, Talk and Western are left out — rare on one person's
 little about the evening.
 
 **Seven of the ten hues are the films palette's, deliberately.** A documentary is the same evening
-on either board, and the year-in-review page — the one screen that will put two hobbies together —
-is where a divergence would show. Only `reality`, `mystery` and `war-politics` are new tokens;
+on either board, so it wears the same colour on both. This once also pointed at a year-in-review
+page, the one screen that would have put two hobbies together; it was dropped on 1 November 2026,
+the Stats page taking its role one hobby at a time. Only `reality`, `mystery` and `war-politics` are new tokens;
 Sci-Fi & Fantasy points at `bg-genre-science-fiction` and Action & Adventure at `bg-genre-action`.
 `mystery` deliberately carries the same values as `thriller`: a board is one hobby, so the two are
 never read against each other.

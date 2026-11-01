@@ -51,8 +51,8 @@ export const discoverPath = (slug: Hobby, list?: string): string =>
  * page opens on the latest year there is.
  *
  * Under the board's address for Discover's reason. The year is in the path rather than held by
- * the page, so a year's stats are an address to come back to, which is what the year in review
- * will grow from.
+ * the page, so a year's stats are an address to come back to, which is what lets the page be the
+ * year in review as well.
  */
 export const statsPath = (slug: Hobby, year?: number | 'all'): string =>
   year === undefined ? `${boardPath(slug)}/stats` : `${boardPath(slug)}/stats/${year}`;

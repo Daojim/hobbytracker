@@ -71,7 +71,7 @@ public class GamesController(IGameCatalogService catalog, IHltbService hltb) : C
     }
 
     /// <summary>
-    /// Returns one stored game together with everything logged against it, so a detail page
+    /// Returns one stored game together with everything logged against it, so the journal drawer
     /// needs a single request rather than one per entry.
     /// </summary>
     [HttpGet("{id:int}")]

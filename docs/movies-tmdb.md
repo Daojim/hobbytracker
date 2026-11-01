@@ -168,8 +168,9 @@ ten hues being easier to separate than eleven.
 
 **Films reuse the hue circle rather than working around the eleven games colours**, and that is
 sound for one stated reason: a board is one hobby, so a film's stripe is only ever read against
-the other nine films'. If a year-in-review page ever puts both hobbies on one screen, that page is
-where the collision would appear, and it does not exist yet.
+the other nine films'. No screen puts two hobbies together: a year-in-review page was to be the
+one, and on 1 November 2026 it was dropped for the Stats page, which shows one hobby. Anything
+that ever does put two on one screen is where the collision would appear.
 
 `src/hobbies/palette.test.ts` re-measures every pair in every list, so the rule `index.css` states
 is now arithmetic the suite does rather than an instruction the next person has to remember.

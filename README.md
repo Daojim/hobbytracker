@@ -1,227 +1,187 @@
 # HobbyTracker
 
-A personal hobby-tracking and journaling app — what you played or watched, when, and what you
-thought of it. Games, films, television and anime, with books and music sharing the same schema
-later.
+A journal for the games, films, shows and anime you get through: a board for where each one is,
+and a drawer for what you thought of it. Deployed and in use behind a sign-in.
 
-**Status: deployed and in use, behind a sign-in.** Four hobbies — games, films, TV and anime —
-sharing one board, one journal and one schema. A kanban board with a drag, a journal drawer over
-it, IGDB, TMDB and MAL search, HowLongToBeat estimates, a show's season and episode on the card,
-eight themes, a release calendar for the games that are not out yet,
-and Google/Discord OAuth with every pass and note scoped to whoever wrote it. The next things to
-build are a title detail page and a year in review — see [Roadmap](#roadmap).
+[A tour](#a-tour) · [How it's built](#how-its-built) · [Running it](#running-it-locally) ·
+[Design notes](docs/design-notes.md) · [API](docs/api.md) · [How it got here](docs/history.md)
 
----
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/board-dark.webp">
+  <img alt="The games board: Backlog, Playing, On Hold, Completed and Dropped, each card with a cover, its genre, a rating, how long the game takes and the last note written about it" src="docs/shots/board-light.webp">
+</picture>
 
-## What it does
+## A tour
 
-The board is five columns — Backlog, Playing, On Hold, Completed, and Dropped kept out of the way
-at the end — and a title moves between them by drag or from the card's own options menu. Any
-column but Backlog can be taken off a board in Settings, per board. Which entry a move touches and
-which timestamps it stamps are decided server-side, so no client has to know which pass is current.
-Moving a game out of Completed asks whether you finished it: a replay keeps the finished pass and
-starts another, and a finish made by mistake is put back on the pass it was made on.
-On a phone the board shows one column at a time, under a switcher pinned to the top that counts
-every column. A card is picked up by holding it still, so a swipe scrolls. The app installs to a
-home screen with an icon of its own, and the bar above it takes the colour of whichever theme is
-chosen.
+A title moves between five columns, Backlog, Playing, On Hold, Completed and Dropped, by drag or
+from its card's menu, and the server decides which dates a move stamps. On the games board each
+column adds up how long its games take, and Completed sets your hours against HowLongToBeat's.
+These screenshots are a demo account: the covers, dates and hours are real data from IGDB, TMDB,
+MyAnimeList and HowLongToBeat, and the notes were written for them.
 
-Cards carry the cover, the genre they are painted as, your rating, how long the game takes, and
-the last thing you wrote about it. Each column's header adds those lengths up, and Completed's sets
-the hours you logged against them. Clicking the title opens the journal over the board: rating,
-platform, dates, your hours beside HowLongToBeat's three estimates, dated notes, and every
-earlier pass with its own notes below it. The column's name at the top of the pass moves the
-title from there, as a drag would. Deleting a pass keeps what you wrote during it: its notes move
-to the current pass, and the confirm says so before anything goes.
+### The journal
 
-A note can carry pictures, four at most: a screenshot pasted in, a file dropped on the box, or a
-photo picked from a phone's gallery or taken with its camera. A paste with words in it stays
-words, because Excel puts a picture of the copied cells on the clipboard beside them. Each picture
-is shrunk in the browser to 1920 pixels on its long edge before it is sent, and it goes in the
-same request as the note's words, so a note can be a picture alone. The journal lays them out
-under the words, and pressing one opens it full size, where Back closes the picture and leaves
-the journal open. A card shows the newest note's first picture, small, ahead of its words.
-Pictures never appear on a share link.
+Every title opens a journal over the board: your rating and dates, your hours beside
+HowLongToBeat's four estimates and the day you'd finish at your own pace, dated notes with
+pictures pasted in, and every earlier playthrough with its own notes. It saves as you type, so
+there is no Save button.
 
-*Pick*, in the backlog's header, answers "What should I play next?" for an evening when nothing
-on it stands out. Say how long you want to play, from an evening to a long haul in HowLongToBeat's
-hours, and leave out any genre you are not in the mood for, then spin a wheel of the games' covers
-or ask for three suggestions. Every game in the backlog has the same chance, *Not this one* takes
-the one it landed on out of the draw, and *Start playing* moves the pick to Playing as a drag
-would. Nothing is offered unless you ask, and nothing is kept of what was picked.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/journal-dark.webp">
+  <img alt="Hollow Knight: Silksong's journal open over the board: HowLongToBeat's four estimates, nine more days at two hours a day, and a note with three screenshots" src="docs/shots/journal-light.webp">
+</picture>
 
-A link on the board's year row opens that year's stats: what you finished, as covers under the
-month you finished them, your hours against HowLongToBeat game by game, your ratings, how much of
-what you started you finished, and how long each game in the backlog has waited. Stats count every
-playthrough where the board counts titles, so a year's numbers stay put when a game is replayed.
+### A year in numbers
 
-Settings downloads the board as a spreadsheet: an Excel workbook of every game as its card shows
-it, every playthrough, and every note. It holds everything you have rather than what the board is
-showing — every column, every year, and the games still waiting to come out — with real dates and
-numbers in it, and nothing a spreadsheet would evaluate.
+What you finished, month by month; your hours against HowLongToBeat's, game by game; your
+ratings; how much of what you started you finished; and how long each game has waited in the
+backlog. It counts every playthrough, so a year's numbers stay put when a game is replayed.
 
-Settings can also delete your account, every board of it at once. The warning names the sign-in
-the account belongs to, counts what is on each board in that hobby's own words, says the nightly
-backups keep a copy for about two weeks, and does nothing until you type *delete*. Every other
-device signed in to the account is signed out on its next request.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/stats-dark.webp">
+  <img alt="Stats for 2026: nine games finished, 69% completion, covers by month, a ratings chart, hours against HowLongToBeat game by game, and the six games waiting in the backlog" src="docs/shots/stats-light.webp">
+</picture>
 
-Settings also makes a read-only link to the games board, for a friend or a portfolio reviewer,
-who can then see it without an account: the board, its release calendar and its Stats page, under
-a banner that says it is shared. Every part but Backlog is a box in the dialog, and so is the
-owner's name, off until ticked. Notes are never on it, and its words address nobody, so the
-visitor is not told about "your backlog". Stopping kills the address for everyone who has it.
+### What should I play next?
 
-Search sits above the board rather than on a screen of its own, so the column a title will land
-in is visible while you decide. Every result — and every cover on the Discover wall — adds
-straight to Backlog, Playing or Completed, and arrives with the dates a drag into that column would
-have given it: the server works them out with the drag's own code, so an add and a drag cannot
-disagree. A result already on your board says which column it is in, and its name opens its
-journal, so a game just found can be written about without going to look for its card.
+<table>
+<tr>
+<td>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/wheel-dark.gif">
+  <img alt="The picker's wheel of backlog covers spinning and landing on Metaphor: ReFantazio" src="docs/shots/wheel-light.gif" width="300">
+</picture>
+</td>
+<td>
 
-A switch beside the box searches your notes instead, on every board: every word you type, in any
-order and any case, newest first, under the titles they were written about. Each word is matched
-as the characters it is, so a note that says *50%* is found by *50%*, and Japanese is matched as
-typed, which is why it is a plain substring search rather than full-text search. A note found opens
-its journal at that note, scrolled to, with the words marked in it and the keyboard on it.
+*Pick*, in the backlog's header, spins a wheel of the backlog's covers once you've said how long
+you want to play and which genres you're not in the mood for. Every game in the column has the
+same chance, *Not this one* takes the one it landed on out of the draw, and *Start playing* moves
+it to Playing as a drag would.
 
-Metadata comes from [IGDB](https://api-docs.igdb.com/) for games,
-[TMDB](https://developer.themoviedb.org/) for films and television, and
-[MyAnimeList](https://myanimelist.net/apiconfig/references/api/v2) for anime, and is cached
-locally, so a journal entry always has something stable to point at even if the provider later
-moves or deletes a record. Every provider gets a source row of its own, and TMDB gets two: films
-and shows are numbered independently, so film 1396 and show 1396 are different titles that share
-a number.
+</td>
+</tr>
+</table>
 
-```console
-$ curl -b jar "localhost:5173/api/games?search=hollow%20knight&limit=1"
-```
-```json
-[{
-  "id": 4,
-  "title": "Hollow Knight",
-  "coverUrl": "https://images.igdb.com/igdb/image/upload/t_cover_big/cobfzp.jpg",
-  "platforms": ["Linux", "Mac", "Nintendo Switch", "Nintendo Switch 2", "PC (Microsoft Windows)",
-                "PlayStation 4", "PlayStation 5", "Wii U", "Xbox One", "Xbox Series X|S"],
-  "developers": ["Team Cherry"],
-  "genres": ["Adventure", "Platform"],
-  "primaryGenre": null,
-  "externalId": "14593",
-  "source": "igdb",
-  "hltbAllStylesHours": 41.82,
-  "hltbMainStoryHours": 27.0,
-  "hltbMainExtraHours": 41.6,
-  "hltbCompletionistHours": 65.59
-}]
-```
+### And the rest
 
-Logging a playthrough is a separate act from cataloguing the game, and a title can be logged more
-than once — replays are first-class, not an overwrite.
+<table>
+<tr>
+<td>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/search-dark.webp">
+  <img alt="A search for hollow knight above the board: each result with plus, play and tick buttons, and the two already on the board marked Playing and Coming soon" src="docs/shots/search-light.webp" width="390">
+</picture>
+<p><b>Adding a game.</b> Search sits above the board. Every result adds straight to Backlog,
+Playing or Completed, dated the way a drag would date it, and one already on the board says
+which column it's in.</p>
+</td>
+<td>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/calendar-dark.webp">
+  <img alt="Coming soon: Grand Theft Auto VI in 18 days, then a 2026 window, Fable in four months, a quarter, two later years and one game with no date" src="docs/shots/calendar-light.webp" width="390">
+</picture>
+<p><b>Coming soon.</b> Unreleased games wait in a calendar under the board, dated only as
+precisely as the publisher said, and arrive in Backlog on release day with no job running.</p>
+</td>
+</tr>
+<tr>
+<td>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/discover-dark.webp">
+  <img alt="Discover: IGDB's new releases as a wall of covers, each with the same three add buttons" src="docs/shots/discover-light.webp" width="390">
+</picture>
+<p><b>Discover.</b> A wall of what's new and popular on IGDB, for filling the board without
+knowing what to search for.</p>
+</td>
+<td>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/anime-dark.webp">
+  <img alt="The anime board: each card with its English title over the romaji one, and the episode reached on the ones being watched" src="docs/shots/anime-light.webp" width="390">
+</picture>
+<p><b>More than games.</b> Films, TV and anime have boards of their own and fields of their own:
+the episode you're on, and both of an anime's titles.</p>
+</td>
+</tr>
+<tr>
+<td colspan="2">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/shots/phones-dark.webp">
+  <img alt="Three phone screens: the backlog under a switcher pinned to the top, the journal, and the Completed column" src="docs/shots/phones-light.webp" width="800">
+</picture>
+<p><b>On a phone.</b> One column at a time under a switcher pinned to the top. A card is picked
+up by holding it still, so a swipe scrolls, and the app installs to a home screen.</p>
+</td>
+</tr>
+</table>
 
-```console
-$ curl -b jar "localhost:5173/api/library?hobby=games"
-```
-```json
-{
-  "items": [{
-    "mediaId": 14,
-    "title": "Celeste",
-    "hobby": "games",
-    "currentStatus": "InProgress",
-    "entryCount": 2,
-    "latestRating": null,
-    "lastActivity": "2026-08-15T23:47:00+00:00",
-    "genres": ["Platform"],
-    "primaryGenre": null,
-    "lengthHours": 9.5,
-    "latestNotePreview": "that B-side nearly broke me"
-  }],
-  "total": 1, "page": 1, "pageSize": 25
-}
-```
+Also: searching your notes on every board, every word in any order, opening the journal at the
+note it found; on the games board, a spreadsheet of everything on it and a read-only link to
+share it, never with a note; eight themes; and deleting your account, which signs every other
+device out at its next request.
 
-That game was completed in June and is being replayed now. `currentStatus` reflects the *current*
-pass, so it appears under `?status=InProgress` and **not** under `?status=Completed`, even though
-a completed entry sits in its history. `latestNotePreview` is the one field that does not follow
-that rule: it is the last thing you wrote about the title whichever pass it was during, so a
-replay you have not written on yet still carries last year's thought forward.
-
-Timestamps are instants, and the app records days in `America/New_York` — see **Time** in
-`docs/data-model.md`. A value sent without an offset is read as that wall-clock moment there, not
-as UTC.
-
-### Endpoints
-
-Everything below `/api/auth` needs a session and answers **401** without one — which is where
-the `-b jar` above comes from — except a share's reads, which anybody holding its link can make.
-See [Running it](#running-it-locally) for how to fill it.
-
-| | |
-|---|---|
-| `GET /api/auth/{provider}/start?returnUrl=` | 302 to Google or Discord. A navigation, not a fetch |
-| `GET /api/auth/me` | who is signed in, or 200 and a literal `null` — never 401 |
-| `POST /api/auth/logout` | ends the session. POST, so an `<img>` cannot sign you out |
-| `GET /api/games?search=&limit=` | search IGDB, cache the results, return them ranked |
-| `GET /api/games/{id}` | one game plus everything you logged against it |
-| `PUT /api/games/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
-| `PUT /api/games/{mediaId}/hltb` | pin a HowLongToBeat entry by hand when the matcher would not guess |
-| `POST /api/games/refresh` | re-fetch every IGDB title on the board, batched at 500 |
-| `POST /api/games/hltb/refresh` | queue the board for HowLongToBeat. Answers 202 straight away |
-| `GET /api/movies?search=&limit=` | search TMDB, cache the results, return them in TMDB's order |
-| `GET /api/movies/{id}` | one film plus everything you logged against it |
-| `PUT /api/movies/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
-| `POST /api/movies/refresh` | re-fetch every TMDB title on the board. One request per film |
-| `GET /api/tv?search=&limit=` | search TMDB for shows, cache the results, return them in TMDB's order |
-| `GET /api/tv/{id}` | one show, its seasons, and everything you logged against it |
-| `PUT /api/tv/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
-| `POST /api/tv/refresh` | re-fetch every TMDB show on the board. One request per show |
-| `GET /api/anime?search=&limit=` | search MAL, cache the results, re-rank them by how many people log each |
-| `GET /api/anime/{id}` | one anime and everything you logged against it |
-| `PUT /api/anime/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
-| `POST /api/anime/refresh` | re-fetch every MAL title on the board. One request per title |
-| `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
-| `GET PUT DELETE /api/log-entries/{id}` | one pass. Deleting it moves its notes to the current pass, and takes them only with the title's last |
-| `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite. JSON, or a form when it carries pictures |
-| `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date, and a form rewrite names the pictures it keeps |
-| `GET /api/note-pictures/{id}`, and `thumbnail` under it | a picture in one of your notes, or the card's small copy of it. Never rewritten, so the browser keeps it |
-| `GET /api/notes/search?q=&hobby=` | your notes on one board with every word of `q` in them, in any order and any case, newest first. Fifty at most, and it says when there were more |
-| `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column |
-| `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls. `notFinished: true` puts a finish back on the pass it was made on |
-| `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
-| `PUT /api/library/order` | store one column's manual ranking |
-| `GET /api/library/export?hobby=` | everything on your board, every pass and every note, for the spreadsheet. Not paged |
-| `GET /api/stats?hobby=&year=` | a year in numbers: every playthrough finished, your hours against the estimates, what became of what you started, and how long the backlog has waited |
-| `GET /api/stats/years?hobby=` | the years there is something to show for |
-| `GET /api/account` | what deleting your account would take: each board's titles, every note, and which sign-in it is |
-| `DELETE /api/account` | delete your account and everything that is yours, and sign this browser out. The catalogue stays |
-| `GET POST PUT DELETE /api/share?hobby=` | your board's read-only link: see it, make it, change what it shows, stop it |
-| `GET /api/shared/{token}`, and `library`, `years`, `upcoming`, `stats`, `stats/years` under it | a share, read with nobody signed in, for the token's owner. Reads only, and every refusal is one 404 |
-
-## Stack
+## How it's built
 
 ASP.NET Core 10 · EF Core 10 · PostgreSQL 17 · React 19 + TypeScript · Vite 8 · Tailwind v4 ·
-TanStack Query · dnd-kit
+TanStack Query · dnd-kit. IGDB, TMDB and MyAnimeList through their APIs, and HowLongToBeat by
+scraping, behind a matcher that would rather say nothing than guess.
 
-Tested with xUnit v3 + Testcontainers on the backend, Vitest + Testing Library + MSW on the
-front, and Playwright against a real browser for anything needing layout or a pointer.
+Six of the decisions that were actually decisions. All twenty, each with what it cost, are in
+[docs/design-notes.md](docs/design-notes.md), and every route is in [docs/api.md](docs/api.md).
+
+**Table-Per-Type over one `media` table.** Every title has a row in `media` whatever its hobby,
+and a row in a games, films, shows or anime table beside it whose key is also its foreign key.
+One table for everything would be mostly empty columns by the fourth hobby, and one table per
+hobby would turn "everything I logged this year" into a `UNION`.
+
+**Scoping is a parameter at every call site, not a query filter.** A filter would scope each read
+invisibly, so a mistake would show up as an empty board, or a stranger's, rather than an error,
+and nobody could review it where it happens. Every query that reads someone's data takes the user
+by hand, and each second-user test was checked by taking its predicate away. The history of
+column moves is the deliberate opposite: one interceptor writes it, because a recorder missing
+from one write site loses that history for good, with nothing to raise an error.
+
+**HowLongToBeat's matcher refuses rather than guesses.** The numerals have to agree outright
+("Final Fantasy VII" scores about 0.97 against "VIII" on letters alone), and the winner has to
+beat the runner-up by a margin, so the two *Resident Evil 4*s are never settled by a coin flip
+that looks like a confident match. When it refuses, the journal takes a HowLongToBeat id by hand.
+
+**IGDB's ranking can't tell a game from a fan game named after it.** Searching "Hollow Knight
+Silksong" put a one-person Game Boy Color game above Team Cherry's, because its title is that
+exact string. Results are re-ordered by how many people have played each game before how well the
+title matches, and the two rules that were tried and lost are pinned by tests named after what
+they got wrong.
+
+**Pictures live in Postgres, their bytes in a table of their own.** In the database a deleted
+note, title or account takes its pictures with it by cascade, and the nightly dump backs them up,
+where a folder of files would need code for both. The bytes sit apart because every read that
+carries a note brings its pictures: kept in the same rows, opening a journal would pull every
+picture out of the database for an answer that sends none of them. A test reads the SQL of every
+route that carries notes and finds the bytes untouched.
+
+**A share link is read by nobody, so whose board it is gets said at every read.** The anonymous
+controller holds three narrow interfaces and nothing that writes or asks who is signed in. Making
+a visitor look like the owner would have been easier, and would have handed every write to
+whoever had the link. A test proves on the SQL that no route a share reaches reads a note.
+
+Written test-first throughout: the failing test, shown red, then the code. Where a rule exists to
+prevent something, its test is checked by putting that thing back.
 
 ## Running it locally
 
-Needs the .NET 10 SDK, Node, and Docker. IGDB credentials come from a
-[Twitch application](https://dev.twitch.tv/console/apps) — IGDB has no separate signup. TMDB is
-one token rather than a pair: the v4 read access token from
-[your TMDB settings](https://www.themoviedb.org/settings/api), with no handshake and no expiry.
-MAL is a client id and nothing else, from [its app page](https://myanimelist.net/apiconfig) — the
-client secret signs an OAuth exchange this app never performs, so it is deliberately not stored.
-Sign-in needs one app per provider, each with
-`http://localhost:5173/api/auth/{provider}/callback` as an authorised redirect URI: the
-**frontend's** port, not the API's, because the whole flow has to stay on one origin.
+Needs the .NET 10 SDK, Node and Docker, and an app at each provider: IGDB through a
+[Twitch application](https://dev.twitch.tv/console/apps), a read access token from
+[TMDB](https://www.themoviedb.org/settings/api), a client id from
+[MyAnimeList](https://myanimelist.net/apiconfig), and Google and Discord sign-in apps with
+`http://localhost:5173/api/auth/{provider}/callback` as the redirect URI.
 
 ```bash
 docker compose up -d db
 
-dotnet user-secrets set "Igdb:ClientId"     "..." --project backend/src/HobbyTracker.Api
-dotnet user-secrets set "Igdb:ClientSecret" "..." --project backend/src/HobbyTracker.Api
-dotnet user-secrets set "Tmdb:AccessToken"  "..." --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Igdb:ClientId"             "..." --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Igdb:ClientSecret"         "..." --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Tmdb:AccessToken"          "..." --project backend/src/HobbyTracker.Api
+dotnet user-secrets set "Mal:ClientId"              "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Google:ClientId"      "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Google:ClientSecret"  "..." --project backend/src/HobbyTracker.Api
 dotnet user-secrets set "Auth:Discord:ClientId"     "..." --project backend/src/HobbyTracker.Api
@@ -234,419 +194,43 @@ dotnet run --project backend/src/HobbyTracker.Api    # http://localhost:5201
 cd frontend && npm install && npm run dev            # http://localhost:5173
 ```
 
-Then open **http://localhost:5173**, not the API's port. Startup fails deliberately, naming the
-missing setting, if any of those six secrets is absent. No provider app to hand? The end-to-end
-Google stub doubles as a local one — see **Start here** in `CLAUDE.md`.
-
-To drive the API from a shell, spend a cookie:
-
-```bash
-# Sign in once into a jar, then spend it. The redirect chain ends on the board.
-curl -c jar -L "localhost:5173/api/auth/google/start?returnUrl=/board" -o /dev/null
-curl -b jar "localhost:5173/api/library?hobby=games"
-```
+Then open **http://localhost:5173**, not the API's port: sign-in has to stay on one origin. Startup
+fails on purpose, naming the setting, if any of those eight secrets is missing. **Start here** in
+[CLAUDE.md](CLAUDE.md) has the rest, including a stand-in Google for when there is no app to hand.
 
 ## Running it in production
 
-Two containers behind one origin: Caddy serves the built SPA and proxies `/api` to Kestrel. That
-mirrors the development topology, where Vite does the same job — so the browser only ever sees one
-origin, which is what lets the session cookie stay `SameSite=Lax` and httpOnly with no CORS policy
-anywhere in the codebase.
+Two containers behind one origin: Caddy serves the built app and passes `/api` to the API.
+`deploy/.env` is the whole of a deployment, and the setting that is not optional is
+`PUBLIC_ORIGIN`, because behind anything that ends TLS the app would otherwise build its sign-in
+redirects as `http://`. [docs/deploy.md](docs/deploy.md) is the runbook.
 
 ```bash
 cp deploy/.env.example deploy/.env     # fill it in, then chmod 600
 docker compose -f deploy/compose.yml up -d --build
 ```
 
-`deploy/.env` is the whole of a deployment — the public address, the database password, the IGDB
-and sign-in credentials. Nothing site-specific is committed.
-
-**The setting that is not optional is `PUBLIC_ORIGIN`.** Behind anything that terminates TLS — a
-reverse proxy, a tunnel, a load balancer — the request reaches the app as plain HTTP, and three
-separate things break at once: the OAuth redirect URI is built as `http://` and the provider
-refuses it outright, the session cookie is issued without `Secure`, and `UseHttpsRedirection`
-loops. Naming the public origin closes all three. It is pinned from configuration rather than read
-from `X-Forwarded-*`, because forwarded headers have to be *trusted* to be believed — and the app
-has exactly one public address anyway, so stating it is honest rather than a workaround.
-
-Register `$PUBLIC_ORIGIN/api/auth/google/callback` and `$PUBLIC_ORIGIN/api/auth/discord/callback`
-as authorised redirect URIs on both provider apps. A mismatch is a sign-in refused on the
-provider's own error page, which this app never sees and cannot report.
-
-**Turn on HTTPS redirection at the proxy**, whatever it is called there. Pinning the origin means
-`UseHttpsRedirection` believes every request already arrived over TLS, so the app will never
-redirect one that did not -- and a page served over plain `http://` completes sign-in and then
-silently drops the session cookie, which is marked `Secure`.
-
-Migrations run themselves at startup, in Production only. The keys that encrypt the session cookie
-are persisted to a bind mount, because a container filesystem goes with the container and without
-somewhere durable every redeploy signs everybody out.
-
-Adding `--profile tunnel` also starts a Cloudflare tunnel from `TUNNEL_TOKEN`. Without it the app
-answers on loopback and nowhere else, so publishing it is something you type rather than something
-that happens.
-
-**Sign-up is open to anyone who can reach the app.** The per-user scoping is thorough — nobody
-reads anybody else's journal — but there is no invite gate yet, so put an access policy in front of
-it or keep the address to yourself.
-
-## Design notes
-
-The decisions here that were actually decisions, and what each one costs.
-
-**Table-Per-Type inheritance for media.** `media` holds one row per title whatever the hobby;
-`games` is a detail table whose primary key doubles as its foreign key back. Movies and books
-arrive later as sibling tables. Table-Per-Hierarchy would make `media` a swamp of mostly-null
-columns as hobbies accumulate; Table-Per-Class would duplicate the shared columns and turn
-"everything I logged this year" into a `UNION` across every hobby. The cost of TPT is a LEFT
-JOIN per subtype on polymorphic queries, and inserts touching two tables — acceptable at
-personal-catalogue scale, and the reason querying the derived `DbSet` (an INNER JOIN) is the
-cheap path.
-
-**A partial unique index is what makes search idempotent.** `media (source_id, external_id)
-WHERE external_id IS NOT NULL` is the natural key the IGDB upsert dedupes on — without it,
-searching "halo" twice inserts every result twice. It is filtered because hand-entered titles
-carry a null `external_id` and many must coexist. Two concurrent identical searches race; the
-index turns that into a `23505` rather than a duplicate row, and the loser re-reads.
-
-**The library is not the catalog.** Searching upserts every result as a side effect, so `media`
-accumulates whatever has ever been typed into a search box. `/api/library` joins to `log_entries`
-and returns only what you actually recorded something about. Conflating the two would make the
-home screen a list of things you never asked to keep.
-
-**One status vocabulary across every hobby.** `Backlog · InProgress · OnHold · Completed ·
-Dropped`, for games and books and albums alike, stored as text rather than an ordinal. Per-hobby
-statuses would make cross-hobby views impossible to write, and an int ordinal means reordering the
-enum silently reinterprets existing rows. Text is also why On Hold arrived with no migration.
-
-**Leaving Completed inserts a pass rather than editing one.** Replaying a game finished in 2024
-must not overwrite that completion — several entries per title is the entire reason the schema is
-shaped this way, and editing in place would destroy the record silently, on a gesture as casual
-as a drag. **Unless you say the finish never happened**, which is why leaving Completed asks. A
-mistaken finish moved back used to leave a blank replay above the real pass, and tidying that up
-deleted the real one, notes and all. Now the answer *No* moves the real pass back and takes the
-finish off it, and the column history forgets the finish rather than recording it and its undoing.
-
-**The journal drawer's openness is a history entry, not component state.** Android has one Back
-button and it means "out of this" — over an open drawer it left the board, which on a phone is the
-whole app. So opening the drawer pushes an entry and closing it goes back, and a refresh comes back
-to the open drawer, because that is what a history entry is. What is open is read out of the entry
-rather than kept beside it: two copies have to be told about every pop, and the first time they
-disagree the drawer is either shut over an entry nobody can see — one more press between the reader
-and the way out, per journal they ever opened — or open with nothing behind it.
-
-**Sessions are an httpOnly cookie, and scoping is an injected `ICurrentUser`.** Not a JWT, and
-not an EF global query filter. A query filter would scope every read automatically and
-invisibly — which means nobody can review it at the call site, the background HowLongToBeat
-worker would have no user to scope to, and when one goes wrong the symptom is an empty board
-rather than an error. Sixteen query sites carry the predicate by hand, and twenty second-user
-tests were written red first, and each was checked afterwards by reverting one predicate at a
-time: every one fails exactly the tests that name it and nothing else.
-
-**The session cookie carries a date, and phones are the reason.** A browser keeps a cookie with no
-expiry only until it restarts, and Chrome on Android deletes those when it starts — which Android
-makes it do whenever it wants the memory back. For the app's first five weeks the thirty-day
-session was real on the server and invisible to the browser, so phones were signed out at random
-while a desktop browser, open for days, never was, and redeploys took the blame. One flag fixed it,
-and a test now restarts the browser to prove it.
-
-**A session is checked against its account on every request.** The cookie is self-contained, so
-deleting an account changes nothing about the cookie every other device holds, and for up to
-thirty days that device would carry on as a user with no row: reading an empty board, and failing
-every write with a 500. Looking the user up by primary key on each request costs one indexed read
-and closes the window completely, where checking only every so often would leave it open for the
-interval. The backend suite signs in by header, so the test of this builds a host that reads real
-cookies, and was red first for exactly that pair of symptoms.
-
-**A share link is the one board read by nobody, so whose board it is gets said at every read.**
-The anonymous controller holds three narrow interfaces, a lookup by token and reads that take
-their owner from the caller, and nothing that writes or asks who is signed in. The easy
-alternative, making a share's request look as though its owner had signed in, would have handed
-every write path to anybody with the link. No route a share reaches selects from `notes`, and a
-test proves that on the SQL rather than the JSON, because a note read and thrown away looks
-exactly like a note never read. Another reads the routing table, so a route anywhere that forgets
-`[Authorize]` changes a list that is asserted.
-
-**A pass's history is written by an interceptor, which is the opposite of the scoping decision,
-on purpose.** A move edits the current pass in place, so when it happened would be lost without
-`status_changes`. Four services set a status, and none of them records it. One EF
-`SaveChangesInterceptor` writes the row during the save, which is exactly the invisibility the
-note above rejects. The difference is in how each fails. A scoping filter gone wrong hides or leaks
-somebody's data, so scoping stays at the call site where a reviewer can see it. A recorder missing
-from one write site loses that history for good, and nothing errors, so here the forgotten site is
-the risk worth designing out. A card shuffled through the columns inside ten minutes is folded away
-as the row is written, so nothing that reads the history has to know about shuffles.
-
-**Pictures are kept in Postgres, with their bytes in a table of their own.** On a volume of files,
-every cascade — a note deleted, a title taken off the board, an account deleted — becomes code that
-finds the files and deletes them, and a storage service is an outside connection with keys to
-keep. In the database the cascades are the whole of the deleting, and the nightly dump the whole of
-the backing up. The cost is that dump, which carries every picture every night. The bytes sit
-apart because every read that carries a note brings its pictures with it: kept in the same rows,
-a journal opening would pull every picture's bytes out of the database for an answer that sends
-none of them, since the browser fetches each picture from its own address. That is slow rather
-than wrong, so nothing would have noticed. A picture has no navigation to its bytes, so no
-query can reach them by accident, and a test reads every route that carries notes on the SQL and
-finds them never touched.
-
-**A card shows the number HowLongToBeat itself leads with, and it is fetched rather than
-averaged.** The site prints one headline figure above its three tiers — 42 hours for Hollow
-Knight, whose main story is 27 and completionist 65.6 — and it is not a function of them. The
-mean of the three is 44.6 and their median is 39, and the site publishes both of those under
-their own names on the same payload; the headline is a fourth statistic over every submission.
-So computing it would have produced a real number that is simply not the one anybody sees.
-The sort follows the card onto that field, because a column ordered shortest-first on a figure
-none of its cards show reads as broken.
-
-**HowLongToBeat's matcher refuses rather than guesses.** Two ways of refusing, because there are
-two ways of being wrong: the numerals have to agree outright ("Final Fantasy VII" scores ~0.97
-against "VIII" on letters alone), and the winner has to beat the runner-up by a margin, or the
-two identically-titled *Resident Evil 4* entries are settled by a coin flip that looks from
-outside exactly like a confident match. Calibrated against a real library, where every correct
-match scored 1.0 and the closest wrong one scored 0.64. When it refuses, you pin the id by hand
-in the drawer — which survives the next backfill, as typed-in hours would not.
-
-**IGDB's own ranking cannot tell a game from a fan game named after it.** Searching "Hollow
-Knight Silksong" returns a one-person Game Boy Color game *above* Team Cherry's, because the fan
-game's title is that exact string and the real one has a colon in it. So results are re-ordered
-by how many people have played the game before how well the title matches. Two other rules were
-tried against the live API and are worse; both are pinned by tests named after what they got
-wrong.
-
-**The obvious list of what is popular is the one not to show.** The Discover page fills a board
-without a search box, from IGDB's popularity data: eleven lists, every one measured before
-anything was built on it. The obvious one, what people are looking at, had eleven titles tagged
-Erotic in its top sixty; Steam's lean on PC live-service games, and its top sellers are whatever is
-on sale.
-So the wall shows what is newly out, what people are playing, what is most anticipated and what
-the most people have played — and every list carries a filter a search does not, because somebody
-who typed a title asked for it and a wall shows what nobody asked for.
-
-**Page two of a list does not start at the 49th title.** The wall comes 48 at a time with a *Load
-more* under it, and two of the lists drop titles after IGDB has answered — a game in early access
-is not "anticipated", and PopScore ranks games the question describing them then declines — so
-page one already reaches past IGDB's 48th place to fill itself. A page number can only multiply.
-So each page says where the next one starts, and the client hands that back. Going deeper also
-meant measuring deeper: every list was read 500 titles down before the button existed, which is
-how Most anticipated turned out to carry cancelled games from page two on.
-
-**Ratings reject two decimal places.** The column is `numeric(3,1)`, and Postgres *rounds* rather
-than refusing: an accepted `8.75` is stored as `8.8`, and the response would report a rating the
-database does not hold. A 400 is the honest answer.
-
-**Updates are `PUT`, not `PATCH`.** A field absent from the body is cleared. `PATCH` cannot
-separate "clear the rating" from "leave it alone" without an `Optional<T>` wrapper, and this is
-the operation the app hits most.
-
-**Every colour in the app has a semantic name, and `index.css` is the only file that names one.**
-Eight themes and two densities are blocks of custom properties there; no component knows a colour,
-so adding a theme is a table of values and one line of TypeScript. A test checks every foreground
-against every ground it sits on, across all nine palette blocks — it exists because the same
-mistake happened twice, once leaving muted text at 3.8:1 for the life of the board.
+**Anyone who can reach it can sign up.** Nobody reads anybody else's journal, but there is no
+invite gate yet, so put an access policy in front of it or keep the address to yourself.
 
 ## Tests
 
 ```bash
-dotnet test --solution backend/HobbyTracker.slnx    # backend
+dotnet test --solution backend/HobbyTracker.slnx    # backend, against a throwaway Postgres
 cd frontend && npm test                             # frontend
 cd frontend && npm run test:e2e                     # in a real browser
 ```
 
-The backend suite runs in under ten seconds. Testcontainers starts a throwaway Postgres, so it
-neither needs nor touches the development database. The end-to-end specs drive a real browser
-against the real API on a separate `hobbytracker_e2e` database, with IGDB, TMDB, MAL, HowLongToBeat and
-the OAuth provider stubbed — the drag needs layout and pointer events, which jsdom has neither of.
-
-Those three stubs are servers rather than mocks, deliberately. The OAuth one is a whole
-provider — authorize, token and user-info — so the framework's real handler runs against it
-unmodified, and it *enforces* the protocol: drop PKCE and five specs fail rather than passing
-quietly. The HowLongToBeat one serves the home page, two bundles and the search endpoint, because
-reaching that site means scraping its bundles to find out where the endpoint moved to, and none
-of that has any test above the unit level otherwise.
-
-Against real Postgres rather than an in-memory provider, because what is worth testing here is
-Postgres-specific: the partial unique index behind upsert idempotency, the `23505` the upsert
-recovers from, `text[]` columns, check constraints. A fake provider passes tests production
-fails. Schema comes from the real migrations, not `EnsureCreated`.
-
-Written test-first throughout — the failing test, shown red, then the code. Where a rule is meant
-to prevent something, the test for it is checked by reintroducing the thing.
-
-## Roadmap
-
-- [x] Schema, IGDB integration, game search
-- [x] Journal, library, and the test suite
-- [x] React + TypeScript frontend — the kanban board and its drag, search, and the journal drawer
-- [x] Notes as dated journal entries rather than one box that overwrites itself
-- [x] HowLongToBeat completion times — all three of them, with a matcher that refuses rather than
-      guesses, and a pin in the drawer for when it does. Verified against the live site, and
-      end to end against a stub that serves every leg of the site's access shape
-- [x] A real design — semantic tokens, four themes, two densities, and a board that works from
-      768px up
-- [x] Search that finds the game you meant, rather than the mod named after it
-- [x] Google and Discord sign-in, an httpOnly cookie session, and every pass and note scoped to
-      whoever wrote it
-- [x] A deployment: one Dockerfile, Caddy in front, and an origin the app is told rather than left
-      to guess behind a proxy that terminates TLS
-- [x] A polish pass — three themes in registers the board had none of (two more lights and its
-      first mid-tone), a Visual Novel genre, HowLongToBeat's estimates as chips that read the same
-      in the drawer as in the modal, a journal cut into three ruled bands, and the wheel stepping
-      the rating and the hours
-- [x] A second hobby, and the refactor that made room for it. Films from TMDB — their own board at
-      `/board/:hobby`, a `movies` table beside `games`, and metadata fetched when a title is added
-      rather than queued, because TMDB is a documented API where HowLongToBeat is a scrape. Every
-      word a hobby owns — its column names, its genres, what a pass of that kind even records —
-      moved into one file per hobby, so a film's journal has a director and a runtime where a
-      game's has a developer and four completion estimates
-- [x] A third hobby, on the same provider and a source row of its own. TV from TMDB — seasons in
-      a table beside `tv_shows` because EF Core refuses JSON on a Table-Per-Type entity, a run
-      length that is an estimate where a film's runtime is exact, and the first pass field no
-      other hobby has: which season and episode you are on, shown on the card as `S3 E7` because
-      being partway through is the whole point of a television board
-- [x] A fourth hobby, from a provider nothing here had seen. Anime from MyAnimeList — **one card
-      per cour**, because MAL numbers each season as its own entry and that is how anybody who
-      uses MAL already thinks of them. It needed the platform to bend twice, and both bends went
-      in as things every hobby now has: a pass can record an episode with no season, because a
-      cour *is* the title; and a card can carry a second name, so an English title has the romaji
-      one it was found by under it. A search here needs no follow-up request at all, which is the
-      first time that has been true — and MAL's own result order is wrong for a person often
-      enough to be worth re-ranking, which is measured rather than argued
-- [x] A release calendar, for the half of a backlog that has not come out yet. A *Coming soon*
-      agenda under the board, showing how far off each thing is — and it is a **view of the
-      backlog rather than a place of its own**, which is the whole of why a game arrives in the
-      backlog column on its release day with no job having run anywhere: the same row simply
-      starts answering the other question. Dates are shown exactly as precisely as a publisher
-      announced them, so a game slated for "Q1 2027" says that rather than a day nobody named —
-      IGDB states those as a real date, and taking it at face value would be a fabrication that
-      looked entirely plausible. A nightly sweep re-asks about the things that have not shipped,
-      because release dates slip constantly and nothing else in the app goes stale on its own.
-      A game nobody has put a date on at all says *TBA* and waits there with the rest — but a
-      game IGDB calls a *rumour* does not, because a list of what is coming stops meaning much
-      once Half-Life 3 is on it
-- [x] Browsing what is popular, rather than having to know what to search for. A wall of covers,
-      offered from under the empty search box, with four lists of what IGDB knows — newly out,
-      being played, most anticipated and most played — 48 at a time with a Load more, and the same
-      one-click add search has. A game not out yet goes on the release calendar, as it would from
-      search
-- [x] Adding straight into a column. Every search result and every cover on the wall carries three
-      drawn buttons — + for the backlog, ▶ for playing, ✓ for finished — so a game finished years
-      ago goes to Completed in one press rather than a press and a drag. The dates it arrives with
-      are the ones a drag would have stamped, by the same code on the server, and the tile then
-      says which column the title is in rather than only that it is on the board
-- [x] A board that works on a phone. A swipe that began on a card used to drag the card, because
-      every card took every touch for itself; now a finger holds still for a quarter of a second
-      to pick one up, and a mouse drags exactly as it did — two input sensors where there was one.
-      Below tablet width the board shows one column at a time, under a switcher pinned to the top
-      that counts every column, picked from four layouts rendered at a phone's width. A card
-      carried up onto a column's name moves there. The drag library measures every drop target
-      once and then moves it with the page as the page scrolls, which is wrong for the one thing
-      pinned to the screen, so the switcher is measured where it actually is. Then an icon, picked
-      from four drawings on four of the app's own grounds and rendered on home screens before any
-      was built, and a manifest, so the board installs as an app. The test of the manifest asks
-      Chrome itself whether it would install the app, which only means something in a full Chromium:
-      the headless shell Playwright uses by default answers that question with nothing at all
-- [x] A record of when each title changed column, before anything reads it. History that was
-      never written down is the one thing a later feature cannot backfill. It is written in the
-      same save as the move, by one interceptor rather than by each of four services. A card
-      shuffled through the columns inside ten minutes leaves nothing behind
-- [x] Hours in each column's header, on the games board. A column adds up how long its games
-      take to beat over the whole column, not just the hundred cards it loads, and Completed sets
-      your logged hours against HowLongToBeat's over the games that have both. A game with no
-      estimate is counted rather than added in as nothing. Where the line sits was picked from
-      renders at three widths
-- [x] "How long will it take me?" A question under a game's HowLongToBeat estimates asks how much
-      you play and how you will play it, then answers with a day: *7 more days — you'd finish
-      around Oct 9.* It is remembered, so the next game is one press, and the backlog's header
-      reads the same pace to say how long the whole queue would take. The arithmetic is done in
-      hundredths of an hour, because in floating point 2.1 hours at 0.7 a day is a fourth day
-      nobody needs. Three designs were rendered in the drawer first, and the one picked was the
-      user's own
-- [x] Stats, a year at a time. What you finished, as covers filed under the month you finished
-      them; your hours against HowLongToBeat's, game by game; your ratings; the share of what you
-      started that you finished; and how long each game has sat in the backlog, which is the
-      first thing to read the history of column changes recorded ahead of it. It counts every
-      playthrough rather than every title, so a game finished in March and replayed in June is
-      still a March finish, and a year's numbers never change because of something done later.
-      Twelve choices were settled first, four in words and eight from renders of the real app
-- [x] `/` to the search box, from anywhere on the board, without typing the slash into it. It
-      does nothing while you type in a field, so a note can say "7/9" and *Fate/stay night* can
-      be searched for, and nothing while a journal is open. It also waits while a card is being
-      carried by the keyboard, which the plan missed and a real browser found: the drag was still
-      listening, so the first space typed into the search dropped the card
-- [x] A spreadsheet of the board, from a row in Settings: every game as its card shows it, every
-      playthrough and every note, whatever year or columns the board is showing. Its dates are
-      real dates, written as the day it was here, so a finish at 9pm stays on its evening rather
-      than becoming tomorrow in UTC. Whatever was typed goes in as text, so a note that begins
-      with `=` is a note. The row and the sheets were picked from renders of the real app
-- [x] Deleting your account, from Settings on any board: a warning that names the sign-in and
-      counts every board, a word to type before anything happens, and every other device signed
-      out at its next request. The renders also found the page's ground stopping where a short
-      board did, with the browser's white below it, and the root carries the ground now
-- [x] A read-only share link to the board, for friends and portfolio reviewers: one per board,
-      from Settings, with a box for each part it shows and the owner's name off until ticked. The
-      visitor needs no account and gets the board, its calendar and its Stats, never a note, in
-      words written to nobody. The user picked a banner across the top over the recommended
-      heading, and the renders of the built app found a twelfth phrase still written to the owner
-- [x] The journal from a search result: a game on your board opens its journal from its name in
-      the strip, so one just found can be written about without finding its card. The name wears
-      the accent, the user's pick from renders over a card's plain name, and measuring before the
-      build found that the two-line limit on a name breaks quietly inside a button. A journal
-      opened from the release calendar now hands the keyboard back, which it never did
-- [x] Moving a title from its journal. The column's name at the top of the pass opens on the
-      board's columns, and leaving Completed asks first, in a tinted box the user picked over a
-      quieter line, because the finished pass is kept and a new one started. The journal writes
-      itself half a second after each change, and a move made inside that half second could be
-      undone by the write still waiting — measured both ways round, as two failing tests, before
-      anything was fixed. A native dropdown was ruled out by measurement too: Chrome on Windows
-      changes a closed one on every arrow key, and here every change would be a move
-- [x] Putting a finished pass back. A game finished by mistake and moved back used to start a
-      blank pass above the real one, and the tidy-up deleted the real one with its notes, which
-      came back from the nightly backup. Leaving Completed now asks *Did you finish it on Oct 8,
-      2026?*, on a card as well as in the journal, and *No* moves the real pass back without its
-      finish. Reading the code first overturned two of the plan's recommendations: an Undo is
-      not a move back, and recording both moves would have restarted a backlog wait
-- [x] Deleting a pass keeps its notes. They went with it by cascade, which is how the tidy-up
-      above lost them, and they move to the current pass now, in the same write as the delete,
-      with the dates they were written on. Every confirm that deletes notes says so, the card's included.
-      The renders found the new sentence running straight on from a pass's hours and platform in
-      a wide drawer, so a confirm with something to say takes a line of its own, measured in a
-      real browser because jsdom has no layout
-- [x] Searching your notes, from a switch beside the search box: every word in any order, on
-      every board, and a note found opens its journal at that note with the words marked. A plain
-      substring search rather than full-text, because notes get written in Japanese, with each
-      word escaped so *50%* means fifty per cent. The renders found the obvious highlighter
-      invisible on one theme, so a word found wears the theme's accent instead, the user's pick
-      over bold
-- [x] A release window that has begun. A game announced for "2026" said it came out 276 days
-      ago, because the calendar counted from the first day of the window. Now only a game with a
-      real day counts down, and a window says what was announced and nothing more. Rendering
-      the real catalogue found the bigger fault: ordered by first day, the calendar repeated its
-      headings. Each window now sits at the last day it could come out, under a heading of its
-      own. No test had caught it, because the test data never had the shape the API sends
-- [x] "What should I play next?" A button in the backlog's header opens a picker: how long you
-      want to play and genres to leave out, then a wheel of covers that spins onto one, or three
-      suggestions, over the whole column rather than the hundred cards it loads. The pick is made
-      before the wheel turns, which lets a test name it and lets reduced motion show the same
-      pick with no spin. The real backlog was read before anything was drawn: six games, every one
-      28 hours or more, so the planned evening and weekend held none of them and a fourth band was
-      added. Each wheel's spin was recorded on a phone for the workshop, because motion is not a
-      still, and the recordings caught a curve whose tail made the wheel look stopped a second early
-- [x] Pictures in notes: pasted, dropped or picked, four to a note, and a note can be a picture
-      alone. Each is shrunk in the browser before it is sent, and the server reads a file's type
-      and size from its bytes rather than from what the browser claims. They are kept in Postgres,
-      in two tables so the bytes sit apart from what a journal reads, and a test proves on the SQL
-      that none of the eleven reads carrying notes touches them. The card's 28px thumbnail was the
-      user's pick from renders over the words *A picture*. Measuring found two things a test could
-      not show by itself: Chromium and Firefox both turn a phone photo upright whatever the code
-      asks, and the test server keeps no request-size limit, so that limit is proved against the
-      real server
-- [ ] A title detail page, and a year in review
-- [ ] Books and music — each a sibling detail table plus its source integration
-
-Architecture and schema notes for anyone (or anything) working in the repo live in
-[CLAUDE.md](CLAUDE.md), which routes to one file per area under [docs/](docs).
+The backend runs against real Postgres in Testcontainers, because what is worth testing here is
+Postgres's own: the partial unique index behind an idempotent search, the unique violation it
+recovers from, array columns and check constraints. The end-to-end suite drives the real API on a
+database of its own, with IGDB, TMDB, MyAnimeList, HowLongToBeat and the OAuth provider each
+stood in for by a small server rather than a mock.
 
 ## Credits
 
 Game data from [IGDB](https://www.igdb.com/). This product uses the TMDB API but is not endorsed
 or certified by TMDB. Anime data from [MyAnimeList](https://myanimelist.net/).
+
+Working in the repo? [CLAUDE.md](CLAUDE.md) is the brief, and it routes to one file per area under
+[docs/](docs).
