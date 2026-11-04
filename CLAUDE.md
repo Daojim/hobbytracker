@@ -728,8 +728,7 @@ shuffled.
         a list of covers and names under the whole header at the column's width, each opening its
         journal, at Hours played from the list without your hours. The lists come with the
         column from the rows its sums read, and a share counts without naming. Your board's
-        columns only. The accent was the user's pick over a dotted underline (built 4 November
-        2026)
+        columns only. The accent was the user's pick over a dotted underline (PR #89, deployed)
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
