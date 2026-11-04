@@ -7,8 +7,9 @@ on 4 October 2026, and a twelfth and a thirteenth, both about the journal, on 7 
 fourteenth and a fifteenth followed on 8 October 2026, after a mistaken finish cost a pass its
 notes. A sixteenth and a seventeenth, a picker for the backlog and a Discover list from your
 ratings, were added on 23 October 2026 from suggestions the user picked. An eighteenth, pictures
-in notes, was added on 30 October 2026 at the user's request. CLAUDE.md's **What is
-next** points here.
+in notes, was added on 30 October 2026 at the user's request, and a nineteenth and a twentieth,
+an estimate that catches up and the titles a column's header leaves out, on 3 November 2026.
+CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -40,6 +41,8 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
+| 19 | An estimate that catches up | S–M | **Planned and workshopped 3 November 2026**, at the user's request; ready to build. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
+| 20 | The titles a column's header leaves out | S–M | **Planned and workshopped 3 November 2026**, beside #19; ready to build. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal. Your board's columns only. See its section |
 
 Production runs `bbd2c34`'s code, which was `main` on 31 October 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -2742,6 +2745,187 @@ asks what the box took in now.
   Until it runs, the user's account is capped like any other, which costs nothing for a long while.
 - **The user's own check**: a real Win+Shift+S snip pasted in Firefox, which no script can make,
   and on the Android phone a photo from the gallery and one from the camera.
+
+---
+
+## 19. An estimate that catches up · planned
+
+**Planned 3 November 2026**, at the user's request. Lines were read at `4fdb7cf`.
+
+**What the user asked for.** A game comes off the calendar into Backlog on its release day, which is
+fine, but its HowLongToBeat estimate never arrives: nobody has finished a game on the day it comes
+out, and weeks later the card was still blank. The user's way round it was to type a different id
+into the pin, press Enter, type the original back and press Enter again. Their first idea was *"a
+refresh button between the field and View on HowLongToBeat"*, and they asked whether there was a
+better way.
+
+**Why the estimate never arrives**, read from the code:
+- Adding a title queues one lookup (`HltbOnMediaAdded`). HowLongToBeat can list a game before it is
+  out, with no times on it. The matcher compares names, never times, so it accepts that entry and
+  stores its id, `HoursOf` turns the zeros into nulls, and `hltb_checked_at` is stamped.
+- **Nothing ever asks again.** The only other way into the queue is `POST /api/games/hltb/refresh`,
+  which has no button and skips a title asked about within `Hltb:RecheckAfterDays` (30). Release
+  day is not an event: the calendar is a view of Backlog, so no job runs when a title comes out.
+- **The trick works because the box will not re-send an unchanged id** (`HltbPin`'s `commit()`, so
+  that tabbing past it costs nothing). Pinning another id and then the first forces two fetches,
+  and the second, by id, brings the times. The server would re-fetch the same id gladly.
+- **Clearing a pin queues nothing either.** `PinAsync(null)` resets the title to never-asked, the
+  card polls for 90 seconds, and nothing answers until somebody runs the backfill.
+
+**Measured on 3 November 2026**, from a read-only query of production that the user ran, because
+auto mode had refused it to the session:
+- **Every title on the user's games board has a HowLongToBeat id**, 91 of 91. So for them a refresh
+  is always one fetch of a game page, which needs no handshake.
+- **Fifteen have an id and no figures, every one matched before its release**: fourteen on the
+  calendar, asked between 11 September and 6 October, and Phantom Blade Zero, out 29 October, asked
+  on 11 September and Playing's *1 with no estimate*. Final Fantasy Resonance, out 22 October, was
+  in the same state until the user's trick at 11:07 that morning, and has 50.75 h now.
+- **Every board**: 161 library games, 22 with no figure (17 of those with an id), and 33 last asked
+  more than 30 days ago.
+
+### Decided at pickup
+
+The first round, four questions with ASCII previews on 3 November 2026, two of them this feature's.
+- **Both: a refresh button in the journal, and a check that runs by itself**, as recommended.
+- **The check runs on the backfill's own rule, every 30 days**, the user's pick over the
+  recommendation of every night for a release's first three months. A new release can wait up to a
+  month on its own, so **the button is what carries a new release**.
+
+### Decided from the renders
+
+Rendered on 3 November 2026 on the shipped app, with two components swapped for prototypes and
+every `/api/` request answered from the user's board as read that afternoon: the private page
+https://claude.ai/artifact/E8TV1xCBeB5uampa9CdJvo. Harness in `frontend/workshop.local/estimates/`
+(gitignored).
+- **B, a symbol beside the box, on every game**: a circular arrow between the ID box and *View on
+  HowLongToBeat*, the user's pick over the recommendation, C, *Check now* in the line that says
+  there is no estimate. Measured: B keeps the drawer's header at 148px where a word there (A) wraps
+  the link under the box; on a 390px phone all three wrap the link, as the drawer does today.
+- **Say when HowLongToBeat was last asked**, as recommended: *Last checked Sep 11*, a line under
+  the row. `GameDetailDto` does not carry `hltb_checked_at` today, so the build adds it.
+- **B's two warts, settled by three follow-up questions the same day.** As rendered, *Checking…*
+  was wider than the symbol and dropped the link under the box while it checked, and after a check
+  that found no times the header's answer and the line below both said there were none.
+  - **While it checks, the arrow turns in place**, as recommended, and the box dims: nothing moves.
+    With reduced motion it dims instead of turning, and its name says *Checking HowLongToBeat*.
+  - **A check's line says *Checked just now* and nothing more**, as recommended. The line under the
+    row is only ever about when HowLongToBeat was asked, and the figures below say what it has.
+  - **The line shows on a game with no figures**, *Last checked Sep 11* at rest, the user's pick
+    over showing it on every game. A game with figures shows it only right after a press.
+
+### Things to get right
+
+- **The button is `POST /api/games/{mediaId}/hltb/refresh`, and it runs `HltbService.UpdateAsync`
+  there and then**: a pinned id fetched, no id searched for and matched, exactly as the worker does
+  it. It answers with the detail as the pin does, 404 for a media id that is not a game, and
+  `HltbExceptionHandler`'s 502 when the site cannot be reached. **One outcome needs words of its
+  own**: a pinned id HowLongToBeat no longer knows, where `UpdateAsync` stamps the title and keeps
+  the old figures, so *Checked just now* would be untrue. Say so, as the pin's 400 names the id.
+  `UpdateAsync` returns a bool today, which cannot tell that case from a check that found nothing.
+- **The arrow is the pin's neighbour, and they share one write at a time**: the box disables while
+  a check runs, as the box already disables itself while a pin is in flight, and *Checked just now*
+  is the mutation's own success, held until the drawer closes; after that the stored date is what
+  the line reads.
+- **The timer is `ReleaseRefreshWorker`'s shape**: a singleton taking a scope per run, a switch that
+  short-circuits at startup and says so, every failure logged and swallowed, and a startup delay
+  that clears the migration. Each run queues what `BackfillAsync` selects, so `HltbWorker` stays the
+  only thing that talks to HowLongToBeat, behind the throttle. Daily, so a title comes due 30 days
+  after its own last ask and the load spreads out.
+- **The three things `docs/games-hltb.md` says a sweep must get right**: `Hltb:Enabled` gates it,
+  and so does a switch of its own, **off in Development**, so that a local run is not traffic; **off
+  under Testing and E2E**, as the release sweep is, because a timer needs no invitation; and a
+  restart must not re-ask, which selecting by `hltb_checked_at` already ensures.
+- **Clearing a pin should queue a lookup**, so the card's 90 seconds of polling has something to
+  wait for. Otherwise the title waits for the timer.
+- **A refresh writes the shared catalogue row**, as a pin does, so the figure is everybody's. That is
+  right: the figures are HowLongToBeat's, not anybody's opinion.
+
+### Tests first, to be confirmed at pickup
+
+- Backend, with `FakeHltbClient` answering differently on a second ask: a pinned id refreshed brings
+  its new times; a title with no id is searched again; *no times yet* is said rather than a 200 that
+  changed nothing; 404 and 502 as the pin has them; a timer's run queues exactly what the backfill
+  would (never asked, asked 31 days ago, and not yesterday's); nothing runs when either switch is
+  off; clearing a pin queues.
+- Frontend: the button sends once, holds the pin box while it checks, and refreshes the board's
+  figure and the drawer's.
+- End to end: `hltb-stub.mjs` gains a game whose times arrive after its first fetch, so the button
+  is proved against the real client.
+
+---
+
+## 20. The titles a column's header leaves out · planned
+
+**Planned 3 November 2026**, at the user's request, beside #19. Lines were read at `4fdb7cf`.
+
+**What the user asked for.** A column's header says what its figures leave out, as in Playing's
+`~13 h to beat · 1 with no estimate` or Completed's `2 without your hours`. Clicking the count
+should show which titles they are.
+
+**What it builds on.**
+- **The counts are added up on the server over the whole column**, in `HoursOfAsync` through
+  `HoursTally`, and `columnHoursLines` subtracts to get them: `total - lengthTitles` with no
+  estimate, `lengthTitles - playedTitles` without your hours. **No list of the titles exists
+  anywhere yet**, and the rules above forbid working one out from the page of 100.
+- **"Without your hours" counts only titles that have an estimate**, so a title missing both is in
+  the *no estimate* list alone (see #3). Each list is exactly the titles its count is over.
+- **Measured on 3 November 2026**: Playing's one is Phantom Blade Zero (see #19). The seven Completed
+  titles without the user's hours were all finished in 2024 or 2025, so that count shows on those
+  years and on All years, never on 2026's.
+
+### Decided at pickup
+
+The other two questions of #19's first round.
+- **A list under the line**: a popover anchored to the count, a row for each title, and a row opens
+  that title's journal, as recommended. In the user's words: *"I would like a list, and clicking on
+  the game on that list will open up the game's journal."* At Hours played for the hours list, as
+  the option said.
+- **Only on your board's columns**, as recommended. The Stats page's line, the picker's, and every
+  line on a share stay plain counts. A visitor to a share can fix nothing.
+
+### Decided from the renders
+
+On the same page as #19's.
+- **The count in the accent**, the user's pick over the recommendation, a dotted underline: the
+  app's link colour, as a search result's name is when it opens a journal (#12).
+- **A row is a cover and a name**, with no heading, as recommended. Completed 2025's five make the
+  list 226px tall.
+- **The list is the column's width and opens under the whole header**, over the cards: 240px at
+  1440 and 332px on a 390px phone, where the line sits beside the sort control. The first render's
+  288px list ran past its 266px column into the next one, so it was changed before the page went up.
+
+### Found while rendering
+
+**On a 390px phone the board is 406px wide today, before either feature.** The calendar's grid
+has a single automatic track there, and each row's title is `truncate`, which is one line, so the
+longest title sets the track's least width: Ocarina of Time's row needs 390px of the 358px there
+is. Measured in Chromium's phone emulation with the user's calendar: 46px too wide at 360px, 16px
+at 390, and it fits at 412. Not part of #19 or #20. A `min-w-0` on the section, or a
+`minmax(0,1fr)` track, is the likely fix. The phone shots folded the calendar away so as to measure
+at a true 390.
+
+### Things to get right
+
+- **The lists come with the column, from the rows the sum already reads**: `ColumnHours` gains the
+  titles each count leaves out, each with its media id, the card's name and its cover. A list then
+  cannot disagree with its count, and it moves with every refetch. **The card's name is one more
+  copy of the anime coalesce**, held to the cards by a test, as the sum's copy is.
+- **A share's response carries no lists.** A share prints the counts and nothing more, and *without
+  hours logged*, title by title, is more than it shows today.
+- **The line stops being one `role="img"`.** A button cannot live inside an image, so the text keeps
+  its spoken form and the count becomes a button with `aria-expanded`. The tests that find a line by
+  its image name move with it, on the board and on a share.
+- One list open at a time, closed by Escape and by a click outside, with the keyboard put in it when
+  it opens.
+- **A row from the hours list opens the journal at Hours played.** `OpenJournal` takes options
+  already, `askHowLong` being one, so this is a second.
+
+### Tests first, to be confirmed at pickup
+
+- Backend: each list's length is its count, over the whole column rather than the page, and in the
+  year the column shows; the names are the cards' for every hobby; a share's column carries none.
+- Frontend: the count opens the list and the list opens the journal, at Hours played for the hours
+  list; plain text on a share, on Stats and in the picker; at 390px, with `windowOfWidth(390)`.
 
 ---
 
