@@ -722,7 +722,7 @@ shuffled.
         the row on a game with no figures; clearing a pin queues a lookup; and the backfill on a
         timer, once a day by its own 30-day rule. For a game matched before it came out, which
         HowLongToBeat lists with no times. Three of the picks were the user's over the
-        recommendation (built 3 November 2026)
+        recommendation (PR #87, deployed)
       - [ ] the titles a column's header leaves out — a count in a header, in the accent, opening
         a list of covers and names at the column's width, each opening its journal. Your board's
         columns only. Planned and workshopped beside the estimate, ready to build

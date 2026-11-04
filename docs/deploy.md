@@ -323,6 +323,14 @@ serves the new build, so prove that from outside:
   **The column is `migration_id`.** The snake_case convention reaches EF's own history table too,
   so `"MigrationId"` is an error. Beside it, `docker compose ps` shows the API created minutes ago,
   and its log names the migration it applied: `docker compose logs api | grep "Applying migration"`.
+- **A new worker on a timer is proved by its first run in the API's log**, once its startup delay
+  has passed. Nothing outside can tell it is running, and a count in the DLL says only that it was
+  built. A worker that is switched off says so at startup, so no such line in the startup log is
+  the first half; the run is the second. #19's daily HowLongToBeat backfill said `Queued 33 titles
+  for HowLongToBeat.` five minutes after the API started:
+  `docker compose logs api --since 15m | grep "Queued"`. **After a run that queues many titles,
+  read the log for 429s and failures** before calling it done, because the worker logs and
+  swallows each one.
 
 ### When it fails
 

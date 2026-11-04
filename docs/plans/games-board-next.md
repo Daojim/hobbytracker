@@ -41,10 +41,10 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
-| 19 | An estimate that catches up | S–M | **Built 3 November 2026**, tests first, the day it was planned and workshopped, at the user's request; not yet merged. The full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
+| 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Planned and workshopped 3 November 2026**, beside #19; ready to build. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal. Your board's columns only. See its section |
 
-Production runs `bbd2c34`'s code, which was `main` on 31 October 2026. Deploying is the runbook in
+Production runs `35d0443`'s code, which was `main` on 3 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -2748,7 +2748,7 @@ asks what the box took in now.
 
 ---
 
-## 19. An estimate that catches up · built
+## 19. An estimate that catches up · shipped
 
 **Planned 3 November 2026**, at the user's request. Lines were read at `4fdb7cf`.
 
@@ -2856,7 +2856,8 @@ https://claude.ai/artifact/E8TV1xCBeB5uampa9CdJvo. Harness in `frontend/workshop
 
 Built on 3 November 2026, the day it was planned and workshopped, tests first, in the order the
 user gave: the backend, then the journal's arrow and its line, then the stub's late game, on
-`estimates-that-catch-up`. Not yet merged. The write-up is `docs/games-hltb.md`, **The arrow asks
+`estimates-that-catch-up`, and **shipped and deployed late the same evening** (PR #87). The
+write-up is `docs/games-hltb.md`, **The arrow asks
 again** and **The backfill runs once a day**, with the look in `docs/design.md`, **An estimate that
 catches up**, the day in `docs/data-model.md`, and the route in `docs/api.md`.
 
@@ -2937,6 +2938,29 @@ computed animation is `spin`, or none at 0.5 opacity under reduced motion.
   stricter.
 - **The timer starts five minutes after a restart, as the release sweep does**, so both run
   together. They ask different providers, and the HowLongToBeat one only queues, so it was left so.
+
+### The deploy, and what it left
+
+- **Deployed at about 22:33 Eastern on 3 November 2026**, `bbd2c34` to `35d0443`, carrying #85's
+  and #86's docs with it; #86's ten code files changed comments only. api and caddy both
+  recreated, api first, and no layer downloaded. No migration and no variable.
+- **Proved from outside.** The bundle went `index-zCZzEfR5.js` to `index-B9YY9hlB.js`, and the
+  stylesheet `index-BCW_OGjA.css` to `index-m9ecWys3.css`, the local build's name again. *Check
+  HowLongToBeat again*, *Checking HowLongToBeat*, *Checked just now*, *Last checked* and
+  `/hltb/refresh` went 0 to 1 in the script, and `motion-safe\:animate-spin`,
+  `motion-reduce\:opacity-50` and `@keyframes spin` 0 to 1 in the stylesheet. `POST
+  /api/games/1/hltb/refresh` signed out went an empty 404 to a 401.
+- **Proved inside.** `HltbBackfillWorker`, `RefreshHltbFor` and `HltbLookupOutcome` went 0 to 2, 2
+  and 1 in the running DLL, and the API's startup log carried no *switched off* line for either
+  worker.
+- **The first daily run, at 22:39, queued 33 titles**, the 33 found past thirty days when the plan
+  was written, and the queue drained by 22:42: 31 fetched by their id, Phantom Blade Zero's 129235
+  last, and 2 searched and refused. Every answer was a 200, with no 429 and no failure. **19 of the
+  33 came back with figures that differ from those stored**, counted from the columns EF's
+  `UPDATE`s name, and 14 were stamped with nothing new. Which of the 19 had no figure before is
+  the board's to show; the database was not read.
+- **The user's own check**: Phantom Blade Zero's card, and the arrow pressed on a title still on
+  the calendar.
 
 ---
 
