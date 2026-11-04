@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { psql, resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { awaitChecked, awaitEstimate, estimate } from './support/hltb';
+import { awaitChecked, awaitEstimate, estimate, holdChecks, todayAsChecked } from './support/hltb';
 import { card, column, openJournal, seed, setSort, titlesIn, today } from './support/board';
 
 /**
@@ -206,9 +206,12 @@ test('an id HowLongToBeat does not know is refused, not quietly stored', async (
   expect(psql(`select hltb_id from games where media_id = ${mediaId};`)).toBe('9101');
 });
 
-test('taking the pin back puts the title in the way of the next backfill', async ({
-  page,
-}) => {
+test('taking the pin back asks HowLongToBeat again, by name', async ({ page }) => {
+  // Back to never-having-been-asked, and then asked. It used to stop at the first half, so the
+  // card polled for its ninety seconds with nothing on the way and the title waited for somebody
+  // to run the backfill. Now the lookup is queued, and Celeste is matched by name again as on
+  // the day it was added — which is also why this no longer reads the stamp: the worker is
+  // already replacing it.
   const mediaId = await seed(page.request, 'Celeste', 'Backlog');
   await awaitEstimate(page.request, mediaId);
 
@@ -218,14 +221,108 @@ test('taking the pin back puts the title in the way of the next backfill', async
   await page.getByLabel('HowLongToBeat ID').press('Enter');
 
   await expect(page.getByText('No HowLongToBeat estimate yet')).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
 
-  // Back to never-having-been-asked, not to asked-and-found-nothing. The numbers were wrong, so
-  // a stamp left behind would stop the backfill ever looking again and the card would stay
-  // blank for good.
-  expect(psql(`select hltb_checked_at is null from games where media_id = ${mediaId};`)).toBe('t');
+  // No backfill run and no reload: the card's own poll finds the lookup landing.
+  await expect(
+    card(page, 'Celeste').getByRole('img', { name: 'About 20 hours to finish' }),
+  ).toBeVisible({ timeout: 30_000 });
+  expect(psql(`select hltb_id from games where media_id = ${mediaId};`)).toBe('9101');
+});
 
-  const queued = await page.request.post('/api/games/hltb/refresh');
-  expect(((await queued.json()) as { queued: number }).queued).toBeGreaterThanOrEqual(1);
+test('the arrow in the journal brings an estimate that arrived after the title was added', async ({
+  page,
+}) => {
+  // The case the arrow was built for, through the real client. The stub lists Tunic II as
+  // HowLongToBeat lists a game before it is out, with no times on it, so adding it matches it
+  // and keeps its id with nothing to show — and nothing asks again. Pressing the arrow fetches
+  // that id, and the times posted since arrive.
+  const mediaId = await seed(page.request, 'Tunic II', 'Backlog');
+  await awaitChecked(mediaId);
+  expect(psql(`select hltb_id from games where media_id = ${mediaId};`)).toBe('9106');
+
+  await page.reload();
+  await openJournal(page, 'Tunic II');
+  const drawer = page.getByRole('dialog');
+  await expect(drawer.getByText('No HowLongToBeat estimate yet')).toBeVisible();
+  await expect(drawer.getByText(`Last checked ${todayAsChecked()}`)).toBeVisible();
+
+  await drawer.getByRole('button', { name: 'Check HowLongToBeat again' }).click();
+
+  await expect(drawer.getByText('Checked just now')).toBeVisible();
+  await expect(estimate(page, 'All play styles')).toContainText('14 h');
+  await expect(estimate(page, 'Main story')).toContainText('9.5 h');
+  await expect(drawer.getByText('No HowLongToBeat estimate yet')).toBeHidden();
+
+  // The card behind it carries the headline figure, and so does every board with Tunic II on
+  // it: the figures are HowLongToBeat's, written to the shared row as a pin writes them.
+  await page.getByRole('button', { name: 'Close' }).click();
+  await expect(
+    card(page, 'Tunic II').getByRole('img', { name: 'About 14 hours to finish' }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    card(page, 'Tunic II').getByRole('img', { name: 'About 14 hours to finish' }),
+  ).toBeVisible();
+});
+
+test('the arrow turns in place while it checks, and nothing else on the row moves', async ({
+  page,
+}) => {
+  // What jsdom cannot show: the turn is the browser's to run, from a class, and "nothing moves"
+  // is a measurement. A word in the arrow's place was wider and dropped the link under the box
+  // for the length of the check, which is what the turn replaced. Held at the network, so it
+  // can be looked at while it runs.
+  const mediaId = await seed(page.request, 'Tunic II', 'Backlog');
+  await awaitChecked(mediaId);
+  await page.reload();
+  await openJournal(page, 'Tunic II');
+
+  const drawer = page.getByRole('dialog');
+  const link = drawer.getByRole('link', { name: 'View on HowLongToBeat' });
+  const line = drawer.getByText(/^Last checked/);
+  const before = { link: await link.boundingBox(), line: await line.boundingBox() };
+
+  const release = await holdChecks(page);
+  await drawer.getByRole('button', { name: 'Check HowLongToBeat again' }).click();
+  const turning = drawer.getByRole('button', { name: 'Checking HowLongToBeat' });
+  await expect(turning).toBeVisible();
+
+  expect(await turning.locator('svg').evaluate((svg) => getComputedStyle(svg).animationName)).toBe(
+    'spin',
+  );
+  await expect(page.getByLabel('HowLongToBeat ID')).toBeDisabled();
+  expect(await link.boundingBox()).toEqual(before.link);
+  expect(await line.boundingBox()).toEqual(before.line);
+
+  release();
+  await expect(drawer.getByText('Checked just now')).toBeVisible();
+});
+
+test('with motion reduced, the arrow dims while it checks rather than turning', async ({
+  page,
+}) => {
+  // Through emulateMedia rather than a test.use of its own: reducedMotion is a context option,
+  // and a bare one in test.use is not a test option at all — it was ignored, the arrow turned,
+  // and only the first run of this spec said so.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const mediaId = await seed(page.request, 'Tunic II', 'Backlog');
+  await awaitChecked(mediaId);
+  await page.reload();
+  await openJournal(page, 'Tunic II');
+
+  const drawer = page.getByRole('dialog');
+  const release = await holdChecks(page);
+  await drawer.getByRole('button', { name: 'Check HowLongToBeat again' }).click();
+  const glyph = drawer.getByRole('button', { name: 'Checking HowLongToBeat' }).locator('svg');
+  await expect(glyph).toBeVisible();
+
+  expect(await glyph.evaluate((svg) => getComputedStyle(svg).animationName)).toBe('none');
+  expect(await glyph.evaluate((svg) => getComputedStyle(svg).opacity)).toBe('0.5');
+
+  release();
+  await expect(drawer.getByText('Checked just now')).toBeVisible();
 });
 
 test('Time to beat orders the shortest first, and the unestimated last', async ({

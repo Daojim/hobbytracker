@@ -13,7 +13,7 @@ import { mediaKey } from '../board/keys';
 import { setPace, setPlayStyle } from '../lib/pace';
 import { columnsFor } from '../hobbies';
 import { AUTOSAVE_MS } from './fields';
-import type { LogStatus } from '../api/types';
+import type { GameDetail, LogStatus } from '../api/types';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Exact rating' });
 const slider = () => screen.getByRole('slider', { name: 'Rating' });
@@ -2344,6 +2344,256 @@ describe('EntryDrawer, asking how long a game will take', () => {
     );
 
     expect(await screen.findByText('How much do you play?')).toBeInTheDocument();
+  });
+});
+
+/**
+ * The arrow beside the pin's box, which asks HowLongToBeat about the title again there and then,
+ * and the line under the row that says when it was last asked.
+ *
+ * A game is matched while HowLongToBeat lists it with no times, and nothing asks again: release
+ * day is not an event. Today is 3 November 2026 here, so a day this year reads without its year.
+ */
+describe('EntryDrawer, asking HowLongToBeat again', () => {
+  const asking = () => screen.findByRole('button', { name: 'Check HowLongToBeat again' });
+
+  /**
+   * Phantom Blade Zero as production held it on 3 November: matched on 11 September, before it
+   * came out, and no times on it since.
+   */
+  const unestimated = (overrides: Partial<GameDetail> = {}) =>
+    gameDetail({
+      id: 3003,
+      title: 'Phantom Blade Zero',
+      hltbId: 129235,
+      hltbCheckedAt: '2026-09-11T18:30:00+00:00',
+      logEntries: [logEntry({ id: 7, status: 'InProgress' })],
+      ...overrides,
+    });
+
+  /** The same title once people had finished it, as a check today finds it. */
+  const estimated = (overrides: Partial<GameDetail> = {}) =>
+    unestimated({
+      hltbAllStylesHours: 28,
+      hltbMainStoryHours: 22.5,
+      hltbMainExtraHours: 30,
+      hltbCompletionistHours: 45,
+      hltbCheckedAt: '2026-11-03T16:00:00+00:00',
+      ...overrides,
+    });
+
+  /** A check that answers only when told to, so the drawer can be looked at while it runs. */
+  function held() {
+    let release!: () => void;
+    const until = new Promise<void>((resolve) => (release = resolve));
+    return { until, release };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-11-03T16:00:00Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('sits between the box and the link, on a game with figures and on one with none', async () => {
+    // On every game, the user's pick: a game with figures is refreshed by the daily backfill,
+    // but a month is a long time for a number that has just started moving.
+    journalServer({ detail: estimated() });
+
+    const { unmount } = open();
+
+    const arrow = await asking();
+    const box = screen.getByLabelText('HowLongToBeat ID');
+    const link = screen.getByRole('link', { name: 'View on HowLongToBeat' });
+    expect(box.compareDocumentPosition(arrow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(arrow.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    unmount();
+
+    // And on one nothing has matched, where there is no link: a check searches for it by name.
+    journalServer({ detail: gameDetail({ hltbId: null, logEntries: [logEntry({ id: 7 })] }) });
+    open();
+
+    expect(await asking()).toBeInTheDocument();
+  });
+
+  it('says when HowLongToBeat was last asked about a game with no figures, on the day it was here', async () => {
+    // The reason to press, on a game that came out on 29 October. Half past ten at night on the
+    // 11th here is already the 12th in UTC, so a date read off the instant there would be a
+    // day out.
+    journalServer({ detail: unestimated({ hltbCheckedAt: '2026-09-12T02:30:00+00:00' }) });
+
+    open();
+
+    expect(await screen.findByText('Last checked Sep 11')).toBeInTheDocument();
+  });
+
+  it('gives the year of a check that was not this year', async () => {
+    journalServer({ detail: unestimated({ hltbCheckedAt: '2025-12-20T17:00:00+00:00' }) });
+
+    open();
+
+    expect(await screen.findByText('Last checked Dec 20, 2025')).toBeInTheDocument();
+  });
+
+  it('says nothing of when on a game that has figures, until the arrow is pressed', async () => {
+    // The user's pick over showing it on every game: with figures there, the date is not the
+    // question anybody is asking.
+    journalServer({ detail: estimated() });
+
+    open();
+
+    expect(await screen.findByText('All play styles')).toBeInTheDocument();
+    expect(screen.queryByText(/Last checked/)).not.toBeInTheDocument();
+    expect(screen.queryByText('Checked just now')).not.toBeInTheDocument();
+  });
+
+  it('says nothing of when on a game nobody has asked about yet', async () => {
+    // There is no date to give, and the card is already polling for the lookup on its way.
+    journalServer({ detail: unestimated({ hltbId: null, hltbCheckedAt: null }) });
+
+    open();
+
+    expect(await screen.findByText('No HowLongToBeat estimate yet')).toBeInTheDocument();
+    expect(screen.queryByText(/Last checked/)).not.toBeInTheDocument();
+  });
+
+  it('asks once, however often it is pressed while it checks', async () => {
+    const check = held();
+    const journal = journalServer({
+      detail: unestimated(),
+      refreshed: estimated(),
+      refreshHeldUntil: check.until,
+    });
+
+    open();
+    await userEvent.click(await asking());
+    await userEvent.click(await screen.findByRole('button', { name: 'Checking HowLongToBeat' }));
+    check.release();
+
+    expect(await screen.findByText('Checked just now')).toBeInTheDocument();
+    expect(journal.refreshes).toEqual([3003]);
+  });
+
+  it('holds the box while it checks, and moves nothing', async () => {
+    // The pin and the arrow share one write at a time, as the box already holds itself while a
+    // pin is in flight. The arrow turns in place and says what it is doing in its name, rather
+    // than giving its place to a word: a word is wider, and the link would drop under the box.
+    const check = held();
+    journalServer({ detail: unestimated(), refreshed: estimated(), refreshHeldUntil: check.until });
+
+    open();
+    await userEvent.click(await asking());
+
+    expect(await screen.findByRole('button', { name: 'Checking HowLongToBeat' })).toBeInTheDocument();
+    expect(screen.getByLabelText('HowLongToBeat ID')).toBeDisabled();
+    expect(screen.queryByText('Checking…')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View on HowLongToBeat' })).toBeInTheDocument();
+    expect(screen.getByText('Last checked Sep 11')).toBeInTheDocument();
+
+    check.release();
+
+    await waitFor(() => expect(screen.getByLabelText('HowLongToBeat ID')).toBeEnabled());
+    expect(await asking()).toBeInTheDocument();
+  });
+
+  it('brings the figures it found into the drawer, and says it checked just now', async () => {
+    journalServer({ detail: unestimated(), refreshed: estimated() });
+
+    open();
+    expect(await screen.findByText('No HowLongToBeat estimate yet')).toBeInTheDocument();
+    await userEvent.click(await asking());
+
+    expect(await screen.findByText('Checked just now')).toBeInTheDocument();
+    const tier = async (label: string) => (await screen.findByText(label)).closest('div')!;
+    expect(within(await tier('All play styles')).getByText('28 h')).toBeInTheDocument();
+    expect(within(await tier('Main story')).getByText('22.5 h')).toBeInTheDocument();
+    expect(screen.queryByText('No HowLongToBeat estimate yet')).not.toBeInTheDocument();
+  });
+
+  it('says only that it checked, when the check found no times yet', async () => {
+    // As recommended: the line is only ever about when HowLongToBeat was asked, and the figures
+    // under it say what it has. Saying "no times yet" here as well said it twice.
+    journalServer({
+      detail: unestimated(),
+      refreshed: unestimated({ hltbCheckedAt: '2026-11-03T16:00:00+00:00' }),
+    });
+
+    open();
+    await userEvent.click(await asking());
+
+    expect(await screen.findByText('Checked just now')).toBeInTheDocument();
+    expect(screen.getByText('No HowLongToBeat estimate yet')).toBeInTheDocument();
+    expect(screen.queryByText(/Last checked/)).not.toBeInTheDocument();
+  });
+
+  it('goes on saying it checked just now until the drawer closes', async () => {
+    // The check's own success, held by the drawer rather than read off the request: a second
+    // press would otherwise take the line away while it ran, and the header would move. Once the
+    // drawer has closed, the stored date is what the line reads.
+    journalServer({ detail: estimated() });
+
+    const { unmount } = open();
+    await userEvent.click(await asking());
+    expect(await screen.findByText('Checked just now')).toBeInTheDocument();
+
+    // A second press, held: a later server.use answers it in place of the first.
+    const again = held();
+    journalServer({ detail: estimated(), refreshHeldUntil: again.until });
+    await userEvent.click(await asking());
+    expect(await screen.findByRole('button', { name: 'Checking HowLongToBeat' })).toBeInTheDocument();
+    expect(screen.getByText('Checked just now')).toBeInTheDocument();
+    again.release();
+    expect(await asking()).toBeInTheDocument();
+    expect(screen.getByText('Checked just now')).toBeInTheDocument();
+
+    unmount();
+    open();
+
+    expect(await screen.findByText('All play styles')).toBeInTheDocument();
+    expect(screen.queryByText('Checked just now')).not.toBeInTheDocument();
+  });
+
+  it('says so when HowLongToBeat no longer has the id the title holds', async () => {
+    // The figures are kept, so "Checked just now" over them would be untrue. The id is named,
+    // as the pin's refusal names one, because pinning another is how it is put right.
+    journalServer({
+      detail: estimated({ hltbId: 555 }),
+      refreshed: { status: 409, detail: 'HowLongToBeat no longer has game 555.' },
+    });
+
+    open();
+    await userEvent.click(await asking());
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'HowLongToBeat no longer has game 555.',
+    );
+    expect(screen.queryByText('Checked just now')).not.toBeInTheDocument();
+  });
+
+  it('offers nothing to press while a pin is being checked', async () => {
+    // One write at a time, from the other side: a pin fetches the id it was given while you
+    // wait, so a check started under it would be asking about an id about to change.
+    const pin = held();
+    journalServer({ detail: gameDetail({ id: 3003, hltbId: null, logEntries: [logEntry({ id: 7 })] }) });
+    server.use(
+      http.put('/api/games/:mediaId/hltb', async () => {
+        await pin.until;
+        return HttpResponse.json(gameDetail({ id: 3003, hltbId: 9134 }));
+      }),
+    );
+
+    open();
+    await userEvent.type(await screen.findByLabelText('HowLongToBeat ID'), '9134{Enter}');
+
+    expect(await screen.findByText('Checking…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /HowLongToBeat/ })).not.toBeInTheDocument();
+
+    pin.release();
+
+    expect(await asking()).toBeInTheDocument();
   });
 });
 

@@ -296,6 +296,11 @@ are — and written into the file as those wall-clock parts, because an Excel da
 release date goes in as the day it is and never meets the zone, and the file is named with
 `todayHere()`, the fourth place. See `docs/export.md`.
 
+**The journal's *Last checked* reads the third place too.** `games.hltb_checked_at` is an instant,
+on the wire since #19, and the line under the HowLongToBeat pin turns it into the day it fell on
+here with `journalDateInput`, then writes that day with `formatDayShort` from `lib/release.ts`,
+whose year shows only when it is not this one. Nothing on the server turns it into a day.
+
 *This sentence is still a tripwire. A fifth place updates it rather than quietly falsifying it.*
 
 `IJournalClock` (`Infrastructure/JournalClock.cs`) wraps `TimeProvider` plus the zone. It exists

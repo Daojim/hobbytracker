@@ -150,6 +150,11 @@ export default defineConfig({
         // which would present as a flake in a spec that never mentions IGDB.
         ReleaseRefresh__Enabled: 'false',
 
+        // The HowLongToBeat backfill's daily run, off for the same reason. It fires five minutes
+        // after the API starts, which is inside a full run, and would queue whatever titles a
+        // spec had left unasked about at that moment and write their figures under it.
+        HltbBackfill__Enabled: 'false',
+
         // TMDB takes a base URL and a token and nothing else — there is no handshake to point
         // anywhere, which is the whole reason it has no auth handler where IGDB has one. The
         // token is not decoration: the stub refuses a request that arrives without it, so this

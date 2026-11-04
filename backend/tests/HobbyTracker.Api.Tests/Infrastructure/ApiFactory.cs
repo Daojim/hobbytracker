@@ -122,6 +122,10 @@ public sealed class ApiFactory(
             // and would start rewriting release windows partway through a run.
             RemoveHostedService<ReleaseRefreshWorker>(services);
 
+            // And the daily HowLongToBeat backfill, for the same reason: it would queue titles
+            // into the fake partway through whichever test was asserting on what had been queued.
+            RemoveHostedService<HltbBackfillWorker>(services);
+
             // Stopped, so "today" is whatever the test says it is. Without this, every
             // assertion about a stamped date is really an assertion about the wall clock.
             services.RemoveAll<TimeProvider>();

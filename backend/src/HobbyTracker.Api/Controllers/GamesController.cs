@@ -108,7 +108,9 @@ public class GamesController(IGameCatalogService catalog, IHltbService hltb) : C
     /// the wrong shape even if it worked. A background worker drains the queue; what it found is
     /// visible on the board afterwards.
     ///
-    /// Maintenance, and deliberately without a button, exactly like POST /api/games/refresh.
+    /// Maintenance, and deliberately without a button, exactly like POST /api/games/refresh. It
+    /// also runs once a day by itself, in HltbBackfillWorker, so this is for not waiting until
+    /// tomorrow: after a migration that clears hltb_checked_at, say.
     /// </summary>
     [HttpPost("hltb/refresh")]
     [ProducesResponseType<QueuedResult>(StatusCodes.Status202Accepted)]
@@ -150,6 +152,48 @@ public class GamesController(IGameCatalogService catalog, IHltbService hltb) : C
                     $"HowLongToBeat has no game {request.HltbId}.");
 
                 return ValidationProblem(ModelState);
+
+            default:
+                return Ok(game);
+        }
+    }
+
+    /// <summary>
+    /// Asks HowLongToBeat about one title again, there and then — the journal's arrow.
+    ///
+    /// A game can be matched before it comes out, while HowLongToBeat lists it with no times,
+    /// and nothing asks again unless something is pressed: release day is not an event, because
+    /// the calendar is a view of Backlog. This runs the lookup the worker runs, a stored id
+    /// fetched and no id searched for and matched, and answers with the title as the pin does.
+    ///
+    /// <para>
+    /// <b>409</b> when HowLongToBeat no longer has the id the title holds. The figures it had are
+    /// kept, as the worker keeps them, so a 200 would say the title had been checked while
+    /// showing numbers nobody had. Naming the id is what the pin's 400 does, and pinning another
+    /// one is how the conflict is resolved. <b>404</b> for a media id that is not a game, and
+    /// <c>HltbExceptionHandler</c>'s <b>502</b> when the site cannot be read.
+    /// </para>
+    /// </summary>
+    [HttpPost("{mediaId:int}/hltb/refresh")]
+    [ProducesResponseType<GameDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<ActionResult<GameDetailDto>> RefreshHltbFor(
+        int mediaId, CancellationToken cancellationToken)
+    {
+        var (outcome, game) = await hltb.RefreshAsync(mediaId, cancellationToken);
+
+        switch (outcome)
+        {
+            case HltbLookupOutcome.NoSuchGame:
+                return NotFound();
+
+            case HltbLookupOutcome.NoSuchHltbId:
+                return Problem(
+                    statusCode: StatusCodes.Status409Conflict,
+                    title: "No longer on HowLongToBeat",
+                    detail: $"HowLongToBeat no longer has game {game!.HltbId}.");
 
             default:
                 return Ok(game);

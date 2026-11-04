@@ -143,18 +143,25 @@ describe('journal.load', () => {
     });
   });
 
-  it('carries the four HowLongToBeat figures and the pin for a game, and nothing for a film', async () => {
-    // One nullable block rather than five nullable fields, because they arrive together or not
+  it('carries the four HowLongToBeat figures, the pin and its last ask for a game, and nothing for a film', async () => {
+    // One nullable block rather than six nullable fields, because they arrive together or not
     // at all — and that null is what takes both the pin and the estimate tiers off a film.
     server.use(
       http.get('/api/games/14', () =>
-        HttpResponse.json(gameDetail({ hltbId: 9134, hltbAllStylesHours: 41.82 })),
+        HttpResponse.json(
+          gameDetail({
+            hltbId: 9134,
+            hltbAllStylesHours: 41.82,
+            hltbCheckedAt: '2026-09-11T18:30:00+00:00',
+          }),
+        ),
       ),
       http.get('/api/movies/14', () => HttpResponse.json(movieDetail())),
     );
 
     expect((await hobbyDefinition('games').journal.load(14)).hltb).toEqual({
       id: 9134,
+      checkedAt: '2026-09-11T18:30:00+00:00',
       hltbAllStylesHours: 41.82,
       hltbMainStoryHours: null,
       hltbMainExtraHours: null,
@@ -478,11 +485,11 @@ describe('progress', () => {
   });
 });
 
-describe('journal.setHltbId', () => {
-  it('exists for exactly the hobbies whose titles carry a HowLongToBeat block', async () => {
-    // Two halves of one fact, and this is what keeps them in step. Wiring only the writer would
+describe('journal.setHltbId and journal.refreshHltb', () => {
+  it('exist for exactly the hobbies whose titles carry a HowLongToBeat block', async () => {
+    // Three parts of one fact, and this is what keeps them in step. Wiring only a writer would
     // put a control on screen with nothing behind it; wiring only the block would leave a pin
-    // that cannot save.
+    // that cannot save and an arrow that cannot ask.
     server.use(
       http.get('/api/games/14', () => HttpResponse.json(gameDetail())),
       http.get('/api/movies/14', () => HttpResponse.json(movieDetail())),
@@ -494,7 +501,8 @@ describe('journal.setHltbId', () => {
       const { journal } = hobbyDefinition(slug);
       const carries = (await journal.load(14)).hltb !== null;
 
-      expect(journal.setHltbId !== null).toBe(carries);
+      expect(journal.setHltbId !== null, slug).toBe(carries);
+      expect(journal.refreshHltb !== null, slug).toBe(carries);
     }
   });
 });

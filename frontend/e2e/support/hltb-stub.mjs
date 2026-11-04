@@ -57,6 +57,17 @@ const CATALOGUE = [
   { id: 9103, name: 'Hollow Knight', year: 2017, all: 41.8, main: 27, plus: 41.5, hundred: 65 },
   { id: 9104, name: 'Outer Wilds', year: 2019, all: 17, main: 15, plus: 21, hundred: 30 },
   { id: 9105, name: 'Anthem: Legion of Dawn', year: 2019, all: 24, main: 13, plus: 30, hundred: 55 },
+
+  // The late one, and the case the journal's arrow exists for. Out ten days before the run, as
+  // the IGDB stub has it, and listed here before it came out: the search answers with the entry
+  // as it was listed, with no times on it, and its page with the times posted since. So adding
+  // it matches it and stores its id with nothing to show, exactly as Phantom Blade Zero was in
+  // production, and only asking again by that id brings the times.
+  //
+  // Split between the two routes rather than kept as a count of fetches, which would have to be
+  // reset between specs that this process outlives. And the split is the stricter of the two: a
+  // check that searched again instead of fetching the id it holds would find no times.
+  { id: 9106, name: 'Tunic II', year: new Date().getFullYear(), all: 14, main: 9.5, plus: 13, hundred: 22, late: true },
 ];
 
 /**
@@ -77,14 +88,14 @@ const SEARCH_DELAY_MS = 600;
 const seconds = (hours) => Math.round(hours * 3600);
 
 /**
- * One game as the search returns it.
+ * One game with its times, as the site sends a record.
  *
  * `release_world` is an integer here and a date string on the game page. That is a real quirk of
  * the site rather than an accident of this file, and it is why `HltbGameJson.ReleaseWorld` is a
  * JsonElement — typing it either way makes the other endpoint throw. Serving both shapes is what
  * keeps that honest.
  */
-const asSearchResult = (game) => ({
+const asRecord = (game) => ({
   game_id: game.id,
   game_name: game.name,
   game_alias: '',
@@ -100,7 +111,26 @@ const asSearchResult = (game) => ({
   comp_100_count: 25,
 });
 
-const asPageGame = (game) => ({ ...asSearchResult(game), release_world: game.year + '-03-01' });
+/**
+ * One game as the search returns it. A late one is listed as it was before its release: the
+ * entry is there and nobody has posted a time, which the site sends as nought.
+ */
+const asSearchResult = (game) =>
+  game.late
+    ? {
+        ...asRecord(game),
+        comp_all: 0,
+        comp_main: 0,
+        comp_plus: 0,
+        comp_100: 0,
+        comp_all_count: 0,
+        comp_main_count: 0,
+        comp_plus_count: 0,
+        comp_100_count: 0,
+      }
+    : asRecord(game);
+
+const asPageGame = (game) => ({ ...asRecord(game), release_world: game.year + '-03-01' });
 
 /**
  * The bundle the pair rule has to read.

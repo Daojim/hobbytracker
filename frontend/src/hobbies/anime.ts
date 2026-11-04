@@ -148,6 +148,7 @@ export const ANIME: HobbyDefinition = {
 
     setGenre: setAnimeGenre,
     setHltbId: null,
+    refreshHltb: null,
 
     // The episode alone, which is what makes this hobby's form different from every other one.
     // `ck_log_entries_episode_needs_season` forbade exactly this shape and was dropped for it.

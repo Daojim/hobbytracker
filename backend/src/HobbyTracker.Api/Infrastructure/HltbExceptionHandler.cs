@@ -9,10 +9,10 @@ namespace HobbyTracker.Api.Infrastructure;
 /// IGDB: "the site we read is unhappy" is a different message to a caller than "this API is
 /// broken", and only one of them is worth reporting as a bug.
 ///
-/// It reaches very little on purpose. Nothing a user does waits on HowLongToBeat — adding a game
-/// enqueues a lookup and returns, and the backfill answers 202 without making a request at all —
-/// so the only route that can produce this is pinning an id by hand, which is the one place
-/// somebody is standing there waiting to be told whether it worked.
+/// It reaches very little on purpose. Adding a game enqueues a lookup and returns, and the
+/// backfill answers 202 without making a request at all, so only two routes can produce this:
+/// pinning an id by hand, and the journal's arrow asking about one title again. Those are the two
+/// places somebody is standing there waiting to be told whether it worked.
 /// </summary>
 public sealed class HltbExceptionHandler(ILogger<HltbExceptionHandler> logger) : IExceptionHandler
 {

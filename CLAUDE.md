@@ -84,7 +84,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The journal** | A drawer over the board in three ruled bands — the title, the pass, the notes. Rating, dates, dated notes, every earlier pass, and per-hobby fields. **The pass writes itself**; there is no Save button | `docs/journal.md` |
 | **Pictures in notes** | Pasted, dropped or picked into a note, four at most, **shrunk in the browser** to a 1920 edge as WebP, and sent with the words in one request; a note can be a picture alone. A collage under the words, a lightbox Back closes, and on a card the newest note's first picture. **Kept in Postgres with the bytes apart from what a journal reads**, never on a share, and 1 GB an account but the admin's | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. **A switch beside it searches your notes instead**, on every board: every word in any order, and a note found opens its journal at the note | `docs/games-igdb.md` |
-| **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill, and a pin for when it refuses | `docs/games-hltb.md` |
+| **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill **that runs itself once a day**, a pin for when it refuses, and **an arrow beside the pin that asks again**, for a game matched before it had times | `docs/games-hltb.md` |
 | **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
 | **Discover** | A wall of covers for filling a board without searching, offered from under an empty search box: New releases, Popular now, Most anticipated, Most played, one list at a time. Every list was measured against IGDB before it was chosen, and every one carries a filter a search deliberately lacks | `docs/games-igdb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
@@ -186,7 +186,9 @@ until something goes and asks. `POST /api/games/refresh` for IGDB's columns;
 `POST /api/movies/refresh` and `POST /api/tv/refresh` for TMDB's — **two routes, because films and
 shows are separate source rows**; and `POST /api/anime/refresh` for MAL's. HowLongToBeat has its
 own, which answers immediately rather than when the work is done: `POST /api/games/hltb/refresh`.
-See **The backfill is a thing you run** in `docs/games-hltb.md`.
+It also runs once a day by itself, but only over what `hltb_checked_at` says is due, so a migration
+adding an `hltb_*` column clears that stamp or waits a month. See **The backfill runs once a day**
+in `docs/games-hltb.md`.
 
 **The release calendar is the first time that rule has a visible symptom**, so it is worth knowing
 before it looks like a bug: until `POST /api/games/refresh` has been run once, every game has a null
@@ -509,6 +511,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Searching notes | **A *Titles \| Notes* switch beside the search box: one box, and never both at once**, starting on Titles at every load. **Every word in any order, each matched as the characters it is by `ILIKE`** — not full-text search, because notes are written in Japanese — over one board's notes, newest first, fifty at most. A card per title with its cover, and a note found opens the journal **at that note**: scrolled to, a bar beside it, its words marked and the keyboard on it. **The words wear the accent at 25%, the user's pick over bold, which puts red behind text on Ember.** Four choices before any render and four from renders on 9 October 2026. `docs/games-igdb.md`, `docs/journal.md`, `docs/design.md` |
 | Pictures in notes | **Kept in Postgres, in two tables with the bytes apart**, on every board at once. In by a paste, a drop or a picker button, **a paste carrying words being words** (Excel puts a picture of the cells beside them), and sent with the words in one request, never ahead. **Shrunk in the browser to a 1920 edge as WebP at 85**, with a small copy for the card. Four to a note, 2 MB a picture, and **1 GB an account unless `users.role` is `admin`**, the user's choice for their own, the column's first reader. A collage under the words, a lightbox Back closes, the edit box taking pictures as the compose box does, a *Pictures* count in the spreadsheet, and pictures counted in the deletion warning. **On a card, the newest note's first picture 28px tall, the user's pick over the words *A picture***. Six choices in words and seven from renders on 30 October 2026. `docs/journal.md`, `docs/data-model.md`, `docs/design.md` |
 | Picking what to play | **A *Pick* button in Backlog's header, the user's pick over a sentence under the search box**, opening a dialog: four bands of the hours a card prints (an evening, a weekend, a few weeks, a long haul) and genres left out by the one a card is painted as, then *Spin*, a wheel of up to eight covers, or *Suggest three*. *Not this one* takes a game out of the draw until the panel closes. **The whole column, never a page, and the pick made before the wheel turns**, so reduced motion shows the same pick. Backlog only, games only, never on a share, nothing offered unasked and nothing recorded. Four choices in words and six from renders of the real backlog on 25 October 2026. `docs/board.md`, `docs/design.md` |
+| Asking HowLongToBeat again | **A circular arrow between the pin's box and its link, on every game, the user's pick over *Check now* in the no-estimate line.** There and then, as the pin is, and the title back; **a 409 naming an id HowLongToBeat no longer has**, because its old figures are kept. It turns in place while it checks and dims under reduced motion. ***Last checked Sep 11* under the row on a game with no figures, the user's pick over every game**, and *Checked just now* after a press, nothing more, until the drawer closes. **The backfill once a day by its own 30-day rule, the user's pick over nightly for a release's first three months**, off in Development and in both test harnesses. Two choices in words and five from renders on 3 November 2026. `docs/games-hltb.md`, `docs/design.md` |
 | Spreadsheet | **A three-sheet `.xlsx` of everything on the board** — Games as the cards show them, every playthrough, every note — from a row in a *Your data* group after Columns in Settings. Every column, every year and the calendar's titles, because the year control and Settings decide what you see, not what you have. ISO dates as real date cells, numbers as numbers, nothing a formula, and the HowLongToBeat link a plain address. **The server sends facts and the client writes the words**, through write-excel-file loaded when the row is pressed. Games only, from `HobbyDefinition.export`. Every choice but one was the recommendation, from renders on 4 October 2026; *All genres* and the link were the user's. `docs/export.md`, `docs/design.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named. **Only a day counts down**, in words and in a bar, and never for a cancelled title; **each title sits at the last day it could come out, with a quarter under a heading of its own**, so no heading repeats. It sat at the first day until 23 October 2026, when all four choices were picked from renders, each the recommendation. And it is **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
@@ -560,7 +563,7 @@ here**.
 | **A new *required* variable in `deploy/compose.yml` does not reach a deployment that already exists.** `.env` lives on the server and is gitignored, so `${NEW_THING:?…}` fails at interpolation — before compose picks a profile or looks at a service — and nothing starts. Loud, and it leaves the running site up; the quiet version is the same variable without `:?` | `docs/deploy.md` |
 | **Overriding `BaseOutputPath` un-excludes every *other* output directory from the source globs**, so the build copies its siblings into itself and compounds every run. It reached 289,490 files and 1.68 GB, nesting twenty-five deep, and presented only as a build that got slower — `git status` stays clean, because `bin/` is ignored. `backend/Directory.Build.props` holds it; delete those two lines and one build reproduces it | **Tests**, above |
 | **A cache must hold a provider's answer, never the rows it became.** The e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API lives on, so a cached media id names a row that is gone — or, once the sequence comes round, a different title, and the wrong game is added with no error. The Discover lists upsert on every view for exactly this reason | `docs/games-igdb.md` |
-| **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice** | `docs/games-hltb.md` |
+| **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice**. HowLongToBeat's runs itself daily since #19, over only what `hltb_checked_at` says is due: a new column on titles asked last week fills in a month from now | `docs/games-hltb.md` |
 | **A `TitleDetail` field a hobby leaves empty and one it has no idea of look identical**, which is why `journal.fields` is stated rather than inferred: an unenriched game has no platforms either, and it still wants the select. Inferring it hides the control on a title that was merely not fetched yet | `docs/movies-tmdb.md` |
 | **TMDB numbers films and shows separately, so one shared `tmdb` source row makes film 1396 and show 1396 the same row.** In production that would not even error: `UpsertAsync`'s `23505` recovery re-reads and hands back the film, and a show is silently a film. `tmdb-tv` is a **fourth source row**, `mal` a **fifth**, and a second provider for an existing hobby needs one too | `docs/tv-tmdb.md` |
 | **A MAL node carries `id`, `title` and `main_picture` whatever `fields` asks for, and nothing else.** A column added to `anime` without a word added to `MalClient.Fields` fills with nulls for ever — and a null there is **indistinguishable from a title MAL has nothing to say about**. `MalClientTests` asserts the list rather than trusting it | `docs/anime-mal.md` |
@@ -637,7 +640,8 @@ shuffled.
       were planned in `docs/plans/games-board-next.md`, one section each, to be picked up in any
       order, an eleventh, a bug, was added on 4 October 2026, two about the journal on
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
-      notes, and two from suggestions the user picked on 23 October:
+      notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
+      and two more on 3 November:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -713,6 +717,15 @@ shuffled.
         closes, and on the card the newest note's first picture 28px tall, the user's pick over
         the words *A picture*. Four to a note, and 1 GB an account but the admin's. On every
         board at once (PR #84, deployed)
+      - [x] an estimate that catches up — a circular arrow beside the HowLongToBeat id that asks
+        again there and then, on every game, turning in place while it checks; *Last checked* under
+        the row on a game with no figures; clearing a pin queues a lookup; and the backfill on a
+        timer, once a day by its own 30-day rule. For a game matched before it came out, which
+        HowLongToBeat lists with no times. Three of the picks were the user's over the
+        recommendation (built 3 November 2026)
+      - [ ] the titles a column's header leaves out — a count in a header, in the accent, opening
+        a list of covers and names at the column's width, each opening its journal. Your board's
+        columns only. Planned and workshopped beside the estimate, ready to build
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
@@ -791,9 +804,6 @@ being wrong. Both rows are marked below.
 
 ### Small things, named so they are not rediscovered
 
-- **Sweep up titles with no headline figure when the worker starts.** The first thing to pick up. See
-  **The backfill is a thing you run** in `docs/games-hltb.md`, including the reason it was not
-  simply done.
 - **What a tile says while an add is on its way.** *Adding…* went with the word *Add* on 24
   September 2026, when the add became three symbols, and the control only dims until something
   replaces it — deliberately left to be workshopped. `search/AddControl.tsx`.

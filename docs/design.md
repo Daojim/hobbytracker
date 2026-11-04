@@ -764,6 +764,42 @@ does is `docs/journal.md`'s, under **Pictures in notes**.
   28px tall by its own shape would run across the card. Every picture the workshop drew is inside
   that, so the pick looks as it was picked.
 
+### An estimate that catches up
+
+**A circular arrow between the HowLongToBeat ID box and *View on HowLongToBeat*, and a line under
+the row.** Picked at the #19 workshop on 3 November 2026, from renders of the shipped drawer with a
+prototype in the pin's place and every request answered from the user's board as read that
+afternoon: https://claude.ai/artifact/E8TV1xCBeB5uampa9CdJvo. What it does is
+`docs/games-hltb.md`'s, under **The arrow asks again**.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| Where the check sits | **A symbol beside the box, on every game. The user's pick** | *Check now* in the line that says there is no estimate, the recommendation, which left the header as it ships and offered nothing on a game with figures; the word *Refresh* there, which wrapped the link under the box at 1440 |
+| Saying when HowLongToBeat was asked | ***Last checked Sep 11*, a line under the row** | nothing |
+| Which games show the line | **A game with no figures, at rest. The user's pick** | every game |
+| While it checks | **The arrow turns in place, and the box dims** | *Checking…* in the arrow's place, as the pin shows it, which is wider and dropped the link under the box for the length of the check |
+| After a check | ***Checked just now*, and nothing more** | *Checked just now. HowLongToBeat has no times for it yet.*, which said it twice over the pass band's *No HowLongToBeat estimate yet* |
+
+- **The glyph is the prototype's drawing**, a 14px circular arrow of four strokes in
+  `currentColor` at 1.5, on a `rounded p-0.5 text-muted` button with `hover:bg-hover
+  hover:text-fg` at rest. The hover is off while it checks, so a busy arrow does not light up.
+- **Turning is `motion-safe:animate-spin`, and under reduced motion `motion-reduce:opacity-50`**
+  instead, both on the glyph and only while it checks. The box dims by its own
+  `disabled:opacity-50`.
+- **The line is `col-span-2` under the row, in the band's `text-xs text-muted`**, where the pin's
+  refusals already go, and the refusal stays under it.
+- ***Checked just now* has no full stop, which the render had.** It was a sentence followed by
+  another until the follow-up took the second away, and the drawer's other words of the kind,
+  *Saved* and *Moving…*, have none either.
+- **Measured in the built drawer against the prototype's renders, on Shelf Light and Shelf Dark at
+  1440.** The header band ends at 148px on a game with figures, as it ships, and at 172px with the
+  line, on Phantom Blade Zero at rest and on either game after a check, which is where B's renders
+  put it. **While it checks it stays at 172px with the link in place**, where the render's
+  *Checking…* had taken it to 172px with the link dropped. On a 390px phone the link wraps under
+  the box, as the drawer does today, and the band ends at 196px with the line.
+- **A pin in flight still shows *Checking…*, now in the arrow's place.** That is the pin's look as
+  it has always shipped, which the follow-up did not take up; the turning arrow is the check's.
+
 ### The page's ground
 
 **The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at

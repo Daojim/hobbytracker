@@ -131,6 +131,7 @@ export const MOVIES: HobbyDefinition = {
 
     setGenre: setMovieGenre,
     setHltbId: null,
+    refreshHltb: null,
 
     // The two the user asked for by name. A film's pass is a rating and two dates.
     fields: { hoursPlayed: false, platform: false, progress: false },

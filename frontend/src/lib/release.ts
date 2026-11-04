@@ -88,6 +88,10 @@ export function addDays(day: Day, days: number): Day {
  * Not `formatRelease`, which always names the year because a release window is filed by it.
  * A finish date is mostly weeks away, and "Oct 9, 2026" in October 2026 is a year nobody needed
  * telling — until it is January's, which is when it says so.
+ *
+ * The journal's *Last checked* line writes a day the same way, for the same reason: HowLongToBeat
+ * is asked again within a month. That one is an instant first, so it arrives through
+ * `journalDateInput` as the day it fell on here, and only then comes here.
  */
 export function formatDayShort(day: Day, today: Day = todayHere()): string {
   const parts = partsOf(day);

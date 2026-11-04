@@ -6,6 +6,7 @@ import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { ColumnControl } from './ColumnControl';
 import { ConfirmDelete } from './ConfirmDelete';
 import { EntryForm, type EntryFormHandle } from './EntryForm';
+import { hltbTiers } from './fields';
 import { HltbPin } from './HltbPin';
 import { carriesFiles } from './NoteBox';
 import { NoteList, noteRowId, PICTURE_OVERLAY, type FoundNote } from './NoteList';
@@ -103,7 +104,10 @@ export function EntryDrawer({
   onPutBack,
 }: EntryDrawerProps) {
   const { columnLabel, genres, journal } = hobbyDefinition(hobby);
-  const { title, save, remove, setGenre, setHltbId, fieldErrors } = useJournalEntry(hobby, mediaId);
+  const { title, save, remove, setGenre, setHltbId, refreshHltb, fieldErrors } = useJournalEntry(
+    hobby,
+    mediaId,
+  );
   const titleId = useId();
   const genreId = useId();
   const questionId = useId();
@@ -119,6 +123,12 @@ export function EntryDrawer({
   // next write, where this has to stop being true as soon as a field is touched. The drawer
   // unmounts when it closes, so opening another title starts with nothing claimed.
   const [saved, setSaved] = useState(false);
+
+  // Whether the arrow beside the pin has had an answer since the drawer opened, which is what
+  // "Checked just now" claims and for exactly as long as it can: until the drawer closes, after
+  // which the stored day is what the line reads. Not read off refreshHltb.isSuccess, which a
+  // second press clears while it runs — and the line going would move the header under it.
+  const [checked, setChecked] = useState(false);
 
   // The keyboard follows the drawer in and stays there, and Escape closes it: aria-modal below
   // promises a screen reader that the board is inert while this is open, and the two are kept
@@ -486,9 +496,24 @@ export function EntryDrawer({
                 // id alone, so what was typed stays in the box to be corrected.
                 key={detail.hltb.id}
                 hltbId={detail.hltb.id}
+                checkedAt={detail.hltb.checkedAt}
+                // The rule "No HowLongToBeat estimate yet" is said by, so the line under the row
+                // and the line in the pass cannot disagree about whether there are figures.
+                hasFigures={hltbTiers(detail.hltb).length > 0}
                 saving={setHltbId.isPending}
-                error={setHltbId.error === null ? null : setHltbId.error.message}
-                onPin={(hltbId) => setHltbId.mutate(hltbId)}
+                checking={refreshHltb.isPending}
+                checked={checked}
+                // One at a time, the latest: each write clears the other's refusal as it starts,
+                // or a pin that worked would sit under a check's failure from before it.
+                error={(setHltbId.error ?? refreshHltb.error)?.message ?? null}
+                onPin={(hltbId) => {
+                  refreshHltb.reset();
+                  setHltbId.mutate(hltbId);
+                }}
+                onCheck={() => {
+                  setHltbId.reset();
+                  refreshHltb.mutate(undefined, { onSuccess: () => setChecked(true) });
+                }}
               />
             )}
           </div>

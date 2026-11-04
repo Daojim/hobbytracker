@@ -14,9 +14,39 @@ namespace HobbyTracker.Api.Tests.Infrastructure;
 /// </summary>
 public sealed class FakeHltbQueue : IHltbQueue
 {
+    private readonly SemaphoreSlim _arrivals = new(0);
+
     public List<int> Enqueued { get; } = [];
 
-    public void Enqueue(int mediaId) => Enqueued.Add(mediaId);
+    public void Enqueue(int mediaId)
+    {
+        // Locked because one writer is not on the test's thread: the daily backfill queues from
+        // a worker of its own. Everything else queues inside a request, which has answered by
+        // the time a test reads the list.
+        lock (Enqueued)
+        {
+            Enqueued.Add(mediaId);
+        }
+
+        _arrivals.Release();
+    }
+
+    /// <summary>
+    /// Waits for <paramref name="count"/> titles to have been queued, for a test of something
+    /// that queues on a thread of its own. Throws rather than returning early, so a run that
+    /// queued too little fails here, naming how many it did, instead of on a shorter list later.
+    /// </summary>
+    public async Task WaitForAsync(int count, CancellationToken cancellationToken)
+    {
+        for (var arrived = 0; arrived < count; arrived++)
+        {
+            if (!await _arrivals.WaitAsync(TimeSpan.FromSeconds(10), cancellationToken))
+            {
+                throw new TimeoutException(
+                    $"Waited for {count} titles to be queued, and {arrived} were.");
+            }
+        }
+    }
 
     public async IAsyncEnumerable<int> ReadAllAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
