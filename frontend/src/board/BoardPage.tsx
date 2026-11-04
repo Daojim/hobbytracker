@@ -11,7 +11,7 @@ import { noteResultId } from '../search/NoteResults';
 import { resultTitleId } from '../search/SearchResult';
 import type { FoundNote } from '../journal/NoteList';
 import { CARD_CLASS, CardFace, cardAnswerId, cardTitleId } from './Card';
-import { Column, columnQuery } from './Column';
+import { Column, columnQuery, leftOutCountId } from './Column';
 import { ColumnSwitcher } from './ColumnSwitcher';
 import { ComingSoon, calendarTitleId, upcomingQuery } from './ComingSoon';
 import { EntryDrawer } from '../journal/EntryDrawer';
@@ -119,6 +119,9 @@ function Board({ hobby }: { hobby: Hobby }) {
   // State for `askHowLong`'s reason, and set on every opening for the same one: a note found
   // once is never marked in the next journal opened by another door.
   const [atNote, setAtNote] = useState<FoundNote | null>(null);
+  // Whether it was opened from Completed's list of the titles without your hours, so Hours
+  // played has the keyboard. The same again: state, and said on every opening.
+  const [atHours, setAtHours] = useState(false);
 
   // Whether "What should I play next?" is open: a history entry, as the journal is, so a phone's
   // Back closes it. A pick's name opens the journal on top of it, as a second entry, and Back from
@@ -205,16 +208,21 @@ function Board({ hobby }: { hobby: Hobby }) {
   }, [leavingFor, leavingTo]);
 
   // Every way into the drawer: a card, a calendar row, a search result's name, a note a search
-  // found, or a pick's name in "What should I play next?". Each names the element the keyboard
-  // goes back to.
+  // found, a pick's name in "What should I play next?", or a title in the list under one of a
+  // column header's counts. Each names the element the keyboard goes back to.
   function openJournalFrom(
     returnTo: string,
     mediaId: number,
-    { askHowLong: asking = false, note = null }: { askHowLong?: boolean; note?: FoundNote | null } = {},
+    {
+      askHowLong: asking = false,
+      note = null,
+      atHours: hours = false,
+    }: { askHowLong?: boolean; note?: FoundNote | null; atHours?: boolean } = {},
   ) {
     openedFrom.current = returnTo;
     setAskHowLong(asking);
     setAtNote(note);
+    setAtHours(hours);
     openJournal(mediaId);
   }
 
@@ -354,6 +362,15 @@ function Board({ hobby }: { hobby: Hobby }) {
                         askHowLong: options?.askHowLong,
                       })
                     }
+                    // A title from the list under one of the header's counts, which is where the
+                    // keyboard goes back to: the list has gone, and its card can be a page away.
+                    // At Hours played from the list of the titles without your hours, because
+                    // logging them is what that list is for.
+                    onOpenLeftOut={(mediaId, list) =>
+                      openJournalFrom(leftOutCountId(status, list), mediaId, {
+                        atHours: list === 'withoutPlayed',
+                      })
+                    }
                     // Backlog's way into the picker, on a board whose hobby has one. Handed to
                     // the column here, because only your own board draws a Column.
                     action={
@@ -413,6 +430,7 @@ function Board({ hobby }: { hobby: Hobby }) {
           onClose={closeJournal}
           askHowLong={askHowLong}
           atNote={atNote}
+          atHours={atHours}
           // The board's own list and the board's own move, so the pass's heading offers what a
           // card's menu offers and moves the card the way the menu does.
           columns={columns}

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState, type ReactNode } from 'react';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
@@ -1676,6 +1677,90 @@ describe('EntryDrawer, opened at a note', () => {
     expect(document.querySelectorAll('mark')).toHaveLength(0);
     expect(scrolled).toEqual([]);
     expect(screen.getByRole('dialog')).toHaveFocus();
+  });
+});
+
+/**
+ * Opened from the list under Completed's *without your hours*: at Hours played, because logging
+ * them is what that list is for. #20 in `docs/plans/games-board-next.md`.
+ */
+describe('EntryDrawer, opened at Hours played', () => {
+  const hoursBox = () => screen.getByRole('spinbutton', { name: 'Hours played' });
+
+  /** A drawer that opens on a press and closes as the board's does, so a title can be reopened. */
+  function Reopens({ drawer }: { drawer: (onClose: () => void) => ReactNode }) {
+    const [shown, setShown] = useState(false);
+    return shown ? (
+      drawer(() => setShown(false))
+    ) : (
+      <button type="button" onClick={() => setShown(true)}>
+        Open the journal
+      </button>
+    );
+  }
+
+  const atHours = (onClose: () => void = vi.fn()) => (
+    <EntryDrawer hobby="games" mediaId={3003} onClose={onClose} atHours {...fromBoard('games')} />
+  );
+
+  it('takes the keyboard to Hours played once the title has arrived', async () => {
+    journalServer({ detail: gameDetail({ title: 'Split Fiction' }) });
+
+    renderWithProviders(atHours());
+
+    await waitFor(() => expect(hoursBox()).toHaveFocus());
+  });
+
+  it('takes it there on a title already held, past the panel taking it as it opens', async () => {
+    // Held, the title is there on the first render, so the panel's taking the keyboard and this
+    // run in one go, and the later of the two wins. Opening one title again within a few minutes
+    // is exactly this; a box that took the keyboard from inside the form would lose it here.
+    journalServer({ detail: gameDetail({ title: 'Split Fiction' }) });
+    renderWithProviders(<Reopens drawer={atHours} />, { keepsCache: true });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Open the journal' }));
+    await screen.findByRole('spinbutton', { name: 'Hours played' });
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Open the journal' }));
+
+    // From the cache, so on the first render.
+    expect(screen.getByRole('heading', { name: 'Split Fiction' })).toBeInTheDocument();
+    await waitFor(() => expect(hoursBox()).toHaveFocus());
+  });
+
+  it('leaves the keyboard where it went when the pass is refetched', async () => {
+    // Every write refetches the title, and taking the keyboard back to Hours played each time
+    // would take it out of whatever is being typed into. The refetch answers with the rating
+    // saved, so that it is a new title and not the cache's old object.
+    const journal = journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7 })] }) });
+    server.use(
+      http.get('/api/games/:id', () => {
+        const saved = journal.saved.at(-1)?.body['rating'];
+        return HttpResponse.json(
+          gameDetail({
+            logEntries: [logEntry({ id: 7, rating: typeof saved === 'number' ? saved : null })],
+          }),
+        );
+      }),
+    );
+
+    renderWithProviders(atHours());
+    await waitFor(() => expect(hoursBox()).toHaveFocus());
+
+    await userEvent.type(rating(), '8');
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+
+    expect(rating()).toHaveFocus();
+  });
+
+  it('leaves the keyboard on the journal when opened any other way', async () => {
+    journalServer({ detail: gameDetail() });
+
+    open();
+    await screen.findByRole('spinbutton', { name: 'Hours played' });
+
+    expect(screen.getByRole('dialog')).toHaveFocus();
+    expect(hoursBox()).not.toHaveFocus();
   });
 });
 

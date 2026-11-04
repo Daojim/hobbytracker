@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { Column } from './Column';
 import { columnsFor } from '../hobbies';
@@ -45,11 +46,249 @@ function renderColumn(
       }}
       menu={{ mediaId: null, onOpen: vi.fn(), onClose: vi.fn(), columns: columnsFor('games') }}
       onOpen={vi.fn()}
+      onOpenLeftOut={vi.fn()}
       {...props}
     />,
     { dnd: true },
   );
 }
+
+/** A title a header leaves out, as the server names it. */
+const leftOut = (mediaId: number, title: string, coverUrl: string | null = null) => ({
+  mediaId,
+  title,
+  coverUrl,
+});
+
+/**
+ * Playing as it was on the user's board on 3 November 2026: one game with an estimate, and
+ * Phantom Blade Zero, out five days and not yet timed.
+ */
+function playingWithOneUntimed() {
+  boardServer({
+    columns: {
+      InProgress: [
+        libraryItem({ title: 'Castlevania: Order of Ecclesia', currentStatus: 'InProgress', lengthHours: 12.74 }),
+        libraryItem({ mediaId: 911, title: 'Phantom Blade Zero', currentStatus: 'InProgress' }),
+      ],
+    },
+    hours: {
+      InProgress: {
+        ...NO_HOURS,
+        length: 12.74,
+        lengthTitles: 1,
+        withoutLength: [leftOut(911, 'Phantom Blade Zero', 'https://images.igdb.com/pbz.jpg')],
+        withoutPlayed: [],
+      },
+    },
+  });
+}
+
+/** Completed with something in both lists: a game with no estimate, and two without your hours. */
+function completedWithBoth() {
+  boardServer({
+    columns: {
+      Completed: [
+        libraryItem({ mediaId: 1, title: 'Celeste', currentStatus: 'Completed' }),
+        libraryItem({ mediaId: 2, title: 'Hi-Fi Rush', currentStatus: 'Completed' }),
+        libraryItem({ mediaId: 3, title: 'Tunic', currentStatus: 'Completed' }),
+        libraryItem({ mediaId: 4, title: 'Unheard Of', currentStatus: 'Completed' }),
+      ],
+    },
+    hours: {
+      Completed: {
+        length: 54.5,
+        lengthTitles: 3,
+        played: 14.5,
+        playedLength: 20,
+        playedTitles: 1,
+        withoutLength: [leftOut(4, 'Unheard Of')],
+        // Not alphabetical, as a column in your own order is not.
+        withoutPlayed: [leftOut(3, 'Tunic'), leftOut(2, 'Hi-Fi Rush')],
+      },
+    },
+  });
+}
+
+describe("the titles a header's count leaves out", () => {
+  it('makes the count a button in a line that is pieces now, rather than one image', async () => {
+    playingWithOneUntimed();
+
+    renderColumn({ status: 'InProgress', label: 'Playing' });
+
+    // A button cannot live inside an image, so the total keeps its spoken form on its own and
+    // the count beside it is the button. jsdom still finds a button inside an image by its role,
+    // where a screen reader would not, so the rule is asserted as what it is.
+    const count = await screen.findByRole('button', { name: '1 with no estimate' });
+    expect(count.closest('[role="img"]')).toBeNull();
+    expect(count).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('img', { name: 'About 13 hours to beat' })).toHaveTextContent(
+      '~13 h to beat',
+    );
+    expect(count.parentElement).toHaveTextContent('~13 h to beat · 1 with no estimate');
+  });
+
+  it('opens a list of the titles it counts, each a cover and a name, with the keyboard in it', async () => {
+    playingWithOneUntimed();
+    renderColumn({ status: 'InProgress', label: 'Playing' });
+
+    const count = await screen.findByRole('button', { name: '1 with no estimate' });
+    await userEvent.click(count);
+
+    expect(count).toHaveAttribute('aria-expanded', 'true');
+    const list = screen.getByRole('group', { name: '1 with no estimate' });
+    const rows = within(list).getAllByRole('button');
+    expect(rows.map((row) => row.textContent)).toEqual(['Phantom Blade Zero']);
+    expect(rows[0]?.querySelector('img')).toHaveAttribute('src', 'https://images.igdb.com/pbz.jpg');
+    // The cover says nothing the name beside it does not.
+    expect(rows[0]?.querySelector('img')).toHaveAttribute('alt', '');
+
+    // Put in it as it opens: the count has done its job, and the titles are what is next.
+    expect(rows[0]).toHaveFocus();
+  });
+
+  it('opens a title from its list, saying which list it was in, and closes', async () => {
+    completedWithBoth();
+    const onOpenLeftOut = vi.fn();
+    renderColumn({ status: 'Completed', label: 'Completed', onOpenLeftOut });
+
+    await userEvent.click(await screen.findByRole('button', { name: '2 without your hours' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '2 without your hours' })).getByRole('button', {
+        name: 'Tunic',
+      }),
+    );
+
+    expect(onOpenLeftOut).toHaveBeenCalledExactlyOnceWith(3, 'withoutPlayed');
+    expect(screen.queryByRole('group', { name: '2 without your hours' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: '1 with no estimate' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '1 with no estimate' })).getByRole('button', {
+        name: 'Unheard Of',
+      }),
+    );
+    expect(onOpenLeftOut).toHaveBeenLastCalledWith(4, 'withoutLength');
+  });
+
+  it('names its titles in the order the server sent them, which is the column’s', async () => {
+    completedWithBoth();
+    renderColumn({ status: 'Completed', label: 'Completed' });
+
+    await userEvent.click(await screen.findByRole('button', { name: '2 without your hours' }));
+
+    const list = screen.getByRole('group', { name: '2 without your hours' });
+    expect(within(list).getAllByRole('button').map((row) => row.textContent)).toEqual([
+      'Tunic',
+      'Hi-Fi Rush',
+    ]);
+  });
+
+  it('names the titles the server named, off this page of cards too', async () => {
+    // A column draws a hundred cards and its header is about all of them, so the list is the
+    // server's. Worked out from the cards, it would miss the 101st, which is here the only one.
+    boardServer({
+      columns: {
+        InProgress: [
+          libraryItem({ title: 'Castlevania', currentStatus: 'InProgress', lengthHours: 12.74 }),
+        ],
+      },
+      hours: {
+        InProgress: {
+          ...NO_HOURS,
+          length: 12.74,
+          lengthTitles: 1,
+          withoutLength: [leftOut(911, 'Phantom Blade Zero')],
+          withoutPlayed: [],
+        },
+      },
+    });
+    renderColumn({ status: 'InProgress', label: 'Playing' });
+
+    await userEvent.click(await screen.findByRole('button', { name: '1 with no estimate' }));
+
+    expect(
+      within(screen.getByRole('group', { name: '1 with no estimate' })).getByRole('button', {
+        name: 'Phantom Blade Zero',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens one list at a time', async () => {
+    completedWithBoth();
+    renderColumn({ status: 'Completed', label: 'Completed' });
+
+    const hours = await screen.findByRole('button', { name: '2 without your hours' });
+    const estimate = screen.getByRole('button', { name: '1 with no estimate' });
+
+    await userEvent.click(hours);
+    await userEvent.click(estimate);
+
+    expect(screen.queryByRole('group', { name: '2 without your hours' })).not.toBeInTheDocument();
+    expect(screen.getByRole('group', { name: '1 with no estimate' })).toBeInTheDocument();
+    expect(hours).toHaveAttribute('aria-expanded', 'false');
+    expect(estimate).toHaveAttribute('aria-expanded', 'true');
+
+    // And the count of an open list closes it again.
+    await userEvent.click(estimate);
+    expect(screen.queryByRole('group', { name: '1 with no estimate' })).not.toBeInTheDocument();
+  });
+
+  it('closes on Escape and hands the keyboard back to the count', async () => {
+    playingWithOneUntimed();
+    renderColumn({ status: 'InProgress', label: 'Playing' });
+
+    const count = await screen.findByRole('button', { name: '1 with no estimate' });
+    await userEvent.click(count);
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByRole('group', { name: '1 with no estimate' })).not.toBeInTheDocument();
+    expect(count).toHaveFocus();
+    expect(count).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('closes on a press anywhere else', async () => {
+    playingWithOneUntimed();
+    renderColumn({ status: 'InProgress', label: 'Playing' });
+
+    await userEvent.click(await screen.findByRole('button', { name: '1 with no estimate' }));
+    await userEvent.click(screen.getByRole('heading', { name: 'Playing 2' }));
+
+    expect(screen.queryByRole('group', { name: '1 with no estimate' })).not.toBeInTheDocument();
+  });
+
+  it('closes when the keyboard leaves it, so a list in another column cannot be open beside it', async () => {
+    // Each column keeps its own list, and a press on another column's count is a press outside
+    // this one. The keyboard has no press, so leaving is what closes it.
+    playingWithOneUntimed();
+    renderColumn({ status: 'InProgress', label: 'Playing' });
+
+    await userEvent.click(await screen.findByRole('button', { name: '1 with no estimate' }));
+    await userEvent.tab();
+
+    expect(screen.queryByRole('group', { name: '1 with no estimate' })).not.toBeInTheDocument();
+    // On to the first card, which the keyboard sensor makes a stop of its own.
+    expect(screen.getAllByRole('listitem')[0]).toHaveFocus();
+  });
+
+  it('stays words when the server named no titles', async () => {
+    // A share's header, or an answer from before the lists: a count with nothing behind it to
+    // open is not offered as something to press.
+    boardServer({
+      columns: {
+        InProgress: [
+          libraryItem({ title: 'Castlevania', currentStatus: 'InProgress', lengthHours: 12.74 }),
+          libraryItem({ title: 'Phantom Blade Zero', currentStatus: 'InProgress' }),
+        ],
+      },
+      hours: { InProgress: { ...NO_HOURS, length: 12.74, lengthTitles: 1 } },
+    });
+    renderColumn({ status: 'InProgress', label: 'Playing' });
+
+    expect(await screen.findByText(/1 with no estimate/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '1 with no estimate' })).not.toBeInTheDocument();
+  });
+});
 
 describe('Column', () => {
 
@@ -150,6 +389,7 @@ describe('Column', () => {
       },
       hours: {
         Completed: {
+          ...NO_HOURS,
           length: 50,
           lengthTitles: 3,
           played: 35.5,
@@ -166,9 +406,9 @@ describe('Column', () => {
         name: 'You played 36 hours, against about 37 hours to beat',
       }),
     ).toHaveTextContent('36 h played vs ~37 h to beat');
-    expect(
-      screen.getByRole('img', { name: 'over 2 games, 1 without your hours' }),
-    ).toHaveTextContent('over 2 games · 1 without your hours');
+    // The second line is counts and words, which read aloud as they print, so it is words
+    // rather than an image: on your board a count in it is a button, which no image can hold.
+    expect(screen.getByText('over 2 games · 1 without your hours')).toBeInTheDocument();
   });
 
   it('says how long the backlog would take at your pace, and hears a new one', async () => {

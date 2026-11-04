@@ -3,7 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../App';
 import { renderWithProviders } from '../test/render';
-import { boardServer } from '../test/library';
+import { NO_HOURS, boardServer } from '../test/library';
 import { backlogTitle, finish, stats, statsServer } from '../test/stats';
 import { columnHoursLines } from '../board/columnHours';
 import { hobbyDefinition } from '../hobbies';
@@ -131,7 +131,7 @@ describe('StatsPage', () => {
             finish({ rating: 9, hoursPlayed: 10.5, lengthHours: 12.76 }),
             finish({ rating: 7.5, hoursPlayed: null, lengthHours: 20 }),
           ],
-          hours: { length: 32.76, lengthTitles: 2, played: 10.5, playedLength: 12.76, playedTitles: 1 },
+          hours: { ...NO_HOURS, length: 32.76, lengthTitles: 2, played: 10.5, playedLength: 12.76, playedTitles: 1 },
           completion: { finished: 14, going: 2, dropped: 3 },
         }),
       );
@@ -186,6 +186,7 @@ describe('StatsPage', () => {
       // The board's Completed header and this panel add up by the same rules on the server, and
       // say it in the same words here, so the two never read differently about one comparison.
       const hours: ColumnHours = {
+        ...NO_HOURS,
         length: 284.31,
         lengthTitles: 9,
         played: 221.3,
@@ -207,6 +208,29 @@ describe('StatsPage', () => {
       }
     });
 
+    it('says what the comparison leaves out in words, with nothing to press', async () => {
+      // Your board's header opens a list of the titles each count leaves out. This is a year's
+      // finishes, which are passes rather than titles, and the server names none of them; a
+      // page handed names anyway still draws the counts as the words they are.
+      const hours: ColumnHours = {
+        length: 34.2,
+        lengthTitles: 2,
+        played: 14.5,
+        playedLength: 20,
+        playedTitles: 1,
+        withoutLength: [{ mediaId: 70, title: 'Unheard Of', coverUrl: null }],
+        withoutPlayed: [{ mediaId: 71, title: 'Split Fiction', coverUrl: null }],
+      };
+      renderYear('2026', stats({ finished: [finish(), finish(), finish()], hours }));
+
+      const panel = await section('You and HowLongToBeat');
+      expect(
+        within(panel).getByText('over 1 game · 1 without your hours · 1 with no estimate'),
+      ).toBeInTheDocument();
+      expect(within(panel).queryByRole('button', { name: /without your hours|with no estimate/ }))
+        .not.toBeInTheDocument();
+    });
+
     it('lists every timed game either side of the estimate, quickest first', async () => {
       renderYear(
         '2026',
@@ -216,7 +240,7 @@ describe('StatsPage', () => {
             finish({ title: 'Celeste', hoursPlayed: 10.5, lengthHours: 12.76 }),
             finish({ title: 'Unlogged', hoursPlayed: null, lengthHours: 20 }),
           ],
-          hours: { length: 82.66, lengthTitles: 3, played: 71.7, playedLength: 62.66, playedTitles: 2 },
+          hours: { ...NO_HOURS, length: 82.66, lengthTitles: 3, played: 71.7, playedLength: 62.66, playedTitles: 2 },
         }),
       );
 
@@ -241,7 +265,7 @@ describe('StatsPage', () => {
         '2026',
         stats({
           finished,
-          hours: { length: 280, lengthTitles: 14, played: 231, playedLength: 280, playedTitles: 14 },
+          hours: { ...NO_HOURS, length: 280, lengthTitles: 14, played: 231, playedLength: 280, playedTitles: 14 },
         }),
       );
 

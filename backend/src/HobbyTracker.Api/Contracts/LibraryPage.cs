@@ -63,4 +63,33 @@ public sealed record ColumnHours(
     /// <summary>
     /// How many titles <see cref="Played"/> and <see cref="PlayedLength"/> are over.
     /// </summary>
-    int PlayedTitles);
+    int PlayedTitles,
+
+    /// <summary>
+    /// The titles <see cref="Length"/> leaves out, because they have no figure: the column's
+    /// titles less <see cref="LengthTitles"/>, which is the count the header prints as
+    /// <i>1 with no estimate</i>. In the order the column shows them. Null where a header names
+    /// no titles, which is a share's and the Stats page's.
+    /// </summary>
+    IReadOnlyList<LeftOutTitleDto>? WithoutLength,
+
+    /// <summary>
+    /// The titles the comparison leaves out, because they have a figure and none of your hours:
+    /// <see cref="LengthTitles"/> less <see cref="PlayedTitles"/>, which Completed's header prints
+    /// as <i>2 without your hours</i>. A title with neither figure is in
+    /// <see cref="WithoutLength"/> alone, so the two never overlap. Null where
+    /// <see cref="WithoutLength"/> is.
+    /// </summary>
+    IReadOnlyList<LeftOutTitleDto>? WithoutPlayed);
+
+/// <summary>
+/// A title a column's header leaves out of one of its figures, as its card names it: what a row of
+/// the list under the header's count draws, and what it opens.
+/// </summary>
+public sealed record LeftOutTitleDto(
+    int MediaId,
+
+    /// <summary>The name a card leads with, which for anime is MAL's English one where there is one.</summary>
+    string Title,
+
+    string? CoverUrl);

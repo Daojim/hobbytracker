@@ -62,6 +62,12 @@ export interface EntryDrawerProps {
    */
   atNote?: FoundNote | null;
   /**
+   * Opened from the list under Completed's *without your hours*: the journal gives Hours played
+   * the keyboard, because logging them is what that list is for. Said on every opening by the
+   * board, as `askHowLong` is.
+   */
+  atHours?: boolean;
+  /**
    * The columns the board draws, which are the ones the pass's heading offers. The board's one
    * list, as every card's menu is handed it, so a column taken off in Settings leaves both at
    * the same moment.
@@ -99,6 +105,7 @@ export function EntryDrawer({
   onClose,
   askHowLong = false,
   atNote = null,
+  atHours = false,
   columns,
   onMove,
   onPutBack,
@@ -228,6 +235,18 @@ export function EntryDrawer({
   const control = useRef<HTMLButtonElement>(null);
   const answer = useRef<HTMLButtonElement>(null);
   const form = useRef<EntryFormHandle>(null);
+
+  // Opened at Hours played, from a header's list of the titles without your hours: the box takes
+  // the keyboard once the title has arrived, by the note's rules above. After useModalPanel,
+  // because on a title already held both run on the first render and the later one wins; here
+  // and not in the form, which is a child, whose effects would run first and lose. And once,
+  // not on every refetch, or a write would take the keyboard out of the field being typed into.
+  // The form knows where its box is, so it is asked.
+  useEffect(() => {
+    if (loaded && atHours) {
+      form.current?.focusHours();
+    }
+  }, [loaded, atHours]);
 
   // Every write of the pass that has been sent and not yet answered, as one thing to wait on.
   //

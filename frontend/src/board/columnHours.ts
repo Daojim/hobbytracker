@@ -3,11 +3,42 @@ import { daysToFinish, describePace, describeSpan, formatPace, type Pace } from 
 import type { LibraryPage, LogStatus } from '../api/types';
 import type { Voice } from '../lib/voice';
 
-/** One line of a column's header: what it prints, and how that reads aloud. */
+/**
+ * Which titles a header's count is of: the ones with no estimate, or the timed ones without your
+ * hours. Named as `ColumnHours` names the lists of them, which is where a count's titles are.
+ */
+export type LeftOutList = 'withoutLength' | 'withoutPlayed';
+
+/** A piece of a header's line: some words, or a count of the titles a figure leaves out. */
+export interface HoursPart {
+  text: string;
+  /** How it reads aloud: `~1,034 h` is a tilde and a letter. Its text, where that reads. */
+  spoken: string;
+  /** The list this piece counts, when it is a count. On your board, pressing it opens that list. */
+  counts?: LeftOutList;
+}
+
+/**
+ * One line of a column's header: what it prints, how that reads aloud, and the pieces it is made
+ * of, which your board needs because a count on it is something to press.
+ */
 export interface HoursLine {
   text: string;
   spoken: string;
+  parts: HoursPart[];
 }
+
+/** A line from its pieces, which are joined by a dot to read and by a comma to hear. */
+function lineOf(parts: HoursPart[]): HoursLine {
+  return {
+    text: parts.map((part) => part.text).join(' · '),
+    spoken: parts.map((part) => part.spoken).join(', '),
+    parts,
+  };
+}
+
+/** Words that read aloud as they print, as a count does, and the list it counts if it is one. */
+const said = (text: string, counts?: LeftOutList): HoursPart => ({ text, spoken: text, counts });
 
 /**
  * What a column's header says about how long its titles take, as the lines to print. None when
@@ -33,6 +64,13 @@ export interface HoursLine {
  *
  * **On a share it addresses nobody**: Completed's comparison is *hours played* rather than *you
  * played*, and the titles it leaves out are *without hours logged*. The rest reads the same.
+ *
+ * **Each count is a piece of its own that says which list it counts**, so your board can make it
+ * a button that opens the titles: #20, picked from renders on 3 November 2026. Where the server
+ * named those titles, which is your board, **a count is how many it named**, rather than the
+ * figures' difference. A move writes the column's total at once and leaves the hours to the
+ * refetch, and a count worked out from both would sit a title away from the list it opens until
+ * the answer came. A share and the Stats page are sent no lists, and nothing moves on either.
  */
 export function columnHoursLines(
   definition: HobbyDefinition,
@@ -46,8 +84,8 @@ export function columnHoursLines(
     return [];
   }
 
-  const untimed = total - hours.lengthTitles;
-  const leftOut = untimed > 0 ? [words.withoutLength(untimed)] : [];
+  const untimed = hours.withoutLength?.length ?? total - hours.lengthTitles;
+  const leftOut = untimed > 0 ? [said(words.withoutLength(untimed), 'withoutLength')] : [];
 
   if (
     status === 'Completed' &&
@@ -55,20 +93,21 @@ export function columnHoursLines(
     hours.played !== null &&
     hours.playedLength !== null
   ) {
-    const unplayed = hours.lengthTitles - hours.playedTitles;
-    const over = [
-      words.over(hours.playedTitles),
-      ...(unplayed > 0 ? [words.withoutPlayed[voice](unplayed)] : []),
-      ...leftOut,
-    ];
+    const unplayed = hours.withoutPlayed?.length ?? hours.lengthTitles - hours.playedTitles;
 
     return [
-      {
-        text: words.compared(hours.played, hours.playedLength),
-        spoken: words.describeCompared[voice](hours.played, hours.playedLength),
-      },
+      lineOf([
+        {
+          text: words.compared(hours.played, hours.playedLength),
+          spoken: words.describeCompared[voice](hours.played, hours.playedLength),
+        },
+      ]),
       // Nothing in this line needs a spoken form of its own: it is counts and words.
-      { text: over.join(' · '), spoken: over.join(', ') },
+      lineOf([
+        said(words.over(hours.playedTitles)),
+        ...(unplayed > 0 ? [said(words.withoutPlayed[voice](unplayed), 'withoutPlayed')] : []),
+        ...leftOut,
+      ]),
     ];
   }
 
@@ -76,10 +115,10 @@ export function columnHoursLines(
     return [];
   }
 
-  const totalLine = {
-    text: [words.total(hours.length), ...leftOut].join(' · '),
-    spoken: [words.describeTotal(hours.length), ...leftOut].join(', '),
-  };
+  const totalLine = lineOf([
+    { text: words.total(hours.length), spoken: words.describeTotal(hours.length) },
+    ...leftOut,
+  ]);
 
   // The queue you work through, and only that: Playing is half played, so its total at your pace
   // would be a claim about hours you have already spent. All play styles, because that is the
@@ -91,9 +130,11 @@ export function columnHoursLines(
   const span = describeSpan(daysToFinish(hours.length, pace));
   return [
     totalLine,
-    {
-      text: `${span} at ${formatPace(pace)}`,
-      spoken: `${span.charAt(0).toUpperCase()}${span.slice(1)} at ${describePace(pace)}`,
-    },
+    lineOf([
+      {
+        text: `${span} at ${formatPace(pace)}`,
+        spoken: `${span.charAt(0).toUpperCase()}${span.slice(1)} at ${describePace(pace)}`,
+      },
+    ]),
   ];
 }

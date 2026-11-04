@@ -133,6 +133,26 @@ export interface ColumnHours {
   playedLength: number | null;
   /** How many titles `played` and `playedLength` are over. */
   playedTitles: number;
+  /**
+   * The titles `length` leaves out, because they have no figure, in the order the column shows
+   * them: what *1 with no estimate* opens. Null where a header names no titles, which is a
+   * share's and the Stats page's.
+   */
+  withoutLength: LeftOutTitle[] | null;
+  /**
+   * The titles the comparison leaves out, because they have a figure and none of your hours:
+   * what Completed's *2 without your hours* opens. A title with neither figure is in
+   * `withoutLength` alone. Null where `withoutLength` is.
+   */
+  withoutPlayed: LeftOutTitle[] | null;
+}
+
+/** A title a column's header leaves out of one of its figures, as its card names it. */
+export interface LeftOutTitle {
+  mediaId: number;
+  /** The name a card leads with. */
+  title: string;
+  coverUrl: string | null;
 }
 
 /**

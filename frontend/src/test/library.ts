@@ -54,7 +54,8 @@ export function libraryItem(overrides: Partial<LibraryItem> = {}): LibraryItem {
  * A column with no figure to add up, which is what a header with nothing to say is handed.
  *
  * The default for every fixture, so a test that is not about hours renders a header with none —
- * exactly as it rendered before columns carried any.
+ * exactly as it rendered before columns carried any. It names no titles, as a share's header
+ * does, so a count in a test that is not about the lists stays words.
  */
 export const NO_HOURS: ColumnHours = {
   length: null,
@@ -62,6 +63,8 @@ export const NO_HOURS: ColumnHours = {
   played: null,
   playedLength: null,
   playedTitles: 0,
+  withoutLength: null,
+  withoutPlayed: null,
 };
 
 /**

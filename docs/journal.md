@@ -538,6 +538,38 @@ the journal's, which opens at the note found.
   marked in the next journal opened by another door. It is state rather than part of the history
   entry: a reload brings the journal back, at its top.
 
+### Opening the journal at Hours played
+
+A column's header counts the titles its figures leave out, and on your board each count opens a
+list of them (#20; `docs/board.md`, **The titles a header's count leaves out**). **A title from
+Completed's list of those *without your hours* opens its journal with the keyboard in Hours
+played**, because logging them is what that list is for. A title from the list *with no estimate*
+opens the journal at its top: nothing in the pass can give a game an estimate, and the pin is in
+the header band above it.
+
+- **`atHours` on `EntryDrawer`, set by the board on every opening**, as `askHowLong` and `atNote`
+  are, so the box is never still waiting for the keyboard in the next journal opened by another
+  door. State, not part of the history entry: a reload brings the journal back at its top.
+- **The drawer asks the form, through `EntryFormHandle.focusHours`**, because the form owns the box
+  and the drawer owns the moment. The moment is the note's: once the title has loaded, after
+  `useModalPanel` took the keyboard for the panel, and once rather than on every refetch.
+- **In the drawer and not in the form, for the note's reason exactly.** On a title already held,
+  which is any title opened again within a few minutes, the drawer and its form mount in one
+  render. The form is a child, so its effects run first, and a box that took the keyboard from in
+  there would hand it straight to the panel. *Takes it there on a title already held* opens one
+  title twice to show it, and goes red with the effect moved above the panel's.
+- **The keyboard goes back to the count when the journal closes**, by `leftOutCountId`, because the
+  list has closed by then. If logging the hours took the last title off that list, the count has
+  gone with it and the keyboard has nowhere to go back to, as when a pass deleted from the journal
+  takes its card with it.
+
+**Checked by putting each fault back.** The effect moved above `useModalPanel`'s turns *takes it
+there on a title already held* red and nothing else. Hung on the title rather than on its having
+loaded, *leaves the keyboard where it went* goes red. Hours played asked for once and left asked
+for, or asked for by both lists, turns the board's *opens every other door at the top* red. And
+the box given the keyboard whatever door turns every keyboard case of both openings at a place red,
+the note's as well as these.
+
 ## Pictures in notes
 
 Built for #18 in `docs/plans/games-board-next.md` on 30 October 2026, from a workshop the same

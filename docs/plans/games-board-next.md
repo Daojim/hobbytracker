@@ -42,7 +42,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
-| 20 | The titles a column's header leaves out | S–M | **Planned and workshopped 3 November 2026**, beside #19; ready to build. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal. Your board's columns only. See its section |
+| 20 | The titles a column's header leaves out | S–M | **Built 4 November 2026**, tests first, the day after it was planned and workshopped beside #19; not yet merged. The full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 
 Production runs `35d0443`'s code, which was `main` on 3 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -2964,7 +2964,7 @@ computed animation is `spin`, or none at 0.5 opacity under reduced motion.
 
 ---
 
-## 20. The titles a column's header leaves out · planned
+## 20. The titles a column's header leaves out · built
 
 **Planned 3 November 2026**, at the user's request, beside #19. Lines were read at `4fdb7cf`.
 
@@ -3036,6 +3036,98 @@ at a true 390.
   year the column shows; the names are the cards' for every hobby; a share's column carries none.
 - Frontend: the count opens the list and the list opens the journal, at Hours played for the hours
   list; plain text on a share, on Stats and in the picker; at 390px, with `windowOfWidth(390)`.
+
+### Built
+
+Built on 4 November 2026, tests first, in the order the user gave: the two lists on `ColumnHours`,
+then the count as a button in the accent with its list, then the journal opening at Hours played,
+on `titles-a-header-leaves-out`. The write-up is `docs/board.md`, **The titles a header's count
+leaves out**, with the look in `docs/design.md`, **The titles a header leaves out**, the journal's
+half in `docs/journal.md`, **Opening the journal at Hours played**, and the route in `docs/api.md`.
+
+- **The backend**: `ColumnHours.WithoutLength` and `WithoutPlayed`, and `LeftOutTitleDto`;
+  `HoursTally.Of`'s second overload, which names what each count leaves out, from its own two
+  partitions, when it is told how; `HoursOfAsync` reading the card's name and cover off the rows
+  the sums read, in the column's order; and the share's column taking both lists off.
+- **The frontend**: the two lists and `LeftOutTitle`; `HoursLine.parts`, `HoursPart.counts` and a
+  count that is its list's length where one was sent; `HoursLines` drawing a line as its pieces,
+  a count as a button with `aria-expanded`, and the list under the header; `onOpenLeftOut` on
+  `Column` and `ColumnFrame`, and `leftOutCountId`; the board's sixth door and its `atHours`; and
+  `EntryDrawer`'s `atHours` with `EntryFormHandle.focusHours`.
+
+### Tests
+
+Backend 926, the 920 before and six; frontend 1,327 with `tsc` clean, the 1,302 before and 25;
+and **the full e2e suite, 215 specs in Chromium, all green** on its second run, the 213 before
+and two, with one moved.
+**Every test was red first on what it asserts, or proved by putting its fault back** where it was
+written after its code, and the table says which.
+
+| Step | Tests | Red first by |
+|---|---|---|
+| 1. The lists | 5 column, 1 share, 1 rewritten | the lists written as null, as `HoursTally` first carried them: six red on *should not be null*. Once the board's were built, the two share cases went red on a share naming titles, and green when it took them off |
+| 2. The count and its list | 5 unit, 10 column, 2 board, 2 guards and an assertion | the unit five on there being no pieces, and eight of the column's on the count not being a button. The rest passed from the start and were proved by fault: the column's *stays words* and *off this page*, the two board cases, whose wiring went in with the column, and the share's and the Stats page's guards, with an assertion added to the picker's band case |
+| 3. At Hours played | 4 drawer, 2 board | five red on the keyboard. The already-held case was red first for the wrong reason, a title seeded into the cache in the shape the API sends rather than the hobby's, and was rewritten to open the title twice. The drawer's *any other way* is a guard, proved by fault |
+| 4. End to end | 2 new, 1 moved | written after the code, and proved by fault: the header unpositioned turned both red on the list's left edge, and the hours list opening at the top turned the desktop one red on the keyboard. The header spec moved because the image name it read is gone, as the plan said it would be |
+
+**Faults put back, one at a time, each red on its own tests**: eight on the server and fourteen on
+the board, in `docs/board.md`'s table; five for the journal at Hours played, in `docs/journal.md`;
+and the two end to end. One plant was wrong the first time. The effect moved above the panel's
+named `loaded` in its deps, which are read as the call is made, before the body had declared it,
+and 198 cases threw; planted again with what exists at that point, it turned exactly the
+already-held case red. And one test was strengthened: the line made one image again first went red
+only on older cases that found two images of one name, so the count's case asserts the rule
+itself, that no image holds the button.
+
+**The built header was shot beside the picked prototype**, in the states it was rendered in, from
+the gitignored `workshop.local/estimates/compare-header.mjs` on the staged board, with the lists
+cut to the built shape. At rest no pixel differs, Shelf Light and Shelf Dark, at 1440 and at 390;
+open, only the count does, because the prototype shot open lists with the dotted underline. The
+lists measure as the prototype's did: 240×50 and 240×226 at 1440, and 332×50 ending at 361px at
+390. **The desktop spec passes in Firefox too**, the user's browser.
+
+**The first full run went 214 of 215.** The phone spec's first seed answered a 502, the API
+having had no answer from the IGDB stub, before anything of this feature ran. It passed the next
+three times it ran beside the desktop spec, in the same order, and **the second full run, of the
+code as committed, went 215 green**. The e2e config keeps none of the API's output, so the cause
+was not read; Node closing an idle keep-alive connection after five seconds as a request went out
+on it fits the gap before it, and is unproven.
+
+### What the plan got wrong, or left out
+
+- **A list could disagree with its count on screen.** The plan said it cannot, because both come
+  off the same rows, which is true of the server's answer. The client worked a count out as
+  `total - lengthTitles`, and a move writes the total at once and leaves the hours to the
+  refetch, so a timed game carried out of Playing took the count to nought while its list still
+  named Phantom Blade Zero. On your board a count is now its list's length; a share and the
+  Stats page, which are sent no lists and move nothing, still subtract.
+- **The door is the board's, not `OpenJournal`'s.** The plan had Hours played as a second option
+  on `OpenJournal`. A title from a list needed a door of its own anyway, because the keyboard
+  goes back to the count and not to a card, so `onOpenLeftOut` is that door and `atHours` is set
+  in `openJournalFrom`, beside `askHowLong`. `OpenJournal` is as it was.
+- **The list sits at z-10, the card menu's layer, not the prototype's z-20**, which is the
+  drawer's: at z-20 a list scrolled up on a phone rode over the pinned switcher (z-15), where a
+  card goes under it.
+- **The keyboard leaving closes the list**, which the plan did not list. Each column keeps its own
+  list, and a press on another column's count is a press outside this one, but the keyboard has
+  no press, so without it two could be open at once.
+- **The list is in the column's order, whichever sort it is in**, which the plan left open. The
+  renders were in hand-made order, the default, and the order of the cards under it is the order
+  that reads as one list.
+- **The Stats page names nothing either.** The plan said its line stays a plain count. Its
+  comparison goes through the same tally, and naming there would have been passes rather than
+  titles, and on a share's Stats page, which is the owner's, more than a share shows.
+- **The board's wiring went in with the column**, before a test of its own: `Column` made the door
+  a required prop, and the board would not compile without one. Its two cases were proved by
+  putting the faults back, as were the three guards that passed from the start.
+- **In Dropped the list fades with its column**, at the well's 70%, as a card's `⋯` menu there
+  always has. Nobody rendered it, and the user's board shows no count in Dropped; a question for
+  the user if a list there ever matters.
+- **The share's tests did not move**, though the plan expected them to with the line. A share's
+  comparison is still an image, and its counts are words that `getByText` finds as it did. The
+  board's line two in `Column.test.tsx` and `hltb.spec.ts`'s header spec are what moved.
+- **Found while rendering still stands**: the 406px phone board is not this feature's, and the
+  comparison folded the calendar away to measure at 390, as the workshop's shots did.
 
 ---
 

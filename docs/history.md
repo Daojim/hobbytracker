@@ -179,6 +179,13 @@
       user's pick from renders over *Check now* in the line that says there is no estimate, and
       while it checks it turns in place, because a word there was wider and pushed the link onto
       a line of its own
+- [x] The titles a column's header leaves out. A header counts what its figures could not add
+      up, *1 with no estimate* and Completed's *2 without your hours*, and on your own board each
+      count now opens a list of those titles, a cover and a name each, under the whole header at
+      the column's width; a title in it opens its journal, at Hours played from the list without
+      your hours. The count in the link colour was the user's pick from renders over a dotted
+      underline. The lists come with the column, from the rows the sums already read, so a list
+      cannot name a title its count did not count, and a share counts and names nothing
 - [ ] A Discover list from your ratings: IGDB's similar games for what you rated highest, less
       what is already on your board, if a look at the real results says it is worth building
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

@@ -30,7 +30,7 @@ off the routing table; see **Sharing a board** in `docs/auth.md`.
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite. **JSON for words alone; `multipart/form-data` for a note with pictures**, two actions told apart by `[Consumes]`. See **Pictures in notes** in `docs/journal.md` |
 | `GET PUT DELETE /api/notes/{id}` | a note id is enough on its own. Rewriting does not move its date. A JSON `PUT` leaves the note's pictures alone; a form `PUT` names the ones it keeps |
 | `GET /api/note-pictures/{id}` and `/{id}/thumbnail` | a picture in a note, and the small copy a card draws, as the type they were kept as. `private, max-age=31536000, immutable` and `nosniff`. **404** for another account's, **401** signed out, share link or not |
-| `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column, **with the hours its header says over the whole column** |
+| `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection / one board column, **with the hours its header says over the whole column**, and the titles each of its counts leaves out, named |
 | `GET /api/library/years?hobby=` | years with any activity — started **or** finished — newest first |
 | `GET /api/library/upcoming?hobby=` | the release calendar: Backlog entries whose title is not out yet, each at the last day it could come out and the undated last. **Not paged.** See **What a window says, and where it sits** in `docs/games-igdb.md` |
 | `GET /api/library/export?hobby=` | everything on your board for the spreadsheet in Settings: every title in every column, the calendar's too, with every pass of yours and every note, in the board's order. **Not paged.** See `docs/export.md` |
@@ -853,6 +853,85 @@ a hobby whose pass records no hours never compares, whatever words it has.
 | No line at all | the case in `hltb.spec.ts`, end to end |
 | Backlog's pace line on every column | *is Backlog's alone* |
 | The pace read once rather than subscribed to | `Column.test.tsx`'s *hears a new one* |
+
+### The titles a header's count leaves out
+
+**On your board, each count after a figure opens the titles it counts**: *1 with no estimate*, and
+Completed's *2 without your hours*. A title in the list opens its journal. Built on 4 November
+2026 for #20 in `docs/plans/games-board-next.md`, which has the picks and the workshop; the look is
+`docs/design.md`'s, under **The titles a header leaves out**.
+
+- **The lists come with the column, from the rows its sums read.** `ColumnHours.WithoutLength` and
+  `WithoutPlayed`, each title a media id, the card's name and its cover. `HoursTally.Of` makes
+  them from the two partitions it adds up, so a list is exactly the titles its count is over: no
+  figure, or a figure and none of your hours, and a title with neither in the first alone, as
+  the counts have it. So they are the whole column before the page is cut, in the year it shows,
+  without the calendar's titles, and **in the column's own order**, whichever sort it is in,
+  because `HoursOfAsync` reads `Ordered(query, sort, partition)`.
+- **The name is one more copy of the anime coalesce**, terminal like the others and nowhere near
+  `BoardQuery`. `A_title_in_a_list_is_named_and_covered_as_its_card_is_for_every_hobby` holds it
+  to the cards, as the total's test holds the length's copy.
+- **A share names nothing.** `ISharedLibrary.ColumnAsync` is the board's own read with the two
+  lists taken off: which of the owner's games have no hours logged, title by title, is more than a
+  share shows. Taken off rather than never read, because the names come off rows the sums read
+  anyway; unlike the note, nothing in them is anywhere a share's SQL must not reach. **Nor does the
+  Stats page**, whose comparison is over passes and goes through `HoursTally.Of`'s tuple overload,
+  which has no names to give. A share's Stats answer is the owner's page, so that is a share's
+  rule too, and `A_share_counts_what_a_header_leaves_out_and_names_none_of_it` reads both.
+- **On your board a count is the length of the list it opens**, not the figures' difference.
+  `columnHoursLines` reads `withoutLength.length` where a list was sent. A move writes a column's
+  total at once and leaves its hours to the refetch, so `total - lengthTitles` sat a title away
+  from its list until the answer came: a timed game carried out of Playing took the count to
+  nought while the list still named Phantom Blade Zero. A share and the Stats page are sent no
+  lists, and nothing moves on either, so the difference is exact there.
+- **The line is its pieces, not one image.** A button cannot live inside a `role="img"`, so each
+  piece that does not read aloud as it prints keeps its spoken form, and a count is words or a
+  button. `HoursLine.parts` carries them, a count saying which list it counts
+  (`HoursPart.counts`); `text` and `spoken` are still the line read whole, which the Stats page
+  prints as it did.
+- **A count is a button only where there is a list to open and a way to open it.** `ColumnFrame`
+  is handed `onOpenLeftOut` by your board's `Column` and nothing by a share's `SharedColumn`, so a
+  share's counts stay words even handed the names, as a note that arrived would still not be
+  drawn. A list whose titles all go while it is open, given estimates by a poll, closes, and stays
+  closed when its count comes back.
+- **One list open at a time, from each column's own state.** A press anywhere else closes it, the
+  card menu's `pointerdown`; Escape closes it and hands the keyboard back to the count, caught on
+  the line's container as the card menu's is, because the journal listens at the document; and the
+  keyboard leaving for anywhere else closes it, which is what keeps another column's list from
+  being open beside it. It opens with the keyboard on its first title.
+- **A title opens its journal, the board's sixth door**, after the card, the calendar row, the
+  search result's name, the note a search found and the pick's name. `onOpenLeftOut` is a prop of
+  its own rather than `OpenJournal`, because the keyboard goes back to the count by
+  `leftOutCountId` and not to a card: the list has closed, and the card can be a page away. **From
+  the list without your hours it opens at Hours played**; see **Opening the journal at Hours
+  played** in `docs/journal.md`.
+
+**Checked by putting each fault back**, one at a time, against the finished feature:
+
+| Fault | What goes red |
+|---|---|
+| The list worked out from the page of cards, on the server | *each list is the titles its count is over across the whole column* |
+| The lists over a query of their own, by hobby and column alone | the year case, the calendar case and the order case |
+| A title with neither figure in both lists | the whole-column case, the year case, and the share's |
+| The name off `media.title` | *named and covered as its card is*, at anime |
+| No cover | the same case |
+| The lists in an order of their own | *in the order the column shows them* |
+| A share handed the board's lists | *the owner's column less the note and the titles left out*, *counts … and names none of it* |
+| The Stats page's tally naming its finishes | *counts … and names none of it*, on its Stats half |
+| A count worked out from the figures, the list ignored | *is the length of the list it opens*, *names the titles the server named, off this page*, and the share's words case |
+| The line one image again, its pieces inside | *makes the count a button in a line that is pieces now*, and five older cases that found two images of one name |
+| The list worked out from the page of cards, on the client | *off this page*, *stays words when the server named no titles*, and *opens a list … with the keyboard in it* |
+| The list opening with the keyboard left on the count | *with the keyboard in it*, and *closes when the keyboard leaves it* |
+| Escape leaving the keyboard nowhere | *closes on Escape and hands the keyboard back* |
+| No press outside heard | *closes on a press anywhere else* |
+| The keyboard leaving not heard | *closes when the keyboard leaves it* |
+| A count that only toggles, so the other count shuts a list rather than opening its own | *opens one list at a time* |
+| The list sorted on the client | *in the order the server sent them* |
+| A count a button wherever titles were named, opener or none | the share's *counts what a header leaves out in words* |
+| The phone's line handed nothing to open a title with | *opens a count's list from beside the sort control*, at 390px |
+| The Stats page's counts made something to press | its two *you and HowLongToBeat* cases |
+| The picker's count made something to press | *counts each band* |
+| The list's door handing the keyboard back to a card | *hands the keyboard back to the count* |
 
 ### What should I play next?
 

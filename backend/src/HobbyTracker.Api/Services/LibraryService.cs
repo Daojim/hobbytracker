@@ -119,7 +119,10 @@ public interface ILibraryService
 /// </summary>
 public interface ISharedLibrary
 {
-    /// <summary>One column of the owner's board, as their board draws it, less the note.</summary>
+    /// <summary>
+    /// One column of the owner's board, as their board draws it, less the note and the names of
+    /// the titles its header's counts leave out.
+    /// </summary>
     Task<LibraryPage> ColumnAsync(
         int ownerId,
         string hobby,
@@ -394,7 +397,7 @@ public sealed class LibraryService(
             user.Id, LatestNoteOf(user.Id), hobby, status, year, sort, partition, page, pageSize,
             cancellationToken);
 
-    Task<LibraryPage> ISharedLibrary.ColumnAsync(
+    async Task<LibraryPage> ISharedLibrary.ColumnAsync(
         int ownerId,
         string hobby,
         LogStatus status,
@@ -402,13 +405,22 @@ public sealed class LibraryService(
         LibrarySort sort,
         int? page,
         int? pageSize,
-        CancellationToken cancellationToken) =>
+        CancellationToken cancellationToken)
+    {
         // The board's own read of the column, for the owner the share names, with the note slot
         // filled by nothing. The default partition, so a title waiting on the calendar is off the
         // column here exactly as it is on the owner's board.
-        PageAsync(
+        var column = await PageAsync(
             ownerId, NoNote, hobby, status, year, sort, LibraryPartition.Default, page, pageSize,
             cancellationToken);
+
+        // And its header counts what the figures leave out without naming any of it: which of the
+        // owner's titles have no hours logged, title by title, is more than a share shows. Taken
+        // off here rather than never read, because the names are the cards' own and come off rows
+        // the sums read anyway. Unlike the note, nothing in them is anywhere the share's SQL must
+        // not reach.
+        return column with { Hours = column.Hours with { WithoutLength = null, WithoutPlayed = null } };
+    }
 
     /// <summary>
     /// A page of one owner's board and the hours its header says over the whole column: what a
@@ -434,8 +446,9 @@ public sealed class LibraryService(
         var total = await query.CountAsync(cancellationToken);
 
         // Over the filtered column and before the page is cut, as the count above is: the header
-        // has to agree with the column, not with the hundred cards a page holds.
-        var hours = await HoursOfAsync(query, cancellationToken);
+        // has to agree with the column, not with the hundred cards a page holds. In the column's
+        // own order, so the titles a count leaves out are named in the order of the cards.
+        var hours = await HoursOfAsync(Ordered(query, sort, partition), cancellationToken);
 
         var items = await Ordered(query, sort, partition)
             .Skip((normalisedPage - 1) * normalisedSize)
@@ -657,13 +670,15 @@ public sealed class LibraryService(
 
     /// <summary>
     /// What a column's header says about how long its titles take: the figure each card prints,
-    /// added up, and your own hours against it over the titles that have both.
+    /// added up, your own hours against it over the titles that have both, and the titles each of
+    /// those leaves out, named.
     ///
     /// <para>
     /// <b>Two numbers a title are read out here and added up by <see cref="HoursTally"/></b>,
     /// rather than summed in SQL: a column is a few hundred rows at most at the scale a personal
     /// catalogue reaches, and the rules read as what they are there. The Stats page adds up a
-    /// year's finishes by the same ones.
+    /// year's finishes by the same ones. <b>The names come off the same rows</b>, so a list cannot
+    /// name a title its count did not count.
     /// </para>
     /// </summary>
     private static async Task<ColumnHours> HoursOfAsync(
@@ -672,6 +687,15 @@ public sealed class LibraryService(
         var titles = await column
             .Select(row => new
             {
+                row.Media.Id,
+
+                // The name a card leads with, as both projections build it: one more copy of that
+                // coalesce, terminal like the others and so nowhere near BoardQuery.
+                // A_title_in_a_list_is_named_and_covered_as_its_card_is_for_every_hobby holds it
+                // to the cards, as the length's copy below is held by the total's test.
+                Title = (row.Media as Anime)!.EnglishTitle ?? row.Media.Title,
+                row.Media.CoverUrl,
+
                 // LengthHours, exactly as the two projections build it, rounding and all — the
                 // fourth copy of this coalesce, after those two and Sorted's Length arm. A
                 // shared expression would have saved one copy of the four: the projections
@@ -700,7 +724,11 @@ public sealed class LibraryService(
             })
             .ToListAsync(cancellationToken);
 
-        return HoursTally.Of(titles.Select(title => (title.Length, title.HoursPlayed)));
+        return HoursTally.Of(
+            titles,
+            title => title.Length,
+            title => title.HoursPlayed,
+            title => new LeftOutTitleDto(title.Id, title.Title, title.CoverUrl));
     }
 
     public Task<IReadOnlyList<int>> ActivityYearsAsync(
