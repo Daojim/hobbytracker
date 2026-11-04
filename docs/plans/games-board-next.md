@@ -42,9 +42,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
-| 20 | The titles a column's header leaves out | S–M | **Built 4 November 2026**, tests first, the day after it was planned and workshopped beside #19; not yet merged. The full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
+| 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 
-Production runs `35d0443`'s code, which was `main` on 3 November 2026. Deploying is the runbook in
+Production runs `e911400`'s code, which was `main` on 4 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -2964,7 +2964,7 @@ computed animation is `spin`, or none at 0.5 opacity under reduced motion.
 
 ---
 
-## 20. The titles a column's header leaves out · built
+## 20. The titles a column's header leaves out · shipped
 
 **Planned 3 November 2026**, at the user's request, beside #19. Lines were read at `4fdb7cf`.
 
@@ -3041,7 +3041,8 @@ at a true 390.
 
 Built on 4 November 2026, tests first, in the order the user gave: the two lists on `ColumnHours`,
 then the count as a button in the accent with its list, then the journal opening at Hours played,
-on `titles-a-header-leaves-out`. The write-up is `docs/board.md`, **The titles a header's count
+on `titles-a-header-leaves-out`, and **shipped and deployed at about 03:29 Eastern the same day**
+(PR #89). The write-up is `docs/board.md`, **The titles a header's count
 leaves out**, with the look in `docs/design.md`, **The titles a header leaves out**, the journal's
 half in `docs/journal.md`, **Opening the journal at Hours played**, and the route in `docs/api.md`.
 
@@ -3128,6 +3129,25 @@ on it fits the gap before it, and is unproven.
   board's line two in `Column.test.tsx` and `hltb.spec.ts`'s header spec are what moved.
 - **Found while rendering still stands**: the 406px phone board is not this feature's, and the
   comparison folded the calendar away to measure at 390, as the workshop's shots did.
+
+### The deploy, and what it left
+
+- **Deployed at about 03:29 Eastern on 4 November 2026**, `35d0443` to `e911400`, carrying #88's
+  docs with it. api and caddy both recreated, api first, and no layer downloaded. No migration
+  and no variable.
+- **Proved from outside.** The bundle went `index-B9YY9hlB.js` to `index-CXRpFSOf.js`, and the
+  stylesheet `index-m9ecWys3.css` to `index-ComQJ_q3.css`, the local build's name again. In the
+  script `left-out-` went 0 to 1 and `focusHours` 0 to 2, and in the stylesheet `.inset-x-0{`, its
+  one new rule, found by comparing the two stylesheets' selectors, 0 to 1. `/api/auth/me` answered
+  `null` with a 200, and a column signed out a 401.
+- **Proved inside.** `LeftOutTitleDto`, `get_WithoutLength` and `get_WithoutPlayed` went 0 to 1
+  each in the running DLL, and the startup log had no failure and no *switched off* line for
+  either worker.
+- **The restart re-armed both timers, and both ran five minutes on**: the HowLongToBeat backfill
+  queued 0 titles, since the night before's run had asked every title that was due, and the
+  release sweep brought 17 unreleased titles up to date.
+- **The user's own check**: a count opened on the live board. Playing's may no longer leave Phantom
+  Blade Zero out, since #19's first backfill brought new figures for 19 titles.
 
 ---
 
