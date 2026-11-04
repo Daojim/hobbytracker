@@ -96,7 +96,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
 **Four hobbies are live**, anime included, and **no new phase is queued**: the games board has
-one planned feature left, and books and music are on hold. See **What is next**, which also lists
+two planned features left, and books and music are on hold. See **What is next**, which also lists
 the smaller things named but not built.
 
 ## Start here
@@ -642,7 +642,7 @@ shuffled.
       order, an eleventh, a bug, was added on 4 October 2026, two about the journal on
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
       notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
-      and two more on 3 November:
+      two more on 3 November, and one on 4 November:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -729,6 +729,10 @@ shuffled.
         journal, at Hours played from the list without your hours. The lists come with the
         column from the rows its sums read, and a share counts without naming. Your board's
         columns only. The accent was the user's pick over a dotted underline (PR #89, deployed)
+      - [ ] the titles behind a rating on the Stats page — #20's list, opened from a point of the
+        Rating chart: the finishes rated at that point. No server change, since the page holds
+        every finish in its year. Whether a title opens its journal, which nothing on the Stats
+        page does yet, is for pickup. Planned, not yet workshopped
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.

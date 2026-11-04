@@ -8,7 +8,8 @@ fourteenth and a fifteenth followed on 8 October 2026, after a mistaken finish c
 notes. A sixteenth and a seventeenth, a picker for the backlog and a Discover list from your
 ratings, were added on 23 October 2026 from suggestions the user picked. An eighteenth, pictures
 in notes, was added on 30 October 2026 at the user's request, and a nineteenth and a twentieth,
-an estimate that catches up and the titles a column's header leaves out, on 3 November 2026.
+an estimate that catches up and the titles a column's header leaves out, on 3 November 2026. A
+twenty-first, the titles behind a rating on the Stats page, followed on 4 November 2026.
 CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
@@ -43,6 +44,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
+| 21 | The titles behind a rating on the Stats page | S | **Planned 4 November 2026**, at the user's request; not yet workshopped. #20's list, opened from a point of the Stats page's Rating chart: the finishes rated at that point. No server change, since the page holds every finish in its year. Whether a title in it opens its journal is for pickup, because nothing on the Stats page does yet. See its section |
 
 Production runs `e911400`'s code, which was `main` on 4 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -3148,6 +3150,72 @@ on it fits the gap before it, and is unproven.
   release sweep brought 17 unreleased titles up to date.
 - **The user's own check**: a count opened on the live board. Playing's may no longer leave Phantom
   Blade Zero out, since #19's first backfill brought new figures for 19 titles.
+
+---
+
+## 21. The titles behind a rating on the Stats page · planned
+
+**Planned 4 November 2026**, at the user's request, the morning #20 shipped. Lines were read at
+`ca02f40`. Not yet workshopped.
+
+**What the user asked for.** The Stats page's Rating section counts how many games were rated at
+each number. Clicking a number should open #20's list: the games rated it.
+
+**What it builds on.**
+- **The chart is `stats/RatingSpread.tsx`**: a column for each whole point from 1 to 10, its
+  count over its bar and the point under it, each bar the colour a card's rating at that point
+  wears. The chart is `aria-hidden`, and the same counts are a screen reader's list, *3 rated 9*,
+  with the points that have none left out.
+- **The list needs nothing from the server.** `StatsDto.Finished` is every finish in the year, not
+  a page of them, each with its media id, the card's name, its cover, its rating and when it was
+  finished. `ratingCounts` in `stats/stats.ts` files a finish under the whole point below its
+  rating rounded to a tenth, so a 9.5 is a 9 and only 10.0 is a 10. A list has to be filed by that
+  same rule, one function for both, or a count and its list could disagree at a boundary.
+- **It counts finishes, not titles**, as everything on the page does: a game finished twice is two
+  finishes, and two in one column's count when both passes are rated at that point.
+- **Nothing on the Stats page opens a journal today.** The drawer is the board's, and its heading
+  moves a title through the board's own mutation (`columns`, `onMove`, `onPutBack`), which the
+  Stats page has none of. Its covers by month and its hours chart are pictures and words.
+- **#20's list belongs to `HoursLines`, inside `board/Column.tsx`.** Reusing it means lifting it out
+  into a piece both can draw: the panel and its rows, one list at a time, the keyboard put in it
+  and handed back, Escape, a press elsewhere and the keyboard leaving.
+- **A share's Stats page names no rating today.** The covers by month and the hours chart show
+  titles without their ratings, so on a share a rating is seen title by title only on the Completed
+  column's cards, and only when that column is shown.
+- **Measured on the staged board as read on 3 November 2026**, which holds each title's current
+  pass rather than every finish, so as a guide only: under All years the 8s are 23 and the 7s 17,
+  and in 2025 the 8s are 14. At #20's 42px a row, 23 is nearly a thousand pixels of list.
+
+### Decide at pickup
+
+- **What a title in the list does.** (a) Nothing more: a cover and a name, and perhaps its exact
+  rating, since a column holds 9.0 to 9.9. (b) Opens its journal over the Stats page, which mounts
+  the drawer there for the first time and needs either the board's moves or a drawer without its
+  column control. (c) Goes to the board with that journal open. Recommended: (a), as the quick
+  feature asked for, with (b) the version that matches #20, at its cost.
+- **What is pressed**: the count over a bar, the point under it, or the whole column. Recommended:
+  the whole column, as one button named as the screen reader's list names it, *3 rated 9*, which
+  then replaces that list.
+- **A long list**: run on under the chart, or held to a height that scrolls. Recommended: render
+  both with the All years 8s before choosing.
+- **A game finished twice at one point**: two rows, told apart by when each was finished, or one
+  with a count. Recommended: two rows, so a list is as long as its count, as #20's are.
+- **On a share**: recommended your Stats page only, as #20's lists are your board's. A share would
+  otherwise name the owner's ratings title by title where it names none today.
+
+### Things to get right
+
+- One function files a finish under its point, for the count and for its list.
+- Stats is games only, by `HobbyDefinition.stats`, and a phrase addressing the owner on a page a
+  share also shows is a `Voiced` pair (#9).
+- At 390px the chart is the section's width, and the list should be too.
+
+### Tests first, to be confirmed at pickup
+
+- Frontend only: a column opens the finishes rated at its point, a 9.5 under 9 and a 10.0 under
+  10; the list is as long as its count, a game finished twice included; one list at a time,
+  closed by Escape and by a press elsewhere, with the keyboard handed back; nothing to press on a
+  share, if so decided; and at 390px, with `windowOfWidth(390)`.
 
 ---
 
