@@ -104,6 +104,44 @@ function cardsNamed(title: string) {
   });
 }
 
+/**
+ * Playing with one game timed and Phantom Blade Zero not, as the user's was on 3 November 2026,
+ * so its header counts one with no estimate and names it. And Completed with two finishes timed
+ * and your hours on one, so that header compares and counts one without your hours.
+ */
+function playingWithPhantomBladeZero() {
+  return boardServer({
+    columns: {
+      InProgress: [
+        libraryItem({ mediaId: 905, title: 'Castlevania', currentStatus: 'InProgress', lengthHours: 12.74 }),
+        libraryItem({ mediaId: 911, title: 'Phantom Blade Zero', currentStatus: 'InProgress' }),
+      ],
+      Completed: [
+        libraryItem({ mediaId: 919, title: 'Celeste', currentStatus: 'Completed', lengthHours: 20 }),
+        libraryItem({ mediaId: 920, title: 'Split Fiction', currentStatus: 'Completed', lengthHours: 14.2 }),
+      ],
+    },
+    hours: {
+      InProgress: {
+        ...NO_HOURS,
+        length: 12.74,
+        lengthTitles: 1,
+        withoutLength: [{ mediaId: 911, title: 'Phantom Blade Zero', coverUrl: null }],
+        withoutPlayed: [],
+      },
+      Completed: {
+        length: 34.2,
+        lengthTitles: 2,
+        played: 14.5,
+        playedLength: 20,
+        playedTitles: 1,
+        withoutLength: [],
+        withoutPlayed: [{ mediaId: 920, title: 'Split Fiction', coverUrl: null }],
+      },
+    },
+  });
+}
+
 // A column taken off in Settings is remembered in storage, and so is the calendar folded shut:
 // neither may follow one test into the next.
 afterEach(() => localStorage.clear());
@@ -677,6 +715,89 @@ describe('BoardPage', () => {
     await waitFor(() =>
       expect(within(results).getByRole('button', { name: 'Celeste' })).toHaveFocus(),
     );
+  });
+
+  it("opens a title's journal from the list under a header's count, and hands the keyboard back to the count", async () => {
+    // The sixth door into the drawer. The list has closed by the time the journal does, and the
+    // title's card can be a page away, so the keyboard goes back to the count that opened it.
+    playingWithPhantomBladeZero();
+    journalServer({ detail: gameDetail({ id: 911, title: 'Phantom Blade Zero' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: '1 with no estimate' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '1 with no estimate' })).getByRole('button', {
+        name: 'Phantom Blade Zero',
+      }),
+    );
+
+    const drawer = await screen.findByRole('dialog', { name: 'Phantom Blade Zero' });
+    await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '1 with no estimate' })).toHaveFocus(),
+    );
+  });
+
+  it('opens the journal at Hours played for a title from the list of those without your hours', async () => {
+    // Logging them is what that list is for. The keyboard goes to the box, past the panel that
+    // takes it as the drawer opens.
+    playingWithPhantomBladeZero();
+    journalServer({ detail: gameDetail({ id: 920, title: 'Split Fiction' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: '1 without your hours' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '1 without your hours' })).getByRole('button', {
+        name: 'Split Fiction',
+      }),
+    );
+
+    const drawer = await screen.findByRole('dialog', { name: 'Split Fiction' });
+    await waitFor(() =>
+      expect(within(drawer).getByRole('spinbutton', { name: 'Hours played' })).toHaveFocus(),
+    );
+  });
+
+  it('opens every other door at the top of the journal, the other list included, after one that opened at Hours played', async () => {
+    // Said on every opening, as "How long for me?" is, so the box is never still waiting for the
+    // keyboard in the next journal opened.
+    playingWithPhantomBladeZero();
+    journalServer({ detail: gameDetail({ title: 'Split Fiction' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: '1 without your hours' }));
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '1 without your hours' })).getByRole('button', {
+        name: 'Split Fiction',
+      }),
+    );
+    const first = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(within(first).getByRole('spinbutton', { name: 'Hours played' })).toHaveFocus(),
+    );
+    await userEvent.click(within(first).getByRole('button', { name: 'Close' }));
+
+    for (const open of [
+      async () => {
+        await userEvent.click(screen.getByRole('button', { name: '1 with no estimate' }));
+        await userEvent.click(
+          within(screen.getByRole('group', { name: '1 with no estimate' })).getByRole('button', {
+            name: 'Phantom Blade Zero',
+          }),
+        );
+      },
+      () => userEvent.click(cardsNamed('Castlevania')[0]!),
+    ]) {
+      await open();
+
+      const drawer = await screen.findByRole('dialog');
+      await within(drawer).findByRole('spinbutton', { name: 'Hours played' });
+      expect(drawer).toHaveFocus();
+
+      await userEvent.click(within(drawer).getByRole('button', { name: 'Close' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    }
   });
 
   it('hands focus back to the calendar row when the drawer it opened closes', async () => {
@@ -1632,6 +1753,31 @@ describe('BoardPage, on a phone', () => {
 
     // And not in the switcher, whose segments stay a name over a count.
     expect(segments()).toContain('Backlog 2');
+  });
+
+  it("opens a count's list from beside the sort control, and a title from it opens its journal", async () => {
+    // The line sits where the heading was, beside the sort control, and its count with it. The
+    // list opens under the whole header at the column's width, which is the layout's to show
+    // and the e2e suite's to measure.
+    playingWithPhantomBladeZero();
+    journalServer({ detail: gameDetail({ id: 911, title: 'Phantom Blade Zero' }) });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: /^Playing/ }));
+
+    const count = await screen.findByRole('button', { name: '1 with no estimate' });
+    const sort = screen.getByRole('combobox', { name: 'Playing order' });
+    expect(count.compareDocumentPosition(sort) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(segments()).toContain('Playing 2');
+
+    await userEvent.click(count);
+    await userEvent.click(
+      within(screen.getByRole('group', { name: '1 with no estimate' })).getByRole('button', {
+        name: 'Phantom Blade Zero',
+      }),
+    );
+
+    expect(await screen.findByRole('dialog', { name: 'Phantom Blade Zero' })).toBeInTheDocument();
   });
 
   it('shows the column that is chosen, and only that one', async () => {

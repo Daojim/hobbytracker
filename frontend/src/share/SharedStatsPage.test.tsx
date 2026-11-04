@@ -38,7 +38,15 @@ function aYear() {
       finish({ title: 'Celeste', rating: 9.5, hoursPlayed: 11.2, lengthHours: 12.76 }),
       finish({ title: 'Tunic', rating: 8, hoursPlayed: null, lengthHours: 21.5 }),
     ],
-    hours: { length: 76.08, lengthTitles: 3, played: 42.7, playedLength: 54.58, playedTitles: 2 },
+    hours: {
+      length: 76.08,
+      lengthTitles: 3,
+      played: 42.7,
+      playedLength: 54.58,
+      playedTitles: 2,
+      withoutLength: null,
+      withoutPlayed: null,
+    },
     completion: { finished: 5, going: 3, dropped: 0 },
     backlog: [
       backlogTitle({ title: 'Outer Wilds', inBacklogSince: '2026-08-21T16:00:00Z' }),

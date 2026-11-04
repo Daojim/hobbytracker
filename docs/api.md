@@ -104,7 +104,7 @@ Sign in once and spend the cookie, as below.
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date, and a form rewrite names the pictures it keeps |
 | `GET /api/note-pictures/{id}`, and `thumbnail` under it | a picture in one of your notes, or the card's small copy of it. Never rewritten, so the browser keeps it |
 | `GET /api/notes/search?q=&hobby=` | your notes on one board with every word of `q` in them, in any order and any case, newest first. Fifty at most, and it says when there were more |
-| `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column |
+| `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column, with the hours its header says over the whole column and the titles each of its counts leaves out |
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls. `notFinished: true` puts a finish back on the pass it was made on |
 | `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
 | `PUT /api/library/order` | store one column's manual ranking |

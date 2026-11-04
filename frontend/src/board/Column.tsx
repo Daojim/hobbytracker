@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useQuery, type QueryKey } from '@tanstack/react-query';
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -7,14 +7,30 @@ import { Card, type OpenJournal } from './Card';
 import { SortSelect } from './SortSelect';
 import { type BoardColumn, hobbyDefinition } from '../hobbies';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
-import { columnHoursLines, type HoursLine } from './columnHours';
+import { columnHoursLines, type HoursLine, type HoursPart, type LeftOutList } from './columnHours';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import { usePace, type Pace } from '../lib/pace';
 import type { Voice } from '../lib/voice';
-import type { LibraryItem, LibraryPage, LibrarySort, LogStatus } from '../api/types';
+import type {
+  ColumnHours,
+  LeftOutTitle,
+  LibraryItem,
+  LibraryPage,
+  LibrarySort,
+  LogStatus,
+} from '../api/types';
 
 /** The id a column droppable answers to, so a drop onto empty space still names a column. */
 export const droppableId = (status: LogStatus) => `column:${status}`;
+
+/**
+ * A stable handle on a header's count, which the journal hands the keyboard back to when it was
+ * opened from that count's list. By id for `cardTitleId`'s reason: the list has gone by then, and
+ * a column's refetch would leave a reference pointing at nothing. One board is drawn at a time
+ * and a column has one of each count, so the column and the list are enough to name it.
+ */
+export const leftOutCountId = (status: LogStatus, list: LeftOutList) =>
+  `left-out-${status}-${list}`;
 
 /**
  * Where one column's answer comes from: your board's library, or a share's. Whichever it is, the
@@ -107,6 +123,13 @@ export interface ColumnProps {
   onOpen: OpenJournal;
 
   /**
+   * Opens a title from the list under one of the header's counts, saying which. A door of its own
+   * rather than `onOpen`, because the keyboard goes back to the count when the journal closes and
+   * not to a card: the list has gone, and the card can be a page away.
+   */
+  onOpenLeftOut: (mediaId: number, list: LeftOutList) => void;
+
+  /**
    * Something only your board offers, beside the sort control: Backlog's way into "What should
    * I play next?". Handed to the frame from here because a share's columns wear the same frame,
    * and a share moves nothing.
@@ -130,6 +153,7 @@ export function Column({
   leaving,
   menu,
   onOpen,
+  onOpenLeftOut,
   action,
 }: ColumnProps) {
   // The ref goes on the section, and it has to. It used to hang off the card list below, which
@@ -184,6 +208,7 @@ export function Column({
       dropRef={setNodeRef}
       tinted={isOver}
       action={action}
+      onOpenLeftOut={onOpenLeftOut}
     >
       {(items) => (
         <SortableContext
@@ -258,6 +283,13 @@ export interface ColumnFrameProps {
   /** Beside the sort control, on your board alone. See `ColumnProps.action`. */
   action?: ReactNode;
 
+  /**
+   * Opens a title from a header count's list, on your board alone. A share hands none, so its
+   * counts stay words, and a list a share's answer ever carried would still not be drawn: a list
+   * is the titles you have something to do about, and a share can do nothing.
+   */
+  onOpenLeftOut?: (mediaId: number, list: LeftOutList) => void;
+
   /** The cards, drawn from this page of the column. */
   children: (items: LibraryItem[]) => ReactNode;
 }
@@ -285,6 +317,7 @@ export function ColumnFrame({
   dropRef,
   tinted = false,
   action,
+  onOpenLeftOut,
   children,
 }: ColumnFrameProps) {
   const headingId = useId();
@@ -328,7 +361,10 @@ export function ColumnFrame({
         muted ? 'border-dropped/30 opacity-70' : 'border-line-soft'
       } ${tinted ? 'bg-drop' : 'bg-well'}`}
     >
-      <div className="mb-3">
+      {/* Positioned so that a count's list opens under the whole header, at the column's
+          width, wherever in it the count sits: 240px at 1440 and 332px on a phone, picked from
+          renders on 3 November 2026 after a first list of 288px ran past its column. */}
+      <div className="relative mb-3">
         <div className="flex flex-wrap items-center gap-2">
           <h2
             id={headingId}
@@ -341,7 +377,14 @@ export function ColumnFrame({
               hours take its place, beside the sort control. Picked over a line under each
               segment's count, which made the pinned switcher taller on every column and had no
               room for Completed's comparison. */}
-          {namedAbove && <HoursLines lines={hours} />}
+          {namedAbove && (
+            <HoursLines
+              status={status}
+              lines={hours}
+              named={data?.hours}
+              onOpen={onOpenLeftOut}
+            />
+          )}
 
           {onToggleCollapse !== undefined && (
             <button
@@ -369,7 +412,15 @@ export function ColumnFrame({
             it was. The two placements that shared the row, after the count or before the sort
             control, put every column's sort control on a second line even at 1440px. Chosen
             from screenshots on 1 October 2026. */}
-        {!namedAbove && <HoursLines lines={hours} className="mt-1" />}
+        {!namedAbove && (
+          <HoursLines
+            status={status}
+            lines={hours}
+            named={data?.hours}
+            onOpen={onOpenLeftOut}
+            className="mt-1"
+          />
+        )}
       </div>
 
       {!collapsed && (
@@ -398,23 +449,173 @@ export function ColumnFrame({
 }
 
 /**
- * A column's hours, one muted line each, or nothing at all.
+ * A column's hours, one muted line each, or nothing at all, and on your board each count of the
+ * titles a figure leaves out as a button that opens a list of them.
  *
  * Each line reads aloud in words, as a card's length badge does: `~1,034 h` is a tilde and a
  * letter to a screen reader. Kept out of the heading, which is what names the column's region.
+ *
+ * **A line is its pieces rather than one image, since #20**, because a button cannot live inside
+ * an image: a piece that does not read aloud as it prints keeps its spoken form, and the rest is
+ * words. The count is in the accent, the colour of the words that open a journal elsewhere, which
+ * was the user's pick over a dotted underline, from renders on 3 November 2026. Its list gives
+ * each title a cover and a name, with no heading, and a row opens that title's journal.
  */
-function HoursLines({ lines, className = '' }: { lines: HoursLine[]; className?: string }) {
+function HoursLines({
+  status,
+  lines,
+  named,
+  onOpen,
+  className = '',
+}: {
+  status: LogStatus;
+  lines: HoursLine[];
+  /** The column's hours, which on your board name the titles each count leaves out. */
+  named: ColumnHours | undefined;
+  /** Opens a title from a list. A share has none to hand, and draws its counts as words. */
+  onOpen: ((mediaId: number, list: LeftOutList) => void) | undefined;
+  className?: string;
+}) {
+  const [open, setOpen] = useState<LeftOutList | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+
+  /** What a count can open: nothing on a share, and nothing the server did not name. */
+  const titlesOf = (which: LeftOutList): readonly LeftOutTitle[] =>
+    onOpen === undefined ? [] : (named?.[which] ?? []);
+
+  // A list whose titles have all gone, given an estimate while it was open, closes rather than
+  // standing open over nothing, and stays closed when its count comes back. Adjusted during
+  // render, as the board adjusts its year to a list of years that changed under it.
+  const showing = open !== null && titlesOf(open).length > 0 ? open : null;
+  if (open !== null && showing === null) {
+    setOpen(null);
+  }
+
+  // A press anywhere else shuts it, which is the card menu's mechanism for the card menu's
+  // reason, and it makes a press on another column's count one more press outside this one.
+  useEffect(() => {
+    if (showing === null) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (!box.current?.contains(event.target as Node)) {
+        setOpen(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [showing]);
+
+  // The keyboard goes into the list as it opens: the count has done its job, and the titles are
+  // what is next. Each time one opens, which pressing the line's other count does as well.
+  useEffect(() => {
+    if (showing !== null) {
+      list.current?.querySelector('button')?.focus();
+    }
+  }, [showing]);
+
   if (lines.length === 0) {
     return null;
   }
 
+  function pieceOf(part: HoursPart) {
+    if (part.counts !== undefined && titlesOf(part.counts).length > 0) {
+      const which = part.counts;
+
+      return (
+        <button
+          type="button"
+          id={leftOutCountId(status, which)}
+          aria-expanded={showing === which}
+          onClick={() => setOpen(showing === which ? null : which)}
+          className="text-accent hover:underline"
+        >
+          {part.text}
+        </button>
+      );
+    }
+
+    return part.spoken === part.text ? (
+      part.text
+    ) : (
+      <span role="img" aria-label={part.spoken}>
+        {part.text}
+      </span>
+    );
+  }
+
   return (
-    <p className={`text-xs text-muted tabular-nums ${className}`}>
+    <div
+      ref={box}
+      // Caught here rather than at the document, as the card menu's Escape is: the journal
+      // listens there, and two listeners for one key is how they start disagreeing.
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && showing !== null) {
+          setOpen(null);
+          document.getElementById(leftOutCountId(status, showing))?.focus();
+        }
+      }}
+      // The keyboard leaving for anywhere else closes it, as a press elsewhere does. Each column
+      // keeps its own list, so this is what keeps two from being open at once. Focus going
+      // nowhere, which is a press on the list's own padding, is that press's to decide.
+      onBlur={(event) => {
+        const next = event.relatedTarget;
+        if (showing !== null && next !== null && !box.current?.contains(next)) {
+          setOpen(null);
+        }
+      }}
+      className={`text-xs text-muted tabular-nums ${className}`}
+    >
       {lines.map((line) => (
-        <span key={line.text} role="img" aria-label={line.spoken} className="block">
-          {line.text}
+        <span key={line.text} className="block">
+          {line.parts.map((part, index) => (
+            <Fragment key={index}>
+              {index > 0 && ' · '}
+              {pieceOf(part)}
+            </Fragment>
+          ))}
         </span>
       ))}
-    </p>
+
+      {/* Under the whole header and at its width, from the positioned header round it, and over
+          the cards. z-10 is a card's open menu's layer: under the phone's pinned switcher, which
+          a list scrolled up must go beneath as a card does, and under the drawer. */}
+      {showing !== null && (
+        <div
+          ref={list}
+          role="group"
+          aria-labelledby={leftOutCountId(status, showing)}
+          className="absolute inset-x-0 top-full z-10 mt-1 flex flex-col rounded-lg border border-line bg-surface p-1 text-sm text-fg shadow-xl"
+        >
+          {titlesOf(showing).map((title) => (
+            <button
+              key={title.mediaId}
+              type="button"
+              onClick={() => {
+                setOpen(null);
+                onOpen?.(title.mediaId, showing);
+              }}
+              className="flex items-center gap-2 rounded px-2 py-1 text-left hover:bg-hover"
+            >
+              {title.coverUrl === null ? (
+                <span aria-hidden="true" className="h-8 w-6 shrink-0 rounded-sm bg-hover" />
+              ) : (
+                <img
+                  src={title.coverUrl}
+                  alt=""
+                  className="h-8 w-6 shrink-0 rounded-sm object-cover"
+                />
+              )}
+              <span className="flex min-w-0 flex-col">
+                <span className="line-clamp-2">{title.title}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }

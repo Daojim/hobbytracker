@@ -155,6 +155,10 @@ counted twice, and they cannot disagree.
 `LibraryService.HoursOfAsync` when the Stats page needed them too: a title with no figure is left
 out and counted, never added as nought, and the comparison is over the titles that have both. The
 board's headers call it over a column's titles, and the Stats page over a year's finishes.
+**Since #20 it can name what each count leaves out**, which a board column asks it to and the
+Stats page does not: a year's finishes are passes, so a game finished twice would be named twice,
+and a share's Stats page is the owner's, where which finishes have no hours logged, title by title,
+is more than a share shows. The page's comparison is in words, as it was.
 
 **And the words are the header's too.** The panel's two lines are `columnHoursLines(definition,
 'Completed', …)` handed the year's finishes, so *221 h played vs ~212 h to beat · over 8 games ·

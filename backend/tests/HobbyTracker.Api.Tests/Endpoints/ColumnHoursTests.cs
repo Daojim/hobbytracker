@@ -222,6 +222,138 @@ public sealed class ColumnHoursTests(PostgresFixture postgres) : DatabaseTestBas
         }
     }
 
+    // ------------------------------------------------------- the titles a count leaves out
+
+    [Fact]
+    public async Task Each_list_is_the_titles_its_count_is_over_across_the_whole_column()
+    {
+        // The header prints two counts, the titles with no estimate and the timed ones without
+        // your hours, and each opens a list. A list has to be exactly the titles its count is
+        // over, and of the whole column: a column is paged at a hundred, so a list of the page it
+        // was handed would name fewer titles than the count that opens it.
+        await GivenGameInAsync(
+            "Celeste", "1", LogStatus.Completed, estimate: 20m, hoursPlayed: 14.5m);
+        await GivenGameInAsync("Hi-Fi Rush", "2", LogStatus.Completed, estimate: 13m);
+        await GivenGameInAsync("Tunic", "3", LogStatus.Completed, estimate: 21.5m);
+        await GivenGameInAsync(
+            "Untimed", "4", LogStatus.Completed, estimate: null, hoursPlayed: 5m);
+        await GivenGameInAsync("Unheard Of", "5", LogStatus.Completed, estimate: null);
+
+        var column = await ColumnAsync(LogStatus.Completed, pageSize: 1);
+        column.Items.Count.ShouldBe(1);
+        var hours = column.Hours;
+
+        // Hours logged or not: a title with no estimate is counted as that and nothing else, so
+        // the two lists never name one title twice, as the two counts never count it twice.
+        var withoutLength = hours.WithoutLength.ShouldNotBeNull();
+        withoutLength.Select(title => title.Title).ShouldBe(["Untimed", "Unheard Of"], ignoreOrder: true);
+        withoutLength.Count.ShouldBe(column.Total - hours.LengthTitles);
+
+        var withoutPlayed = hours.WithoutPlayed.ShouldNotBeNull();
+        withoutPlayed.Select(title => title.Title).ShouldBe(["Hi-Fi Rush", "Tunic"], ignoreOrder: true);
+        withoutPlayed.Count.ShouldBe(hours.LengthTitles - hours.PlayedTitles);
+    }
+
+    [Fact]
+    public async Task A_list_is_the_titles_of_the_year_the_column_shows()
+    {
+        // Completed follows the year and its header with it, so its lists do too. 8pm on New
+        // Year's Eve here is already the 1st in UTC: a list that read the year in the wrong zone
+        // would name that game under next year while its card stayed in this one.
+        await GivenGameInAsync(
+            "Midnight Run", "1", LogStatus.Completed, estimate: 10m,
+            completedAt: Eastern(2025, 12, 31, 20, 0));
+        await GivenGameInAsync(
+            "New Year", "2", LogStatus.Completed, estimate: 30m,
+            completedAt: Eastern(2026, 1, 1));
+        await GivenGameInAsync(
+            "Unheard Of", "3", LogStatus.Completed, estimate: null,
+            completedAt: Eastern(2026, 6, 1));
+
+        var lastYear = (await ColumnAsync(LogStatus.Completed, year: 2025)).Hours;
+        lastYear.WithoutPlayed.ShouldNotBeNull().Select(title => title.Title).ShouldBe(["Midnight Run"]);
+        lastYear.WithoutLength.ShouldNotBeNull().ShouldBeEmpty();
+
+        var thisYear = (await ColumnAsync(LogStatus.Completed, year: 2026)).Hours;
+        thisYear.WithoutPlayed.ShouldNotBeNull().Select(title => title.Title).ShouldBe(["New Year"]);
+        thisYear.WithoutLength.ShouldNotBeNull().Select(title => title.Title).ShouldBe(["Unheard Of"]);
+    }
+
+    [Fact]
+    public async Task The_backlog_list_leaves_out_what_is_on_the_release_calendar()
+    {
+        // Nobody has timed a game that is not out yet, so every title on the calendar has no
+        // estimate. They are under the board rather than in the column, and a list that took
+        // them in would name a dozen titles the column above it does not hold.
+        await GivenGameInAsync("Stardew Valley", "1", LogStatus.Backlog, estimate: null);
+        var unreleased = await GivenGameInAsync(
+            "Silksong II", "2", LogStatus.Backlog, estimate: null);
+        await GivenReleaseDayAsync(unreleased, new DateOnly(2027, 3, 12));
+
+        var hours = (await ColumnAsync(LogStatus.Backlog)).Hours;
+
+        hours.WithoutLength.ShouldNotBeNull().Select(title => title.Title).ShouldBe(["Stardew Valley"]);
+    }
+
+    [Fact]
+    public async Task A_list_names_its_titles_in_the_order_the_column_shows_them()
+    {
+        // In the column's own order, whichever it is sorted by, so the list reads in the order of
+        // the cards under it. Added Hades, Celeste, Tunic: by hand the newest is on top, and by
+        // title it is alphabetical, which are two orders and neither is the order they were added.
+        await GivenGameInAsync("Hades", "1", LogStatus.Backlog, estimate: null);
+        await GivenGameInAsync("Celeste", "2", LogStatus.Backlog, estimate: null);
+        await GivenGameInAsync("Tunic", "3", LogStatus.Backlog, estimate: null);
+
+        foreach (var (sort, expected) in new[]
+                 {
+                     ("manual", new[] { "Tunic", "Celeste", "Hades" }),
+                     ("title", new[] { "Celeste", "Hades", "Tunic" }),
+                 })
+        {
+            var column = await ColumnAsync(LogStatus.Backlog, sort: sort);
+
+            column.Items.Select(item => item.Title).ShouldBe(expected, sort);
+            column.Hours.WithoutLength.ShouldNotBeNull(sort)
+                .Select(title => title.Title).ShouldBe(expected, sort);
+        }
+    }
+
+    [Fact]
+    public async Task A_title_in_a_list_is_named_and_covered_as_its_card_is_for_every_hobby()
+    {
+        // The name in a list is one more copy of the coalesce a card leads with: MAL's English
+        // title for an anime where there is one, and the one name there is for everything else.
+        // This holds the copy to the cards, as the total's test holds the sum's. No title here
+        // has a length, so each is in its column's list beside its own card.
+        var stardew = await GivenGameAsync(
+            "Stardew Valley", "1", coverUrl: "https://images.igdb.com/stardew.jpg");
+        await PostPassAsync(Client, stardew, LogStatus.Backlog);
+        await GivenLogEntryAsync(await GivenMovieAsync(
+            "Arrival", "1", coverUrl: "https://image.tmdb.org/arrival.jpg"));
+        await GivenLogEntryAsync(await GivenShowAsync(
+            "Severance", "1", coverUrl: "https://image.tmdb.org/severance.jpg"));
+        await GivenLogEntryAsync(await GivenAnimeAsync(
+            "Sousou no Frieren", "1", englishTitle: "Frieren: Beyond Journey's End",
+            coverUrl: "https://cdn.myanimelist.net/frieren.jpg"));
+
+        foreach (var hobby in new[] { "games", "movies", "tv", "anime" })
+        {
+            var column = await ColumnAsync(LogStatus.Backlog, hobby: hobby);
+            var card = column.Items.ShouldHaveSingleItem(hobby);
+            var listed = column.Hours.WithoutLength.ShouldNotBeNull(hobby).ShouldHaveSingleItem(hobby);
+
+            listed.MediaId.ShouldBe(card.MediaId, hobby);
+            listed.Title.ShouldBe(card.Title, hobby);
+            listed.CoverUrl.ShouldNotBeNull(hobby);
+            listed.CoverUrl.ShouldBe(card.CoverUrl, hobby);
+        }
+
+        // And the anime by the name its card leads with, which is not the one in media.title.
+        (await ColumnAsync(LogStatus.Backlog, hobby: "anime")).Hours.WithoutLength
+            .ShouldNotBeNull().ShouldHaveSingleItem().Title.ShouldBe("Frieren: Beyond Journey's End");
+    }
+
     // ----------------------------------------------------------------- helpers
 
     /// <summary>
@@ -290,11 +422,16 @@ public sealed class ColumnHoursTests(PostgresFixture postgres) : DatabaseTestBas
     });
 
     private async Task<LibraryPage> ColumnAsync(
-        LogStatus status, string hobby = "games", int? year = null, int? pageSize = null)
+        LogStatus status,
+        string hobby = "games",
+        int? year = null,
+        int? pageSize = null,
+        string? sort = null)
     {
         var url = $"/api/library?hobby={hobby}&status={status}";
         if (year is { } wanted) url += $"&year={wanted}";
         if (pageSize is { } size) url += $"&pageSize={size}";
+        if (sort is { } order) url += $"&sort={order}";
 
         return await ReadAsync<LibraryPage>(await Client.GetAsync(url, Ct));
     }

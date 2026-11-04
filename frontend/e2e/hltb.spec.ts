@@ -2,7 +2,17 @@ import { expect, test } from '@playwright/test';
 import { psql, resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitChecked, awaitEstimate, estimate, holdChecks, todayAsChecked } from './support/hltb';
-import { card, column, openJournal, seed, setSort, titlesIn, today } from './support/board';
+import {
+  card,
+  column,
+  openJournal,
+  passSaved,
+  seed,
+  segment,
+  setSort,
+  titlesIn,
+  today,
+} from './support/board';
 
 /**
  * How long a game takes, end to end.
@@ -386,12 +396,14 @@ test("a column's header adds up its cards' estimates, and Completed sets your ho
 
   await page.reload();
 
-  // Celeste's 20 and Hades's 42.
-  await expect(
-    column(page, 'Backlog').getByRole('img', {
-      name: 'About 62 hours to beat, 1 with no estimate',
-    }),
-  ).toHaveText('~62 h to beat · 1 with no estimate');
+  // Celeste's 20 and Hades's 42, and Stardew Valley counted. The line is pieces since #20: the
+  // total reads aloud in words, and the count is a button that opens the title it counts.
+  const backlog = column(page, 'Backlog');
+  await expect(backlog.getByRole('img', { name: 'About 62 hours to beat' })).toHaveText(
+    '~62 h to beat',
+  );
+  await expect(backlog.getByRole('button', { name: '1 with no estimate' })).toBeVisible();
+  await expect(backlog.getByText('~62 h to beat · 1 with no estimate')).toBeVisible();
 
   // Your 21 against the stub's 17 for Outer Wilds.
   await expect(
@@ -399,5 +411,113 @@ test("a column's header adds up its cards' estimates, and Completed sets your ho
       name: 'You played 21 hours, against about 17 hours to beat',
     }),
   ).toHaveText('21 h played vs ~17 h to beat');
-  await expect(column(page, 'Completed').getByRole('img', { name: 'over 1 game' })).toBeVisible();
+  await expect(column(page, 'Completed').getByText('over 1 game', { exact: true })).toBeVisible();
+});
+
+test("a header's count opens the titles it leaves out, and one without your hours opens at Hours played", async ({
+  page,
+}) => {
+  // The whole of #20 in a real browser: the server's lists through the API, the count as a
+  // button, the list's box under the whole header, the keyboard in it and back, and a title
+  // opened at the field it is missing. Stardew Valley is the title HowLongToBeat has never heard
+  // of; Hollow Knight is finished with an estimate and none of your hours.
+  const celeste = await seed(page.request, 'Celeste', 'Backlog');
+  const stardew = await seed(page.request, 'Stardew Valley', 'Backlog');
+  const wilds = await seed(page.request, 'Outer Wilds', 'Completed', {
+    completedAt: `${today()}T12:00:00`,
+    hoursPlayed: 21,
+  });
+  const knight = await seed(page.request, 'Hollow Knight', 'Completed', {
+    completedAt: `${today()}T13:00:00`,
+  });
+
+  await awaitEstimate(page.request, celeste);
+  await awaitEstimate(page.request, wilds);
+  await awaitEstimate(page.request, knight);
+  await awaitChecked(stardew);
+
+  await page.reload();
+
+  const backlog = column(page, 'Backlog');
+  const untimed = backlog.getByRole('button', { name: '1 with no estimate' });
+  await untimed.click();
+
+  const list = page.getByRole('group', { name: '1 with no estimate' });
+  await expect(list.getByRole('button')).toHaveText(['Stardew Valley']);
+  await expect(list.getByRole('button', { name: 'Stardew Valley' })).toBeFocused();
+
+  // Under the whole header and at its width, over the cards: the header is the section's first
+  // child, and the list hangs from its foot.
+  const header = await backlog.locator(':scope > div').first().boundingBox();
+  const box = await list.boundingBox();
+  expect(header).not.toBeNull();
+  expect(box).not.toBeNull();
+  expect(Math.round(box!.x)).toBe(Math.round(header!.x));
+  expect(Math.round(box!.width)).toBe(Math.round(header!.width));
+  expect(box!.y).toBeGreaterThanOrEqual(header!.y + header!.height);
+
+  await page.keyboard.press('Escape');
+  await expect(list).toBeHidden();
+  await expect(untimed).toBeFocused();
+
+  // Completed's other count, and its title opened where it is missing something.
+  const completed = column(page, 'Completed');
+  await completed.getByRole('button', { name: '1 without your hours' }).click();
+  await page
+    .getByRole('group', { name: '1 without your hours' })
+    .getByRole('button', { name: 'Hollow Knight' })
+    .click();
+
+  const drawer = page.getByRole('dialog', { name: 'Hollow Knight' });
+  const hours = drawer.getByRole('spinbutton', { name: 'Hours played' });
+  await expect(hours).toBeFocused();
+
+  await page.keyboard.type('30');
+  await passSaved(page);
+  await page.keyboard.press('Escape');
+  await expect(drawer).toBeHidden();
+
+  // Both of Completed's games have your hours now, so there is nothing left for it to count.
+  await expect(completed.getByText('over 2 games', { exact: true })).toBeVisible();
+  await expect(completed.getByRole('button', { name: /without your hours/ })).toHaveCount(0);
+});
+
+test.describe('on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test("a header's count beside the sort control opens its list across the column", async ({
+    page,
+  }) => {
+    // The line sits where the heading was, beside the sort control, and the list opens under
+    // the whole header at the column's width: 332px at 390 on the user's board, where the
+    // first render's list ran past its column.
+    const celeste = await seed(page.request, 'Celeste', 'InProgress', {
+      startedAt: `${today()}T12:00:00`,
+    });
+    const stardew = await seed(page.request, 'Stardew Valley', 'InProgress', {
+      startedAt: `${today()}T13:00:00`,
+    });
+    await awaitEstimate(page.request, celeste);
+    await awaitChecked(stardew);
+
+    await page.reload();
+    await segment(page, 'InProgress').tap();
+
+    const playing = column(page, 'InProgress');
+    const count = playing.getByRole('button', { name: '1 with no estimate' });
+    await count.tap();
+
+    const list = page.getByRole('group', { name: '1 with no estimate' });
+    await expect(list.getByRole('button')).toHaveText(['Stardew Valley']);
+
+    const header = await playing.locator(':scope > div').first().boundingBox();
+    const box = await list.boundingBox();
+    expect(Math.round(box!.x)).toBe(Math.round(header!.x));
+    expect(Math.round(box!.width)).toBe(Math.round(header!.width));
+    expect(box!.x + box!.width).toBeLessThanOrEqual(390 - 16);
+    expect(box!.y).toBeGreaterThanOrEqual(header!.y + header!.height);
+
+    await list.getByRole('button', { name: 'Stardew Valley' }).tap();
+    await expect(page.getByRole('dialog', { name: 'Stardew Valley' })).toBeVisible();
+  });
 });

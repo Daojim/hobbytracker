@@ -1,20 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { columnHoursLines } from './columnHours';
+import { columnHoursLines, type HoursLine } from './columnHours';
 import { hobbyDefinition, type HobbyDefinition } from '../hobbies';
-import type { ColumnHours, LogStatus } from '../api/types';
+import type { ColumnHours, LeftOutTitle, LogStatus } from '../api/types';
 import type { Pace } from '../lib/pace';
 
 const GAMES = hobbyDefinition('games');
 
-/** A column's hours, nothing in it unless a test says so. */
+/** A column's hours, nothing in it unless a test says so, and no titles named, as on a share. */
 const hours = (overrides: Partial<ColumnHours> = {}): ColumnHours => ({
   length: null,
   lengthTitles: 0,
   played: null,
   playedLength: null,
   playedTitles: 0,
+  withoutLength: null,
+  withoutPlayed: null,
   ...overrides,
 });
+
+/** Each line as it prints and as it reads aloud, leaving its pieces to the cases about them. */
+const printed = (result: HoursLine[]) => result.map(({ text, spoken }) => ({ text, spoken }));
 
 /** What the header prints, and what it says aloud. */
 const lines = (
@@ -22,7 +27,7 @@ const lines = (
   titles: number,
   column: ColumnHours,
   definition: HobbyDefinition = GAMES,
-) => columnHoursLines(definition, status, { total: titles, hours: column }, 'own');
+) => printed(columnHoursLines(definition, status, { total: titles, hours: column }, 'own'));
 
 describe('columnHoursLines', () => {
   it('adds up what the cards print, and says what the sum is', () => {
@@ -150,7 +155,7 @@ describe('the backlog at your pace', () => {
     column: ColumnHours,
     pace: Pace | null = twoADay,
     definition: HobbyDefinition = GAMES,
-  ) => columnHoursLines(definition, status, { total: titles, hours: column }, 'own', pace);
+  ) => printed(columnHoursLines(definition, status, { total: titles, hours: column }, 'own', pace));
 
   it('says how long the backlog would take, under what it adds up to', () => {
     // 1,034.47 hours at 2 a day is 518 days, which is said in months.
@@ -222,7 +227,7 @@ describe('on a share', () => {
   });
 
   it('says the hours were logged, never whose they are', () => {
-    expect(columnHoursLines(GAMES, 'Completed', { total: 8, hours: completed }, 'shared')).toEqual([
+    expect(printed(columnHoursLines(GAMES, 'Completed', { total: 8, hours: completed }, 'shared'))).toEqual([
       {
         text: '213 h played vs ~218 h to beat',
         spoken: '213 hours played, against about 218 hours to beat',
@@ -240,5 +245,119 @@ describe('on a share', () => {
     ).toEqual(
       columnHoursLines(GAMES, 'Backlog', { total: 17, hours: hours({ length: 1034.47, lengthTitles: 16 }) }, 'own'),
     );
+  });
+});
+
+/**
+ * The counts after a figure, as pieces of their line that say which list each one counts, so
+ * your board can make a count something to press that opens the titles it counts. #20 in
+ * `docs/plans/games-board-next.md`.
+ */
+describe('what a count leaves out', () => {
+  const named = (...titles: string[]): LeftOutTitle[] =>
+    titles.map((title, index) => ({ mediaId: index + 1, title, coverUrl: null }));
+
+  it('is a piece of its line, saying which list it counts', () => {
+    const [line] = columnHoursLines(
+      GAMES,
+      'Backlog',
+      { total: 17, hours: hours({ length: 1034.47, lengthTitles: 16, withoutLength: named('Stardew Valley') }) },
+      'own',
+    );
+
+    // The total keeps its spoken form, a tilde and a letter being no way to say it aloud. The
+    // count is counts and words, so it reads as it prints.
+    expect(line?.parts).toEqual([
+      { text: '~1,034 h to beat', spoken: 'About 1,034 hours to beat' },
+      { text: '1 with no estimate', spoken: '1 with no estimate', counts: 'withoutLength' },
+    ]);
+  });
+
+  it("names both of Completed's counts, and the words before them are only words", () => {
+    const [compared, over] = columnHoursLines(
+      GAMES,
+      'Completed',
+      {
+        total: 10,
+        hours: hours({
+          length: 123,
+          lengthTitles: 9,
+          played: 90,
+          playedLength: 94,
+          playedTitles: 7,
+          withoutLength: named('Unheard Of'),
+          withoutPlayed: named('Hi-Fi Rush', 'Tunic'),
+        }),
+      },
+      'own',
+    );
+
+    expect(compared?.parts).toEqual([
+      { text: '90 h played vs ~94 h to beat', spoken: 'You played 90 hours, against about 94 hours to beat' },
+    ]);
+    expect(over?.parts).toEqual([
+      { text: 'over 7 games', spoken: 'over 7 games' },
+      { text: '2 without your hours', spoken: '2 without your hours', counts: 'withoutPlayed' },
+      { text: '1 with no estimate', spoken: '1 with no estimate', counts: 'withoutLength' },
+    ]);
+  });
+
+  it('is the length of the list it opens, so a move cannot put the two a title apart', () => {
+    // A move writes a column's total at once and leaves its hours to the refetch, which is right
+    // for the sums and wrong for a count worked out from both. A timed title carried out of
+    // Playing leaves its total at 1 and its hours still saying one title is timed: the
+    // subtraction says nought, and the count would go while the list it opens still names
+    // Phantom Blade Zero. Where the server named the titles, a count is how many it named.
+    const playing = columnHoursLines(
+      GAMES,
+      'InProgress',
+      { total: 1, hours: hours({ length: 12.74, lengthTitles: 1, withoutLength: named('Phantom Blade Zero') }) },
+      'own',
+    );
+    expect(playing.map((line) => line.text)).toEqual(['~13 h to beat · 1 with no estimate']);
+
+    const completed = columnHoursLines(
+      GAMES,
+      'Completed',
+      {
+        total: 4,
+        hours: hours({
+          length: 60,
+          lengthTitles: 3,
+          played: 20,
+          playedLength: 20,
+          playedTitles: 1,
+          withoutLength: [],
+          withoutPlayed: named('Hi-Fi Rush'),
+        }),
+      },
+      'own',
+    );
+    expect(completed[1]?.text).toBe('over 1 game · 1 without your hours');
+  });
+
+  it('is worked out from the figures where no titles are named, as on a share', () => {
+    expect(
+      columnHoursLines(GAMES, 'Backlog', { total: 17, hours: hours({ length: 1034.47, lengthTitles: 16 }) }, 'shared')[0]
+        ?.parts,
+    ).toEqual([
+      { text: '~1,034 h to beat', spoken: 'About 1,034 hours to beat' },
+      { text: '1 with no estimate', spoken: '1 with no estimate', counts: 'withoutLength' },
+    ]);
+  });
+
+  it('is a piece of its own on the line under Backlog too, which has none', () => {
+    // The pace line is one piece, as the comparison is: nothing in it counts anything.
+    const [, pace] = columnHoursLines(
+      GAMES,
+      'Backlog',
+      { total: 20, hours: hours({ length: 1034.47, lengthTitles: 20, withoutLength: [] }) },
+      'own',
+      { hours: 2, per: 'day' },
+    );
+
+    expect(pace?.parts).toEqual([
+      { text: 'about 17 months at 2 h a day', spoken: 'About 17 months at 2 hours a day' },
+    ]);
   });
 });

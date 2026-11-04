@@ -158,6 +158,9 @@ describe('What should I play next?', () => {
     expect(
       within(dialog).getByText('3 of 6 in the draw · 1 with no estimate, only under Any'),
     ).toBeInTheDocument();
+    // In words, where the column's header behind the panel makes the same count a button: the
+    // panel draws from the whole column, and is not where you go to put an estimate right.
+    expect(within(dialog).queryByRole('button', { name: /with no estimate/ })).not.toBeInTheDocument();
   });
 
   it('leaves out the genres pressed, by the genre each card is painted as', async () => {

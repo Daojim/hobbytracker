@@ -45,6 +45,9 @@ const HOURS: ColumnHours = {
   played: 213,
   playedLength: 218,
   playedTitles: 6,
+  // A share's header counts what its figures leave out and names none of it.
+  withoutLength: null,
+  withoutPlayed: null,
 };
 
 describe('SharedBoardPage', () => {
@@ -187,6 +190,39 @@ describe('SharedBoardPage', () => {
 
       // dnd-kit stamps every sortable it registers with this; a share registers none.
       expect(document.querySelector('[aria-roledescription]')).toBeNull();
+    });
+
+    it("counts what a header leaves out in words, naming none of it, whatever the answer carried", async () => {
+      // The server names nothing on a share: which of the owner's games have no hours logged,
+      // title by title, is more than a share shows, and a visitor can do nothing about any of
+      // them. The page draws no list either, so names that somehow arrived would still not be.
+      sharedServer({
+        columns: {
+          Backlog: [libraryItem({ title: 'Celeste', lengthHours: 12.76 })],
+          Completed: [
+            libraryItem({ title: 'Tunic', currentStatus: 'Completed' }),
+            libraryItem({ title: 'Hi-Fi Rush', currentStatus: 'Completed' }),
+          ],
+        },
+        hours: {
+          Completed: {
+            ...HOURS,
+            withoutLength: [{ mediaId: 70, title: 'Unheard Of', coverUrl: null }],
+            withoutPlayed: [{ mediaId: 71, title: 'Hi-Fi Rush', coverUrl: null }],
+          },
+        },
+        years: [2026],
+      });
+      renderShare();
+
+      const completed = await screen.findByRole('region', { name: /^Completed/ });
+      expect(
+        await within(completed).findByText('over 6 games · 1 without hours logged · 1 with no estimate'),
+      ).toBeInTheDocument();
+      expect(within(completed).queryByRole('button', { name: /without hours logged|with no estimate/ }))
+        .not.toBeInTheDocument();
+      expect(within(completed).queryByRole('group')).not.toBeInTheDocument();
+      expect(screen.queryByText('Unheard Of')).not.toBeInTheDocument();
     });
 
     it('folds Dropped side by side, as your board does', async () => {

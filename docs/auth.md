@@ -331,7 +331,7 @@ share is `docs/stats.md`'s.
 | `PUT /api/share?hobby=` | rewrite what it shows, every box at once. The address does not change. **404** with no link |
 | `DELETE /api/share?hobby=` | stop sharing: the row goes, and the address with it. **204**, or **404** with no link |
 | `GET /api/shared/{token}` | anonymous: which board, what it shows, and the owner's name only when ticked |
-| `GET /api/shared/{token}/library?status=&year=&sort=` | anonymous: one column as the owner's board draws it, less the note. `status` is required and `year` is 1–9998 |
+| `GET /api/shared/{token}/library?status=&year=&sort=` | anonymous: one column as the owner's board draws it, less the note and the names of the titles its header's counts leave out. `status` is required and `year` is 1–9998 |
 | `GET /api/shared/{token}/years` | anonymous: the year control's years, from the columns it shows |
 | `GET /api/shared/{token}/upcoming` | anonymous: the release calendar, when it is shown |
 | `GET /api/shared/{token}/stats?year=` | anonymous: a year of the owner's Stats page, whole, when it is shown. `year` is 1–9998 |
@@ -407,8 +407,9 @@ them and gets 405.
 **Deleting the account kills the share**, through the cascade from `users`, as it takes every pass.
 
 **Checked by putting each fault back**, one at a time against the finished feature.
-`ShareEndpointTests` has 16 cases and `SharedBoardTests` 15. Each row turned red exactly the tests
-named, out of those 31; a row that says *then* is two forms planted in turn:
+`ShareEndpointTests` has 16 cases and `SharedBoardTests` 16, the sixteenth added for #20. Each row
+turned red exactly the tests named, out of those 32; a row that says *then* is two forms planted in
+turn:
 
 | Fault planted | Red |
 |---|---|
@@ -418,6 +419,8 @@ named, out of those 31; a row that says *then* is two forms planted in turn:
 | Its Stats read as whoever is signed in | *shows its owner's board*, *Stats … whichever columns*, and three anonymous |
 | Its Stats years read as whoever is signed in | *Stats … whichever columns*, and three anonymous |
 | The owner's note on a share's cards | *the owner's column less the note*, *no route a share reaches reads a note* |
+| The header's titles named on a share, added for #20 | *the owner's column less the note and the titles left out*, *counts what a header leaves out and names none of it* |
+| The Stats page's comparison naming its finishes, added for #20 | *counts what a header leaves out and names none of it*, on its Stats half |
 | The note behind a condition on a captured flag | nothing, and correctly: EF 10 evaluates the flag and prunes the branch before writing any SQL. A probe showed no `notes` in the query |
 | The note behind a condition on the row | *no route … reads a note*, on the SQL alone. Every answer was identical |
 | The owner's note on the calendar | *no route … reads a note* |

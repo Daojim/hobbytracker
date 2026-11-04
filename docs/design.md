@@ -380,14 +380,57 @@ and how it is added up is `docs/board.md`'s.
   `lib/hours.ts`. A card's two places are right for one title and wrong for seventeen.
 - **The tilde marks an estimate and your own hours carry none**, as on a card and in the drawer.
   That is what tells the two sides of Completed's comparison apart.
-- **Each line reads aloud in words**, with `role="img"` and an `aria-label`, as a card's length
-  badge does. It stays out of the `<h2>`, which names the column's region. Completed's says *You
-  played 21 hours*, not *21 hours played*. The drawer's input is labelled *Hours played*, and
-  Playwright's `getByLabel` matches an `aria-label` by substring, so `journal.spec.ts` found the
-  header behind the drawer instead of the input the moment the board compared anything.
+- **Each line reads aloud in words**, as a card's length badge does: each piece that does not read
+  as it prints carries `role="img"` and an `aria-label`. It was the whole line until #20 made a
+  count in it a button, which no image can hold. It stays out of the `<h2>`, which names the
+  column's region. Completed's says *You played 21 hours*, not *21 hours played*. The drawer's
+  input is labelled *Hours played*, and Playwright's `getByLabel` matches an `aria-label` by
+  substring, so `journal.spec.ts` found the header behind the drawer instead of the input the
+  moment the board compared anything.
 - **Left alone: at 1280, Backlog's sort control wraps once its count has two digits**, as
   Completed's and Dropped's always have. The renders had 17 there. The line does not touch that
   row.
+
+### The titles a header leaves out
+
+**On your board a count in the line is a button in the accent, opening a list of covers and names
+under the whole header.** Picked at the #20 workshop on 3 November 2026, from renders of the
+shipped board with a prototype column in its place and every request answered from the user's
+board as read that afternoon, on the page #19's choices were on:
+https://claude.ai/artifact/E8TV1xCBeB5uampa9CdJvo. What it does is `docs/board.md`'s, under **The
+titles a header's count leaves out**.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| How the count says it opens something | **The accent, the user's pick** | a dotted underline in the line's own muted ink, the recommendation; a chevron after the words |
+| A row | **A cover and a name, no heading** | a heading over the list and a line under each title saying when or why; names alone |
+| Where the list opens | **Under the whole header, at the column's width** | nothing on the page: a first render anchored to the count at 288px ran past its 266px column into the next, and was changed before the page went up |
+
+- **The count is `text-accent hover:underline`**, the colour words wear elsewhere when they open a
+  journal, a search result's name since #12. On Ember that is red, which the page said before the
+  pick. The rest of the line stays `text-muted`, and a share's counts stay that, as words.
+- **The list is `absolute inset-x-0 top-full z-10 mt-1`, `rounded-lg border border-line bg-surface
+  p-1 shadow-xl` in `text-sm text-fg`**, the card menu's panel at the header's width: the header
+  is `relative` for it. A row is `flex items-center gap-2 rounded px-2 py-1 hover:bg-hover`, a
+  `h-8 w-6 rounded-sm object-cover` cover with `alt=""` beside the name, clamped to two lines, and
+  a `bg-hover` box where a title has no cover.
+- **z-10, not the prototype's z-20**, which is the drawer's layer: z-10 is a card's open menu's,
+  so the list goes under the phone's pinned switcher (z-15) when the page scrolls, as a card does,
+  and a card is a stacking context of its own (`@container`), which z-10 clears.
+- **In Dropped the list fades with its column**, at the well's 70%, as a card's `⋯` menu there
+  always has: the opacity is on the section, and nothing inside it can escape it. Dropped only
+  shows a count for a title with no estimate, and the user's board has none there. Not rendered.
+- **Measured against the prototype's renders, on Shelf Light and Shelf Dark at 1440 and at 390**,
+  from the gitignored `workshop.local/estimates/compare-header.mjs` on the staged board, with the
+  lists cut to the built shape. **At rest the built header and the picked prototype differ by no
+  pixel**, Playing's and Completed 2025's, light and dark, and on the phone. Open, they differ only
+  in the count, because the prototype shot every open list with the dotted underline: from just
+  under the line down, the list and the cards round it differ by no pixel either. The list is
+  240×50 for Playing and 240×226 for Completed 2025's five at 1440, and 332×50 on the phone,
+  ending at 361px, each the prototype's figure, with the headers at 44 and 60px as they were.
+- **The keyboard is on the first title once a list opens**, which the prototype did not do. After a
+  press of the pointer the browser draws no ring for it, measured as `:focus-visible` false on the
+  focused row in every open shot, so the open list looks as rendered.
 
 ### How long will it take me?
 

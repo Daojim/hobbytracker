@@ -136,6 +136,15 @@ export interface EntryFormHandle {
    * is what a handle is for. A value the rules refuse is still refused, and stays on screen.
    */
   flush: () => void;
+
+  /**
+   * Puts the keyboard in Hours played, for a pass whose hobby records hours.
+   *
+   * The drawer's to ask too, when it was opened from a header's list of the titles without your
+   * hours, and at its own moment: after its panel has taken the keyboard as it opened, which on
+   * a title already held happens in the same go as this form mounting.
+   */
+  focusHours: () => void;
 }
 
 /**
@@ -486,7 +495,11 @@ export function EntryForm({
     return () => clearTimeout(timer);
   }, [held]);
 
-  useImperativeHandle(ref, () => ({ flush: () => write.current() }), []);
+  useImperativeHandle(
+    ref,
+    () => ({ flush: () => write.current(), focusHours: () => hoursWheel.current?.focus() }),
+    [],
+  );
 
   // The one hole a form that writes itself opens, and the reason a blur does not also send:
   // closing the drawer inside the delay would lose the change, where closing over an unpressed

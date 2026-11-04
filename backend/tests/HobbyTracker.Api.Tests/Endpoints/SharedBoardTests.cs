@@ -120,10 +120,11 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
     // ---------------------------------------------------------------- the same column
 
     [Fact]
-    public async Task A_shared_column_is_the_owners_column_less_the_note()
+    public async Task A_shared_column_is_the_owners_column_less_the_note_and_the_titles_left_out()
     {
         // The same projection, the same order and the same hours as the owner's own board — every
-        // column, in their order and by rating — and the one difference is the note. A share that
+        // column, in their order and by rating — and the differences are the note, and the titles
+        // the header's counts leave out, which a share counts without naming. A share that
         // drifted from the board would show a stranger a different board than the owner sees.
         await GivenAFullBoardAsync();
         var share = await ShareAsync(EveryPart, showsName: false);
@@ -150,10 +151,58 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
                             LatestNotePictures = 0,
                         }),
                     ],
+                    Hours = own.Hours with { WithoutLength = null, WithoutPlayed = null },
                 };
 
                 JsonSerializer.Serialize(shared, Json).ShouldBe(JsonSerializer.Serialize(expected, Json), query);
             }
+        }
+    }
+
+    [Fact]
+    public async Task A_share_counts_what_a_header_leaves_out_and_names_none_of_it()
+    {
+        // A share prints the header's counts and nothing more. Which of the owner's finishes have
+        // no hours logged, title by title, is more than a share shows, on a column or on the Stats
+        // page, whose comparison is added up by the same rules. The owner's own header names
+        // them, which is what keeps this from passing because nothing names anything.
+        await GivenAFullBoardAsync();
+        var hiFiRush = await GivenGameAsync("Hi-Fi Rush", externalId: "50");
+        await GivenLogEntryAsync(hiFiRush, LogStatus.Completed, completedAt: Eastern(2026, 7, 1));
+        await WithDbAsync(async db =>
+        {
+            (await db.Games.SingleAsync(game => game.Id == hiFiRush, Ct)).HltbAllStylesHours = 13m;
+            await db.SaveChangesAsync(Ct);
+        });
+        var share = await ShareAsync(EveryPart, showsName: true);
+
+        // Hades has no estimate, and Hi-Fi Rush has one and none of the owner's hours.
+        var own = (await ReadAsync<LibraryPage>(
+            await Client.GetAsync("/api/library?hobby=games&status=Completed&year=2026", Ct))).Hours;
+        own.WithoutLength.ShouldNotBeNull().Select(title => title.Title).ShouldBe(["Hades"]);
+        own.WithoutPlayed.ShouldNotBeNull().Select(title => title.Title).ShouldBe(["Hi-Fi Rush"]);
+
+        foreach (var status in Enum.GetValues<LogStatus>())
+        {
+            var hours = (await ReadAsync<LibraryPage>(await AnonymousClient.GetAsync(
+                Shared(share, $"library?status={status}&year=2026"), Ct))).Hours;
+
+            hours.WithoutLength.ShouldBeNull(status.ToString());
+            hours.WithoutPlayed.ShouldBeNull(status.ToString());
+        }
+
+        var counted = (await ReadAsync<LibraryPage>(await AnonymousClient.GetAsync(
+            Shared(share, "library?status=Completed&year=2026"), Ct))).Hours;
+        counted.LengthTitles.ShouldBe(own.LengthTitles);
+        counted.PlayedTitles.ShouldBe(own.PlayedTitles);
+
+        foreach (var route in new[] { "stats", "stats?year=2026" })
+        {
+            var hours = (await ReadAsync<StatsDto>(
+                await AnonymousClient.GetAsync(Shared(share, route), Ct))).Hours;
+
+            hours.WithoutLength.ShouldBeNull(route);
+            hours.WithoutPlayed.ShouldBeNull(route);
         }
     }
 
