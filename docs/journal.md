@@ -159,10 +159,15 @@ Settled:
   than a row of its own**, and says so at its own top: a component that has to sit inside a
   particular grid is not a thing to find out from the outside.
 - **The pin and the four estimate tiers are gone together, off one null.** `TitleDetail.hltb` is
-  one nullable block carrying the four figures and the stored id, because they arrive together or
-  not at all. A film sets it to null and sets `journal.setHltbId` to null in the same file, so a
-  hobby that wires one half of the pair fails loudly at the mutation rather than posting a film to
-  `/api/games`.
+  one nullable block carrying the four figures, the stored id and when HowLongToBeat was last
+  asked, because they arrive together or not at all. A film sets it to null and sets
+  `journal.setHltbId` and `journal.refreshHltb` to null in the same file, so a hobby that wires one
+  part without the others fails loudly at the mutation rather than posting a film to `/api/games`.
+- **The pin's row carries an arrow and, under it, a line about when HowLongToBeat was asked.** The
+  arrow asks again there and then, for a game matched before its times arrived; the line says
+  *Last checked Sep 11* on a game with no figures, and *Checked just now* after a press until the
+  drawer closes. Both are `HltbPin`'s and both sit in the band's two tracks, the line spanning
+  them. See **The arrow asks again** in `docs/games-hltb.md`.
 - **A film's Runtime is a *fact* and lives in that band; the HowLongToBeat figures are not and do
   not.** The four chips sit beside *Hours played* because comparing them is the entire point. A
   film has nothing to compare against, so its runtime is a fact about the film like the director —

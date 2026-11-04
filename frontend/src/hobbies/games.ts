@@ -1,4 +1,11 @@
-import { discoverGames, getGame, searchGames, setGameGenre, setGameHltbId } from '../api/games';
+import {
+  discoverGames,
+  getGame,
+  refreshGameHltb,
+  searchGames,
+  setGameGenre,
+  setGameHltbId,
+} from '../api/games';
 import { formatHours, totalHours } from '../lib/hours';
 import type { Game } from '../api/types';
 import type { DiscoverList, HobbyDefinition, SearchHit } from './types';
@@ -159,6 +166,7 @@ export const GAMES: HobbyDefinition = {
         facts: [],
         hltb: {
           id: game.hltbId,
+          checkedAt: game.hltbCheckedAt,
           hltbAllStylesHours: game.hltbAllStylesHours,
           hltbMainStoryHours: game.hltbMainStoryHours,
           hltbMainExtraHours: game.hltbMainExtraHours,
@@ -169,6 +177,7 @@ export const GAMES: HobbyDefinition = {
 
     setGenre: setGameGenre,
     setHltbId: setGameHltbId,
+    refreshHltb: refreshGameHltb,
 
     fields: { hoursPlayed: true, platform: true, progress: false },
   },

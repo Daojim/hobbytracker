@@ -80,11 +80,12 @@ Sign in once and spend the cookie, as below.
 | `GET /api/auth/me` | who is signed in, or 200 and a literal `null` — never 401 |
 | `POST /api/auth/logout` | ends the session. POST, so an `<img>` cannot sign you out |
 | `GET /api/games?search=&limit=` | search IGDB, cache the results, return them ranked |
-| `GET /api/games/{id}` | one game plus everything you logged against it |
+| `GET /api/games/{id}` | one game plus everything you logged against it, and when HowLongToBeat was last asked (`hltbCheckedAt`) |
 | `PUT /api/games/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `PUT /api/games/{mediaId}/hltb` | pin a HowLongToBeat entry by hand when the matcher would not guess |
+| `POST /api/games/{mediaId}/hltb/refresh` | ask HowLongToBeat about one game again, there and then: its id fetched, or its name matched. 409 naming an id HowLongToBeat no longer has |
 | `POST /api/games/refresh` | re-fetch every IGDB title on the board, batched at 500 |
-| `POST /api/games/hltb/refresh` | queue the board for HowLongToBeat. Answers 202 straight away |
+| `POST /api/games/hltb/refresh` | queue the board for HowLongToBeat. Answers 202 straight away, and runs once a day by itself |
 | `GET /api/movies?search=&limit=` | search TMDB, cache the results, return them in TMDB's order |
 | `GET /api/movies/{id}` | one film plus everything you logged against it |
 | `PUT /api/movies/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |

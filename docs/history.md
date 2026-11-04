@@ -170,6 +170,15 @@
       not show by itself: Chromium and Firefox both turn a phone photo upright whatever the code
       asks, and the test server keeps no request-size limit, so that limit is proved against the
       real server
+- [x] An estimate that catches up. HowLongToBeat lists a game before it comes out, with no times
+      on it, and the matcher compares names, so a game added from the release calendar was
+      matched, kept its id, and never had an estimate: fifteen on the real board were like that,
+      every one matched before its release. A circular arrow beside the HowLongToBeat id now asks
+      again, there and then, and the journal says when it was last asked; the backfill runs by
+      itself once a day, thirty days after each title's last ask. The arrow beside the box was the
+      user's pick from renders over *Check now* in the line that says there is no estimate, and
+      while it checks it turns in place, because a word there was wider and pushed the link onto
+      a line of its own
 - [ ] A Discover list from your ratings: IGDB's similar games for what you rated highest, less
       what is already on your board, if a look at the real results says it is worth building
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

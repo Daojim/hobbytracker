@@ -38,6 +38,14 @@ public sealed record GameDetailDto(
     /// links out to it, which is how you check that it matched the game you meant.
     /// </summary>
     int? HltbId,
+
+    /// <summary>
+    /// When HowLongToBeat was last asked about it, whatever it answered, or null for a title
+    /// nobody has asked about yet. What the journal's <em>Last checked</em> line reads: a game
+    /// matched before its release has an id and no figures, and the day of the ask is the
+    /// reason to press for another.
+    /// </summary>
+    DateTimeOffset? HltbCheckedAt,
     IReadOnlyList<LogEntryDto> LogEntries)
 {
     public static GameDetailDto From(
@@ -62,5 +70,6 @@ public sealed record GameDetailDto(
         game.ReleasePrecision,
 
         game.HltbId,
+        game.HltbCheckedAt,
         [.. entries.Select(LogEntryDto.From)]);
 }

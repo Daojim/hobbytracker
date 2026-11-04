@@ -174,6 +174,15 @@ builder.Services.AddHttpClient<IHltbClient, HltbClient>((serviceProvider, client
 builder.Services.AddSingleton<IHltbQueue, HltbQueue>();
 builder.Services.AddHostedService<HltbWorker>();
 
+// The backfill, once a day. It queues and never asks, so HltbWorker stays the one thing that
+// talks to HowLongToBeat, behind the throttle. See HltbBackfillWorker.
+builder.Services.AddOptions<HltbBackfillOptions>()
+    .Bind(builder.Configuration.GetSection(HltbBackfillOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddHostedService<HltbBackfillWorker>();
+
 // The release calendar's nightly sweep. The second background worker and the first driven by a
 // clock rather than by a queue — which is why it needs switching off in the end-to-end run where
 // the other does not. See ReleaseRefreshWorker.

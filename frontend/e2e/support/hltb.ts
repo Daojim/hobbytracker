@@ -31,9 +31,10 @@ export async function awaitEstimate(
  * Waits for the worker to have *asked*, whatever the answer was.
  *
  * Read straight off `hltb_checked_at`, because separating "never asked" from "asked, nothing
- * matched" is the entire reason that column exists and nothing on the wire carries it. A title
- * the matcher refuses changes no other field, so this is the only honest signal that the lookup
- * has been and gone.
+ * matched" is the entire reason that column exists. A title the matcher refuses changes no other
+ * field, so this is the only honest signal that the lookup has been and gone. The journal's read
+ * carries the column too since the arrow beside the pin, but this reads the row, so the specs
+ * that wait on it do not lean on the read some of them are testing.
  */
 export async function awaitChecked(mediaId: number): Promise<void> {
   await expect
@@ -57,4 +58,38 @@ export async function awaitChecked(mediaId: number): Promise<void> {
  */
 export function estimate(page: Page, tier: string): Locator {
   return page.getByRole('dialog').locator('[data-hltb-tier]').filter({ hasText: tier });
+}
+
+/**
+ * Today as the journal's *Last checked* line writes a day of this year: `Nov 3`.
+ *
+ * The day here, for `todayOnCard`'s reason, and without the year, because the line gives one
+ * only for a check in another.
+ */
+export function todayAsChecked(): string {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date());
+}
+
+/**
+ * Holds the journal's check at the network until the function handed back is called, so a spec
+ * can look at the drawer while one runs. A check is a fetch by id, which the stub answers at
+ * once, so without this there is no moment to look at.
+ *
+ * The check is let through to the real API afterwards, not answered here: what it brings back
+ * is still the stub's, through the real client.
+ */
+export async function holdChecks(page: Page): Promise<() => void> {
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+
+  await page.route('**/api/games/*/hltb/refresh', async (route) => {
+    await held;
+    await route.continue();
+  });
+
+  return release;
 }

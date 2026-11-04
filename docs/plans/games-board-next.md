@@ -41,7 +41,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
 | 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
-| 19 | An estimate that catches up | S–M | **Planned and workshopped 3 November 2026**, at the user's request; ready to build. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
+| 19 | An estimate that catches up | S–M | **Built 3 November 2026**, tests first, the day it was planned and workshopped, at the user's request; not yet merged. The full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Planned and workshopped 3 November 2026**, beside #19; ready to build. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal. Your board's columns only. See its section |
 
 Production runs `bbd2c34`'s code, which was `main` on 31 October 2026. Deploying is the runbook in
@@ -2748,7 +2748,7 @@ asks what the box took in now.
 
 ---
 
-## 19. An estimate that catches up · planned
+## 19. An estimate that catches up · built
 
 **Planned 3 November 2026**, at the user's request. Lines were read at `4fdb7cf`.
 
@@ -2851,6 +2851,92 @@ https://claude.ai/artifact/E8TV1xCBeB5uampa9CdJvo. Harness in `frontend/workshop
   figure and the drawer's.
 - End to end: `hltb-stub.mjs` gains a game whose times arrive after its first fetch, so the button
   is proved against the real client.
+
+### Built
+
+Built on 3 November 2026, the day it was planned and workshopped, tests first, in the order the
+user gave: the backend, then the journal's arrow and its line, then the stub's late game, on
+`estimates-that-catch-up`. Not yet merged. The write-up is `docs/games-hltb.md`, **The arrow asks
+again** and **The backfill runs once a day**, with the look in `docs/design.md`, **An estimate that
+catches up**, the day in `docs/data-model.md`, and the route in `docs/api.md`.
+
+- **The backend**: `HltbLookupOutcome`, which `UpdateAsync` answers in place of a bool;
+  `RefreshAsync`, `UpdateAsync` and then the service's own detail read, so the sites that order a
+  title's passes stay nine; `POST /api/games/{mediaId}/hltb/refresh`, with its 409;
+  `GameDetailDto.HltbCheckedAt`; the queue in `PinAsync`'s clearing branch; and
+  `HltbBackfillWorker` with `HltbBackfillOptions`, the `HltbBackfill` block in `appsettings.json`,
+  its switch off in `appsettings.Development.json`, the worker out of `ApiFactory`'s host, and
+  `HltbBackfill__Enabled` off in `playwright.config.ts`.
+- **The frontend**: `refreshGameHltb`; `GameDetail.hltbCheckedAt` and `TitleHltb.checkedAt`;
+  `JournalSection.refreshHltb`, null for films, shows and anime and held to `setHltbId`'s pairing;
+  `useJournalEntry`'s `refreshHltb`, which refreshes the board and the drawer on a success and on
+  the 409; the drawer's `checked`; and `HltbPin`'s arrow and its line.
+- **The harnesses**: `FakeHltbQueue` locked and waitable, for the first writer not on the
+  request's thread; `journalServer`'s `refreshed`, `refreshHeldUntil` and `refreshes`, with its
+  read answering what a check left; the stub's *Tunic II*; and `holdChecks` and `todayAsChecked` in
+  `e2e/support/hltb.ts`.
+
+### Tests
+
+Backend 920, the 905 before and fifteen; frontend 1,302 with `tsc` clean; and **the full e2e suite,
+213 specs in Chromium, all green**, the 210 before, three new and one rewritten. **Every test was
+red first**, on what it asserts rather than on a compile error: a type the tests named was put in
+first carrying the old behaviour, or written as null.
+
+| Step | Tests | Red first by |
+|---|---|---|
+| 1. The route | 5 endpoint, 2 service | four 404s from a route not there yet; the two outcomes a bool could not tell apart, against the old bool's mapping. The film's 404 passed with no route at all, and was proved by letting `NoSuchGame` fall through to a 204 |
+| 2. `hltbCheckedAt` | 3 | two on the value, with the field on the contract and written as null. The never-asked case passed against that, and was proved against a stand-in date |
+| 3. Clearing queues | 1 | an empty queue |
+| 4. The timer | 6 | the run timed out against a worker that did nothing; the two switches timed out against a worker with none; the host guard once it was registered; Development's switch until the override |
+| 5. The journal | 2 API, 2 contract, 12 drawer, 1 board | fifteen red. The two that say nothing passed with no line at all, and were proved by fault |
+| 6. End to end | 3 new, 1 rewritten | all four, with the stub's late game out and the pin's queue out |
+
+**Faults put back, one at a time, each red on its own test**: in the drawer, the line on every
+game, a line for a title never asked, a second press sending, the line read off the request's own
+success, the arrow left in during a pin, the box not held, and the board not told; end to end, a
+check that searched again instead of fetching its id, and a glyph that turned whatever the reader's
+setting.
+
+**The built arrow was shot beside prototype B**, in the states it was rendered in, from the
+gitignored `workshop.local/estimates/compare-built.mjs` on the staged board. The header band
+matches B in every state: 148px on a game with figures, 172px with the line. **While it checks it
+stays at 172px with the link in place**, where B's render had dropped the link, and the glyph's
+computed animation is `spin`, or none at 0.5 opacity under reduced motion.
+
+### What the plan got wrong, or left out
+
+- ***No times yet* is said by the figures, not by the route.** The test list was written before the
+  follow-up that made the line *Checked just now* and nothing more, so the route has no outcome of
+  that name: it answers 200 with `hltbCheckedAt` moved, which is what tells the drawer the check
+  ran, and the pass band's *No HowLongToBeat estimate yet* says the rest.
+- **A 409, not the pin's 400**, for an id HowLongToBeat no longer has: nothing in the request was
+  wrong, the title's stored id is, and pinning another resolves it. **The plan did not say whether
+  that check is stamped.** It is, as the worker stamps it, so the drawer refetches after the 409 as
+  after a success.
+- **`UpdateAsync`'s bool never meant "times stored"**, as its comment said: it was true for any
+  entry found, a listing with no times included. The outcome that replaced it says so.
+- **Clearing a pin made an existing spec a race.** *Taking the pin back puts the title in the way
+  of the next backfill* read `hltb_checked_at is null` straight after clearing, which the worker now
+  replaces within a second. It is *taking the pin back asks HowLongToBeat again, by name*, and
+  watches the card fill itself back in.
+- **The pin's own *Checking…* is as it shipped.** The follow-up was about the arrow's check, so a pin
+  in flight shows *Checking…* in the arrow's place, as B rendered it, and the link can still drop
+  for the length of a pin. The arrow turning for a pin too would be a question for the user.
+- **The arrow is `aria-disabled` while it checks, not disabled**, which the plan did not say: a
+  disabled button lets go of the keyboard, as the pin's box has always done to its own focus.
+- **The render's *Sep 11* has no year because it was this year's.** The build writes the year for a
+  check in another, by `formatDayShort`'s rule, and the day is the journal zone's.
+- ***Checked just now* lost the render's full stop**, which belonged to a second sentence the
+  follow-up took away.
+- **A bare `reducedMotion` in Playwright's `test.use` is ignored.** The first red run of the spec
+  that dims the arrow failed with the arrow spinning, which was the spec being wrong rather than
+  the fault it was there to catch. It uses `emulateMedia`.
+- **The stub's late game is split between its two routes rather than counted**, which the plan
+  left open: a count would need resetting between specs the stub outlives, and the split proved the
+  stricter.
+- **The timer starts five minutes after a restart, as the release sweep does**, so both run
+  together. They ask different providers, and the HowLongToBeat one only queues, so it was left so.
 
 ---
 

@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
-import { getGame, searchGames, setGameHltbId } from './games';
+import { getGame, refreshGameHltb, searchGames, setGameHltbId } from './games';
 import type { Game } from './types';
 
 const celeste: Game = {
@@ -133,5 +133,48 @@ describe('setGameHltbId', () => {
     );
 
     await expect(setGameHltbId(14, 999999)).rejects.toThrow('HowLongToBeat has no game 999999.');
+  });
+});
+
+describe('refreshGameHltb', () => {
+  it('asks HowLongToBeat about the title again, and answers with what it holds now', async () => {
+    // No body: what to ask about is the title's own business — its stored id, or its name when
+    // it has none — and the server already knows both.
+    let asked = 0;
+    server.use(
+      http.post('/api/games/14/hltb/refresh', () => {
+        asked += 1;
+        return HttpResponse.json({
+          ...celeste,
+          hltbId: 9134,
+          hltbAllStylesHours: 20,
+          hltbCheckedAt: '2026-11-03T16:00:00+00:00',
+          logEntries: [],
+        });
+      }),
+    );
+
+    const game = await refreshGameHltb(14);
+
+    expect(asked).toBe(1);
+    expect(game.hltbAllStylesHours).toBe(20);
+    expect(game.hltbCheckedAt).toBe('2026-11-03T16:00:00+00:00');
+  });
+
+  it('carries the sentence naming an id HowLongToBeat no longer has', async () => {
+    server.use(
+      http.post('/api/games/14/hltb/refresh', () =>
+        HttpResponse.json(
+          {
+            title: 'No longer on HowLongToBeat',
+            status: 409,
+            detail: 'HowLongToBeat no longer has game 555.',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+
+    await expect(refreshGameHltb(14)).rejects.toThrow('HowLongToBeat no longer has game 555.');
   });
 });

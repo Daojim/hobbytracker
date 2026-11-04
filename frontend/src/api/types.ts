@@ -321,6 +321,13 @@ export interface Game {
 
 export interface GameDetail extends Game {
   hltbId: number | null;
+
+  /**
+   * When HowLongToBeat was last asked about it, whatever it answered — an instant — or null for
+   * a title nobody has asked about yet. A game matched before its release has an id and no
+   * figures, and this is what says how long ago that was.
+   */
+  hltbCheckedAt: string | null;
   logEntries: LogEntry[];
 }
 

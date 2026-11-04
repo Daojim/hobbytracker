@@ -72,12 +72,34 @@ export function useJournalEntry(hobby: string, mediaId: number) {
     onSuccess: refresh,
   });
 
+  const refreshHltb = useMutation({
+    mutationFn: () =>
+      journal.refreshHltb === null
+        ? // Unreachable through the UI, for the pin's reason above: the arrow is the pin's
+          // neighbour and renders where it does.
+          Promise.reject(new Error(`${hobby} has nothing to ask HowLongToBeat about.`))
+        : journal.refreshHltb(mediaId),
+
+    // What a check found is the card's figure as much as the drawer's, as a pin's is.
+    onSuccess: refresh,
+
+    // The one refusal that wrote. HowLongToBeat no longer has the id the title holds, and the
+    // server stamps the title as asked all the same, as the worker would — so the day the
+    // drawer says it was last asked has moved, though the figures have not.
+    onError: (error) => {
+      if (error instanceof ApiError && error.status === 409) {
+        refresh();
+      }
+    },
+  });
+
   return {
     title,
     save,
     remove,
     setGenre,
     setHltbId,
+    refreshHltb,
     /** Which field the API objected to, rather than only that it objected. */
     fieldErrors: save.error instanceof ApiError ? save.error.fieldErrors : {},
   };

@@ -20,14 +20,56 @@ public enum HltbPinOutcome
     Pinned,
 }
 
+/// <summary>
+/// What one look at HowLongToBeat found.
+///
+/// It was a bool, true when an entry was found, and a bool cannot tell an id the site has stopped
+/// knowing from a title nothing matched. The worker has no use for the difference. A person who
+/// pressed for a check does: the figures of a gone id are kept, so a 200 for it would put
+/// "Checked just now" over numbers nobody had checked.
+/// </summary>
+public enum HltbLookupOutcome
+{
+    /// <summary>No game with that media id.</summary>
+    NoSuchGame,
+
+    /// <summary>
+    /// The id the title holds is one HowLongToBeat no longer knows: an entry merged away or
+    /// deleted. Stamped as asked, and the figures it had are kept, because they were true when
+    /// they were written.
+    /// </summary>
+    NoSuchHltbId,
+
+    /// <summary>
+    /// No id, so it was searched for, and nothing was confident enough to keep. Stamped, so the
+    /// backfill does not ask again tomorrow about a title it will refuse again.
+    /// </summary>
+    Unmatched,
+
+    /// <summary>
+    /// Found, by its id or by a match, and written down. That can be no figures at all: a game
+    /// listed before it comes out has an entry and no times on it.
+    /// </summary>
+    Found,
+}
+
 public interface IHltbService
 {
     /// <summary>
-    /// Looks one title up and writes down what came back. True when times were stored.
+    /// Looks one title up and writes down what came back.
     ///
-    /// Stamps hltb_checked_at either way, which is the distinction that column exists for.
+    /// Stamps hltb_checked_at whatever the answer, which is the distinction that column exists
+    /// for. Throws <see cref="HltbException"/> without stamping when the site cannot be read.
     /// </summary>
-    Task<bool> UpdateAsync(int mediaId, CancellationToken cancellationToken);
+    Task<HltbLookupOutcome> UpdateAsync(int mediaId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// <see cref="UpdateAsync"/> there and then, for somebody waiting on the answer — the
+    /// journal's arrow — and the title as the journal reads it afterwards. The game is null only
+    /// for <see cref="HltbLookupOutcome.NoSuchGame"/>.
+    /// </summary>
+    Task<(HltbLookupOutcome Outcome, GameDetailDto? Game)> RefreshAsync(
+        int mediaId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Queues every library title that has not been asked about lately. Returns how many were
@@ -66,20 +108,21 @@ public sealed class HltbService(
 {
     private readonly HltbOptions _options = options.Value;
 
-    public async Task<bool> UpdateAsync(int mediaId, CancellationToken cancellationToken)
+    public async Task<HltbLookupOutcome> UpdateAsync(int mediaId, CancellationToken cancellationToken)
     {
         var game = await db.Games.FirstOrDefaultAsync(
             candidate => candidate.Id == mediaId, cancellationToken);
 
         if (game is null)
         {
-            return false;
+            return HltbLookupOutcome.NoSuchGame;
         }
 
         // A stored id is fetched, never re-matched. That is what makes a match survive both the
         // matching rules changing and — since the by-id route needs no handshake — HowLongToBeat
         // renaming the search endpoint out from under us.
-        var found = game.HltbId is { } pinned
+        var stored = game.HltbId;
+        var found = stored is { } pinned
             ? await hltb.GetAsync(pinned, cancellationToken)
             : await MatchAsync(game, cancellationToken);
 
@@ -90,13 +133,29 @@ public sealed class HltbService(
         if (found is null)
         {
             await db.SaveChangesAsync(cancellationToken);
-            return false;
+
+            // Nothing came back for an id, or nothing matched a name: two different things to
+            // tell somebody who asked, and which one it was is which route was taken above.
+            return stored is null ? HltbLookupOutcome.Unmatched : HltbLookupOutcome.NoSuchHltbId;
         }
 
         Apply(found, game);
         await db.SaveChangesAsync(cancellationToken);
 
-        return true;
+        return HltbLookupOutcome.Found;
+    }
+
+    public async Task<(HltbLookupOutcome Outcome, GameDetailDto? Game)> RefreshAsync(
+        int mediaId, CancellationToken cancellationToken)
+    {
+        var outcome = await UpdateAsync(mediaId, cancellationToken);
+
+        // The detail is read here rather than by the controller from the catalogue service,
+        // which has one of its own: a title's passes are ordered at nine call sites that must
+        // agree and share no helper, and this one is already among them.
+        return outcome == HltbLookupOutcome.NoSuchGame
+            ? (outcome, null)
+            : (outcome, await DetailAsync(mediaId, cancellationToken));
     }
 
     public async Task<int> BackfillAsync(CancellationToken cancellationToken)
@@ -142,6 +201,13 @@ public sealed class HltbService(
             ClearTimes(game);
 
             await db.SaveChangesAsync(cancellationToken);
+
+            // And then asked, by name, as on the day it was added. Never-asked is what the card
+            // polls on, and it used to poll for its ninety seconds with nothing on the way: the
+            // title waited for somebody to run the backfill. After the save, so the worker cannot
+            // pick it up before the stamp it is about to replace is gone.
+            queue.Enqueue(mediaId);
+
             return (HltbPinOutcome.Pinned, await DetailAsync(mediaId, cancellationToken));
         }
 

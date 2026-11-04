@@ -504,6 +504,38 @@ describe('BoardPage', () => {
     expect(screen.getByRole('heading', { name: 'Backlog 1' })).toBeInTheDocument();
   });
 
+  it('puts the figure a check in the journal found on the card behind it', async () => {
+    // The card carries the headline estimate and Time to beat orders on it, so a check is a
+    // write the board has to hear about, as a pin is. The column answers with the figure only
+    // once the check has been made, so a board that was not told would go on showing none.
+    const blade = gameDetail({
+      id: 3003,
+      title: 'Phantom Blade Zero',
+      hltbId: 129235,
+      logEntries: [logEntry({ id: 7, status: 'InProgress' })],
+    });
+    const journal = journalServer({ detail: blade, refreshed: { ...blade, hltbAllStylesHours: 28 } });
+    const card = libraryItem({ mediaId: 3003, title: 'Phantom Blade Zero', currentStatus: 'InProgress' });
+    boardServer({
+      columns: {
+        get InProgress() {
+          return [journal.refreshes.length === 0 ? card : { ...card, lengthHours: 28 }];
+        },
+      },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('button', { name: 'Phantom Blade Zero' }));
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Check HowLongToBeat again' }),
+    );
+
+    const board = document.querySelector<HTMLElement>('[data-board]')!;
+    expect(
+      await within(board).findByRole('img', { name: 'About 28 hours to finish' }),
+    ).toBeInTheDocument();
+  });
+
   it('opens the journal at the question when a card is asked how long', async () => {
     boardServer({
       columns: {

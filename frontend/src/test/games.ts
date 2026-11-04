@@ -107,6 +107,9 @@ export function gameDetail(overrides: Partial<GameDetail> = {}): GameDetail {
   return {
     ...game(),
     hltbId: null,
+    // Nobody has asked HowLongToBeat about it, which is also what a title just added says until
+    // the queue gets to it.
+    hltbCheckedAt: null,
     // Ordered logged_at DESC, id DESC by the API, so the first entry is the pass the board is
     // showing. The drawer takes it as given rather than re-deriving the rule a third time.
     logEntries: [logEntry()],
@@ -124,19 +127,59 @@ export interface JournalFixture extends PassFixture {
    * answers nothing.
    */
   pinErrors?: Record<string, string[]>;
+
+  /**
+   * What the title holds once HowLongToBeat has been asked about it again, from the journal's
+   * arrow. The read answers with it from then on, as the real one would. Or a refusal, with its
+   * status and the sentence the server puts in it: an id HowLongToBeat no longer has is a 409.
+   *
+   * Unset, a check finds what was already there.
+   */
+  refreshed?: GameDetail | { status: number; detail: string };
+
+  /** Holds every check until this settles, so a test can look at the drawer while one runs. */
+  refreshHeldUntil?: Promise<void>;
 }
 
-export function journalServer({ detail, pinErrors, ...passes }: JournalFixture = {}): PassCalls & {
+export function journalServer({
+  detail,
+  pinErrors,
+  refreshed,
+  refreshHeldUntil,
+  ...passes
+}: JournalFixture = {}): PassCalls & {
   genresSet: { mediaId: number; genre: string | null }[];
   pinned: { mediaId: number; hltbId: number | null }[];
+  /** The media id of every check the arrow asked for, in order. */
+  refreshes: number[];
 } {
   const genresSet: { mediaId: number; genre: string | null }[] = [];
   const pinned: { mediaId: number; hltbId: number | null }[] = [];
+  const refreshes: number[] = [];
+
+  // What the read answers with, which a check can change. A drawer refetches after one, so a
+  // read that went on answering with the title as it was would undo the check on screen.
+  let current = detail ?? gameDetail();
 
   const calls = passServer(passes);
 
   server.use(
-    http.get('/api/games/:id', () => HttpResponse.json(detail ?? gameDetail())),
+    http.get('/api/games/:id', () => HttpResponse.json(current)),
+
+    http.post('/api/games/:mediaId/hltb/refresh', async ({ params }) => {
+      refreshes.push(Number(params['mediaId']));
+      await refreshHeldUntil;
+
+      if (refreshed !== undefined && 'status' in refreshed) {
+        return HttpResponse.json(
+          { title: 'Refused', status: refreshed.status, detail: refreshed.detail },
+          { status: refreshed.status },
+        );
+      }
+
+      current = refreshed ?? current;
+      return HttpResponse.json(current);
+    }),
 
     http.put('/api/games/:mediaId/genre', async ({ params, request }) => {
       const { genre } = (await request.json()) as { genre: string | null };
@@ -163,5 +206,5 @@ export function journalServer({ detail, pinErrors, ...passes }: JournalFixture =
     }),
   );
 
-  return { ...calls, genresSet, pinned };
+  return { ...calls, genresSet, pinned, refreshes };
 }

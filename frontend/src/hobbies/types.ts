@@ -360,6 +360,14 @@ export interface JournalSection {
    */
   setHltbId: ((mediaId: number, hltbId: number | null) => Promise<unknown>) | null;
 
+  /**
+   * Asks HowLongToBeat about a title again, there and then — the arrow beside the pin.
+   *
+   * Null exactly where {@link setHltbId} is, for its reason: it is a third part of the same fact,
+   * and `journal.test.ts` holds all three together.
+   */
+  refreshHltb: ((mediaId: number) => Promise<unknown>) | null;
+
   /** Which of a pass's fields this hobby keeps at all. */
   fields: PassFields;
 }
@@ -514,6 +522,13 @@ export interface TitleSeason {
 export interface TitleHltb extends HltbEstimates {
   /** The pinned id, or null for a title nothing has matched. */
   id: number | null;
+
+  /**
+   * The instant HowLongToBeat was last asked, whatever it answered, or null for never. What the
+   * line under the pin reads on a title with no figures: the day of the last ask is the reason
+   * to press for another.
+   */
+  checkedAt: string | null;
 }
 
 /**

@@ -150,6 +150,7 @@ export const TV: HobbyDefinition = {
 
     setGenre: setShowGenre,
     setHltbId: null,
+    refreshHltb: null,
 
     // The pair is the whole of what a show adds. Still no hours: nobody records how long an
     // evening of television took, and the facts band already says how long one episode runs.

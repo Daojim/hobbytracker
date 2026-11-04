@@ -25,7 +25,7 @@ public sealed class HltbServiceTests(PostgresFixture postgres) : DatabaseTestBas
             "Hollow Knight",
             FakeHltbClient.Game(26286, "Hollow Knight", 2017, 27m, 41.59m, 65.6m, allStyles: 41.82m));
 
-        (await UpdateAsync(mediaId)).ShouldBeTrue();
+        (await UpdateAsync(mediaId)).ShouldBe(HltbLookupOutcome.Found);
 
         var game = await GameAsync(mediaId);
         game.HltbId.ShouldBe(26286);
@@ -47,7 +47,7 @@ public sealed class HltbServiceTests(PostgresFixture postgres) : DatabaseTestBas
             "Pokémon Scarlet",
             FakeHltbClient.Game(104683, "Pokémon Scarlet and Violet", 2022, 32.07m, 51.57m, 92.22m));
 
-        (await UpdateAsync(mediaId)).ShouldBeFalse();
+        (await UpdateAsync(mediaId)).ShouldBe(HltbLookupOutcome.Unmatched);
 
         var game = await GameAsync(mediaId);
         game.HltbCheckedAt.ShouldBe(Journal.Now);
@@ -66,7 +66,7 @@ public sealed class HltbServiceTests(PostgresFixture postgres) : DatabaseTestBas
         Hltb.ById[104683] = FakeHltbClient.Game(
             104683, "Pokémon Scarlet and Violet", 2022, 32.07m, 51.57m, 92.22m);
 
-        (await UpdateAsync(mediaId)).ShouldBeTrue();
+        (await UpdateAsync(mediaId)).ShouldBe(HltbLookupOutcome.Found);
 
         Hltb.Searches.ShouldBeEmpty();
         Hltb.Lookups.ShouldHaveSingleItem().ShouldBe(104683);
@@ -78,10 +78,14 @@ public sealed class HltbServiceTests(PostgresFixture postgres) : DatabaseTestBas
     {
         // An entry can be merged away or deleted. That is not a reason to throw away numbers
         // that were true when they were written.
+        //
+        // Said apart from a miss, which a bool could not do. The worker has no use for the
+        // difference; a person who pressed for a check does, because "checked just now" over
+        // figures nobody has checked would be the one untrue thing the journal could say.
         var mediaId = await GivenGameAsync("Some Game");
         await PinIdAsync(mediaId, 555, mainStory: 12.5m);
 
-        (await UpdateAsync(mediaId)).ShouldBeFalse();
+        (await UpdateAsync(mediaId)).ShouldBe(HltbLookupOutcome.NoSuchHltbId);
 
         var game = await GameAsync(mediaId);
         game.HltbMainStoryHours.ShouldBe(12.5m);
@@ -156,13 +160,13 @@ public sealed class HltbServiceTests(PostgresFixture postgres) : DatabaseTestBas
     [Fact]
     public async Task Says_nothing_happened_for_a_media_id_that_is_not_a_game()
     {
-        (await UpdateAsync(mediaId: 9999)).ShouldBeFalse();
+        (await UpdateAsync(mediaId: 9999)).ShouldBe(HltbLookupOutcome.NoSuchGame);
         Hltb.Searches.ShouldBeEmpty();
     }
 
     // ----------------------------------------------------------------- helpers
 
-    private async Task<bool> UpdateAsync(int mediaId) =>
+    private async Task<HltbLookupOutcome> UpdateAsync(int mediaId) =>
         await WithScopeAsync(services =>
             services.GetRequiredService<IHltbService>().UpdateAsync(mediaId, Ct));
 

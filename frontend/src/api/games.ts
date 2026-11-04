@@ -62,3 +62,16 @@ export function setGameHltbId(mediaId: number, hltbId: number | null): Promise<G
     body: { hltbId },
   });
 }
+
+/**
+ * Asks HowLongToBeat about a title again, there and then: its stored id fetched, or its name
+ * searched for and matched when it has none — the lookup the worker runs.
+ *
+ * For a game matched before it came out, which HowLongToBeat listed with no times and nothing
+ * asked about again. Worth waiting on, as the pin is, and it answers the same way: the game as
+ * it now reads. An id HowLongToBeat no longer has is a 409 naming it, because the figures it had
+ * are kept and a success would claim a check that found nothing of the sort.
+ */
+export function refreshGameHltb(mediaId: number): Promise<GameDetail> {
+  return apiJson<GameDetail>(`/api/games/${mediaId}/hltb/refresh`, { method: 'POST' });
+}

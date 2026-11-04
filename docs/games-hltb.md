@@ -16,7 +16,8 @@ numbers beside how long *you* took.
 | Where | All four in the drawer; **the headline figure alone on a card** |
 | Matching | Auto-accept above a threshold *and* a margin; below either, **write nothing** |
 | Correcting | **In the drawer, by pinning an id.** Not psql, and not typed-in hours |
-| Fetching | Queued on add to the board, plus a backfill for what is already there |
+| Fetching | Queued on add to the board, plus a backfill for what is already there, **which runs once a day by itself** |
+| Asking again | **An arrow beside the pin, on every game**, for a title matched before its times arrived. There and then, as the pin is |
 
 ### HLTB is not an API, and that is the whole design problem
 
@@ -225,8 +226,8 @@ or the word "edition" is how a matcher becomes confident about the wrong game.
 ### Nothing a person does waits on HowLongToBeat
 
 Adding a title writes its log entry, drops the id in a bounded `Channel`, and replies.
-`POST /api/games/hltb/refresh` does the same for the whole library and answers **202** with a count of
-what was **queued** — a `QueuedResult`, deliberately not `RefreshResult`, because `Refreshed` counts
+`POST /api/games/hltb/refresh` does the same for the whole library, as `HltbBackfillWorker` does once
+a day, and answers **202** with a count of what was **queued** — a `QueuedResult`, deliberately not `RefreshResult`, because `Refreshed` counts
 rows the IGDB upsert touched where this counts work not yet begun. `HltbWorker` drains the queue, a
 DI scope per title, logging and swallowing every failure; a title that fails keeps its null
 `hltb_checked_at` so the next backfill finds it, and the queue drops the newest when full, because it
@@ -271,37 +272,51 @@ unmatchable title, and a real library has several.
   ends. It restarts whenever the set of waiting titles changes.
 
 **Not covered, and deliberately:** the drawer's three tiers do not refresh while it is open. The pin
-writes synchronously and refetches, so the path a person waits on is already immediate.
+and the arrow beside it write synchronously and refetch, so the paths a person waits on are
+already immediate.
 
-### The backfill is a thing you run, and that keeps catching people
+### The backfill runs once a day, and is still a thing you can run
 
-**To build: `HltbWorker` should sweep up titles with no numbers when it starts.** The next thing worth
-doing in this area, written down because it has now bitten twice.
+**`HltbBackfillWorker` queues what `BackfillAsync` selects, once a day, from five minutes after
+start** — library titles whose `hltb_checked_at` is null or older than `Hltb:RecheckAfterDays` (30).
+Built on 3 November 2026 as half of #19, after it had bitten three times. Twice by a column:
+`media` rows are only ever written by a search, so a column added to the schema was empty on the
+library you already had until something asked, and the only thing that asked was the route below,
+which nobody would think to run. Adding `hltb_all_styles_hours` took every card's estimate away
+until it was run by hand. **The third was a release**: HowLongToBeat lists a game before it is out,
+with no times on it, and the matcher compares names and never times, so a title added from the
+calendar was matched, kept its id, and had nothing to show for as long as nobody pressed anything.
+Fifteen titles on the user's board were in that state on 3 November, every one matched before its
+release.
 
-`media` rows are only ever written by a search, so a column added to the schema is empty on the
-library you already have until something asks — and the only thing that asks is
-`POST /api/games/hltb/refresh`, which has no UI, sits behind `[Authorize]`, and nobody would think to
-run. Adding `hltb_all_styles_hours` took every card's estimate away until it was run by hand; the
-migration clearing `hltb_checked_at` made the backfill *able* to pick those rows up, and still nothing
-picked the backfill up. It should enqueue the same set `BackfillAsync` selects — library titles whose
-`hltb_checked_at` is null or older than `Hltb:RecheckAfterDays`. Everything else already exists.
+**Daily, by the backfill's own rule, the user's pick** over every night for a release's first three
+months. Each title comes due thirty days after its own last ask, so the load spreads out instead of
+landing as one batch a month. A new release can wait up to a month that way, which is what the
+journal's arrow is for (below).
 
-**Three things to get right, and the reason this was not simply done:**
+**The three things the sweep had to get right before it could exist**, and how each is held:
 
 - **It makes the app reach HowLongToBeat without being asked**, and this is a site that would rather
-  not be read by a program — which is why the backfill is explicit today. `Hltb:Enabled` must gate the
-  sweep as it gates the worker, and **the sweep must be its own setting besides**: somebody running
-  this locally to look at the board should not become traffic.
-- **`ApiFactory` removes `HltbWorker` from the host entirely**, because left in it looks titles up on
-  a background thread while tests assert about the rows it is writing. A sweep run from the worker
-  inherits that; one run from anywhere else does not, and would flake the suite in a way that reads
-  as a database problem.
-- **It must not re-ask on every restart.** `hltb_checked_at` is stamped on a miss for exactly this
-  reason, so the selection is already correct — but a sweep makes a restart loop expensive in a way a
-  manual backfill never was.
+  not be read by a program. `Hltb:Enabled` stops it as it stops the worker, checked first because
+  queuing behind a drain that is off fills the queue for nothing; and **`HltbBackfill:Enabled` is a
+  switch of its own besides, off in `appsettings.Development.json`**, so somebody running this locally
+  to look at the board is not traffic. Adding a title still asks there, and so does the arrow.
+  `The_timer_runs_in_production_and_not_on_a_development_machine` reads the shipped files layered as
+  the host layers them.
+- **A timer needs no invitation**, which is the release sweep's lesson. `ApiFactory` removes the
+  worker from the test host, and `HltbBackfill__Enabled` is `false` in `playwright.config.ts` — it
+  fires five minutes after the API starts, which is inside a full run.
+- **It must not re-ask on every restart.** What it selects is chosen by the stamp each ask leaves,
+  and a miss is stamped like a match, so a restart queues only what was already due.
 
-Until it exists: **after any migration that adds an `hltb_*` column, run the backfill**, and say so in
-the same breath as the migration. One line from the browser console while signed in:
+**It queues and never asks**, so `HltbWorker` stays the only thing that talks to HowLongToBeat, behind
+the throttle. Its tests drive the real worker with no startup delay: a run queues exactly the never
+asked and the 31-day-old and not yesterday's, and with either switch off the worker finishes on its
+own, which one that had started its timer never does. Every one was red against a worker missing
+what it pins.
+
+**The route is still worth knowing**, for not waiting until tomorrow — after a migration that clears
+`hltb_checked_at`, say. One line from the browser console while signed in:
 
 ```js
 await fetch('/api/games/hltb/refresh', { method: 'POST' }).then(r => r.json())
@@ -314,11 +329,13 @@ that found the wrong game and one that found nothing are both fixed by naming th
 unlike typed-in hours it survives the next backfill, because a stored id is what every refresh
 fetches. It fetches **there and then** rather than queueing, because the point of typing an id is to
 learn whether it was right, so an id HLTB does not know is a **400 naming it** rather than a stored
-pin that silently answers nothing; this is the one route anybody waits on, and so the only one
-`HltbExceptionHandler`'s 502 can reach. The *View on HowLongToBeat* link beside it is how you check
+pin that silently answers nothing; it and the arrow beside it are the two routes anybody waits on,
+and so the only two `HltbExceptionHandler`'s 502 can reach. The *View on HowLongToBeat* link beside it is how you check
 the numbers belong to the game you meant — which is why no column stores the matched title.
 **Clearing a pin resets the title to never-having-been-asked**, not to asked-and-found-nothing:
-leaving a stamp behind would stop the backfill ever looking again.
+leaving a stamp behind would stop the backfill ever looking again. **And then it queues a lookup**,
+since #19, so the title is matched by name at once: before, the card polled for its ninety seconds
+with nothing on the way, and the title waited for somebody to run the backfill.
 
 `HltbPin` sits in the drawer header beside the genre select; `setHltbId` in `useJournalEntry.ts`
 invalidates `['library', hobby]` as well as `mediaKey(hobby, mediaId)`, because the card carries that figure
@@ -341,6 +358,59 @@ and *Time to beat* orders on it. Three things about it are deliberate:
 The component is keyed on `detail.hltbId` for `EntryForm`'s reason, which also gives the error path
 what it needs free: a refused pin leaves the stored id alone, so what was typed stays in the box.
 
+### The arrow asks again, for a title matched before its times
+
+**A circular arrow between the ID box and *View on HowLongToBeat*, on every game**, which asks
+HowLongToBeat about the title there and then. #19, built 3 November 2026. It is for a third way of
+being wrong that the pin cannot fix, which is being early: the id is right and the figures are
+empty because nobody had finished the game when it was matched, and release day is not an event —
+the calendar is a view of Backlog, and no job runs then. The user's way round it was to pin another
+id and then the right one, because the box will not re-send an unchanged id. Their first idea was a
+refresh button in exactly this place, and it was their pick from renders over the recommendation,
+*Check now* in the line that says there is no estimate. The look is `docs/design.md`'s.
+
+**`POST /api/games/{mediaId}/hltb/refresh` runs `UpdateAsync` and answers with the detail**, as
+the pin does: a stored id fetched, no id searched for and matched, exactly as the worker does it,
+and the shared row written, so the figure is everybody's — they are HowLongToBeat's, not anybody's
+opinion. 404 for a media id that is not a game, and the 502 when the site cannot be read, with
+nothing stamped. **One outcome has words of its own: an id HowLongToBeat no longer has is a 409**,
+*HowLongToBeat no longer has game 555.* `UpdateAsync` keeps the old figures there, as the worker
+should, so a 200 would put *Checked just now* over numbers nobody had checked. A conflict rather
+than the pin's 400, because nothing in the request was wrong and pinning another id is how it is
+resolved; it stamps the title as asked all the same, so the drawer refetches after it as after a
+success. **`UpdateAsync` answers a `HltbLookupOutcome` rather than the bool it was**, because a bool
+could not tell that case from a check that found nothing; the worker ignores the difference.
+
+**The detail carries `hltbCheckedAt` now**, which nothing on the wire did before, because the
+journal says when HowLongToBeat was last asked:
+
+- ***Last checked Sep 11* under the row, on a game with no figures**, the user's pick over every
+  game: there, the day of the ask is the reason to press. Nothing on a game with figures, and
+  nothing for a title never asked, which has no day to give. The day is the journal zone's, through
+  `journalDateInput`, written by `formatDayShort` with the year only when it is not this one.
+- ***Checked just now* after a press, and nothing more.** The line is only ever about when
+  HowLongToBeat was asked; the figures in the pass band say what it has, so a check that found no
+  times says so there and not twice. **It is the drawer's state, held until the drawer closes**,
+  not `isSuccess`: a second press clears that while it runs, and the line going would move the
+  header under it.
+- **"Has figures" is `hltbTiers(…).length > 0`**, the rule *No HowLongToBeat estimate yet* is said
+  by, so the two lines cannot disagree.
+
+**The arrow and the pin share one write at a time.** The box disables while a check runs, as it
+already did while a pin was in flight, and a pin in flight puts its *Checking…* in the arrow's
+place, as the box has always shown it. Each clears the other's refusal as it starts, so one message
+is on screen at a time. **The arrow is `aria-disabled` while it checks rather than disabled**: a
+press from the keyboard keeps its focus, where a disabled button lets go of it, and the click
+handler refuses the second press instead. Its name says what it is doing, *Check HowLongToBeat
+again* at rest and *Checking HowLongToBeat* while it runs, and the line is a `role="status"`.
+
+**It turns in place while it checks, and under reduced motion it dims instead** — a word in its
+place was wider and dropped the link under the box for the length of the check. Both are
+`motion-safe:animate-spin motion-reduce:opacity-50`, whole class names on the glyph, so the browser
+decides from the reader's setting and nothing in JavaScript reads it. That is the one thing here
+jsdom cannot show, so `hltb.spec.ts` reads the computed animation with the check held at the
+network, under both settings, and measures that the link and the line did not move.
+
 ### Testing it, and the thing tests cannot tell you
 
 `ApiFactory` swaps `IHltbClient` for `FakeHltbClient` and `IHltbQueue` for `FakeHltbQueue`, and
@@ -355,7 +425,7 @@ array. **Do not commit it, and do not make the suite depend on the network.**
 `e2e/support/hltb-stub.mjs` exists because the backend suite fakes `IHltbClient` outright, leaving the
 whole access shape with no test above the unit level. So the stub is a **site**, not an endpoint: home
 page, two bundles, the handshake, the search and the game page, with the real `HltbSession`/
-`HltbClient` running against it unmodified. `Hltb:BaseUrl` is the only thing pointed at it. Four
+`HltbClient` running against it unmodified. `Hltb:BaseUrl` is the only thing pointed at it. Six
 choices, each of which stops a spec passing for the wrong reason:
 
 - **Its search endpoint is `warble/site`, pointedly not whatever `Hltb:FallbackSearchPath` holds**, or
@@ -375,6 +445,13 @@ choices, each of which stops a spec passing for the wrong reason:
   instant. It answered instantly once, which let the refetch that follows an add win a race it always
   loses in production, so the spec asserting the card fills itself in passed whether or not the board
   ever looked again. With the delay, removing the poll fails the spec.
+- **It has a late game, *Tunic II***, out ten days before the run as the IGDB stub has it, and the
+  case the arrow is for: **its search result has no times, and its page has them.** Adding it matches
+  it and keeps id 9106 with nothing to show, as Phantom Blade Zero was in production, and only a
+  fetch by that id brings the times. Split between the two routes rather than kept as a count of
+  fetches, which would need resetting between specs this process outlives — and the split is the
+  stricter: checked by making a check search again instead of fetching its id, and the spec that
+  presses the arrow fails with no times.
 
 The stub's catalogue disagrees with IGDB's on purpose: Stardew Valley is missing, and Anthem is filed
 as "Anthem: Legion of Dawn", which scores about 0.29 against IGDB's bare "Anthem" and is correctly
@@ -388,5 +465,14 @@ them *silently for a commit* — the change came with a new `layout.spec.ts` cas
 file alone proved nothing about the two that actually named tiers. **After changing markup the
 drawer shares, run the whole e2e suite rather than the spec that looks related.** The backfill spec blanks the columns in psql first, because a title predating the
 feature is a state the app cannot reach, and `awaitChecked` reads `hltb_checked_at` straight out of
-Postgres, since a refused match changes no other field and nothing on the wire carries that column.
+Postgres, since a refused match changes no other field. The journal's read carries the column too
+since #19, but the board's rows do not, and the specs that wait on it should not lean on a read some
+of them are testing.
+
+**`holdChecks(page)` holds the arrow's check at the network** until the function it hands back is
+called, then lets it through to the real API: a check is a fetch by id, which the stub answers at
+once, so without it there is no moment to look at the arrow turning. **Reduced motion is
+`page.emulateMedia({ reducedMotion: 'reduce' })`**, or `contextOptions` in `test.use`. A bare
+`reducedMotion` in `test.use` is not a test option and is ignored without a word: the first run of
+the spec that dims the arrow found the arrow spinning under it.
 
