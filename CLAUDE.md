@@ -734,8 +734,8 @@ shuffled.
         a button, its count in the accent, opening the finishes rated at that point in the
         panel, two across, with a tab under the open one: a cover, a name and the exact rating a
         row, and nothing opened from one. One filing for a column and its list, and a share's
-        chart as it was. The rating on a row and dated replays were the user's picks (built 7
-        November 2026)
+        chart as it was. The rating on a row and dated replays were the user's picks (PR #91,
+        deployed)
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
