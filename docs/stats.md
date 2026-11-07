@@ -15,7 +15,7 @@ its own.
 | Where | `/board/games/stats/2026`. The bare `/board/games/stats` opens on the latest year there is; an address naming something that is not a year goes there too, replaced rather than pushed |
 | The way in | **"Stats for 2026 →" on the board's year row**, carrying the year the board is showing, or `/all` under All years. On a phone too, where the row already is |
 | The tiles | Finished · Completion · Vs HowLongToBeat · Rating, four across from 1280px |
-| The panels | Finished each month (covers) · Ratings (a column per point) · You and HowLongToBeat (a bar per game) · Backlog (oldest first), two across from 1024px, in the board's wells |
+| The panels | Finished each month (covers) · Ratings (a column per point, **each opening the finishes rated there**) · You and HowLongToBeat (a bar per game) · Backlog (oldest first), two across from 1024px, in the board's wells |
 | Hobbies | **Games only**, from `HobbyDefinition.stats`. The API answers for every hobby |
 | On a share | **The owner's page, whole**, when the share shows Stats: `/share/:token/stats/:year?`, under the share's banner, in words written to nobody. See **On a share** |
 
@@ -208,11 +208,85 @@ goes by title.
 - **Every chart is drawn for the eye and said in full to a screen reader.** The covers are images
   named for their titles in a list named for its month. Each bar of the comparison is a list item
   that says *18% quicker: 10.5 hours played against about 12.76 hours to beat*, and shows the hours
-  on hover and on keyboard focus. The ratings are a list of the points that have any.
+  on hover and on keyboard focus. The ratings are a button for each point that has any, *22 rated
+  8*, and on a share, where nothing opens, a list of the same words. See **The finishes behind a
+  rating**.
 - **A hobby with no `stats` block has no page and no way in.** Its address goes to its board, as
   Discover's does. Turning it on for another hobby is that block in its file, and the comparison
   also needs the pass to record hours and the hobby's `columnHours` words, so films would get
   every panel but that one.
+
+## The finishes behind a rating
+
+**On your page, each rated column of the Ratings chart opens the finishes rated at that point.**
+Built on 7 November 2026 for #21 in `docs/plans/games-board-next.md`, which has both rounds of
+choices, from renders of the user's own finishes; the look is `docs/design.md`'s, under **Stats**.
+
+- **One filing for a column and its list.** `ratingLists` in `stats/stats.ts` files every rated
+  finish under the whole point below its rating to the tenth, so a 9.5 is a 9 and only a 10.0 is a
+  10, and `ratingCounts` is those lists' lengths. A count cannot disagree with the list it opens,
+  at a boundary or anywhere else, because there is one rule to disagree with. A rating is between
+  1 and 10, which `ck_log_entries_rating_range` holds, so every one has a point.
+- **Every playthrough is a row**, as every playthrough is a finish: a list is as long as the count
+  over its column. A game finished twice at one point is two rows, and **only those two say which
+  finish each is**, *finished Sep 15, 2025*, by the day `formatJournalDate` writes rather than the
+  month, which would read the same for two finishes in one month. The user picked dated rows over
+  two plain ones. None of their 61 finishes was a replay when it was built.
+- **Highest first, then the order sent**, which is the order finished: under 8, the 8.5s lead and
+  the 8.0s follow oldest first. `Array.prototype.sort` is stable, which is what keeps the second
+  half of that.
+- **A row is a cover, a name and the exact rating**, `★ 8.5`, coloured and read aloud as a card's
+  is, because a point holds a 9.0 and a 9.5 alike. **It opens nothing.** The journal is the board's,
+  and opening it here would mount the drawer on a page with none of the board's moves.
+- **The list is part of the panel, two across from `sm`**, down the first column and then the
+  second. It covers nothing, so nothing pressed elsewhere closes it: shutting it on such a press,
+  as #20's list over the cards shuts, would move whatever is under the pointer. **The column again,
+  another column, or Escape** closes or swaps it, one list at a time.
+- **A change of year closes it**, because `Dashboard` keys the chart by the year. Without the key a
+  year fetched before comes from the cache, the page is not rebuilt on the way there, and the list
+  would stay open on the new year's finishes when a year that had to load closed it.
+- **The column is the button**, its bar, count and number together, about 66×117px at 1440 and
+  33×117px on a phone. It is named as the list a screen reader was given before it, *22 rated 8*,
+  which it replaces; it says whether its list is open and which list that is; and the list is
+  named by it. Nothing in the list takes the keyboard, so it stays on the column, where Escape
+  finds it. A point with nothing rated is not a button.
+
+**On a share the chart is the picture it always was.** A share's Stats page names no rating
+title by title, and a list per point would name every one. So its columns press nothing, its
+counts stay muted, and a screen reader is given the counts as a list. **The voice is what tells
+the two apart**: `RatingSpread` opens lists exactly when its words are said to the owner, which
+is what `voice="own"` means, so a share cannot be handed lists by a second flag left set.
+
+**Checked by putting each fault back**, one at a time, against the finished feature, with a
+script that restored the file after each run:
+
+| Fault | What goes red |
+|---|---|
+| A finish filed under the nearest point rather than the one below | three unit cases, the page's counts and opening cases, and the share's list |
+| The counts filed by a rule of their own | *is what the counts count*, and the counts' unit case |
+| The lists in the order sent, not highest first | the unit filing and order cases, and *opens the finishes … highest first* |
+| Two of one rating in the order opposite the one sent | the unit order case, and the dated replay's rows |
+| A share's columns pressable | *names no game behind a rating* |
+| A press elsewhere closes it | *stays open when something else is pressed* |
+| The keyboard leaving closes it, as #20's list | the same case, once its test went back to the year control rather than forward to nothing |
+| No key on the year | *closes when the year changes, even to a year already fetched* |
+| Escape not heard | *opens one list at a time, and closes it …* |
+| Every row dated, and no row dated | *dates the finishes of a game finished twice at one point, and no others*, each |
+| The open column pressed again opens it again | *opens one list at a time, and closes it …* |
+| A button at every point, rated or not | *a button for each point rated* |
+| The screen reader's list kept on your page as well | the counts case and four others that find one list, the share's among them |
+| The exact rating not read as one | *opens the finishes … each with its rating* |
+| A column named in words of its own | every page case, and the share's |
+| The list laid over the page, as #20's is | both end-to-end cases |
+| One column at every width | the desktop end-to-end case |
+| Two across on a phone too | the phone end-to-end case |
+
+**The keyboard fault went red on nothing the first time.** Its test tabbed onward from the only
+rated column, where nothing on the page could take the keyboard, so focus went nowhere and #20's
+rule, which closes only when the keyboard lands somewhere else, never fired. The test goes back
+to the year control now. **And one plant was wrong**: two across on a phone, first planted with
+`flex` beside `columns-2`, was one column everywhere, because a flex box has no columns, and
+turned the desktop case red rather than the phone's.
 
 ## On a share
 

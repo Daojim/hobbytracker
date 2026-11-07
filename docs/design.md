@@ -521,6 +521,42 @@ were the recommendation.
   the Ratings panel beside it is 205px. A month of ten would make the panel 675px. Nothing stops it
   growing, and nothing in the user's history comes near.
 
+**The titles behind a rating, since 7 November 2026.** A rated column opens the finishes rated
+there, on your page only. Picked in two rounds from renders of the shipped Stats page with only
+the chart swapped for a prototype, on the user's 61 finishes, in Shelf Light and Shelf Dark at
+1440 and 390, Ember where its red was the point, and the list at 1024 and 768 too. The workshop
+page is private: https://claude.ai/artifact/4kAxfVy3n4hBMvgx61xge2. What it does is
+`docs/stats.md`'s, under **The finishes behind a rating**.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| What is pressed | **The whole column**, round one | the count over the bar, 13×16px; the number under it |
+| How a column says it opens | **Its count in the accent**, `text-accent group-hover:underline` | the counts muted, as today, which on a phone, with no hover, say nothing |
+| Which column is open | **A tab**: its number `font-semibold text-accent` with a 2px `bg-accent` rule under it, `absolute inset-x-1 -bottom-0.5 h-0.5 rounded-full`, the hobby nav's own mark for the one chosen | the other bars at 35%; the column on `bg-accent/10` |
+| Where the list opens | **In the panel, two across from `sm`**: `mt-3 rounded-lg border border-line bg-surface p-1`, `flex flex-col` and `sm:block sm:columns-2 sm:gap-1` | over the page as long as it is, #20's; over the page held to 320px; in the panel, one column |
+| A row | **A cover, a name and the exact rating**, the user's pick over round one's cover and name: #20's row, `flex items-center gap-2 px-2 py-1` with a `h-8 w-6` cover, and `★ 8.5` at its end, `ml-auto pl-2 text-xs font-semibold` in `ratingTone`'s colour | a cover and a name |
+
+- **The columns meet now.** Each is `flex-1` with `px-0.5` inside it rather than `gap-1` between,
+  so a column's button has no gap, and a bar, `max-w-6` and centred, moves by under 2px for it. A
+  share's columns are the same shapes as `div`s, with their counts muted.
+- **No tint marks the open column, because none can be both seen and read.** Measured against the
+  well in all eight themes: `hover` is 1.03–1.47:1 off it, invisible on the light themes; `line`
+  and the accent at 15% take the muted counts under 4.5:1 on four themes and three; the accent at
+  10% keeps them at 4.63:1 or more and stands only 1.12–1.22:1 off the well. The tab's accent is
+  5.37–9.72:1 off it.
+- **The first tab sat on the baseline**, under the bar. On a phone that rule was the bar's own
+  width and read as the bar's foot, so it moved under the number before the page went up, which
+  is where the hobby nav draws its own.
+- **The cost of the rating is at 1024**, the narrowest the panel is beside its neighbour. Two
+  across, a row is 217px, and 12 of the 22 eights' names take two lines and 4 are cut short by the
+  two-line clamp, against 6 and 1 without the rating. None is cut at 1440, 768 or 390.
+- **On Ember the counts and the tab are `#f2545b`**, beside a low rating's `#ff6b6b`: nearly the
+  red of a bar under 6, the cost #12 and #20 took on Ember too.
+- **The built chart differs from the picked prototype by no pixel**, shut and with the 8s open, at
+  1440, 1024, 768 and 390, light and dark, from the gitignored
+  `workshop.local/ratings/compare-built.mjs`, which pressed the column in both and shot them as
+  PNG. After a press of the pointer no ring is drawn, `:focus-visible` false on the column.
+
 ### Sharing a board
 
 **A Sharing group in Settings opens a dialog, and a share is the board under a banner.** Picked at

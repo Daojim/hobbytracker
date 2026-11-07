@@ -6,6 +6,7 @@ import {
   byYear,
   completionPercent,
   ratingCounts,
+  ratingLists,
   timed,
   waited,
 } from './stats';
@@ -146,6 +147,45 @@ describe('ratingCounts', () => {
     ]);
 
     expect(counts).toEqual([0, 0, 0, 0, 1, 1, 0, 0, 2, 1]);
+  });
+});
+
+describe('ratingLists', () => {
+  const titlesOf = (list: { title: string }[] | undefined) => list?.map((finish) => finish.title);
+
+  it('files every rated finish under the whole point it is in, as the counts do', () => {
+    const lists = ratingLists([
+      finish({ title: 'Tetris', rating: 10 }),
+      finish({ title: 'Hollow Knight', rating: 9.5 }),
+      finish({ title: 'Celeste', rating: 9 }),
+      finish({ title: 'Hades', rating: 9.9 }),
+      finish({ title: 'Grounded', rating: 5.9 }),
+      finish({ title: 'Unrated', rating: null }),
+    ]);
+
+    expect(lists).toHaveLength(10);
+    expect(titlesOf(lists[9])).toEqual(['Tetris']);
+    expect(titlesOf(lists[8])).toEqual(['Hades', 'Hollow Knight', 'Celeste']);
+    expect(titlesOf(lists[4])).toEqual(['Grounded']);
+    expect(lists.flat()).toHaveLength(5);
+  });
+
+  it('puts the highest first, and keeps the order sent between two of one rating', () => {
+    // The server sends finishes oldest first, so within a rating that is the order finished.
+    const lists = ratingLists([
+      finish({ title: 'Red Dead Redemption 2', rating: 8 }),
+      finish({ title: 'Nine Sols', rating: 8.5 }),
+      finish({ title: 'Tekken 8', rating: 8 }),
+      finish({ title: 'Animal Well', rating: 8.5 }),
+    ]);
+
+    expect(titlesOf(lists[7])).toEqual(['Nine Sols', 'Animal Well', 'Red Dead Redemption 2', 'Tekken 8']);
+  });
+
+  it('is what the counts count, so a column and its list cannot disagree', () => {
+    const finished = [8, 8.5, 9.9, 10, 1, 1.9, 7.5, null].map((rating) => finish({ rating }));
+
+    expect(ratingCounts(finished)).toEqual(ratingLists(finished).map((list) => list.length));
   });
 });
 

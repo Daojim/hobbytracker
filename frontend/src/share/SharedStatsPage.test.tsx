@@ -122,6 +122,22 @@ describe('SharedStatsPage', () => {
     expect(wordsOf(screen.getByRole('main'))).not.toMatch(/\b(you|your|yours|my)\b/i);
   });
 
+  it('names no game behind a rating: the chart is a picture, as it always was', async () => {
+    // Your Stats page opens the finishes at each point. A share's names no rating title by title,
+    // so its columns press nothing, and a screen reader is still given the counts as a list.
+    sharedServer({ statsYears: [2026], stats: { '2026': aYear() } });
+
+    open(`/share/${TOKEN}/stats/2026`);
+
+    const ratings = await section('Ratings');
+    expect(within(ratings).queryAllByRole('button')).toHaveLength(0);
+    const counts = within(ratings).getByRole('list', { name: 'How many at each rating' });
+    expect(within(counts).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      '1 rated 8',
+      '2 rated 9',
+    ]);
+  });
+
   it('says what “added” means in the board’s words rather than its owner’s', async () => {
     // A twelfth phrase written to the owner, which the #9 workshop's table of eleven missed. The
     // table's own rule rewords it, picked from renders on 5 October 2026 over leaving it off.

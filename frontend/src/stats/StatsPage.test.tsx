@@ -372,7 +372,11 @@ describe('StatsPage', () => {
   });
 
   describe('ratings', () => {
-    it('counts the ratings at each whole point', async () => {
+    /** The chart, whose rated columns are its buttons. */
+    const chartIn = (panel: HTMLElement) =>
+      within(panel).getByRole('group', { name: 'How many at each rating' });
+
+    it('counts the ratings at each whole point, a button for each point rated', async () => {
       renderYear(
         '2026',
         stats({
@@ -389,11 +393,145 @@ describe('StatsPage', () => {
       expect(within(panel).getByText('over the 3 you rated · 1 finished without a rating'))
         .toBeInTheDocument();
 
-      const counts = within(panel).getByRole('list', { name: 'How many at each rating' });
-      expect(within(counts).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
-        expect.stringContaining('1 rated 7'),
-        expect.stringContaining('2 rated 9'),
+      // Named as the list a screen reader was given before them, which they replace, and only
+      // where something was rated: a point with nothing at it has nothing to open.
+      const chart = chartIn(panel);
+      expect(within(chart).getAllByRole('button')).toHaveLength(2);
+      expect(within(chart).getByRole('button', { name: '1 rated 7' })).toBeInTheDocument();
+      expect(within(chart).getByRole('button', { name: '2 rated 9' })).toBeInTheDocument();
+      expect(within(panel).queryByRole('list', { name: 'How many at each rating' })).not.toBeInTheDocument();
+    });
+
+    it('opens the finishes rated at a point, highest first, each with its rating', async () => {
+      renderYear(
+        '2026',
+        stats({
+          finished: [
+            finish({ title: 'Celeste', rating: 9 }),
+            finish({ title: 'Hollow Knight', rating: 9.5 }),
+            finish({ title: 'Tetris', rating: 10 }),
+            finish({ title: 'Grounded', rating: 7 }),
+          ],
+        }),
+      );
+
+      const panel = await section('Ratings');
+      const nine = within(panel).getByRole('button', { name: '2 rated 9' });
+      expect(nine).toHaveAttribute('aria-expanded', 'false');
+      expect(within(panel).queryByRole('list')).not.toBeInTheDocument();
+
+      await userEvent.click(nine);
+
+      expect(nine).toHaveAttribute('aria-expanded', 'true');
+      const rows = within(within(panel).getByRole('list', { name: '2 rated 9' })).getAllByRole('listitem');
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringContaining('Hollow Knight'),
+        expect.stringContaining('Celeste'),
       ]);
+
+      // The exact rating, as a card prints it, since a point holds a 9.0 and a 9.5 alike.
+      expect(within(rows[0]!).getByRole('img', { name: 'Rated 9.5 out of 10' })).toHaveTextContent('★ 9.5');
+      expect(within(rows[1]!).getByRole('img', { name: 'Rated 9.0 out of 10' })).toHaveTextContent('★ 9.0');
+    });
+
+    it('opens one list at a time, and closes it from its own column or with Escape', async () => {
+      renderYear(
+        '2026',
+        stats({ finished: [finish({ title: 'Celeste', rating: 9 }), finish({ title: 'Tetris', rating: 10 })] }),
+      );
+
+      const panel = await section('Ratings');
+      const nine = within(panel).getByRole('button', { name: '1 rated 9' });
+      const ten = within(panel).getByRole('button', { name: '1 rated 10' });
+
+      await userEvent.click(nine);
+      await userEvent.click(ten);
+
+      expect(within(panel).getAllByRole('list')).toHaveLength(1);
+      expect(within(panel).getByRole('list', { name: '1 rated 10' })).toHaveTextContent('Tetris');
+      expect(nine).toHaveAttribute('aria-expanded', 'false');
+
+      await userEvent.click(ten);
+      expect(within(panel).queryByRole('list')).not.toBeInTheDocument();
+
+      await userEvent.click(nine);
+      await userEvent.keyboard('{Escape}');
+      expect(within(panel).queryByRole('list')).not.toBeInTheDocument();
+
+      // Nothing in a list takes the keyboard, so it is still on the column that opened it.
+      expect(nine).toHaveFocus();
+    });
+
+    it('stays open when something else is pressed, or the keyboard moves on', async () => {
+      // The list is part of the panel and covers nothing. Shutting it on a press elsewhere, as
+      // #20's list over the cards shuts, would move whatever is under the pointer.
+      renderYear('2026', stats({ finished: [finish({ title: 'Celeste', rating: 9 })] }));
+
+      const panel = await section('Ratings');
+      await userEvent.click(within(panel).getByRole('button', { name: '1 rated 9' }));
+
+      await userEvent.click(await section('Backlog'));
+      expect(within(panel).getByRole('list', { name: '1 rated 9' })).toBeInTheDocument();
+
+      // Back to the year control: Tab onward would find nothing to land on here, and focus left
+      // on nothing is no test of the keyboard leaving.
+      await userEvent.click(within(panel).getByRole('button', { name: '1 rated 9' }));
+      await userEvent.click(within(panel).getByRole('button', { name: '1 rated 9' }));
+      await userEvent.tab({ shift: true });
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveFocus();
+      expect(within(panel).getByRole('list', { name: '1 rated 9' })).toBeInTheDocument();
+    });
+
+    it('dates the finishes of a game finished twice at one point, and no others', async () => {
+      renderYear(
+        'all',
+        stats({
+          finished: [
+            finish({ mediaId: 9001, title: 'Hollow Knight: Silksong', rating: 9, completedAt: '2025-09-15T16:00:00Z' }),
+            finish({ title: 'Dispatch', rating: 9, completedAt: '2025-12-13T17:00:00Z' }),
+            finish({ mediaId: 9001, title: 'Hollow Knight: Silksong', rating: 9, completedAt: '2026-03-14T16:00:00Z' }),
+          ],
+        }),
+      );
+
+      const panel = await section('Ratings');
+      await userEvent.click(within(panel).getByRole('button', { name: '3 rated 9' }));
+
+      // As long as its count, because every playthrough is a finish.
+      const rows = within(within(panel).getByRole('list', { name: '3 rated 9' })).getAllByRole('listitem');
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringContaining('finished Sep 15, 2025'),
+        expect.not.stringContaining('finished'),
+        expect.stringContaining('finished Mar 14, 2026'),
+      ]);
+    });
+
+    it('closes when the year changes, even to a year already fetched', async () => {
+      // A year fetched before is served from the cache, so the page is not rebuilt on the way
+      // there. The list closes all the same, rather than only when a year has to load.
+      statsServer({
+        years: [2026, 2025],
+        byYear: {
+          '2026': stats({ finished: [finish({ title: 'Celeste', rating: 9 })] }),
+          '2025': stats({ finished: [finish({ title: 'Hades', rating: 9 })] }),
+        },
+      });
+      renderWithProviders(<App />, { route: '/board/games/stats/2025', keepsCache: true });
+
+      await within(await section('Finished each month')).findByRole('img', { name: 'Hades' });
+      await screen.findByRole('option', { name: '2026' });
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Year' }), '2026');
+      await within(await section('Finished each month')).findByRole('img', { name: 'Celeste' });
+
+      await userEvent.click(within(await section('Ratings')).getByRole('button', { name: '1 rated 9' }));
+      expect(within(await section('Ratings')).getByRole('list', { name: '1 rated 9' })).toHaveTextContent('Celeste');
+
+      await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Year' }), '2025');
+      await within(await section('Finished each month')).findByRole('img', { name: 'Hades' });
+
+      const ratings = await section('Ratings');
+      expect(within(ratings).queryByRole('list')).not.toBeInTheDocument();
+      expect(within(ratings).getByRole('button', { name: '1 rated 9' })).toHaveAttribute('aria-expanded', 'false');
     });
   });
 
