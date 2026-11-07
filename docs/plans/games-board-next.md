@@ -44,9 +44,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
-| 21 | The titles behind a rating on the Stats page | S | **Built 7 November 2026**, tests first, the day it was workshopped in two rounds on the user's real finishes; not yet merged. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
+| 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 
-Production runs `e911400`'s code, which was `main` on 4 November 2026. Deploying is the runbook in
+Production runs `293cc78`'s code, which was `main` on 7 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -3153,7 +3153,7 @@ on it fits the gap before it, and is unproven.
 
 ---
 
-## 21. The titles behind a rating on the Stats page · built
+## 21. The titles behind a rating on the Stats page · shipped
 
 **Planned 4 November 2026**, at the user's request, the morning #20 shipped. Lines were read at
 `ca02f40`. **Workshopped 7 November 2026**, in two rounds: the choices below.
@@ -3270,8 +3270,9 @@ was the user's own, reversing round one.
 
 ### Built
 
-Built on 7 November 2026, tests first, the day it was workshopped, on `plan-rating-lists`, and
-frontend only, as planned. The write-up is `docs/stats.md`, **The finishes behind a rating**,
+Built on 7 November 2026, tests first, the day it was workshopped, on `titles-behind-a-rating`,
+frontend only, as planned, and **shipped and deployed at about 06:02 Eastern the same day** (PR
+#91). The write-up is `docs/stats.md`, **The finishes behind a rating**,
 with the look in `docs/design.md`, under **Stats**.
 
 - **`ratingLists`** in `stats/stats.ts`, and `ratingCounts` as its lists' lengths, so a column
@@ -3294,7 +3295,8 @@ passes in Firefox too**, all six, the user's browser.
 **The first full e2e run went 216 of 217**, the 215 before and two. The one red was
 `hltb.spec.ts`'s *taking the pin back asks HowLongToBeat again, by name*, which waited ten seconds
 for *No HowLongToBeat estimate yet* in the journal and never saw it. Nothing of this feature is on
-that path, and it passed three times out of three alone.
+that path, and it passed three times out of three alone. **The second full run, of the code as
+committed, went 217 green**, in 6.1 minutes.
 
 | Step | Tests | Red first by |
 |---|---|---|
@@ -3332,6 +3334,24 @@ which is one column everywhere, and turned the desktop case red instead.
   a gap in it. They are `px-0.5` inside each column now, and the bars move by under 2px.
 - **The staged board's 23 eights are 22** on every finish, the measure the plan said to take as a
   guide.
+
+### The deploy, and what it left
+
+- **Deployed at about 06:02 Eastern on 7 November 2026**, `e911400` to `293cc78`, carrying #90's
+  docs with it. No migration and no variable. api and caddy were both recreated, api first: the
+  API because Microsoft's `aspnet:10.0` had moved upstream and its layers downloaded fresh, with
+  no backend change of its own.
+- **Proved from outside.** The bundle went `index-CXRpFSOf.js` to `index-BE668cQv.js`, and the
+  stylesheet `index-ComQJ_q3.css` to `index-B4wzdw3y.css`, the local build's name again. In the
+  script `finished, no date`, `-rated-`, `sm:block sm:columns-2 sm:gap-1`, the row's and the tab's
+  class strings each went 0 to 1. Comparing the two stylesheets' selectors found seven new and one
+  gone: `.sm\:columns-2{` and `.break-inside-avoid{` went 0 to 1, and `.items-end{`, which only
+  the old chart used, 1 to 0. `/api/auth/me` answered `null` with a 200.
+- **Inside**, the API's startup log said *No migrations were applied*, and had no failure and no
+  *switched off* line for either worker; Caddy's had no error.
+- **The restart re-armed both timers, and both ran five minutes on**: the HowLongToBeat backfill
+  queued 0 titles, and the release sweep brought 16 unreleased titles up to date.
+- **The user's own check**: open a rating on the live Stats page.
 
 ---
 
