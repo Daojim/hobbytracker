@@ -38,8 +38,34 @@ async function aYear(page: Page) {
   await seed(page.request, 'Hollow Knight', 'Backlog');
 }
 
+/**
+ * Three games rated 8 this year, Celeste the highest at 8.5, and Outer Wilds rated 9: the 8s are
+ * a list long enough to lie two across, and short enough to read.
+ */
+async function aYearOfRatings(page: Page) {
+  const rated: [string, number][] = [
+    ['Celeste', 8.5],
+    ['Hades', 8],
+    ['Hollow Knight', 8],
+    ['Outer Wilds', 9],
+  ];
+  for (const [title, rating] of rated) {
+    await seed(page.request, title, 'Completed', { completedAt: noon(), rating });
+  }
+}
+
 // Exact, because Playwright matches a name by substring and "Finished" is also "Finished each month".
 const section = (page: Page, name: string) => page.getByRole('region', { name, exact: true });
+
+type Box = { x: number; y: number; width: number; height: number };
+
+/** That a list lies wholly inside its panel: part of it, rather than laid over the page. */
+function expectInside(inner: Box, outer: Box, what: string) {
+  expect(inner.x, `${what} starts inside the panel`).toBeGreaterThanOrEqual(outer.x);
+  expect(inner.y, `${what} starts inside the panel`).toBeGreaterThanOrEqual(outer.y);
+  expect(inner.x + inner.width, `${what} ends inside the panel`).toBeLessThanOrEqual(outer.x + outer.width);
+  expect(inner.y + inner.height, `${what} ends inside the panel`).toBeLessThanOrEqual(outer.y + outer.height);
+}
 
 async function boxOf(locator: Locator, what: string) {
   const box = await locator.boundingBox();
@@ -101,6 +127,35 @@ test('lays the numbers out four across and the panels two across at 1440px', asy
   expect(ratings.x).toBeGreaterThan(months.x + months.width);
 });
 
+test('opens the games rated at a point inside the Ratings panel, two across', async ({ page }) => {
+  // Picked from renders on 7 November 2026: the list is part of the panel, so the panel grows
+  // round it and covers nothing, and it runs down one column and then the next.
+  await aYearOfRatings(page);
+  await page.goto(`/board/games/stats/${thisYear()}`);
+
+  const ratings = section(page, 'Ratings');
+  const eight = ratings.getByRole('button', { name: '3 rated 8' });
+  await eight.click();
+  await expect(eight).toHaveAttribute('aria-expanded', 'true');
+
+  const list = ratings.getByRole('list', { name: '3 rated 8' });
+  const rows = list.getByRole('listitem');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.first()).toContainText('Celeste');
+  await expect(rows.first().getByRole('img', { name: 'Rated 8.5 out of 10' })).toBeVisible();
+
+  expectInside(await boxOf(list, 'the list'), await boxOf(ratings, 'the ratings panel'), 'the list');
+
+  // Down the first column and then the second: the second title under the first, the third
+  // beside them.
+  const [first, second, third] = await Promise.all(
+    [0, 1, 2].map((index) => boxOf(rows.nth(index), `row ${index + 1}`)),
+  );
+  expect(second!.x, 'the second title is under the first').toBeCloseTo(first!.x, 0);
+  expect(second!.y).toBeGreaterThan(first!.y);
+  expect(third!.x, 'the third title starts the second column').toBeGreaterThan(first!.x + first!.width / 2);
+});
+
 test('piles a year at most four covers across under All years, the first at the bottom', async ({ page }) => {
   // Every finish is shown, so a year's covers pile rather than stand one above another: 2025's
   // 28 would make the panel 1,755px tall as a stack. A year alone has the panel's whole width, and
@@ -155,5 +210,29 @@ test.describe('on a phone', () => {
     const second = await boxOf(months.nth(1), 'February');
     expect(second.y).toBeGreaterThan(first.y);
     expect(second.x).toBeCloseTo(first.x, 0);
+  });
+
+  test("opens a rating's games one across, inside the panel", async ({ page }) => {
+    await aYearOfRatings(page);
+    await page.goto(`/board/games/stats/${thisYear()}`);
+
+    const ratings = section(page, 'Ratings');
+    await ratings.getByRole('button', { name: '3 rated 8' }).tap();
+
+    const list = ratings.getByRole('list', { name: '3 rated 8' });
+    const rows = list.getByRole('listitem');
+    await expect(rows).toHaveCount(3);
+
+    expectInside(await boxOf(list, 'the list'), await boxOf(ratings, 'the ratings panel'), 'the list');
+
+    // One column on a phone: every title starts at the same edge, each under the one before.
+    const boxes = await Promise.all([0, 1, 2].map((index) => boxOf(rows.nth(index), `row ${index + 1}`)));
+    for (const [index, box] of boxes.entries()) {
+      if (index > 0) {
+        expect(box.x, `row ${index + 1} starts where the first does`).toBeCloseTo(boxes[0]!.x, 0);
+        expect(box.y, `row ${index + 1} is under the one before`).toBeGreaterThan(boxes[index - 1]!.y);
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
   });
 });

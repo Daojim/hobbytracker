@@ -44,7 +44,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
-| 21 | The titles behind a rating on the Stats page | S | **Planned 4 November 2026**, at the user's request; not yet workshopped. #20's list, opened from a point of the Stats page's Rating chart: the finishes rated at that point. No server change, since the page holds every finish in its year. Whether a title in it opens its journal is for pickup, because nothing on the Stats page does yet. See its section |
+| 21 | The titles behind a rating on the Stats page | S | **Built 7 November 2026**, tests first, the day it was workshopped in two rounds on the user's real finishes; not yet merged. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 
 Production runs `e911400`'s code, which was `main` on 4 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -3153,10 +3153,10 @@ on it fits the gap before it, and is unproven.
 
 ---
 
-## 21. The titles behind a rating on the Stats page · planned
+## 21. The titles behind a rating on the Stats page · built
 
 **Planned 4 November 2026**, at the user's request, the morning #20 shipped. Lines were read at
-`ca02f40`. Not yet workshopped.
+`ca02f40`. **Workshopped 7 November 2026**, in two rounds: the choices below.
 
 **What the user asked for.** The Stats page's Rating section counts how many games were rated at
 each number. Clicking a number should open #20's list: the games rated it.
@@ -3186,22 +3186,64 @@ each number. Clicking a number should open #20's list: the games rated it.
   pass rather than every finish, so as a guide only: under All years the 8s are 23 and the 7s 17,
   and in 2025 the 8s are 14. At #20's 42px a row, 23 is nearly a thousand pixels of list.
 
-### Decide at pickup
+### The real finishes, read first
 
-- **What a title in the list does.** (a) Nothing more: a cover and a name, and perhaps its exact
-  rating, since a column holds 9.0 to 9.9. (b) Opens its journal over the Stats page, which mounts
-  the drawer there for the first time and needs either the board's moves or a drawer without its
-  column control. (c) Goes to the board with that journal open. Recommended: (a), as the quick
-  feature asked for, with (b) the version that matches #20, at its cost.
-- **What is pressed**: the count over a bar, the point under it, or the whole column. Recommended:
-  the whole column, as one button named as the screen reader's list names it, *3 rated 9*, which
-  then replaces that list.
-- **A long list**: run on under the chart, or held to a height that scrolls. Recommended: render
-  both with the All years 8s before choosing.
-- **A game finished twice at one point**: two rows, told apart by when each was finished, or one
-  with a count. Recommended: two rows, so a list is as long as its count, as #20's are.
-- **On a share**: recommended your Stats page only, as #20's lists are your board's. A share would
-  otherwise name the owner's ratings title by title where it names none today.
+The October Stats workshop's copy of the user's finishes, read from production on 29 October 2026
+(`workshop.local/months/finished.json`, gitignored), was the data for both rounds: **61 finishes,
+60 rated**. Under All years the points run 5:1, 6:6, 7:17, **8:22**, 9:8 and 10:6; the 8s are
+17 at 8.0 and 5 at 8.5, the 7s 14 at 7.0 and 3 at 7.5, and every other rating is a whole point.
+**No game was finished twice.** The longest name is 63 characters.
+
+### Decided at pickup
+
+Round one, in words, with ASCII previews, on 7 November 2026. Every pick but one was the
+recommendation.
+- **What a title in the list does: nothing.** A cover and a name, (a), as recommended; round two
+  added its exact rating (below). The journal stays the board's.
+- **What is pressed: the whole column**, as recommended, one button named as the screen reader's
+  list named it, *22 rated 8*, which replaces that list. About 66×117px at 1440 and 33×117px on a
+  phone, where the count alone would have been 13×16px.
+- **The order, which the plan left out: highest rating first, then the order finished**, as
+  recommended, so under 8 the five 8.5s lead and the 8.0s follow oldest first.
+- **A game finished twice at one point: two rows, each dated**, the user's pick over two plain
+  rows. Only a title that appears twice in a list says when each finish was, and it says the day,
+  as `formatJournalDate` writes it, rather than round one's month, which would read the same for
+  two finishes in one month.
+- **On a share: your Stats page only**, as recommended. A share's chart is a picture, as it was.
+
+### Decided from the renders
+
+Round two, on 7 November 2026, from a private page of renders of the shipped Stats page with
+`RatingSpread` swapped for a prototype, on the finishes above, in Shelf Light and Shelf Dark at
+1440 and 390, Ember where its red was the point, and 1024 and 768 for the list:
+https://claude.ai/artifact/4kAxfVy3n4hBMvgx61xge2. Three picks were the recommendation; the row
+was the user's own, reversing round one.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| How a column says it opens | **Its count in the accent**, the colour of words that open something since #12 and #20; underlined under the pointer | the counts muted, as today, which on a phone, with no hover, say nothing |
+| Which column is open | **A tab**: the point's number in the accent with a 2px rule under it, the hobby nav's mark for the one chosen | the other bars at 35%; the column on the accent at 10% |
+| Where the list opens | **In the panel, two across** from `sm`, down the first column and then the second: it covers nothing and needs no press elsewhere to close | over the page as long as it is, #20's shape; over the page held to 320px; in the panel, one column |
+| A row | **A cover, a name and the exact rating**, `★ 8.5` as a card prints it, at the row's end, the user's pick | a cover and a name, round one's pick |
+
+### Found while rendering
+
+- **A tint cannot be both visible and readable.** Measured against the well in all eight themes:
+  the hover colour is 1.03–1.47:1 off it, invisible on the light themes; the line colour and the
+  accent at 15% take the muted counts under 4.5:1 on four and three themes; the accent at 10%
+  keeps them at 4.63:1 or more and stands only 1.12–1.22:1 off the well.
+- **The first tab sat on the baseline**, under the bar. On a phone it was the bar's own width and
+  read as the bar's foot, so it moved under the point's number before the page went up.
+- **Every list the user has, measured at 1440**: of the 20 across All years, 2026, 2025 and 2024,
+  one column in the panel moves the panels below for 6 of them, by up to 612px; two across moves
+  them for 3, by 188px at most, the All years 8s; over the page moves nothing and covers up to
+  890px. On a phone every option is one column, and the 8s grow the page 918px.
+- **At 1024, the narrowest the panel is beside its neighbour, the picks together cost names.**
+  Two across with the rating makes each row 217px: 12 of the 22 eights' names take two lines and
+  4 are cut short by the two-line clamp, against 6 and 1 without the rating. None is cut at 1440,
+  768 or 390.
+- **Ember's accent is `#f2545b`, beside a low rating's `#ff6b6b`**, so on Ember the counts and the
+  tab are nearly the red of a bar under 6, a cost #12 and #20 took there too.
 
 ### Things to get right
 
@@ -3210,12 +3252,86 @@ each number. Clicking a number should open #20's list: the games rated it.
   share also shows is a `Voiced` pair (#9).
 - At 390px the chart is the section's width, and the list should be too.
 
-### Tests first, to be confirmed at pickup
+### Tests first
 
-- Frontend only: a column opens the finishes rated at its point, a 9.5 under 9 and a 10.0 under
-  10; the list is as long as its count, a game finished twice included; one list at a time,
-  closed by Escape and by a press elsewhere, with the keyboard handed back; nothing to press on a
-  share, if so decided; and at 390px, with `windowOfWidth(390)`.
+- Unit: one function files a finish under its point for the list and the count, a 9.5 under 9
+  and a 10.0 under 10, highest first and then the order sent.
+- Page: a rated column is a button named as the old list's item was, and opens a list named by
+  it; the list is as long as its count, a game finished twice included, and only those two rows
+  are dated; each row has its exact rating; one list at a time; the column again and Escape close
+  it, and **a press elsewhere does not**, since the list is the panel's and closing it would move
+  what is under the pointer, which turns the plan's *closed by a press elsewhere* round; a
+  change of year closes it, cached year or not; nothing to press on a share, whose list for a
+  screen reader stays.
+- **The 390px case moves to Playwright.** The list's layout is CSS alone, and nothing in it asks
+  `matchMedia`, so `windowOfWidth(390)` would be a desktop test under another name. End to end:
+  the list inside the Ratings panel, which grows round it rather than having it laid over the
+  page, two across at 1440 and one across at 390.
+
+### Built
+
+Built on 7 November 2026, tests first, the day it was workshopped, on `plan-rating-lists`, and
+frontend only, as planned. The write-up is `docs/stats.md`, **The finishes behind a rating**,
+with the look in `docs/design.md`, under **Stats**.
+
+- **`ratingLists`** in `stats/stats.ts`, and `ratingCounts` as its lists' lengths, so a column
+  and its list are one filing.
+- **`RatingSpread`**: on your page a rated column is a button, *22 rated 8*, with `aria-expanded`
+  and `aria-controls`, its count in the accent and a tab under it when open; and `TitleList`, the
+  finishes at that point in the panel, two across from `sm`, a row the cover, the name and the
+  exact rating, with the day on a game finished twice at the point. On a share the chart is a
+  picture with its list for a screen reader, as it was, told apart by the voice.
+- **`Dashboard` keys the chart by the year**, so a list closes when the year changes.
+
+### Tests
+
+Frontend 1,336 with `tsc` clean, the 1,327 before and nine, and the Stats spec end to end 6, the
+4 before and two. **Every test was red first on what it asserts, or proved by putting its fault
+back** where it passed from the start or was written after its code: sixteen faults in Vitest
+and three end to end, each red on its own tests, in `docs/stats.md`'s table. **The Stats spec
+passes in Firefox too**, all six, the user's browser.
+
+**The first full e2e run went 216 of 217**, the 215 before and two. The one red was
+`hltb.spec.ts`'s *taking the pin back asks HowLongToBeat again, by name*, which waited ten seconds
+for *No HowLongToBeat estimate yet* in the journal and never saw it. Nothing of this feature is on
+that path, and it passed three times out of three alone.
+
+| Step | Tests | Red first by |
+|---|---|---|
+| 1. One filing | 3 unit | the function not being there |
+| 2. The column and its list | 6 page, 1 share | the six on the column not being a button. The share's passed from the start, its chart having no buttons, and was proved by making its columns pressable |
+| 3. End to end | 2 | written after the code, and proved by fault: the list laid over the page turned both red, one column at every width the desktop one, and two across on a phone the phone one |
+
+**One test was weak and one plant was wrong**, both found by the plants. The keyboard half of
+*stays open* tabbed onward to nothing and so could not see #20's rule; it goes back to the year
+control now, and that fault turns it red. The phone plant first left `flex` beside `columns-2`,
+which is one column everywhere, and turned the desktop case red instead.
+
+**The built chart was shot beside the picked prototype**: no pixel differs, shut and open, at
+1440, 1024, 768 and 390, light and dark.
+
+### What the plan got wrong, or left out
+
+- **"Closed by Escape and by a press elsewhere, with the keyboard handed back."** Escape and the
+  column close it; a press elsewhere does not, because the list the renders picked is part of the
+  panel, and closing it would move what is under the pointer; and nothing in it takes the
+  keyboard, so there is nothing to hand back. The plan's line was #20's list, whose titles were
+  buttons laid over the cards.
+- **"Lifting it out into a piece both can draw."** Not lifted. With rows that open nothing and a
+  list that is the panel's, what the two share is a row's look, and a shared piece would have
+  carried #20's popover, its focus and its outside press into a list that needs none of them. The
+  row's classes are #20's, copied.
+- **"At 390px, with `windowOfWidth(390)`."** Nothing in the chart asks `matchMedia`, so the phone
+  case is Playwright's.
+- **The order and a change of year were not in the plan.** Round one asked the order. The year
+  was found writing the tests: a year fetched before comes from the cache without the page being
+  rebuilt, so the list would have stayed open on one year and closed on another.
+- **The exact rating** was the plan's *perhaps*, which the summary round one was asked from left
+  out. Round two showed it, and the user took it.
+- **The columns had to meet.** Spaced `gap-1` apart, the whole column as a button would have had
+  a gap in it. They are `px-0.5` inside each column now, and the bars move by under 2px.
+- **The staged board's 23 eights are 22** on every finish, the measure the plan said to take as a
+  guide.
 
 ---
 

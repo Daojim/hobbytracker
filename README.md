@@ -34,8 +34,9 @@ there is no Save button.
 ### A year in numbers
 
 What you finished, month by month; your hours against HowLongToBeat's, game by game; your
-ratings; how much of what you started you finished; and how long each game has waited in the
-backlog. It counts every playthrough, so a year's numbers stay put when a game is replayed.
+ratings, each point opening the games you gave it; how much of what you started you finished;
+and how long each game has waited in the backlog. It counts every playthrough, so a year's
+numbers stay put when a game is replayed.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/shots/stats-dark.webp">

@@ -186,6 +186,13 @@
       your hours. The count in the link colour was the user's pick from renders over a dotted
       underline. The lists come with the column, from the rows the sums already read, so a list
       cannot name a title its count did not count, and a share counts and names nothing
+- [x] The titles behind a rating. The Stats page's Ratings chart counts the finishes at each
+      whole point, and on your own page each rated column now opens them, in the panel, two
+      across: a cover, a name and the exact rating, highest first, since a point holds a 9.0 and
+      a 9.5 alike. The rating on a row was the user's pick from renders over a cover and a name,
+      and a game finished twice at one point is two rows, each with its day, which was theirs
+      too. The list and the count over its column are one filing, so they cannot disagree, and
+      a share's chart is the picture it was
 - [ ] A Discover list from your ratings: IGDB's similar games for what you rated highest, less
       what is already on your board, if a look at the real results says it is worth building
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

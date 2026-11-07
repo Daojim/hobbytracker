@@ -142,18 +142,37 @@ export function averageRating(finished: Finish[]): number | null {
   return Math.round(total / tenths.length) / 10;
 }
 
-/** How many ratings fall at each whole point, 1 to 10: a 9.9 is a 9, and a 10 is its own. */
-export function ratingCounts(finished: Finish[]): number[] {
-  const counts = Array.from({ length: 10 }, () => 0);
+/** A rating in the tenths it is given in, which are whole, for {@link hundredths}' reason. */
+const inTenths = (rating: number) => Math.round(rating * 10);
+
+/**
+ * The finishes rated at each whole point, 1 to 10: a 9.9 is a 9, and a 10 is its own. A rating
+ * is between 1 and 10, which the database holds, so every one has a point.
+ *
+ * Highest first inside a point, so under 8 the 8.5s come before the 8.0s, and between two of one
+ * rating the order the server sent, which is the order they were finished. Picked on 7 November
+ * 2026 over the order finished alone and newest first.
+ */
+export function ratingLists(finished: Finish[]): Finish[][] {
+  const lists: Finish[][] = Array.from({ length: 10 }, () => []);
 
   for (const finish of finished) {
     if (finish.rating !== null) {
-      const point = Math.floor(Math.round(finish.rating * 10) / 10);
-      counts[point - 1] = (counts[point - 1] ?? 0) + 1;
+      lists[Math.floor(inTenths(finish.rating) / 10) - 1]!.push(finish);
     }
   }
 
-  return counts;
+  // Array.prototype.sort is stable, which is what keeps the order sent between equal ratings.
+  return lists.map((list) => [...list].sort((a, b) => inTenths(b.rating!) - inTenths(a.rating!)));
+}
+
+/**
+ * How many ratings fall at each whole point, 1 to 10: each point's list, counted. The chart's
+ * columns and the lists they open are one filing, so a count and its list cannot disagree at a
+ * boundary.
+ */
+export function ratingCounts(finished: Finish[]): number[] {
+  return ratingLists(finished).map((list) => list.length);
 }
 
 /** Where a title has waited: yours, or — on a share, which addresses nobody — the board's. */

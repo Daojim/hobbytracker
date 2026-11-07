@@ -299,7 +299,9 @@ export function Dashboard({ stats, year, definition, voice }: DashboardProps) {
         </Panel>
 
         <Panel label="Ratings">
-          <RatingSpread finished={finished} year={year} voice={voice} />
+          {/* Keyed by the year, so a list open on one year closes on the next. A year fetched
+              before comes from the cache and would otherwise keep this one standing. */}
+          <RatingSpread key={year ?? 'all'} finished={finished} year={year} voice={voice} />
         </Panel>
 
         {compares && (
