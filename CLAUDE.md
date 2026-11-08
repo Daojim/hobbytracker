@@ -718,7 +718,7 @@ shuffled.
         original, the board and every board title's original left out, and nothing with fewer
         than 10 ratings, because the user would not rest it on IGDB's scores. A tab *From your
         ratings*, last, and each tile saying *Because you rated …*, the user's pick over *Like …*.
-        Built against the live API, it made the workshop's list exactly (not yet deployed)
+        Built against the live API, it made the workshop's list exactly (PR #93, deployed)
       - [x] pictures in notes — pasted, dropped or picked, shrunk in the browser to a 1920 edge as
         WebP, sent with the words in one request, and a note that can be a picture alone. Two
         tables in Postgres with the bytes apart, a collage under the words, a lightbox Back
