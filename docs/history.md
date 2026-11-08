@@ -194,5 +194,8 @@
       too. The list and the count over its column are one filing, so they cannot disagree, and
       a share's chart is the picture it was
 - [ ] A Discover list from your ratings: IGDB's similar games for what you rated highest, less
-      what is already on your board, if a look at the real results says it is worth building
+      what is already on your board. A look at the real results said it is worth building, on
+      7 November 2026, once a remake asks about its original
+- [ ] A game's OpenCritic and Steam pages, for a quick look at what people say about a game in
+      the backlog
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

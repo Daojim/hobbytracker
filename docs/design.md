@@ -977,11 +977,11 @@ ground, `--sunken`:
   before the page has loaded, and the splash. A manifest cannot follow a stored setting.
 
 **An iPhone takes none of this.** Several developers report that Safari 26 ignores `theme-color`
-and takes its bars' colour from the page's own background, or from a fixed bar at the top. Nothing
-in the app paints the root, because each page's `<main>` paints the ground, so an iPhone probably
-shows white or black above a dark theme. Giving `html` the `--sunken` background would make the
-bars follow every theme from `index.css` alone. **Not built**: it is unmeasured, and nobody here has
-an iPhone to measure it on.
+and takes its bars' colour from the page's own background, or from a fixed bar at the top. **The
+root has carried the ground since 4 October 2026**, two days after this was written: `html` takes
+`--sunken` for the Settings panel that ran past `main` (**The root carries the theme's ground**,
+above). So the bars should follow every theme from `index.css` alone. That is unmeasured, and
+nobody here has an iPhone to measure it on. This paragraph said *not built* until 7 November 2026.
 
 What fails quietly here, each found while building it:
 
