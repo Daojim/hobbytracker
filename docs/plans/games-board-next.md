@@ -41,14 +41,14 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
-| 17 | A Discover list from your ratings | M | **Built 8 November 2026**, tests first, the day after its workshop: seeds rated 8 and up by their latest finish, a version asking about its original, the board and every original of a board title left out, and nothing with fewer than 10 ratings, ordered by how many seeds name a game. A tab *From your ratings*, last, and each tile saying "Because you rated …" up to three lines, the user's pick over "Like …". Built against the live API through the client, it made the workshop's 220 titles with the same reasons, and the page differs from the picked prototype by no pixel. **Not yet merged or deployed.** See its section |
+| 17 | A Discover list from your ratings | M | **Shipped and deployed 8 November 2026** (PR #93), built tests first the day after its workshop, after the full e2e suite went 220 green: seeds rated 8 and up by their latest finish, a version asking about its original, the board and every original of a board title left out, and nothing with fewer than 10 ratings, ordered by how many seeds name a game. A tab *From your ratings*, last, and each tile saying "Because you rated …" up to three lines, the user's pick over "Like …". Built against the live API through the client, it made the workshop's 220 titles with the same reasons, and the page differs from the picked prototype by no pixel. See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 | 22 | A game's OpenCritic and Steam pages | M | **Planned 7 November 2026**, out of #17's workshop, at the user's request: from a game in the backlog, a quick way to what people say about it on OpenCritic and Steam, or OpenCritic alone for a game not on Steam. Not Metacritic. A new outside connection, so **a workshop of its own comes first**. See its section |
 
-Production runs `293cc78`'s code, which was `main` on 7 November 2026. Deploying is the runbook in
+Production runs `de2fe65`'s code, which was `main` on 8 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -2294,14 +2294,15 @@ thing to try after a deploy.
 
 ---
 
-## 17. A Discover list from your ratings · built
+## 17. A Discover list from your ratings · shipped
 
 **Planned 23 October 2026**, from suggestions the user picked that day. **Looked at and
 workshopped on 7 November 2026**: the look said build it, with four changes to the plan that its
 measurements found, and every choice was made the same day: round one in words (**Decided at
 pickup**), round two from renders (**Decided from the renders**). **Built on 8 November 2026** in
-a session of its own, tests first; see **Built**, **Tests** and **What the plan got wrong, or left
-out**, below **Tests first**.
+a session of its own, tests first, and **shipped and deployed at about 01:40 Eastern the same
+day** (PR #93); see **Built**, **Tests**, **What the plan got wrong, or left out** and **The
+deploy, and what it left**, below **Tests first**.
 
 **What.** A fifth tab on Discover whose list is yours. The four lists now are the same for
 everybody. This one starts from the games you rated highest, asks IGDB for each one's
@@ -2595,12 +2596,27 @@ and 390 light and dark, with the same reason on all 48 tiles and none cut.
   two. `hobbiesProto.ts` now leaves the built one out, and the comparison was rerun.
 - **`docs/api.md` had no Discover route at all**; it has one row for all five lists now.
 
-### Where it stands
+### The deploy, and what it left
 
-**Built, green, and not yet committed or deployed.** Deploying needs nothing new: no migration, no
-option, no outside service IGDB is not already, and nothing to refresh, because what IGDB calls
-similar is asked for live rather than stored.
-
+- **Deployed at about 01:40 Eastern on 8 November 2026**, `293cc78` to `de2fe65`, carrying #92's
+  docs and the workshop's brief with it. No migration, no variable, and nothing to refresh,
+  because what IGDB calls similar is asked for live rather than stored. api and caddy were both
+  recreated, api first, since both had changed; no base image moved.
+- **Proved from outside.** The bundle went `index-BE668cQv.js` to `index-DIeaRrom.js`, and the
+  stylesheet `index-B4wzdw3y.css` to `index-B0uun50f.css`, the local build's name again. Six
+  strings went 0 then 1 in the script — `from-your-ratings`, `From your ratings`, `Because you
+  rated`, the openings of the line under the tab and of the empty line, and the reason's class
+  string — and a diff of the two stylesheets' selectors found one rule new, `.line-clamp-3`, and
+  none gone, all counted with `grep -F`. `/api/auth/me` answered `null` (200).
+- **Proved inside.** The list is a new slug on a route that already existed, so its anonymous 401
+  says nothing new; the names it adds were counted in the running DLL instead,
+  `FromYourRatingsAsync` and `BoardOfAsync` 0 then 2, and `GetSimilarGamesAsync`,
+  `GetDiscoverableAsync` and `RatedTitle` 0 then 1. The startup log had no failure and said *No
+  migrations were applied*, and both timers ran five minutes on: `Queued 0 titles for
+  HowLongToBeat.` and `Release refresh brought 16 not-yet-released titles up to date.`
+- **Left for the user: the tab on the real board**, which no session here can sign in to. It
+  should open as the workshop rendered it, on *Horizon Zero Dawn, Scarlet Nexus, Ravenswatch*,
+  unless a rating or the board has changed since 3 November.
 - **The prototype and the look's scripts are in `frontend/workshop.local/discover/`**, which git
   ignores, beside `compare-built.mjs`, which shot the build against the prototype, and
   `built.json`, the list the API built from the live API.
