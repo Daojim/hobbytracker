@@ -92,8 +92,8 @@ precisely as the publisher said, and arrive in Backlog on release day with no jo
   <source media="(prefers-color-scheme: dark)" srcset="docs/shots/discover-dark.webp">
   <img alt="Discover: IGDB's new releases as a wall of covers, each with the same three add buttons" src="docs/shots/discover-light.webp" width="390">
 </picture>
-<p><b>Discover.</b> A wall of what's new and popular on IGDB, for filling the board without
-knowing what to search for.</p>
+<p><b>Discover.</b> A wall of what's new and popular on IGDB, or like the games you rated
+highest, for filling the board without knowing what to search for.</p>
 </td>
 <td>
 <picture>

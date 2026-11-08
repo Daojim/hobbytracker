@@ -65,6 +65,37 @@ public sealed class IgdbGame
     /// </summary>
     public int? Hypes { get; set; }
 
+    /// <summary>
+    /// The games IGDB calls like this one, as ids — what Discover's From your ratings is made of.
+    ///
+    /// <b>Always ten</b>, measured on 7 November 2026 over the 63 rated games on the user's board:
+    /// never fewer, every one a main game. Fixed for a game, where the other four lists are
+    /// recalculated daily, so the list it makes moves only when a rating does. Asked for by
+    /// <see cref="IgdbClient.GetSimilarGamesAsync"/> alone.
+    /// </summary>
+    public List<int>? SimilarGames { get; set; }
+
+    /// <summary>
+    /// The game this one is a version of, with that game's own <see cref="SimilarGames"/>: absent
+    /// for a game that is nobody's version, which is most of them.
+    ///
+    /// <para>
+    /// <b>One field for every kind of version.</b> Ports, remasters, remakes, expansions, expanded
+    /// games and standalone expansions alike: all 30 such titles on the user's board named their
+    /// original here, and <c>version_parent</c> was empty on every one of them. IGDB files each
+    /// version under an id of its own, so this is how your own game is recognised when it comes
+    /// back under another number.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>An object, because it is asked for that way.</b> <c>parent_game.similar_games</c> expands
+    /// it, which is what lets a version's original be asked about in the same request. Asked for
+    /// as plain <c>parent_game</c> it would arrive as a bare id and fail to read — and nothing asks
+    /// for it like that.
+    /// </para>
+    /// </summary>
+    public IgdbGame? ParentGame { get; set; }
+
     public IgdbCover? Cover { get; set; }
     public List<IgdbPlatform>? Platforms { get; set; }
     public List<IgdbGenre>? Genres { get; set; }

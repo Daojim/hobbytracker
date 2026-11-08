@@ -32,14 +32,29 @@ const asHit = (game: Game): SearchHit => ({
   },
 });
 
-/** One Discover list, asked for by the slug that is also its address. */
-const discoverList = (slug: string, label: string, blurb: string): DiscoverList => ({
+/**
+ * One Discover list, asked for by the slug that is also its address. A list made from your board
+ * says so with `yours`, and its page passes on how many of your titles it starts from and why each
+ * title is on it, which the four lists that are the same for everybody do not send.
+ */
+const discoverList = (
+  slug: string,
+  label: string,
+  blurb: string,
+  yours?: DiscoverList['yours'],
+): DiscoverList => ({
   slug,
   label,
   blurb,
+  ...(yours === undefined ? {} : { yours }),
   run: async (from) => {
     const page = await discoverGames(slug, from);
-    return { titles: page.titles.map(asHit), next: page.next };
+    return {
+      titles: page.titles.map(asHit),
+      next: page.next,
+      seeds: page.seeds ?? null,
+      because: page.because ?? null,
+    };
   },
 });
 
@@ -227,6 +242,19 @@ export const GAMES: HobbyDefinition = {
         'most-played',
         'Most played',
         'The games the most people have rated, of all time.',
+      ),
+      // The one list made from your board, picked at the #17 workshop on 7 November 2026: last,
+      // so the page still opens on New releases, and under it a second sentence saying what comes
+      // first. Its own line when nothing starts it yet, which the page's "Nothing on this list
+      // right now" would leave unexplained.
+      discoverList(
+        'from-your-ratings',
+        'From your ratings',
+        'Games like the ones you finished and rated 8 or more. Those like several of them come first.',
+        {
+          empty:
+            'Nothing here yet. Finish a game and rate it 8 or more, and games like it will show up here.',
+        },
       ),
     ],
   },

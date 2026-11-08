@@ -18,8 +18,9 @@ public interface IGameCatalogService
         string search, int? limit, CancellationToken cancellationToken);
 
     /// <summary>
-    /// One page of a Discover list, in the provider's order, starting at a place in it. Upserted
+    /// One page of a Discover list, in the list's order, starting at a place in it. Upserted
     /// exactly as a search is, so every title carries a media id a log entry can point at.
+    /// From your ratings is made from the signed-in person's board, and says why each title is on it.
     /// </summary>
     Task<DiscoverListPage<GameDto>> DiscoverAsync(
         DiscoverList list, int from, CancellationToken cancellationToken);
@@ -117,6 +118,13 @@ public sealed class GameCatalogService(
     public async Task<DiscoverListPage<GameDto>> DiscoverAsync(
         DiscoverList list, int from, CancellationToken cancellationToken)
     {
+        // The one list made from a board, and whose board is said here, where a reviewer reads it.
+        // Everything below is the four lists that are the same for everybody.
+        if (list == DiscoverList.FromYourRatings)
+        {
+            return await FromYourRatingsAsync(user.Id, from, cancellationToken);
+        }
+
         var today = clock.Today;
         var size = options.Value.DiscoverListSize;
         var asked = PlacesToAskAbout(list, size);
@@ -277,6 +285,182 @@ public sealed class GameCatalogService(
             today);
     }
 
+    // ------------------------------------------------------------------------- from your ratings
+
+    /// <summary>
+    /// Discover's fifth list: what IGDB calls like the games you finished and rated 8 or more, less
+    /// what is on your board. <see cref="FromYourRatings"/> is the rule; this does the reading, the
+    /// asking and the storing.
+    ///
+    /// <para>
+    /// <b>Two questions, each kept under what it asked.</b> The first is about every title on the
+    /// board and is keyed on their IGDB ids; the second is about the games those name and is keyed
+    /// on theirs. So a new rating re-ranks from the first answer and asks only the second again, an
+    /// add asks both, and no key names a person — where keyed as the other four lists are, on the
+    /// list and the day, the second person to open the tab would be handed the first one's list.
+    /// Neither key carries the day, because what IGDB calls similar is fixed for a game.
+    /// </para>
+    ///
+    /// <para>
+    /// The whole list is worked out for every page and a page is a stretch of it, so where the next
+    /// page starts is a place in it, as on the other lists, and a page further down asks IGDB nothing.
+    /// </para>
+    /// </summary>
+    private async Task<DiscoverListPage<GameDto>> FromYourRatingsAsync(
+        int ownerId, int from, CancellationToken cancellationToken)
+    {
+        var today = clock.Today;
+        var board = await BoardOfAsync(ownerId, cancellationToken);
+        var seeds = FromYourRatings.Seeds(board);
+
+        // Nothing finished and rated 8 or more yet, which the page says in words of its own, and a
+        // board that can name nothing is not asked about.
+        if (seeds.Count == 0)
+        {
+            return new DiscoverListPage<GameDto>(
+                [], Next: null, Seeds: 0, Because: new Dictionary<int, IReadOnlyList<RatedTitle>>());
+        }
+
+        var answers = await AskOnceAsync(
+            nameof(IIgdbClient.GetSimilarGamesAsync),
+            board.Select(title => title.IgdbId),
+            igdb.GetSimilarGamesAsync,
+            cancellationToken);
+
+        var pointedAt = FromYourRatings.PointedAt(board, seeds, answers);
+
+        var offered = await AskOnceAsync(
+            nameof(IIgdbClient.GetDiscoverableAsync),
+            pointedAt.Keys,
+            (batch, token) => igdb.GetDiscoverableAsync(batch, FromYourRatings.FewestRatings, token),
+            cancellationToken);
+
+        var ranked = FromYourRatings.Rank(offered, pointedAt);
+        var size = options.Value.DiscoverListSize;
+
+        // Trimmed before the upsert, as every list is, so the catalogue grows by one row per title a
+        // person could have seen and no more.
+        List<IgdbGame> shown = [.. ranked.Skip(from).Take(size)];
+        var stored = await UpsertAsync(shown, cancellationToken);
+
+        var titles = new List<GameDto>(shown.Count);
+        var because = new Dictionary<int, IReadOnlyList<RatedTitle>>(shown.Count);
+
+        foreach (var result in shown)
+        {
+            if (stored.GetValueOrDefault(ExternalIdOf(result)) is not { } game)
+            {
+                continue;
+            }
+
+            titles.Add(GameDto.From(game, today));
+
+            // Keyed by the media id the tile carries. Every seed has a rating, or it would not be one.
+            because[game.Id] =
+            [
+                .. pointedAt[result.Id].Select(seed => new RatedTitle(seed.Title, seed.LatestFinish!.Value)),
+            ];
+        }
+
+        // Written as a subtraction so a `from` near int.MaxValue cannot overflow into a next page.
+        return new DiscoverListPage<GameDto>(
+            titles,
+            Next: ranked.Count - size > from ? from + size : null,
+            Seeds: seeds.Count,
+            Because: because);
+    }
+
+    /// <summary>
+    /// Every title on one person's games board that IGDB can be asked about, with the rating on its
+    /// latest finished pass.
+    ///
+    /// <para>
+    /// <b>Both halves of the scope are this query's</b>, because each reaches log_entries on its
+    /// own. The board decides what is left out and the rating decides what starts the list: without
+    /// the user on the first, a title on somebody else's board would be left off yours, and without
+    /// it on the second, their 10 on a game you both finished would be your seed.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The latest finish is one more <c>logged_at DESC, id DESC</c></b>, the order every place
+    /// that picks one of a title's passes agrees on — see <b>Library is not the catalog</b> in
+    /// docs/board.md for the others and the grep that counts them. Finished means in Completed, as
+    /// the Stats page counts a finish: a dropped pass can carry a completion date and is not one.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyList<BoardTitle>> BoardOfAsync(
+        int ownerId, CancellationToken cancellationToken)
+    {
+        var rows = await db.Games
+            .AsNoTracking()
+            .Where(game => game.SourceId == SeedData.Sources.Igdb
+                           && game.ExternalId != null
+                           && game.LogEntries.Any(entry => entry.UserId == ownerId))
+            .Select(game => new
+            {
+                game.ExternalId,
+                game.Title,
+                LatestFinish = game.LogEntries
+                    .Where(entry => entry.UserId == ownerId && entry.Status == LogStatus.Completed)
+                    .OrderByDescending(entry => entry.LoggedAt)
+                    .ThenByDescending(entry => entry.Id)
+                    .Select(entry => entry.Rating)
+                    .FirstOrDefault(),
+            })
+            .ToListAsync(cancellationToken);
+
+        return
+        [
+            .. rows
+                .Select(row => (Row: row, Parsed: int.TryParse(row.ExternalId, CultureInfo.InvariantCulture, out var id) ? id : (int?)null))
+                .Where(row => row.Parsed.HasValue)
+                .Select(row => new BoardTitle(row.Parsed!.Value, row.Row.Title, row.Row.LatestFinish)),
+        ];
+    }
+
+    /// <summary>
+    /// One of From your ratings' questions: asked of IGDB at most 500 ids at a time, and kept under
+    /// the ids it asked about for as long as a Discover list's answer is kept.
+    ///
+    /// <para>
+    /// What is kept is IGDB's answer and never the rows it becomes, as for every list: the end-to-end
+    /// suite truncates <c>media</c> between specs while the API lives on, so a kept media id would
+    /// name a row that is gone. The ids are sorted so one board asks one question however it was
+    /// read, and a failure is not kept, because the entry is only written once IGDB has answered.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyList<IgdbGame>> AskOnceAsync(
+        string question,
+        IEnumerable<int> ids,
+        Func<int[], CancellationToken, Task<IReadOnlyList<IgdbGame>>> ask,
+        CancellationToken cancellationToken)
+    {
+        int[] wanted = [.. ids.Distinct().Order()];
+
+        // `where id = ()` is an APIcalypse syntax error, and there is nothing to ask about anyway.
+        if (wanted.Length == 0)
+        {
+            return [];
+        }
+
+        return await cache.GetOrCreateAsync(
+            (question, string.Join(',', wanted)),
+            async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow =
+                    TimeSpan.FromHours(options.Value.DiscoverCacheHours);
+
+                List<IgdbGame> answers = [];
+
+                foreach (var batch in wanted.Chunk(IdsPerRequest))
+                {
+                    answers.AddRange(await ask(batch, cancellationToken));
+                }
+
+                return (IReadOnlyList<IgdbGame>)answers;
+            }) ?? [];
+    }
+
     public async Task<GameDetailDto?> GetAsync(int mediaId, CancellationToken cancellationToken)
     {
         // Querying the derived DbSet is what makes this correct under TPT: it emits an INNER
@@ -329,8 +513,11 @@ public sealed class GameCatalogService(
         return await GetAsync(mediaId, cancellationToken);
     }
 
-    /// <summary>IGDB caps a response at 500, so ask for at most that many at a time.</summary>
-    private const int RefreshBatchSize = 500;
+    /// <summary>
+    /// IGDB caps a response at 500, so ask about at most that many ids at a time: a refresh, and
+    /// both of From your ratings' questions.
+    /// </summary>
+    private const int IdsPerRequest = 500;
 
     public Task<int> RefreshLibraryAsync(CancellationToken cancellationToken) =>
         RefreshAsync(OnSomebodysBoard(), cancellationToken);
@@ -372,7 +559,7 @@ public sealed class GameCatalogService(
 
         var refreshed = 0;
 
-        foreach (var batch in ids.Chunk(RefreshBatchSize))
+        foreach (var batch in ids.Chunk(IdsPerRequest))
         {
             var results = await igdb.GetGamesAsync(batch, cancellationToken);
             if (results.Count == 0)

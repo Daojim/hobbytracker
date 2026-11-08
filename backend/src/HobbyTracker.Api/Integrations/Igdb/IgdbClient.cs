@@ -34,6 +34,24 @@ public interface IIgdbClient
 
     /// <summary>PopScore's Playing list, in PopScore's order.</summary>
     Task<IgdbSlice> GetPlayingNowAsync(int offset, int limit, CancellationToken cancellationToken);
+
+    // The fifth list, From your ratings, which is two questions about ids rather than a slice of an
+    // ordering. The caller batches both; IGDB caps a response at 500. Empty in, empty out —
+    // without asking IGDB.
+
+    /// <summary>
+    /// What IGDB calls similar to each of these games, and each one's original with the games
+    /// similar to that.
+    /// </summary>
+    Task<IReadOnlyList<IgdbGame>> GetSimilarGamesAsync(
+        IEnumerable<int> ids, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Those of these games a Discover list may offer, and that at least
+    /// <paramref name="fewestRatings"/> people have rated.
+    /// </summary>
+    Task<IReadOnlyList<IgdbGame>> GetDiscoverableAsync(
+        IEnumerable<int> ids, int fewestRatings, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -411,6 +429,78 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
         return new IgdbSlice(
             [.. ranked.Where(row => byId.ContainsKey(row.Id)).Select(row => new IgdbRanked(row.Place, byId[row.Id]))],
             ended);
+    }
+
+    /// <summary>
+    /// From your ratings' first question: what IGDB calls like each title on a board, and — for a
+    /// title that is a version of another game — that original and what IGDB calls like it.
+    ///
+    /// <para>
+    /// <b>The original comes nested in the same answer</b>, <c>parent_game.similar_games</c>, so
+    /// asking about versions costs no request of its own. It matters: 30 of the 91 titles on the
+    /// user's board were ports, remasters, remakes or expansions, and a version's own ten is often
+    /// poor where its original's is not. Measured on 7 November 2026, the remake of <i>Paper Mario:
+    /// The Thousand-Year Door</i> named no game with fifty ratings and the 2004 original named ten.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>No Discover filter.</b> These are titles somebody logged, not offers, and a DLC on a board
+    /// still brings its original's ten — <i>Shadow of the Erdtree</i> is rated 10 on the user's.
+    /// </para>
+    /// </summary>
+    public Task<IReadOnlyList<IgdbGame>> GetSimilarGamesAsync(
+        IEnumerable<int> ids, CancellationToken cancellationToken)
+    {
+        var wanted = ids.Distinct().ToList();
+
+        // `where id = ();` is a parse error, and there is nothing to ask about anyway.
+        if (wanted.Count == 0)
+        {
+            return Task.FromResult<IReadOnlyList<IgdbGame>>([]);
+        }
+
+        return QueryAsync<IgdbGame>(
+            GamesEndpoint,
+            $"""
+            fields similar_games, parent_game, parent_game.similar_games;
+            where id = ({string.Join(',', wanted)});
+            limit {wanted.Count};
+            """,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// From your ratings' second question: of the games the first one named, those a Discover list
+    /// may offer and that at least <paramref name="fewestRatings"/> people have rated — with the
+    /// fields a search asks for, because they go through a search's upsert.
+    ///
+    /// <para>
+    /// <b>Popular now's second question with a floor.</b> Both the <see cref="Discoverable"/> clause
+    /// and the floor are inside the question, so IGDB applies them before its limit; on the user's
+    /// list the floor asked here kept exactly the games a filter afterwards kept. A floor on how
+    /// many people rated a game says whether it is known, not whether it is good, and that is what
+    /// the user picked over resting the list on IGDB's scores — see <b>From your ratings</b> in
+    /// docs/games-igdb.md. A game nobody has rated carries no count, and no floor keeps it.
+    /// </para>
+    /// </summary>
+    public Task<IReadOnlyList<IgdbGame>> GetDiscoverableAsync(
+        IEnumerable<int> ids, int fewestRatings, CancellationToken cancellationToken)
+    {
+        var wanted = ids.Distinct().ToList();
+
+        if (wanted.Count == 0)
+        {
+            return Task.FromResult<IReadOnlyList<IgdbGame>>([]);
+        }
+
+        return QueryAsync<IgdbGame>(
+            GamesEndpoint,
+            $"""
+            {SearchFields}
+            where id = ({string.Join(',', wanted)}) & {Discoverable} & total_rating_count >= {fewestRatings};
+            limit {wanted.Count};
+            """,
+            cancellationToken);
     }
 
     /// <summary>

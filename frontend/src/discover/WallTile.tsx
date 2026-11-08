@@ -2,7 +2,7 @@ import { formatRelease } from '../lib/release';
 import { AddControl } from '../search/AddControl';
 import { awaitsRelease, boardWords } from '../search/addWords';
 import type { AddColumn, HobbyDefinition, SearchHit } from '../hobbies';
-import type { LogStatus } from '../api/types';
+import type { LogStatus, RatedTitle } from '../api/types';
 
 export interface WallTileProps {
   hit: SearchHit;
@@ -13,6 +13,11 @@ export interface WallTileProps {
   /** Where this board can take a title — see `addColumns`. */
   columns: readonly AddColumn[];
   definition: HobbyDefinition;
+  /**
+   * The games of yours this title is on a list for, highest rated first — From your ratings'
+   * reason. Absent on a list that is the same for everybody, and then the tile says nothing about why.
+   */
+  because?: readonly RatedTitle[] | null;
 }
 
 /**
@@ -29,8 +34,17 @@ export interface WallTileProps {
  * September 2026 the chip names the column rather than saying "On your board", because a title
  * can arrive in three of them and filling a board backwards means knowing which one each went to.
  */
-export function WallTile({ hit, onBoard, adding, onAdd, columns, definition }: WallTileProps) {
+export function WallTile({
+  hit,
+  onBoard,
+  adding,
+  onAdd,
+  columns,
+  definition,
+  because = null,
+}: WallTileProps) {
   const upcoming = awaitsRelease(hit, definition);
+  const [reason, ...others] = because ?? [];
 
   return (
     <li className="flex flex-col gap-1.5">
@@ -79,6 +93,19 @@ export function WallTile({ hit, onBoard, adding, onAdd, columns, definition }: W
       {upcoming && hit.release !== null && (
         <p className="-mt-1 text-xs text-muted">
           {formatRelease(hit.release.day, hit.release.precision)}
+        </p>
+      )}
+
+      {/* Why it is on a list made from your board: "Because you rated Hollow Knight 9 and 2 more",
+          the game of yours rated highest named in the text colour and the rest muted. Picked at
+          the #17 workshop, the user's choice over "Like Hollow Knight and 2 more", and allowed
+          three lines once picked: at two, the cut took the rating and the count on 21 of 48 tiles
+          at 1440px, and nothing on the user's list needed a fourth. A ceiling, not a target — most
+          take two. The count is said only past one, because "and 0 more" says nothing. */}
+      {reason !== undefined && (
+        <p className="-mt-1 line-clamp-3 text-xs break-words text-muted">
+          Because you rated <span className="text-fg">{reason.title}</span> {reason.rating}
+          {others.length > 0 && ` and ${others.length} more`}
         </p>
       )}
 

@@ -9,7 +9,8 @@ notes. A sixteenth and a seventeenth, a picker for the backlog and a Discover li
 ratings, were added on 23 October 2026 from suggestions the user picked. An eighteenth, pictures
 in notes, was added on 30 October 2026 at the user's request, and a nineteenth and a twentieth,
 an estimate that catches up and the titles a column's header leaves out, on 3 November 2026. A
-twenty-first, the titles behind a rating on the Stats page, followed on 4 November 2026.
+twenty-first, the titles behind a rating on the Stats page, followed on 4 November 2026, and a
+twenty-second, a game's OpenCritic and Steam pages, came out of #17's workshop on 7 November 2026.
 CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
@@ -40,11 +41,12 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
-| 17 | A Discover list from your ratings | S, then M | **Planned 23 October 2026**, from the same suggestions: IGDB's similar games for what you rated highest, less what is on your board. **A look at the real results comes first**, and decides whether it is built. See its section |
+| 17 | A Discover list from your ratings | M | **Built 8 November 2026**, tests first, the day after its workshop: seeds rated 8 and up by their latest finish, a version asking about its original, the board and every original of a board title left out, and nothing with fewer than 10 ratings, ordered by how many seeds name a game. A tab *From your ratings*, last, and each tile saying "Because you rated …" up to three lines, the user's pick over "Like …". Built against the live API through the client, it made the workshop's 220 titles with the same reasons, and the page differs from the picked prototype by no pixel. **Not yet merged or deployed.** See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
+| 22 | A game's OpenCritic and Steam pages | M | **Planned 7 November 2026**, out of #17's workshop, at the user's request: from a game in the backlog, a quick way to what people say about it on OpenCritic and Steam, or OpenCritic alone for a game not on Steam. Not Metacritic. A new outside connection, so **a workshop of its own comes first**. See its section |
 
 Production runs `293cc78`'s code, which was `main` on 7 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -64,7 +66,8 @@ Production runs `293cc78`'s code, which was `main` on 7 November 2026. Deploying
 - **The rest of #1, the manifest and the icon, whenever.** It is a workshop first, then a small
   build. **Built on 2 October 2026, and checked on an Android phone on 4 October.**
 - **#17's look, whenever, and before the rest of #17.** It is a measurement rather than a build,
-  the user asked to see it, and it decides whether #17 is built at all.
+  the user asked to see it, and it decides whether #17 is built at all. **Looked at on 7 November
+  2026, and it said build.**
 
 ## Rules every plan below follows
 
@@ -184,8 +187,8 @@ and `theme.spec.ts` gained 2. Each guard was checked by planting its fault:
   that to the person adding it. That is in WebKit's notes for Safari 26.0. The fallback still holds
   on Android.
 - **`theme_color` on an iPhone.** Several developers report that Safari 26 ignores the tag. What
-  would follow the theme there is painting the root with `--sunken`, which is not built. See
-  `design.md`.
+  would follow the theme there is painting the root with `--sunken`, which #8 did on 4 October
+  2026 for a reason of its own. On an iPhone it is still unmeasured. See `design.md`.
 - **"An e2e test that the manifest parses"** needed full Chromium, because the headless shell
   answers installability with nothing. See the rule under *Phone tests*.
 - **"Check Caddy's caching."** Nothing to change. The manifest and the icons already get
@@ -2291,52 +2294,150 @@ thing to try after a deploy.
 
 ---
 
-## 17. A Discover list from your ratings · planned
+## 17. A Discover list from your ratings · built
 
-**Planned 23 October 2026**, from suggestions the user picked that day. Nothing is built. **The
-first step is a look, not a build**: the user wants to see what it would suggest, and what it
-suggests decides whether there is anything to build.
+**Planned 23 October 2026**, from suggestions the user picked that day. **Looked at and
+workshopped on 7 November 2026**: the look said build it, with four changes to the plan that its
+measurements found, and every choice was made the same day: round one in words (**Decided at
+pickup**), round two from renders (**Decided from the renders**). **Built on 8 November 2026** in
+a session of its own, tests first; see **Built**, **Tests** and **What the plan got wrong, or left
+out**, below **Tests first**.
 
 **What.** A fifth tab on Discover whose list is yours. The four lists now are the same for
 everybody. This one starts from the games you rated highest, asks IGDB for each one's
 `similar_games`, and shows what comes back, less what is already on your board. Each tile can say
 why it is there: *Because you rated Hollow Knight 9.5*.
 
-**The look.** Ask IGDB with the user's real ratings (the development database holds the games
-actually logged) and render the wall it would make. Read it as the other four lists were read
-before any was chosen (**What IGDB has, measured** in `docs/games-igdb.md`): whether the top of it
-is good, how far down it holds up, and what it fills with. If it is poor, #17 stops there, and
-that is a finding worth writing down.
+**The look.** Ask IGDB with the user's real ratings and render the wall it would make. Read it as
+the other four lists were read before any was chosen (**What IGDB has, measured** in
+`docs/games-igdb.md`): whether the top of it is good, how far down it holds up, and what it fills
+with. If it is poor, #17 stops there, and that is a finding worth writing down. **Done on
+7 November 2026**, below. This paragraph said the development database holds the games actually
+logged; it does not, and #16 found two Backlog titles there. The real board is production's.
 
 **Checked on 23 October 2026, in IGDB's documentation.** `similar_games` is a current field on
 `/games`, an array of game ids, and not one of the deprecated twins. Its neighbour `collection` is
 one, deprecated for `collections`, which matters only if a rule about series is ever wanted.
 
-**How it would work**, to be confirmed by the look:
-- **Seeds**: your finished games at or above some rating, by their IGDB ids
-  (`media.external_id`). The look decides how many, and from what rating.
-- **Two questions.** The first asks for the seeds' `similar_games`. The second asks for the games
-  those name, in one `where id = (…)` carrying `Discoverable`, which is Popular now's second
-  question. An empty `where id = ()` is an APIcalypse syntax error, so a list with nothing to ask
-  about never asks.
-- **Ranked by how many of your seeds point at a game**, then by how many people rated it.
-- **Nothing already on your board**, from any column, Dropped included. It is the first Discover
-  list that reads your board, so it is one more `ICurrentUser` call site to scope (CLAUDE.md,
-  **What fails silently**).
+**How it works**, as the look and the workshop settled it:
+- **Seeds**: every title whose latest finished pass is rated **8 or more**, by its IGDB id
+  (`media.external_id`). A title finished twice seeds by its latest finish, whatever an earlier
+  one was rated.
+- **Two questions**, both measured live on 7 November 2026 in the shape below.
+  - **The first is about every title on your board**, not only the seeds:
+    `fields similar_games, parent_game, parent_game.similar_games; where id = (…)`, 500 ids a
+    request. It gives each seed's own ten, each title's original where IGDB names one, and that
+    original's ten nested inside it, so asking about originals costs no request of its own.
+  - **A seed that is a version of another game brings its original's ten**, not its own. A seed
+    with no `parent_game` brings its own.
+  - **The second asks for the games those name**, in one `where id = (…)` carrying `Discoverable`
+    and `total_rating_count >= 10`, which is Popular now's second question with a floor. The floor
+    in the query kept exactly the ids a local filter kept. An empty `where id = ()` is an
+    APIcalypse syntax error, so a list with nothing to ask about never asks.
+- **Ranked by how many of your seeds name a game**, then by how many people rated it
+  (`total_rating_count`).
+- **Left out**: every title on your board, from any column, Dropped included, **and every board
+  title's `parent_game`**, which is the same game under another id. It is the first Discover list
+  that reads your board, so it is one more `ICurrentUser` call site to scope (CLAUDE.md, **What
+  fails silently**).
+- **Nothing with fewer than 10 ratings**, and no score is trusted: the user does not want the list
+  to rest on IGDB's scores. See **The look**.
 - **Upserted on every view, like every list.** The cache holds IGDB's answer and never rows.
+- **With the user's board**, this offers 220 games, about five pages of 48, opening *Horizon Zero
+  Dawn, Scarlet Nexus, Ravenswatch, Metal Gear Solid V, Ghost of Tsushima, Death Stranding, Devil
+  May Cry 5* and *Metal Gear Rising*.
 
-### Decide at pickup
+### The look, 7 November 2026
 
-After the look, and by eye where it is a matter of looks:
+The user's games board as read from production on 3 November 2026
+(`frontend/workshop.local/estimates/board.json`, saved by #19's workshop): 91 titles, 63 rated,
+every rated one finished, none finished twice. IGDB was asked on 7 November. The page, with every
+choice below as a switch over the real answers: https://claude.ai/artifact/UyZDw3d1XMDM22ef8onRTS.
+The scripts and the answers are in `frontend/workshop.local/discover/`, which git ignores.
 
-- **The seeds.** A rating to reach, a top N, or both; and which pass's rating counts when a game
-  was played twice.
-- **Titles already on your board: left out, or shown with the ✓ chip** as the other lists show
-  them. Recommended: left out. A list for finding something new has no use for what you have.
-- **Whether a tile says why it is there.** Recommended: yes, naming the seed. A wall tile is now a
-  cover, a name and one button, so a reason changes the tile, and it is rendered at 1440, 768 and
-  390.
-- **The tab's name**, beside *New releases*, *Popular now*, *Most anticipated* and *Most played*.
+- **Every game has exactly ten `similar_games`**, never fewer. The 63 named 403, every one a main
+  game, so `Discoverable` took nothing off. 21 were on the board.
+- **Your own games came back under other ids.** 30 of the 91 titles are ports, remasters,
+  remakes, expansions or expanded editions, and IGDB files each under an id of its own, naming the
+  game it comes from as its **`parent_game`**. `version_parent` was empty on all 30. Ten of those
+  parents were offered: *Castlevania: Aria of Sorrow, Symphony of the Night, Dawn of Sorrow,
+  Circle of the Moon, Order of Ecclesia* and *Akumajou Densetsu*, *Ghost Trick* (2010), *Granblue
+  Fantasy: Versus*, *Metal Gear Solid 3* (Delta's original) and *Marvel's Spider-Man* (2018), whose
+  standalone expansion Miles Morales is on the board. Leaving out every board title's parent took
+  all ten off, and comparing names found none it missed.
+- **A version's own list is often poor, and its original's is better.** For the 19 rated titles
+  with a parent, their own lists held 66 games with 50 or more ratings out of 190 and their
+  originals' held 124. *Paper Mario: The Thousand-Year Door* went 0 to 10 and *Symphony of the
+  Night* 0 to 9: the remake's ten were mostly online and mobile games (*Big Time, Black Clover
+  Mobile, Blue Protocol, MU Legend*), six shared with Symphony of the Night's. Four go the other
+  way: *Ghost Trick* 5 to 2, *NieR Replicant* 4 to 0, *Persona 3 Reload* 7 to 5, *Lies of P:
+  Overture* 5 to 4.
+- **The plan's order opened with IGDB's hubs**, games it calls similar to everything: across all
+  63, *Scarlet Nexus* was named by 12, *Genji: Dawn of the Samurai* (2005, 18 ratings) by 9 and
+  *Towerborne*, with no ratings at all, by 7. Most of that came from the versions' lists. From 8
+  and up with originals asked, *Towerborne* falls from 2nd to 46th and *Godfall* from 6th to 39th.
+- **Few games are named twice**: at 8 and up as the plan wrote it, 205 of 262 were named by one
+  seed, so the second key orders most of the list.
+- **It moves only when a rating does.** `similar_games` is fixed for a game, where the other four
+  lists are recalculated daily.
+- **IGDB's scores were set aside, by the user's choice.** A floor on IGDB's score was the look's
+  first proposal, and the user would rather not rest anything on IGDB's ratings, since people read
+  OpenCritic, Metacritic or Steam. What IGDB has instead, measured: it links **neither Metacritic
+  nor OpenCritic** (its external sources are stores and sites: Steam, GOG, the PlayStation Store,
+  Xbox, GiantBomb and the like); its critics' average, `aggregated_rating`, rests on a median of 5
+  reviews a game on this list and on 1 for *Ravenswatch*'s 90; and **PopScore's Steam "reviews"
+  (popularity types 6 to 8) are popularity values, not counts**, so dividing them gives *Hollow
+  Knight* 84% where Steam says Overwhelmingly Positive. A floor on how many people rated a game
+  judges whether it is known rather than whether it is good, and that is what was picked. An
+  outside score became #22.
+
+### Decided at pickup
+
+Round one, 7 November 2026, as four questions and then two, each with the list it makes. Every
+pick was the recommendation.
+
+| choice | picked | against |
+|---|---|---|
+| build it | yes | stop at the look |
+| seeds | finished titles rated **8 and up**, 38 of the user's 63 | 9 and up (15 titles), 8.5 and up (20), any rating (63) |
+| a title finished twice | **its latest finished pass's rating** | its highest |
+| order | **how many of your seeds name a game**, then how many people rated it | best known first, which read as *Grand Theft Auto V, God of War, BioShock Infinite* |
+| floor | **fewer than 10 ratings**, no score | IGDB's critics' score under 75 (154 offered); fewer than 50 ratings, which takes *Ravenswatch* (17) too; nothing (263, 43 of them under 10 ratings) |
+| your games under other ids | **every board title's `parent_game` left out** | keep a standalone expansion's base game, which would offer *Marvel's Spider-Man* at #4; show them, as the plan did |
+| a version seed | **asks about its original** | both lists, which brings *Godfall* back at #5; the version logged |
+| on your board | **left out**, every column | the ✓ chip the other lists use |
+| an outside score | **not in #17**: planned as #22 | — |
+
+### Decided from the renders
+
+Round two, 7 November 2026: the real Discover page around a prototype tile and a fifth tab,
+holding round one's list, shot at 1440, 768 and 390 in Shelf Light and Dark and measured as it
+was shot. The page, with the combination as picked rendered again at its top:
+https://claude.ai/artifact/EFhjUeA7jfruGrjG9QxG6a.
+
+| choice | picked | against |
+|---|---|---|
+| the tile | **B, a reason under the name: "Because you rated *Wuchang: Fallen Feathers* 8.5 and 3 more"**, the user's pick over the recommendation | **C**, "Like *Wuchang: Fallen Feathers* and 3 more", the recommendation: 9 of 48 on one line, 1 cut off; **A**, nothing, as today |
+| how far it runs | **up to three lines**, asked after B was picked | two lines, where 21 of 48 tiles at 1440 and 16 at 768 and 390 were cut, and the cut took the rating and the *and 3 more* |
+| the tab | **From your ratings, last of the five**, so Discover still opens on New releases | *For you*, which keeps the phone's pills on two rows; *Like your favourites*; *Because you rated* |
+| the line under the tabs | **"Games like the ones you finished and rated 8 or more. Those like several of them come first."** | the first sentence alone |
+| with nothing rated 8 or more | **a line of its own: "Nothing here yet. Finish a game and rate it 8 or more, and games like it will show up here."** | the page's *Nothing on this list right now.* |
+
+What the renders measured, for the build to hold:
+
+- **Tiles are 160px wide at 1440, 168 at 768, 171 at 390.** B takes two lines on every tile and
+  three on 21 of 48 at 1440 (16 at 768 and 390), and nothing on the user's list needs a fourth.
+  Three lines is a ceiling, `line-clamp-3`, not a target.
+- **A row averages 350px with B at three lines**, against 303px with no reason and 337px with B
+  cut at two. The add buttons stay at the foot of each tile, because `mt-auto` already puts them
+  there.
+- **The tile names the highest-rated of the seeds that point at a game**, ties by title as
+  rendered, the seed's title in `text-fg` and the rest muted. **One seed reads without *and 0
+  more***: the count is said only past one.
+- **At 390 the pills take three rows**, the fifth alone on the third: 106px, where two rows are
+  68px.
+  Nothing scrolls, so `e2e/layout.spec.ts`'s check that every tab is whole and on the screen
+  should hold unchanged with five; it is part of the build's run.
 
 ### Things to get right
 
@@ -2345,7 +2446,21 @@ After the look, and by eye where it is a matter of looks:
   suggestions to the next person to open the tab: a stranger's data, with no error. Keyed on the
   user alone, a new rating would not move the list until the cache expired. Keyed on the seeds,
   both come out right.
-- **With no seeds**, nothing rated yet, the tab says how it fills, and IGDB is not asked.
+  - **Since the look, key each answer on its question.** The first question is about every title
+    on the board, so its answer can be keyed on the board's IGDB ids and the seeds chosen from it
+    afterwards: a new rating then re-ranks from the cache, and only an add asks again. The second
+    is keyed on the ids it names. Neither key names a person, and neither answer is one person's.
+- **With no seeds**, nothing finished and rated 8 or more yet, the tab says how it fills, and
+  IGDB is not asked.
+- **The latest finished pass is one more `logged_at DESC, id DESC` ordering**, beside the nine
+  CLAUDE.md counts under **What a fifth hobby has to do**. Count them with the grep in **Library is
+  not the catalog** in `docs/board.md`, and keep them agreeing.
+- **`parent_game` is the one field for every kind of version**: ports, remasters, remakes,
+  expansions, expanded games and standalone expansions alike. Not `version_parent`, which was empty
+  on all 30 versions on the user's board.
+- **The look's facts about IGDB go to `docs/games-igdb.md` when #17 ships**, under **What IGDB has,
+  measured**: ten similar games always, `parent_game` for versions, and PopScore's Steam figures
+  not being counts.
 - **Both fakes have to answer it.** `FakeIgdbClient` needs the new question. `igdb-stub.mjs`
   parses each clause rather than recognising a question whole, so its fixtures need
   `similar_games`, and it needs the second question's shape. Add a decoy that only the filter
@@ -2365,8 +2480,130 @@ After the look, and by eye where it is a matter of looks:
 - `A_cached_list_still_hands_out_media_ids_that_exist` holds for this list too.
 - e2e, in `discover.spec.ts`: finish a game and rate it, open the tab, see a game similar to it,
   and add that game.
+- Added by the workshop:
+  - **A version brings its original's similar games, not its own.** The stub needs a version
+    whose own list names a decoy its original's does not.
+  - **A board title's original is never offered**, from any column; a game IGDB does not link
+    to one is, whatever its name.
+  - **Nothing with fewer than 10 ratings is offered.**
+  - **Seeds start at 8**: a 7.5 names nothing.
+  - **A title seeds by its latest finish**: an 8 replayed as a 6 seeds nothing, and a 6 replayed
+    as a 9 seeds.
+  - **Each title carries the seeds behind it, highest rated first**, and the tile says
+    "Because you rated *X* 9 and 2 more", or "Because you rated *X* 9" for one. The other four
+    lists send none and their tiles are unchanged.
+  - **The tab is *From your ratings*, last**, with the two-sentence line under it; **with nothing
+    finished and rated 8 or more it says its own line**, and IGDB is never asked.
+  - **Playwright, since jsdom has no layout**: at 1440 the longest reason on the fixture is whole
+    within three lines, and the add buttons of a row share a baseline; at 390 every one of the
+    five tabs is whole and on the screen.
 - **Put the fault back:** key the cache without the seeds, then stop leaving out the board. Each
-  turns its own test red.
+  turns its own test red. Then ask about the version instead of its original, drop the parent
+  rule, drop the floor, and read the highest finish instead of the latest, each red on its own.
+
+### Built
+
+On the branch `discover-from-your-ratings`, 8 November 2026. The write-up for a reader is **From
+your ratings, the list made from your board** in `docs/games-igdb.md`.
+
+- **The rule is `Services/FromYourRatings.cs`**, pure, beside `IgdbRelevance`: `Seeds`,
+  `PointedAt` and `Rank`, with the look's measurements in their comments.
+  `GameCatalogService.FromYourRatingsAsync` does the rest. `BoardOfAsync(user.Id)` reads the board
+  with both reads of `log_entries` scoped, the latest finish being one more `logged_at DESC, id
+  DESC`. `AskOnceAsync` sorts the ids, asks IGDB 500 at a time, and keeps the answer under the ids
+  it asked about. The whole list is worked out for each page, which is sliced, upserted and given
+  its reasons.
+- **`IgdbClient` gained `GetSimilarGamesAsync` and `GetDiscoverableAsync`**, and `IgdbGame` gained
+  `SimilarGames` and `ParentGame`. The floor is the service's, `FromYourRatings.FewestRatings`,
+  and the clause the client's, so the fake can honour the floor as IGDB would and an endpoint test
+  can see it go. `RefreshBatchSize` became `IdsPerRequest`, now that three things use it.
+- **`DiscoverListPage` gained `Seeds` and `Because`**, null on the four lists, with `RatedTitle`;
+  `DiscoverList.FromYourRatings` is `from-your-ratings`.
+- **On the page**: `games.ts` has the fifth list with `yours.empty`; `DiscoverPage` drops a list of
+  yours from the cache as soon as nobody is looking at it, gathers each page's reasons, and picks
+  its empty line by the server's `seeds`; `WallTile` takes `because` and says the reason, class for
+  class the prototype's B at `line-clamp-3`.
+
+### Tests
+
+Backend 961 of 961: 28 new endpoint cases in `FromYourRatingsTests` and 7 new in
+`IgdbClientTests`. Frontend 1,346 of 1,346, 10 of them new, with tsc clean. End to end, three new
+specs, two in `discover.spec.ts` and one in `layout.spec.ts`, and the five-tab check changed: the
+full suite 220 of 220 in Chromium, and the Discover and layout specs 29 of 29 in Firefox.
+
+**Shown red first.** 24 of the 28 endpoint cases were red on the 404 a list that did not exist
+answers; the other 4 are the guard that the four lists send no seeds or reasons, true from the
+start. All 7 client cases were red on their placeholders. 11 of 13 Vitest cases were red; of the
+two green, one is a guard (no reason on a list that is the same for everybody) and the other, the
+line a list with seeds and nothing left says, passed for the wrong reason — the unknown tab
+redirected to an empty New releases.
+
+**Each fault put back alone**, and each red on its own tests:
+
+| fault | red |
+|---|---|
+| the list kept as the four are, under the list, the day and the place | `Two_users_with_different_seeds_get_different_lists_on_the_same_day`, `A_new_rating_changes_the_list…`, `A_cached_list_still_hands_out_media_ids_that_exist` |
+| the second question kept under the board instead of what it names | `A_new_rating_changes_the_list…` (with the guard and the batching it also dropped) |
+| the board not left out | `Nothing_on_your_board_is_offered_from_any_column` |
+| a version asking about itself | `A_version_brings_its_originals_similar_games_and_not_its_own` |
+| the parent rule dropped | `A_board_titles_original_is_never_offered_from_any_column`, all five columns |
+| the floor dropped in the service, then in the client | `Nothing_with_fewer_than_ten_ratings_is_offered`, then the client's body test |
+| the highest finish read, then the latest by id alone | `A_title_seeds_by_its_latest_finish`, both times |
+| the user off the board read, then off the rating read | `Somebody_elses_board_leaves_nothing_out_of_yours`, then `Seeds_are_yours_alone` |
+| seeds and reasons sent on the other four lists | `The_other_four_lists_send_no_seeds_and_no_reasons`, all four |
+| seeds from 7.5; ranked by ratings alone; tied seeds left unordered | `Seeds_start_at_8`; the ranking case; `Each_title_carries_the_seeds_behind_it_highest_rated_first` |
+| the Discover filter on the first question | the two client cases about it |
+| Vitest: the list of yours kept in the cache; the own line whatever the seeds; *and 0 more*; the reasons not passed on | each its own case, the last four cases |
+| end to end, written after the code: the reason clamped at two; `mt-auto` gone; the list of yours kept; the floor clause dropped; the filter dropped | the layout spec twice, then the ratings spec three times |
+
+**Sent to the live API as the client builds it**, before shipping: the real API with the real
+IGDB client in place of the fake, over the user's board as the workshop saved it, paged to the
+end. Both questions answered on every page, and the list was the workshop's: the same 220 titles
+and 38 seeds, the same first eight, and the same reason on every tile. 187 of the 220 stood where
+the staging had them; every other place is an exact tie in both keys. A captured answer, a remake
+and a plain game, pins the wire shape in `IgdbClientTests`.
+
+**The built page differs from the picked prototype by no pixel**, at 1440 light and dark, 768,
+and 390 light and dark, with the same reason on all 48 tiles and none cut.
+
+### What the plan got wrong, or left out
+
+- **The workshop drew page one.** Its longest reason there was 66 characters, at three lines,
+  and "nothing on the user's list needs a fourth" was measured on those 48. The longest anywhere is
+  69, *Because you rated Like a Dragon Gaiden: The Man Who Erased His Name 8*, at places 101 and
+  193; the layout spec now draws it, and it fits. The spec's first fixture added *and 2 more* to
+  it, 81 characters, which takes four lines and is cut: no tile on the user's list says it, and
+  three lines was picked as a ceiling.
+- **The page's cache was the plan's cache trap again.** The plan put the seeds in the server's
+  key; the page kept every list five minutes after it was left, so a rating given in the journal
+  showed nothing on returning to the tab. A list of yours is dropped from the page's cache once
+  nobody is looking at it.
+- **An empty list has two reasons, and the plan wrote one line.** With seeds and nothing left to
+  offer — every game they name already yours — the page says its own *Nothing on this list right
+  now*, since telling somebody with games rated 9 to go and rate one is wrong. The server's
+  `seeds` says which.
+- **The order needed a last key.** Ties in both keys are common far down the list; the staging
+  kept the order it found them in, and the build breaks them by IGDB's id, so a page is the same on
+  every request.
+- **Two seeds can share an original.** *Lies of P: Overture* and *Lies of P* both seed and both ask
+  about *Lies of P*'s ten, so each of those games counts two seeds. That is how the workshop
+  rendered it, and it is kept.
+- **The end-to-end API pages two at a time**, so a decoy that got through ranked below both titles
+  and waited on page two: dropping the floor or the filter left the spec green until it asserted
+  that the list ends there.
+- **The prototype wraps the real hobby definitions**, so once the build added the tab it drew
+  two. `hobbiesProto.ts` now leaves the built one out, and the comparison was rerun.
+- **`docs/api.md` had no Discover route at all**; it has one row for all five lists now.
+
+### Where it stands
+
+**Built, green, and not yet committed or deployed.** Deploying needs nothing new: no migration, no
+option, no outside service IGDB is not already, and nothing to refresh, because what IGDB calls
+similar is asked for live rather than stored.
+
+- **The prototype and the look's scripts are in `frontend/workshop.local/discover/`**, which git
+  ignores, beside `compare-built.mjs`, which shot the build against the prototype, and
+  `built.json`, the list the API built from the live API.
 
 ---
 
@@ -2744,9 +2981,11 @@ asks what the box took in now.
   panel, with no `cf-cache-status: HIT`.
 - **The admin's `UPDATE` was handed to the maintainer**, as `docs/deploy.md` says it is theirs. The
   session that deployed tried it and was refused by Claude Code's auto mode as a permission grant.
-  Until it runs, the user's account is capped like any other, which costs nothing for a long while.
+  **The user ran it minutes later**, through the same `psql`, and it answered `UPDATE 1`, so the
+  user's account has had no cap since 31 October 2026.
 - **The user's own check**: a real Win+Shift+S snip pasted in Firefox, which no script can make,
-  and on the Android phone a photo from the gallery and one from the camera.
+  and on the Android phone a photo from the gallery and one from the camera. **Done, reported on
+  7 November 2026.**
 
 ---
 
@@ -2962,7 +3201,7 @@ computed animation is `spin`, or none at 0.5 opacity under reduced motion.
   `UPDATE`s name, and 14 were stamped with nothing new. Which of the 19 had no figure before is
   the board's to show; the database was not read.
 - **The user's own check**: Phantom Blade Zero's card, and the arrow pressed on a title still on
-  the calendar.
+  the calendar. **Done, reported on 7 November 2026.**
 
 ---
 
@@ -3149,7 +3388,8 @@ on it fits the gap before it, and is unproven.
   queued 0 titles, since the night before's run had asked every title that was due, and the
   release sweep brought 17 unreleased titles up to date.
 - **The user's own check**: a count opened on the live board. Playing's may no longer leave Phantom
-  Blade Zero out, since #19's first backfill brought new figures for 19 titles.
+  Blade Zero out, since #19's first backfill brought new figures for 19 titles. **Done, reported
+  on 7 November 2026.**
 
 ---
 
@@ -3351,7 +3591,59 @@ which is one column everywhere, and turned the desktop case red instead.
   *switched off* line for either worker; Caddy's had no error.
 - **The restart re-armed both timers, and both ran five minutes on**: the HowLongToBeat backfill
   queued 0 titles, and the release sweep brought 16 unreleased titles up to date.
-- **The user's own check**: open a rating on the live Stats page.
+- **The user's own check**: open a rating on the live Stats page. **Done, reported on 7 November
+  2026.**
+
+---
+
+## 22. A game's OpenCritic and Steam pages · planned
+
+**Planned 7 November 2026**, out of #17's workshop, when the user set IGDB's scores aside. Nothing
+is built, and **a workshop of its own comes first**: it is a new outside connection, and the user
+has held off others. This is the reason for it, in the user's words: *"It would be convenient if I
+had a game in my backlog and I wanted to quickly take a look at the game's OpenCritic or Steam
+page to see what people are saying about the game. If the game doesn't have a Steam port, then
+only an OpenCritic page would be fine."* **Not Metacritic**, which the user does not care about.
+
+**What.** From a game, a way to its OpenCritic page and its Steam page, and perhaps what each
+says: OpenCritic's critics' average, Steam's review summary (*Very Positive*). A game with no Steam
+version shows OpenCritic's alone.
+
+**What is known**, measured on 7 November 2026 for #17's look:
+
+- **Steam needs no matching, mostly.** IGDB links games to Steam (`external_games`, source 1, the
+  app id as `uid`), and 337 of the 499 games the look named had one. Not every game sold there
+  does: *Horizon Zero Dawn* and *Ghost of Tsushima* have no Steam id on their main IGDB entries,
+  where *Death Stranding* has one, so where a console game's Steam id lives is measured at pickup.
+- **IGDB's Steam "reviews" are not Steam's.** PopScore's types 6 to 8 are named Positive, Negative
+  and Total Reviews, and carry popularity values (0.0038 for *Hollow Knight*), not counts. Steam's
+  figures come from Steam.
+- **OpenCritic needs matching.** IGDB links neither OpenCritic nor Metacritic, so a game is found
+  by name, as HowLongToBeat's are, with a matcher that refuses rather than guesses
+  (`docs/games-hltb.md`).
+- **OpenCritic's API is sold through RapidAPI, with a key.** A community project puts the free tier
+  at 200 requests and 25 searches a day. Not confirmed; the API's pricing page is where to check.
+
+### Decide at pickup
+
+- **Links, what each says, or both.** A link needs an id; what a page says needs a request to it.
+- **Where it shows**: the journal beside HowLongToBeat's figures, a card's `⋯` menu, or both; on
+  Backlog only, or every column.
+- **OpenCritic's key**: required to boot like every other credential (CLAUDE.md, **Start here**),
+  or optional, with OpenCritic's half absent when it is.
+- **Matching OpenCritic**: search by name, refuse when unsure, and a pin for when it refuses, as
+  HowLongToBeat has.
+- **Stored or asked**: an id kept on `games` once found, which is a migration and a backfill, or
+  asked each time the journal opens.
+
+### Things to get right
+
+- **Measure Steam's review endpoint before relying on it.** `store.steampowered.com/appreviews/
+  {appid}?json=1` is believed to answer with no key and a summary; nothing here has asked it yet.
+- **OpenCritic's daily allowance is small**, so a game is searched for once and its answer kept.
+- **A new provider is a stub in the e2e suite and a fake in the backend suite**, as IGDB, TMDB,
+  MAL and HowLongToBeat each have, and an `ApiFactory` entry if its option is required, since a
+  missing required option refuses to boot the whole suite.
 
 ---
 

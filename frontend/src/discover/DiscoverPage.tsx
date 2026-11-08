@@ -7,6 +7,7 @@ import { discoverKey } from '../board/keys';
 import { useAddToBoard } from '../search/useAddToBoard';
 import { DEFAULT_HOBBY, boardPath, discoverPath, isReadyHobby } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
+import type { RatedTitle } from '../api/types';
 import { WallTile } from './WallTile';
 
 /**
@@ -20,6 +21,22 @@ import { WallTile } from './WallTile';
  * the day anyway.
  */
 const LIST_FRESH_MS = Infinity;
+
+/**
+ * How long a list made from your board is kept once nobody is looking at it: not at all.
+ *
+ * The other lists are kept for TanStack's five minutes after they are left, so a tab left and
+ * returned to shows them as loaded. This one is made from your ratings, and the journal is where a
+ * rating changes — on the board, while this page is away — so kept like them, it would go on saying
+ * nothing was rated after somebody had gone and rated something. Dropped instead, it is asked for
+ * again each time it is opened, which costs IGDB nothing that did not change: the server keeps
+ * what IGDB said, under the questions it asked.
+ *
+ * While it is open it is never refreshed, by {@link LIST_FRESH_MS}'s rule — and so adding a title
+ * from it leaves the title on the wall with its column on the cover, as on every list, rather
+ * than taking it away from under the pointer.
+ */
+const YOURS_KEPT_MS = 0;
 
 /**
  * The Discover page: a wall of what the provider would show somebody who has not typed
@@ -85,6 +102,9 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
     initialPageParam: 0,
     getNextPageParam: (last) => last.next ?? undefined,
     staleTime: LIST_FRESH_MS,
+    // Spread rather than written as `gcTime: undefined` for the other lists, which would override
+    // the client's own default rather than leave it alone.
+    ...(list.yours === undefined ? {} : { gcTime: YOURS_KEPT_MS }),
   });
 
   // Every page so far, as one wall. A title already on it is dropped rather than drawn twice:
@@ -104,6 +124,30 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
         return true;
       });
   }, [titles.data]);
+
+  // Why each title is on a list made from your board, gathered from every page so far. A title a
+  // later page carries again keeps the reason it was drawn with, as it keeps its place.
+  const reasons = useMemo(() => {
+    const gathered = new Map<number, readonly RatedTitle[]>();
+
+    for (const page of titles.data?.pages ?? []) {
+      for (const [id, seeds] of Object.entries(page.because ?? {})) {
+        if (!gathered.has(Number(id))) {
+          gathered.set(Number(id), seeds);
+        }
+      }
+    }
+
+    return gathered;
+  }, [titles.data]);
+
+  // The server's count of what a list of yours starts from, which is what says why it is empty.
+  // Nought has a line of its own; a list with seeds and nothing left to offer says what any list
+  // says, since telling somebody with three games rated 9 to go and rate one would be wrong.
+  const empty =
+    list.yours !== undefined && titles.data?.pages[0]?.seeds === 0
+      ? list.yours.empty
+      : 'Nothing on this list right now.';
 
   // Focus goes to the first title a page added, where reading carries on. The new tiles arrive
   // above the button, so left there, somebody on a keyboard would have to go back through all of
@@ -197,7 +241,7 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
         )}
 
         {titles.isSuccess && hits.length === 0 && !titles.hasNextPage && (
-          <p className="text-sm text-muted">Nothing on this list right now.</p>
+          <p className="text-sm text-muted">{empty}</p>
         )}
 
         {hits.length > 0 && (
@@ -222,6 +266,7 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
                 onAdd={board.add}
                 columns={board.columns}
                 definition={definition}
+                because={reasons.get(hit.id) ?? null}
               />
             ))}
           </ul>

@@ -351,6 +351,10 @@ CSS and React could disagree, and `grid.test.ts` reads it out of Tailwind's own
   reason.
 - **Discover takes the same gutter**, 16px on a phone, so the header does not step 8px sideways
   between the two pages.
+- **Discover's list tabs wrap to three rows since From your ratings** (#17, 8 November 2026), the
+  fifth alone on the third: 106px where two rows were 68px. Measured at the workshop and picked
+  anyway; nothing scrolls. The tile's reason runs to three lines at most. See **From your ratings**
+  in `docs/games-igdb.md`.
 - **The hobby nav still scrolls sideways at 390px** and cuts *Books Soon* mid-word, as its own
   comment says it should rather than wrapping. Left alone.
 
@@ -977,11 +981,11 @@ ground, `--sunken`:
   before the page has loaded, and the splash. A manifest cannot follow a stored setting.
 
 **An iPhone takes none of this.** Several developers report that Safari 26 ignores `theme-color`
-and takes its bars' colour from the page's own background, or from a fixed bar at the top. Nothing
-in the app paints the root, because each page's `<main>` paints the ground, so an iPhone probably
-shows white or black above a dark theme. Giving `html` the `--sunken` background would make the
-bars follow every theme from `index.css` alone. **Not built**: it is unmeasured, and nobody here has
-an iPhone to measure it on.
+and takes its bars' colour from the page's own background, or from a fixed bar at the top. **The
+root has carried the ground since 4 October 2026**, two days after this was written: `html` takes
+`--sunken` for the Settings panel that ran past `main` (**The root carries the theme's ground**,
+above). So the bars should follow every theme from `index.css` alone. That is unmeasured, and
+nobody here has an iPhone to measure it on. This paragraph said *not built* until 7 November 2026.
 
 What fails quietly here, each found while building it:
 

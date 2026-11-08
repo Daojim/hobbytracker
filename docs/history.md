@@ -193,6 +193,14 @@
       and a game finished twice at one point is two rows, each with its day, which was theirs
       too. The list and the count over its column are one filing, so they cannot disagree, and
       a share's chart is the picture it was
-- [ ] A Discover list from your ratings: IGDB's similar games for what you rated highest, less
-      what is already on your board, if a look at the real results says it is worth building
+- [x] A Discover list from your ratings. A fifth tab, *From your ratings*, of what IGDB calls
+      like the games you finished and rated 8 or more, less what is on your board, most like
+      several of them first; each tile says why, *Because you rated Hollow Knight 9 and 2 more*,
+      the user's pick from renders over *Like …*. A look at the real ratings came first and said
+      to build it once a remake asks about its original, since IGDB files a remake under an id
+      of its own; the same rule leaves your own games off when they come back under another
+      number. Nothing fewer than ten people rated is offered, because the user would not rest it
+      on IGDB's scores
+- [ ] A game's OpenCritic and Steam pages, for a quick look at what people say about a game in
+      the backlog
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

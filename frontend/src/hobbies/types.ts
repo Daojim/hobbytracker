@@ -328,8 +328,22 @@ export interface DiscoverList {
   blurb: string;
 
   /**
+   * Set on a list made from your own board — From your ratings — and absent on the lists that are
+   * the same for everybody.
+   *
+   * A list of yours is asked for afresh each time it is opened, because the board it is made from
+   * can change while it is away: a rating given in the journal has to show the next time the tab
+   * is opened, not five minutes later.
+   */
+  yours?: {
+    /** What the list says when nothing on your board starts it yet, which the server says by `seeds: 0`. */
+    empty: string;
+  };
+
+  /**
    * A page of the titles from a place in the list — `0` for the first, then whatever `next` the
-   * page before said — in the provider's order, read as the search strip reads a result.
+   * page before said — in the list's order, read as the search strip reads a result. A list of
+   * yours also says how many of your titles it starts from and why each title is on it.
    */
   run(from: number): Promise<DiscoverListPage<SearchHit>>;
 }

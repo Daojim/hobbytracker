@@ -86,7 +86,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. **A switch beside it searches your notes instead**, on every board: every word in any order, and a note found opens its journal at the note | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill **that runs itself once a day**, a pin for when it refuses, and **an arrow beside the pin that asks again**, for a game matched before it had times | `docs/games-hltb.md` |
 | **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
-| **Discover** | A wall of covers for filling a board without searching, offered from under an empty search box: New releases, Popular now, Most anticipated, Most played, one list at a time. Every list was measured against IGDB before it was chosen, and every one carries a filter a search deliberately lacks | `docs/games-igdb.md` |
+| **Discover** | A wall of covers for filling a board without searching, offered from under an empty search box: New releases, Popular now, Most anticipated, Most played, one list at a time. Every list was measured against IGDB before it was chosen, and every one carries a filter a search deliberately lacks. **And a fifth made from your own board, From your ratings**: what IGDB calls like the games you finished and rated 8 or more, less your board, each tile saying *Because you rated …* | `docs/games-igdb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
@@ -259,7 +259,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       │                 calendar share, hiddenColumns.ts what Settings takes off a board
 │       ├── journal/      the drawer over the board
 │       ├── search/       the bar and result strip above the board, and the add both surfaces share
-│       ├── discover/     the Discover page: a wall of what is popular, one list at a time
+│       ├── discover/     the Discover page: a wall of what is popular, or like what you rated
+│       │                 highest, one list at a time
 │       ├── pick/         "What should I play next?": draw.ts is its arithmetic, Wheel.tsx the
 │       │                 wheel, PickPanel.tsx the panel over the board
 │       ├── stats/        the Stats page; stats.ts is its arithmetic, done in hundredths
@@ -518,7 +519,8 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
 | Coming soon | **A view of Backlog, under the board — not a status and not a column of its own.** An unreleased title is a real Backlog entry, so release day needs no job: the same row starts answering the other question. Shown at the precision a publisher announced, never a day nobody named. **Only a day counts down**, in words and in a bar, and never for a cancelled title; **each title sits at the last day it could come out, with a quarter under a heading of its own**, so no heading repeats. It sat at the first day until 23 October 2026, when all four choices were picked from renders, each the recommendation. And it is **two of the board's tracks wide** rather than the whole of it — laid out on the board's own grid, so it follows the column count. Games only, because IGDB is the only provider asked for a release window — and that is a fact about providers, not a branch on the slug. `docs/games-igdb.md` |
 | What counts as coming | **Asked a provider and got no date at all is *TBA* on the calendar**, whatever shape the nothing arrived in — that is *Stellar Blade: Blood Rain*, and it read as released until 12 September 2026. **A title the provider calls a rumour is not**, because it was never announced, and it stays in the Backlog column. Measured both ways round in `docs/games-igdb.md` |
-| Discover | **A page of its own, a wall with tabs, one list at a time**, offered by a sentence under the empty search box — for finding what to add, where search is for adding what you have in mind. Four lists, **48 covers a page, with a Load more that asks for the next page from the place the server said the last one stopped — never by page number**, because two lists drop titles after IGDB answers. Tile, density, tabs, words and the on-board chip were each picked from rendered comparisons on 23 September 2026, and the Load more button and the line that ends a list on the 24th. **Browsing upserts, as search does**, and **every list carries `themes != (42)` and leaves DLC, seasons and updates off, which search deliberately does not.** Games only, and that is a fact about providers. `docs/games-igdb.md` |
+| Discover | **A page of its own, a wall with tabs, one list at a time**, offered by a sentence under the empty search box — for finding what to add, where search is for adding what you have in mind. Four lists the same for everybody and a fifth made from your board, **48 covers a page, with a Load more that asks for the next page from the place the server said the last one stopped — never by page number**, because two lists drop titles after IGDB answers. Tile, density, tabs, words and the on-board chip were each picked from rendered comparisons on 23 September 2026, and the Load more button and the line that ends a list on the 24th. **Browsing upserts, as search does**, and **every list carries `themes != (42)` and leaves DLC, seasons and updates off, which search deliberately does not.** Games only, and that is a fact about providers. `docs/games-igdb.md` |
+| From your ratings | **A fifth Discover tab, last, of what IGDB calls like the games whose latest finish you rated 8 or more**, ordered by how many of those name a game and then by how many people rated it. **A version asks about its original; your board and every board title's original are left out, from any column; nothing fewer than ten people rated is offered**, because the user would not rest it on IGDB's scores. **Its two IGDB questions are cached under the ids each asked about, never under the list and the day**, which would hand one person's list to the next. Each tile says *Because you rated Hollow Knight 9 and 2 more* in up to three lines, the user's pick over *Like …*, and with nothing rated 8 or more the tab says so in a line of its own. Every other choice was the recommendation, from the user's real ratings and renders on 7 November 2026. `docs/games-igdb.md` |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
@@ -564,7 +566,7 @@ here**.
 | **Data Protection falls back to keys held only in memory when its directory is not writable**, and says so in a log line nobody is reading at the time — so every redeploy signs everybody out | `docs/deploy.md` |
 | **A new *required* variable in `deploy/compose.yml` does not reach a deployment that already exists.** `.env` lives on the server and is gitignored, so `${NEW_THING:?…}` fails at interpolation — before compose picks a profile or looks at a service — and nothing starts. Loud, and it leaves the running site up; the quiet version is the same variable without `:?` | `docs/deploy.md` |
 | **Overriding `BaseOutputPath` un-excludes every *other* output directory from the source globs**, so the build copies its siblings into itself and compounds every run. It reached 289,490 files and 1.68 GB, nesting twenty-five deep, and presented only as a build that got slower — `git status` stays clean, because `bin/` is ignored. `backend/Directory.Build.props` holds it; delete those two lines and one build reproduces it | **Tests**, above |
-| **A cache must hold a provider's answer, never the rows it became.** The e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API lives on, so a cached media id names a row that is gone — or, once the sequence comes round, a different title, and the wrong game is added with no error. The Discover lists upsert on every view for exactly this reason | `docs/games-igdb.md` |
+| **A cache must hold a provider's answer, never the rows it became.** The e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API lives on, so a cached media id names a row that is gone — or, once the sequence comes round, a different title, and the wrong game is added with no error. The Discover lists upsert on every view for exactly this reason. **And a cache in front of anything made from a board is keyed on what it asked**: under the list and the day, as the other four lists are, From your ratings would hand one person's list to the next | `docs/games-igdb.md` |
 | **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice**. HowLongToBeat's runs itself daily since #19, over only what `hltb_checked_at` says is due: a new column on titles asked last week fills in a month from now | `docs/games-hltb.md` |
 | **A `TitleDetail` field a hobby leaves empty and one it has no idea of look identical**, which is why `journal.fields` is stated rather than inferred: an unenriched game has no platforms either, and it still wants the select. Inferring it hides the control on a title that was merely not fetched yet | `docs/movies-tmdb.md` |
 | **TMDB numbers films and shows separately, so one shared `tmdb` source row makes film 1396 and show 1396 the same row.** In production that would not even error: `UpsertAsync`'s `23505` recovery re-reads and hands back the film, and a show is silently a film. `tmdb-tv` is a **fourth source row**, `mal` a **fifth**, and a second provider for an existing hobby needs one too | `docs/tv-tmdb.md` |
@@ -643,7 +645,7 @@ shuffled.
       order, an eleventh, a bug, was added on 4 October 2026, two about the journal on
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
       notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
-      two more on 3 November, and one on 4 November:
+      two more on 3 November, one on 4 November, and one on 7 November, out of #17's workshop:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -710,9 +712,13 @@ shuffled.
         column with every title an equal chance. The real backlog was read before anything was
         drawn, six games all 28 hours or more, which added *A long haul*. Five of six looks were
         the recommendation; the way in was the user's (PR #80, deployed)
-      - [ ] a Discover list from your ratings — IGDB's similar games for what you rated highest,
-        less what is on your board. **A look at the real results comes first**, and decides
-        whether it is built
+      - [x] a Discover list from your ratings — IGDB's similar games for what you rated highest,
+        less what is on your board. Looked at and workshopped on 7 November 2026 and built
+        tests first on the 8th: seeds rated 8 and up, a port or remake asking about its
+        original, the board and every board title's original left out, and nothing with fewer
+        than 10 ratings, because the user would not rest it on IGDB's scores. A tab *From your
+        ratings*, last, and each tile saying *Because you rated …*, the user's pick over *Like …*.
+        Built against the live API, it made the workshop's list exactly (not yet deployed)
       - [x] pictures in notes — pasted, dropped or picked, shrunk in the browser to a 1920 edge as
         WebP, sent with the words in one request, and a note that can be a picture alone. Two
         tables in Postgres with the bytes apart, a collage under the words, a lightbox Back
@@ -736,6 +742,9 @@ shuffled.
         row, and nothing opened from one. One filing for a column and its list, and a share's
         chart as it was. The rating on a row and dated replays were the user's picks (PR #91,
         deployed)
+      - [ ] a game's OpenCritic and Steam pages — from a game in the backlog, a quick look at
+        what people say about it, or OpenCritic's alone for a game not on Steam; not Metacritic.
+        A new outside connection, asked for by the user, so a workshop of its own comes first
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
@@ -805,12 +814,13 @@ being wrong. Both rows are marked below.
 - **`BoardPositions.TopOfColumnAsync` is scoped to `(status, user)` and not to hobby.** A film
   taking `min(position) - 1` lowers a floor the games board shares — and moves nothing, because
   only the *relative* order inside a column is ever read. Its own comment says so. Do not change it.
-- **A title's entries order `logged_at DESC, id DESC` at nine call sites that must agree, with
+- **A title's entries order `logged_at DESC, id DESC` at ten call sites that must agree, with
   no shared helper**: three in `LibraryService`, one in each catalogue service,
-  `HltbService.DetailAsync`, and `LogEntryService.DeleteAsync`, which picks the pass that keeps a
-  deleted pass's notes. This line said six until the spreadsheet's made eight, and counting them
-  then found `HltbService`'s had been left out; #15's made nine. Count with the grep in **Library
-  is not the catalog** in `docs/board.md` rather than trusting a number here.
+  `HltbService.DetailAsync`, `LogEntryService.DeleteAsync`, which picks the pass that keeps a
+  deleted pass's notes, and the latest finish Discover's From your ratings seeds by. This line
+  said six until the spreadsheet's made eight, and counting them then found `HltbService`'s had
+  been left out; #15's made nine and #17's ten. Count with the grep in **Library is not the
+  catalog** in `docs/board.md` rather than trusting a number here.
 
 ### Small things, named so they are not rediscovered
 

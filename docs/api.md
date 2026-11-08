@@ -80,6 +80,7 @@ Sign in once and spend the cookie, as below.
 | `GET /api/auth/me` | who is signed in, or 200 and a literal `null` — never 401 |
 | `POST /api/auth/logout` | ends the session. POST, so an `<img>` cannot sign you out |
 | `GET /api/games?search=&limit=` | search IGDB, cache the results, return them ranked |
+| `GET /api/games/discover/{list}?from=` | a page of a Discover list — `new-releases`, `popular-now`, `most-anticipated`, `most-played` or `from-your-ratings` — as `{ titles, next, seeds, because }`, each title already in the catalogue. Send `next` back as `from` for the page after. `seeds` and `because` are null on the four lists that are the same for everybody; on `from-your-ratings`, made from your board, `seeds` counts the titles you finished and rated 8 or more (nought is why it is empty) and `because` maps each title's id to yours that point at it, highest rated first. An unknown list is a 404 |
 | `GET /api/games/{id}` | one game plus everything you logged against it, and when HowLongToBeat was last asked (`hltbCheckedAt`) |
 | `PUT /api/games/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `PUT /api/games/{mediaId}/hltb` | pin a HowLongToBeat entry by hand when the matcher would not guess |
