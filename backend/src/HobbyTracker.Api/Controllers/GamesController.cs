@@ -41,11 +41,16 @@ public class GamesController(IGameCatalogService catalog, IHltbService hltb) : C
 
     /// <summary>
     /// A page of one of the Discover page's lists: what IGDB would show somebody who has not typed
-    /// anything, in IGDB's order. Stored exactly as search results are, so every title carries a
-    /// media id a log entry can point at — and asked of IGDB once a day for each page rather than
-    /// per view.
+    /// anything, in the list's order. Stored exactly as search results are, so every title carries
+    /// a media id a log entry can point at — and IGDB's answer is kept for hours rather than asked
+    /// for per view.
+    ///
+    /// <para>
+    /// From your ratings is made from the signed-in person's board, and is the one list that says
+    /// how many of your titles it starts from and, for each title, which of yours point at it.
+    /// </para>
     /// </summary>
-    /// <param name="list">new-releases, popular-now, most-anticipated or most-played.</param>
+    /// <param name="list">new-releases, popular-now, most-anticipated, most-played or from-your-ratings.</param>
     /// <param name="from">
     /// The place in the list to start at: 0, or nothing, for the first page, and the <c>next</c>
     /// the page before said for every one after it.

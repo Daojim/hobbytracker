@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, seed, titlesIn, todayOnCard } from './support/board';
+import { card, openJournal, passSaved, seed, titlesIn, todayOnCard } from './support/board';
 
 /**
  * The Discover page, end to end: a wall of what IGDB would show somebody who has not typed
@@ -17,7 +17,11 @@ import { card, seed, titlesIn, todayOnCard } from './support/board';
  *     *Half-Life 3*: hype and no date is IGDB's "not out". It is a rumour, which the calendar does
  *     not hold, so only the API's rule keeps it off. So is *Scalebound*, cancelled, which the
  *     calendar would hold and this list's own rule does not.
- *   - **Most played** is the one title with ratings, *Hollow Knight: Silksong*.
+ *   - **Most played** opens on *Hollow Knight: Silksong*, the title the most people have rated.
+ *   - **From your ratings** is made from the board: what the stub calls like the games finished
+ *     and rated 8 or more. *Hollow Knight* names one game of each fate — offered, kept off by the
+ *     Discover filter, by the floor on ratings, and for being the original of a version on the
+ *     board — and *Castlevania Requiem*, a port, asks about its original rather than itself.
  *
  * The API here pages a list two titles at a time rather than 48 — see `playwright.config.ts` — so
  * Popular now and Most anticipated each take a Load more to finish.
@@ -181,6 +185,74 @@ test('most played fills a board backwards: one press puts a game straight into C
   await expect(card(page, 'Hollow Knight: Silksong')).toBeVisible();
   expect(await titlesIn(page, 'Completed')).toEqual(['Hollow Knight: Silksong']);
   await expect(card(page, 'Hollow Knight: Silksong')).toContainText(todayOnCard());
+});
+
+test('from your ratings says how it fills while nothing is finished and rated 8 or more', async ({
+  page,
+}) => {
+  await seed(page.request, 'Celeste', 'Completed', { rating: 7.5, completedAt: '2026-08-01' });
+
+  await page.goto('/board/games/discover/from-your-ratings');
+
+  await expect(
+    page.getByText(
+      'Nothing here yet. Finish a game and rate it 8 or more, and games like it will show up here.',
+    ),
+  ).toBeVisible();
+});
+
+test('from your ratings offers games like the ones you rated, says why, and moves when you rate another', async ({
+  page,
+}) => {
+  // A port finished and rated, which asks about the 1997 original rather than itself, and Hollow
+  // Knight finished and not rated yet.
+  await seed(page.request, 'Castlevania Requiem', 'Completed', { rating: 8.5, completedAt: '2026-08-01' });
+  await seed(page.request, 'Hollow Knight', 'Completed', { completedAt: '2026-09-01' });
+
+  await page.goto('/board/games/discover/from-your-ratings');
+
+  const wall = page.getByRole('list', { name: 'From your ratings' });
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText(['Dead Cells', 'Blasphemous']);
+  await expect(tile(page, 'Dead Cells')).toContainText('Because you rated Castlevania Requiem 8.5');
+
+  // Rated in the journal, as a person would, with the list left behind in the page's cache.
+  await page.getByRole('link', { name: 'Back to your board' }).click();
+  await openJournal(page, 'Hollow Knight');
+  await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('9');
+  await passSaved(page);
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.getByRole('link', { name: 'Browse popular games' }).click();
+  await page.getByRole('navigation', { name: 'Lists' }).getByRole('link', { name: 'From your ratings' }).click();
+
+  // Named by both now, so it says the one rated higher and counts the other.
+  await expect(tile(page, 'Dead Cells')).toContainText('Because you rated Hollow Knight 9 and 1 more');
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText(['Dead Cells', 'Blasphemous']);
+
+  // And nothing after them. The API pages two at a time here, and a decoy that got through would
+  // rank below both and wait on page two, where the checks below could never see it.
+  await expect(page.getByText("That's everything on this list right now.")).toBeVisible();
+
+  // Hollow Knight names each of these, or the port does, and none is offered: the Erotic decoy by
+  // the filter every list carries, a game four people rated by the floor, the port's original by
+  // the rule that it is the same game, and what only the port's own list names by asking about
+  // the original instead.
+  for (const never of [
+    'Velvet Lounge',
+    'Pixel Hike',
+    'Castlevania: Symphony of the Night',
+    'Idle Castle Tycoon',
+    'Hollow Knight',
+  ]) {
+    await expect(page.getByRole('heading', { level: 3, name: never, exact: true })).toHaveCount(0);
+  }
+
+  await tile(page, 'Dead Cells').getByRole('button', { name: 'Add Dead Cells to backlog' }).click();
+  await expect(tile(page, 'Dead Cells')).toContainText('On your board: Backlog');
+
+  await page.getByRole('link', { name: 'Back to your board' }).click();
+  await expect(card(page, 'Dead Cells')).toBeVisible();
+  expect(await titlesIn(page, 'Backlog')).toEqual(['Dead Cells']);
 });
 
 test('a board with no wall offers no way to one', async ({ page }) => {

@@ -167,6 +167,27 @@ export interface DiscoverListPage<T> {
   titles: T[];
   /** The place the next page starts at, sent back as `from`; null when the list has run out. */
   next: number | null;
+  /**
+   * How many of your titles a list made from your board starts from — for From your ratings,
+   * every title whose latest finish you rated 8 or more. **Nought is why such a list is empty**,
+   * which the page says in words of its own. Null, or absent, on the four lists that are the same
+   * for everybody.
+   */
+  seeds?: number | null;
+  /**
+   * Why each title is on a list made from your board: by media id, the titles of yours that point
+   * at it, highest rated first and then by name. A map beside the titles rather than a field on
+   * each, because a title is the same `Game` every list and search answers with. Null, or absent,
+   * on the other four lists.
+   */
+  because?: Readonly<Record<number, readonly RatedTitle[]>> | null;
+}
+
+/** One of your titles and what you rated its latest finish, as a tile on From your ratings names it. */
+export interface RatedTitle {
+  /** The name its card leads with. */
+  title: string;
+  rating: number;
 }
 
 /**

@@ -168,6 +168,17 @@ result, with its words, in your strip. Without the board, a note about a film wo
 the games board, opening a drawer that cannot open a film. `NoteSearchTests` has a case for each,
 and each went red alone with its predicate taken out.
 
+**Discover's From your ratings is the first Discover list that reads a board, and reads
+`log_entries` twice, each needing the user** (#17, 8 November 2026). `BoardOfAsync` takes the
+owner as a parameter and `DiscoverAsync` passes `user.Id` at its call site. Without the user on
+which titles are on the board, a title on somebody else's board would be left off your list.
+Without it on the latest finish's rating, their 10 on a game you both finished would be your seed.
+`FromYourRatingsTests` has a case for each, and each went red alone with its predicate taken out.
+**The cache had to stop being shared by list and day for it** — the four other lists are the same
+for everybody, so that key would have handed one person's list to the next — and is kept under
+the ids IGDB was asked about instead, so no key names a person. See **From your ratings** in
+`docs/games-igdb.md`.
+
 **Left unscoped deliberately:** `GameCatalogService.RefreshLibraryAsync` and
 `HltbService.BackfillAsync` — both select on "any user has logged this" and write only shared
 columns. Both carry a comment, because they read like missed sites. **404 rather than 403**

@@ -71,12 +71,18 @@ const EROTIC = 42;
  * stub in the calendar and empty the board every other spec asserts on.
  */
 const CATALOGUE = [
+  // `similar` is IGDB's similar_games, served only to a question that asks for it, so a search or
+  // a refresh answers exactly as it did before Discover had a list from your ratings. See the
+  // fixtures from 3019 on.
   { id: 3001, released: '2018-01-25', precision: 'YYYYMMDD', gameType: 0, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games',
-    genres: ['Platform', 'Indie'] },
+    genres: ['Platform', 'Indie'], similar: [3027] },
   { id: 3002, released: '2020-09-17', precision: 'YYYYMMDD', gameType: 0, name: 'Hades', platforms: ['PC', 'Switch'], developer: 'Supergiant Games',
     genres: ["Hack and slash/Beat 'em up", 'Indie'] },
+  // Its ten, cut to four, are one of each fate a game named by a seed can meet: offered, kept off
+  // by the Discover filter, kept off by the floor on ratings, and kept off for being the original
+  // of a version on the board.
   { id: 3003, released: '2017-02-24', precision: 'YYYYMMDD', gameType: 0, name: 'Hollow Knight', platforms: ['PC', 'Switch'], developer: 'Team Cherry',
-    genres: ['Adventure', 'Platform', 'Indie'] },
+    genres: ['Adventure', 'Platform', 'Indie'], similar: [3019, 3017, 3021, 3022] },
   { id: 3004, released: '2019-05-28', precision: 'YYYYMMDD', gameType: 0, name: 'Outer Wilds', platforms: ['PC', 'Xbox'], developer: 'Mobius Digital',
     genres: ['Adventure', 'Puzzle'] },
   // No precision, on purpose: IGDB prunes release_dates rows from older entries while keeping
@@ -138,7 +144,11 @@ const CATALOGUE = [
   // Tagged Erotic, and given more hype than anything else here and first place in PopScore's
   // Playing list, so that the day the filter goes missing it is the first tile on two lists
   // rather than something a spec could miss. Eleven of the live Visits list's top 60 were like it.
-  { id: 3017, released: daysAgo(5), precision: 'YYYYMMDD', gameType: 0, hypes: 999, themes: [EROTIC],
+  //
+  // Rated by enough people to pass From your ratings' floor, and named by Hollow Knight, so on that
+  // list too the filter is the only thing keeping it off. Nobody searches for it, and every list
+  // its ratings could put it on carries the filter.
+  { id: 3017, released: daysAgo(5), precision: 'YYYYMMDD', gameType: 0, hypes: 999, ratings: 66, themes: [EROTIC],
     name: 'Velvet Lounge', platforms: ['PC'], developer: 'Nobody In Particular', genres: ['Simulator'] },
 
   // Announced, hyped and dead: IGDB's "not out", and the calendar's too, because the calendar
@@ -147,6 +157,48 @@ const CATALOGUE = [
   // two on; this one ranks second, so the rule has to hold on the very first page.
   { id: 3018, status: 'Cancelled', gameType: 0, hypes: 100, name: 'Scalebound', platforms: ['Xbox'],
     developer: 'PlatinumGames', genres: ['Role-playing (RPG)'] },
+
+  // Discover's From your ratings: what IGDB calls like the games you finished and rated 8 or more.
+  // Each of these has ratings, because a game fewer than ten people have rated is never offered,
+  // and fewer than Silksong's 502, so Most played still opens on it. Their names are typed into
+  // no search in any spec, and no searched slug is inside any of theirs.
+  { id: 3019, released: '2018-08-07', precision: 'YYYYMMDD', gameType: 0, ratings: 420, name: 'Dead Cells',
+    platforms: ['PC', 'Switch'], developer: 'Motion Twin', genres: ['Platform', "Hack and slash/Beat 'em up"] },
+  { id: 3020, released: '2019-09-10', precision: 'YYYYMMDD', gameType: 0, ratings: 300, name: 'Blasphemous',
+    platforms: ['PC', 'Switch'], developer: 'The Game Kitchen', genres: ['Platform', 'Adventure'] },
+
+  // Named by Hollow Knight and rated by four people: only the floor keeps it off. Towerborne, named
+  // by seven of the user's real seeds, had been rated by nobody.
+  { id: 3021, released: '2023-05-02', precision: 'YYYYMMDD', gameType: 0, ratings: 4, name: 'Pixel Hike',
+    platforms: ['PC'], developer: 'Nobody In Particular', genres: ['Adventure'] },
+
+  // A version and its original, as IGDB files a port: the port under an id of its own, naming the
+  // game it comes from as its parent_game. Requiem is the one a spec puts on the board.
+  //
+  // The original is named by Hollow Knight, and is the same game as Requiem under another id, so
+  // only the rule leaving out every board title's original keeps it off. The port's own list names
+  // Idle Castle Tycoon, which the original's does not, so only asking about the original keeps
+  // that off — a version's own ten were often the worse list on the user's real board.
+  { id: 3022, released: '1997-03-20', precision: 'YYYYMMDD', gameType: 0, ratings: 380,
+    name: 'Castlevania: Symphony of the Night', platforms: ['PlayStation'], developer: 'Konami',
+    genres: ['Platform', 'Adventure'], similar: [3019, 3020, 3003] },
+  { id: 3023, released: '2018-10-26', precision: 'YYYYMMDD', gameType: 11, ratings: 45, parent: 3022,
+    name: 'Castlevania Requiem', platforms: ['PlayStation 4'], developer: 'Konami',
+    genres: ['Platform', 'Adventure'], similar: [3024] },
+  { id: 3024, released: '2021-02-14', precision: 'YYYYMMDD', gameType: 0, ratings: 50, name: 'Idle Castle Tycoon',
+    platforms: ['Android'], developer: 'Nobody In Particular', genres: ['Simulator'] },
+
+  // The longest seed on the user's real list, by name, and the longest reason it held: "Because you
+  // rated Like a Dragon Gaiden: The Man Who Erased His Name 8", on Hi-Fi Rush and AI Limit, alone
+  // because it is never the highest rated where it shares a game. The workshop drew page one, so
+  // it measured 66 characters at three lines; this is the 69 it did not draw.
+  { id: 3025, released: '2023-11-09', precision: 'YYYYMMDD', gameType: 0, ratings: 150,
+    name: 'Like a Dragon Gaiden: The Man Who Erased His Name', platforms: ['PC', 'PlayStation 5'],
+    developer: 'Ryu Ga Gotoku Studio', genres: ['Role-playing (RPG)'], similar: [3026] },
+  { id: 3026, released: '2023-08-29', precision: 'YYYYMMDD', gameType: 0, ratings: 260, name: 'Sea of Stars',
+    platforms: ['PC', 'Switch'], developer: 'Sabotage Studio', genres: ['Role-playing (RPG)'] },
+  { id: 3027, released: '2018-12-13', precision: 'YYYYMMDD', gameType: 0, ratings: 240, name: 'Gris',
+    platforms: ['PC', 'Switch'], developer: 'Nomada Studio', genres: ['Platform', 'Adventure'] },
 ];
 
 /**
@@ -159,37 +211,67 @@ const PLAYING = [3017, 3002, 3006, 3001, 3003];
 /** Midnight UTC of a `YYYY-MM-DD` day, in unix seconds, which is how IGDB sends a date. */
 const unixDay = (day) => Date.parse(`${day}T00:00:00Z`) / 1000;
 
-const asIgdbGame = (game) => ({
-  id: game.id,
-  name: game.name,
-  // The release window. Modelled the way the live API answers rather than the way it would be
-  // convenient to: a title with no date carries no `first_release_date` key at all, and a TBD
-  // release_dates row carries no `date` key — neither sends a null or a zero. A stub that
-  // mirrored only the happy shape could not catch a mapping that reads those as a day.
-  ...(game.released === undefined ? {} : { first_release_date: unixDay(game.released) }),
-  ...(game.precision === undefined
-    ? {}
-    : {
-        release_dates: [
-          {
-            ...(game.released === undefined ? {} : { date: unixDay(game.released) }),
-            date_format: { id: 0, format: game.precision },
-          },
-        ],
-      }),
-  ...(game.status === undefined ? {} : { game_status: { id: 0, status: game.status } }),
-  // What IgdbRelevance ranks on. Absent rather than zero for most of the catalogue, because
-  // IGDB omits a field it has no value for rather than sending a null.
-  ...(game.ratings === undefined ? {} : { total_rating_count: game.ratings }),
-  ...(game.hypes === undefined ? {} : { hypes: game.hypes }),
-  // A list, because IGDB returns one — a single-platform stub cannot show that the drawer's
-  // choices come from the game rather than from somewhere else.
-  platforms: game.platforms.map((name, index) => ({ id: 6 + index, name })),
-  genres: game.genres.map((name, index) => ({ id: 30 + index, name })),
-  involved_companies: [
-    { developer: true, publisher: false, company: { id: game.id + 9000, name: game.developer } },
-  ],
-});
+/** The fields a question names: `fields similar_games, parent_game, parent_game.similar_games;`. */
+const fieldsOf = (query) =>
+  (/fields\s+([^;]*);/.exec(query)?.[1] ?? '').split(',').map((field) => field.trim());
+
+/**
+ * IGDB's `parent_game`, as From your ratings' first question asks for it: expanded, with the
+ * original's own similar_games, when the fields name `parent_game.similar_games` — which is how
+ * the live API answers, and absent on a game that is nobody's version rather than null. Asked for
+ * bare, it would be the id alone.
+ */
+const parentGameOf = (game, fields) => {
+  if (!fields.includes('parent_game.similar_games')) {
+    return game.parent;
+  }
+
+  const original = CATALOGUE.find((candidate) => candidate.id === game.parent);
+  return { id: game.parent, ...(original?.similar ? { similar_games: original.similar } : {}) };
+};
+
+const asIgdbGame = (game, query = '') => {
+  const fields = fieldsOf(query);
+
+  return {
+    id: game.id,
+    // Only for a question that names them, as IGDB answers only the fields asked for: the search,
+    // the refresh and the other lists never see either, and answer as they always did.
+    ...(fields.includes('similar_games') && game.similar ? { similar_games: game.similar } : {}),
+    ...(fields.includes('parent_game') && game.parent !== undefined
+      ? { parent_game: parentGameOf(game, fields) }
+      : {}),
+    name: game.name,
+    // The release window. Modelled the way the live API answers rather than the way it would be
+    // convenient to: a title with no date carries no `first_release_date` key at all, and a TBD
+    // release_dates row carries no `date` key — neither sends a null or a zero. A stub that
+    // mirrored only the happy shape could not catch a mapping that reads those as a day.
+    ...(game.released === undefined ? {} : { first_release_date: unixDay(game.released) }),
+    ...(game.precision === undefined
+      ? {}
+      : {
+          release_dates: [
+            {
+              ...(game.released === undefined ? {} : { date: unixDay(game.released) }),
+              date_format: { id: 0, format: game.precision },
+            },
+          ],
+        }),
+    ...(game.status === undefined ? {} : { game_status: { id: 0, status: game.status } }),
+    // What IgdbRelevance ranks on, and From your ratings orders by. Absent rather than zero for
+    // most of the catalogue, because IGDB omits a field it has no value for rather than sending a
+    // null.
+    ...(game.ratings === undefined ? {} : { total_rating_count: game.ratings }),
+    ...(game.hypes === undefined ? {} : { hypes: game.hypes }),
+    // A list, because IGDB returns one — a single-platform stub cannot show that the drawer's
+    // choices come from the game rather than from somewhere else.
+    platforms: game.platforms.map((name, index) => ({ id: 6 + index, name })),
+    genres: game.genres.map((name, index) => ({ id: 30 + index, name })),
+    involved_companies: [
+      { developer: true, publisher: false, company: { id: game.id + 9000, name: game.developer } },
+    ],
+  };
+};
 
 
 /**
@@ -276,6 +358,20 @@ const withoutExcludedThemes = (games, query) => {
 };
 
 /**
+ * `total_rating_count >= 10` — From your ratings' floor, honoured for the reason the filters above
+ * are: drop it from IgdbClient and *Pixel Hike*, rated by four people, comes back. A game with no
+ * ratings carries no count, and no floor keeps it, as on the live API.
+ */
+const withRatingsFloor = (games, query) => {
+  const floor = /total_rating_count\s*>=\s*(\d+)/.exec(query)?.[1];
+  if (floor === undefined) {
+    return games;
+  }
+
+  return games.filter((game) => game.ratings !== undefined && game.ratings >= Number(floor));
+};
+
+/**
  * The Discover page's three `/games` questions, which carry no `search`, no slug and no ids:
  *
  *   - New releases: `first_release_date >= A & first_release_date <= B`, by hype;
@@ -341,8 +437,8 @@ const server = createServer(async (request, response) => {
 
     // Three query shapes, because the API writes three: a relevance search and a slug prefix
     // match, which together are what adding a game does, and `where id = (...)`, which is the
-    // refresh. Answering that last one with a name match would hand back the whole catalogue
-    // for an empty term.
+    // refresh and both of From your ratings' questions. Answering that last one with a name match
+    // would hand back the whole catalogue for an empty term.
     const ids = /where\s+id\s*=\s*\(([^)]*)\)/.exec(query)?.[1];
     const slug = /slug\s*~\s*\*"([^"]*)"\*/.exec(query)?.[1];
     const term = /search\s+"([^"]*)"/.exec(query)?.[1];
@@ -364,14 +460,14 @@ const server = createServer(async (request, response) => {
       limit = limitOf(query);
     }
 
-    // Both filters before the offset and limit, as IGDB applies `where` before either.
-    const answer = withoutExcludedThemes(withoutExcludedTypes(matches, query), query).slice(
-      offset,
-      offset + limit,
-    );
+    // Every filter before the offset and limit, as IGDB applies `where` before either.
+    const answer = withRatingsFloor(
+      withoutExcludedThemes(withoutExcludedTypes(matches, query), query),
+      query,
+    ).slice(offset, offset + limit);
 
     response.writeHead(200, { 'Content-Type': 'application/json' });
-    response.end(JSON.stringify(answer.map(asIgdbGame)));
+    response.end(JSON.stringify(answer.map((game) => asIgdbGame(game, query))));
     return;
   }
 

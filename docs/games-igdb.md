@@ -713,11 +713,13 @@ searching*; the release calendar above was the first. A search box asks you to a
 you want, and filling a board — especially filling one backwards — is mostly the other problem.
 
 A page of its own at `/board/:hobby/discover/:list`, offered by a line under the search box while
-the box is empty: *Not sure what to add? Browse popular games*. Four lists as tabs, one list at a
+the box is empty: *Not sure what to add? Browse popular games*. Five lists as tabs, one list at a
 time, 48 covers a page with a *Load more* under the wall — see **Load more, and how far down each
-list goes**. **The page names no hobby**: `HobbyDefinition.discover` holds the lists, their words
-and their slugs, and is null for films, TV and anime. TMDB and MAL both have lists of their own
-and nothing asks them yet, which is the `releases` rule again — a fact about providers.
+list goes**. Four are the same for everybody; the fifth, **From your ratings**, is made from your
+own board, and has a section of its own below. **The page names no hobby**:
+`HobbyDefinition.discover` holds the lists, their words and their slugs, and is null for films, TV
+and anime. TMDB and MAL both have lists of their own and nothing asks them yet, which is the
+`releases` rule again — a fact about providers.
 
 ### What IGDB has, measured
 
@@ -746,6 +748,27 @@ So three of the four tabs are plain `/games` questions rather than PopScore's:
 | Popular now | `popular-now` | PopScore's Playing ranking, then `/games where id = (…)`, put back in PopScore's order |
 | Most anticipated | `most-anticipated` | `hypes != null & (first_release_date > now \| first_release_date = null)`, `sort hypes desc` — then the calendar's rule and nothing cancelled, in the service |
 | Most played | `most-played` | `total_rating_count != null`, `sort total_rating_count desc` — the list for filling a board backwards |
+
+**And what it has for a list made from your ratings**, measured on 7 November 2026 for #17's
+look, over the 63 rated games on the user's board as production held it on 3 November:
+
+- **`similar_games` is always ten**: never fewer on any of the 63, and every one a main game, so
+  the Discover filter took nothing off the 403 they named. It is fixed for a game, where PopScore
+  is recalculated daily, so a list made from it moves only when a rating does.
+- **A version of a game is filed under an id of its own, naming the game it comes from as its
+  `parent_game`** — ports, remasters, remakes, expansions, expanded games and standalone
+  expansions alike. 30 of the 91 titles on the board were one. **`version_parent` was empty on all
+  30**, so it is not the field, whatever its name suggests.
+- **A version's own ten is often the worse list.** For the 19 rated versions, their own lists held
+  66 games fifty or more people had rated and their originals' held 124: the remake of *Paper
+  Mario: The Thousand-Year Door* went from 0 to 10 and *Symphony of the Night*'s from 0 to 9, the
+  remake's ten mostly online and mobile games. Four went the other way, *Ghost Trick* 5 to 2.
+- **IGDB links neither Metacritic nor OpenCritic**: its external sources are stores and sites,
+  Steam, GOG, the PlayStation Store, GiantBomb and the like. Its critics' average,
+  `aggregated_rating`, rested on a median of five reviews a game on that list. **PopScore's Steam
+  "reviews", types 6 to 8, are popularity values and not counts**, so dividing positive by total
+  gives *Hollow Knight* 84% where Steam says Overwhelmingly Positive. Which is why no list here
+  rests on a score; an outside one is #22 in the plan.
 
 ### The filter every list carries, and search does not
 
@@ -815,7 +838,9 @@ person could have seen and never by views.
 **The app's first `IMemoryCache`**, because the lists change daily and every view would otherwise
 re-ask IGDB and rewrite 48 rows. Keyed on the list, the journal day and the place the page starts
 at — see **Load more** for what leaving that last one out does — and expiring after
-`Igdb:DiscoverCacheHours` (6). **What it holds is IGDB's answer and never the rows**: the upsert runs
+`Igdb:DiscoverCacheHours` (6). **From your ratings is the exception, and must be**: keyed that way
+it would hand one person's list to the next, so its two questions are kept under the ids each
+asked about — see its section. **What it holds is IGDB's answer and never the rows**: the upsert runs
 on every view, idempotent and almost always writing nothing. **That is the load-bearing half.** The
 e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API process lives on, so
 a cached media id would name a row that is gone — or, once the sequence came round, a different
@@ -953,6 +978,102 @@ shown on the same page so the pick was made seeing them.
   tab alike, so comparing tabs with each other would prove nothing, and the first version of that
   check did exactly that.
 
+### From your ratings, the list made from your board
+
+**Built 8 November 2026** (#17), the day after a look at the user's real ratings said to build it
+and a workshop picked every rule and the look from what each made on screen. The plan's section
+holds both rounds' tables. A fifth tab, last, whose list is yours: what IGDB calls like the games
+you finished and rated 8 or more, less what is on your board, each tile saying why it is there —
+*Because you rated Hollow Knight 9 and 2 more*.
+
+**The rule is `Services/FromYourRatings.cs`**, pure and beside `IgdbRelevance`, and
+`GameCatalogService.FromYourRatingsAsync` does the reading, the asking and the storing.
+
+- **Seeds** are the titles whose **latest finished pass is rated 8 or more**: finished meaning in
+  Completed, as the Stats page counts a finish, and latest by `logged_at DESC, id DESC` — one more
+  of the orderings `docs/board.md` counts. A title finished twice seeds by its latest finish, so an
+  8 replayed as a 6 seeds nothing. 38 of the user's 63 rated titles.
+- **A seed that is a version names its original's ten**, from the `parent_game` nested in the same
+  answer; one that is nobody's version names its own.
+- **Left out: every title on your board, from any column, and every board title's original** —
+  the same game under another id. Ten originals came back on the user's list until that rule, and
+  comparing names found none it missed. A game IGDB ties to nothing on the board is offered,
+  whatever it is called: a name is not a link.
+- **Nothing fewer than ten people have rated**, which judges whether a game is known rather than
+  whether it is good; the user would not rest the list on IGDB's scores.
+- **Ordered by how many of your seeds name a game, then by how many people rated it, then by
+  IGDB's id**, so the order is the same on every page. Few games are named twice, so the second
+  key orders most of the list.
+
+**Two questions, each kept under what it asked.** `GetSimilarGamesAsync` is `fields
+similar_games, parent_game, parent_game.similar_games; where id = (…)` over every board title,
+with no Discover filter, because a DLC on a board still brings its original's ten. Then
+`GetDiscoverableAsync` asks for the games those name, with a search's fields, `Discoverable` and
+`total_rating_count >= 10` inside the question — Popular now's second question with a floor. Both
+go 500 ids a request, and neither asks with nothing to ask about. **The first is cached under the
+board's IGDB ids and the second under the ids it named, never under a person and never the day**:
+what IGDB calls similar is fixed, so a new rating re-ranks from the first answer and asks only the
+second again, and an add asks both. Like every list, what is kept is IGDB's answer, and the page
+shown is upserted on every view. The whole list is worked out for every page, so `next` is a place
+in it and a page further down asks IGDB nothing.
+
+**On the wire, `DiscoverListPage` gained two members the other four lists send as null.**
+`seeds` is how many of your titles the list starts from, and nought is why it is empty, which the
+page says in words of its own: *Nothing here yet. Finish a game and rate it 8 or more, and games
+like it will show up here.* A list with seeds and nothing left to offer says *Nothing on this list
+right now.*, because telling somebody with games rated 9 to go and rate one would be wrong.
+`because` maps each title's media id to the titles of yours that point at it, highest rated first
+and then by name: a map beside the titles rather than a field on `GameDto`, because a title is the
+same `GameDto` every list and search answers with.
+
+**On the page**, every choice picked at the #17 workshop from renders of the real Discover page
+around a prototype tile, at 1440, 768 and 390 in Shelf Light and Dark
+(https://claude.ai/artifact/EFhjUeA7jfruGrjG9QxG6a):
+
+| choice | picked | against |
+|---|---|---|
+| the tile | **a reason under the name**, *Because you rated* and the seed rated highest in the text colour, its rating, and *and 3 more* only past one, the user's pick | *Like Wuchang: Fallen Feathers and 3 more*, the recommendation; nothing, as today |
+| how far it runs | **three lines at most**, `line-clamp-3`, a ceiling and not a target | two, which cut the rating and the count on 21 of 48 tiles at 1440 |
+| the tab | ***From your ratings*, last**, so Discover still opens on New releases | *For you*, *Like your favourites*, *Because you rated* |
+| the line under the tabs | ***Games like the ones you finished and rated 8 or more. Those like several of them come first.*** | the first sentence alone |
+| nothing rated 8 or more | **a line of its own** | the page's *Nothing on this list right now.* |
+
+- **A list of yours is asked for afresh each time it is opened** — `yours` on its `DiscoverList`,
+  and `gcTime: 0` on its query. The other lists are kept for five minutes after they are left, and
+  kept that way this one went on saying nothing was rated after a rating given in the journal.
+  While it is open it is never refreshed, by the wall's `staleTime: Infinity`, so an add leaves
+  the title on the wall with its column on the cover rather than taking it from under the pointer.
+- **The built page differs from the picked prototype by no pixel**, measured at 1440 light and
+  dark, 768, and 390 light and dark, with the same reason on all 48 tiles and none cut.
+- **The tabs wrap to three rows at 390px**, the fifth alone on the third: 106px where two rows were
+  68px. Nothing scrolls, and `layout.spec.ts` checks every tab is whole and on the screen.
+
+**Measured against the live API through the client, before it shipped.** The real API, with the
+real IGDB client put back in place of the fake, over the user's board as the workshop saved it:
+every page of both questions answered, and the list was the workshop's — the same 220 titles, the
+same 38 seeds, the same reason on every tile and the same first eight, *Horizon Zero Dawn, Scarlet
+Nexus, Ravenswatch*. 187 of the 220 stood in the same place, and the rest were exact ties in both
+keys, which the build breaks by IGDB's id where the workshop's staging kept the order it found.
+
+What fails quietly here:
+
+- **Kept as the other four lists are, under the list, the day and the place, it hands one
+  person's list to the next person to open the tab**, with no error, and a new rating moves nothing
+  until midnight. `Two_users_with_different_seeds_get_different_lists_on_the_same_day` and
+  `A_new_rating_changes_the_list_without_waiting_for_the_cache_to_expire` are red that way.
+- **It reads `log_entries` twice, and each read needs the user** — what is left out and what seeds
+  it. See **Scoping** in `docs/auth.md`.
+- **`parent_game` asked for bare is an id, and reads as an object only when expanded.** Asked any
+  other way, `IgdbGame.ParentGame` fails to read and the list is a 502.
+- **The workshop measured page one.** Its longest reason there was 66 characters, at three lines.
+  The longest anywhere on the user's list is 69 — *Because you rated Like a Dragon Gaiden: The Man
+  Who Erased His Name 8*, at places 101 and 193 — and it fits three lines too, which
+  `layout.spec.ts` now checks. **81 characters, that seed with *and 2 more*, takes four and is
+  cut**; no tile on the user's list says it, and three lines was picked as a ceiling.
+- **The end-to-end API pages two at a time, so a decoy that got through would wait on page two**,
+  below the two titles a spec looks at. The list's spec asserts the list ends there, and dropping
+  either clause of the second question only went red once it did.
+
 ### The stub
 
 `igdb-stub.mjs` answers `/v4/popularity_primitives` for the Playing list and the three new `/games`
@@ -977,3 +1098,21 @@ whole. Filters run before the offset and the limit, as IGDB applies them.
   new spec.
 - ***Half-Life 3* has hype**, as the live one does, so it is IGDB's "not out" and only the API's
   rule keeps it off Most anticipated.
+
+**From your ratings added three things, on 8 November 2026.** `similar_games` and `parent_game`
+are served **only to a question whose `fields` names them**, as IGDB answers only what is asked,
+so a search and a refresh answer exactly as before; `parent_game` comes expanded with the
+original's own ten when the fields say `parent_game.similar_games`, and is absent on a game that is
+nobody's version. `total_rating_count >= N` is parsed and honoured with the other filters, before
+the limit. And nine fixtures, 3019 to 3027, each with ratings under *Silksong*'s 502 so Most played
+still opens on it, and named nowhere a spec searches:
+
+- ***Hollow Knight* names one game of each fate**: *Dead Cells*, offered; *Velvet Lounge*, now with
+  66 ratings so only the Discover filter keeps it off, as it is for the other lists; *Pixel Hike*,
+  rated by four people, kept off by the floor; and *Symphony of the Night*, kept off for being the
+  original of a version on the board.
+- ***Castlevania Requiem*, a port**, names *Symphony of the Night* as its `parent_game`, and its
+  own list names *Idle Castle Tycoon*, which the original's does not — so only asking about the
+  original keeps that off.
+- ***Like a Dragon Gaiden: The Man Who Erased His Name*** is the longest seed on the user's real
+  list, for the layout spec's three lines.

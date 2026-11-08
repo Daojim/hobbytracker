@@ -10,7 +10,7 @@ import { game, searchServer } from '../test/games';
 import { authServer } from '../test/auth';
 import { boardServer } from '../test/library';
 import { server } from '../test/server';
-import type { DiscoverListPage, Game } from '../api/types';
+import type { DiscoverListPage, Game, RatedTitle } from '../api/types';
 
 /**
  * A list a page at a time, keyed by the place each page starts at — `0` for the first. A page's
@@ -475,6 +475,165 @@ describe('Load more', () => {
 
     expect(await tile('Game 49')).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The fifth list, made from your own board: games like the ones you finished and rated 8 or more.
+ * The server says how many of your titles it starts from and which of them point at each title;
+ * this side says so in words, and asks again each time the list is opened.
+ */
+describe('From your ratings', () => {
+  const RATINGS = '/board/games/discover/from-your-ratings';
+
+  /** A page of the list as the API answers it: the titles, and the games of yours behind each. */
+  const ratingsPage = (
+    titles: Game[],
+    because: Record<number, RatedTitle[]>,
+    { seeds = 3, next = null }: { seeds?: number; next?: number | null } = {},
+  ): DiscoverListPage<Game> => ({ titles, next, seeds, because });
+
+  it('is the last tab, and says under the tabs what it holds and in what order', async () => {
+    searchServer();
+    discoverServer({ 'from-your-ratings': { 0: ratingsPage([], {}) } });
+
+    renderDiscover(RATINGS);
+
+    const tabs = await within(await screen.findByRole('navigation', { name: 'Lists' })).findAllByRole(
+      'link',
+    );
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      'New releases',
+      'Popular now',
+      'Most anticipated',
+      'Most played',
+      'From your ratings',
+    ]);
+    expect(tabs.at(-1)).toHaveAttribute('aria-current', 'page');
+    expect(
+      screen.getByText(
+        'Games like the ones you finished and rated 8 or more. Those like several of them come first.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says on each tile which of your games it is like, the highest rated first', async () => {
+    searchServer();
+    discoverServer({
+      'from-your-ratings': {
+        0: ratingsPage([game({ id: 7, title: 'Dead Cells' }), game({ id: 8, title: 'Gris' })], {
+          7: [
+            { title: 'Hollow Knight', rating: 9 },
+            { title: 'Celeste', rating: 8.5 },
+            { title: 'Hades', rating: 8 },
+          ],
+          8: [{ title: 'Celeste', rating: 8.5 }],
+        }),
+      },
+    });
+
+    renderDiscover(RATINGS);
+
+    expect(await tile('Dead Cells')).toHaveTextContent('Because you rated Hollow Knight 9 and 2 more');
+
+    // One game of yours is named alone, because "and 0 more" says nothing.
+    const gris = await tile('Gris');
+    expect(gris).toHaveTextContent('Because you rated Celeste 8.5');
+    expect(gris).not.toHaveTextContent('more');
+  });
+
+  it('says nothing about why on a list that is the same for everybody', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [game({ id: 7, title: 'Tunic II' })] });
+
+    renderDiscover();
+
+    expect(await tile('Tunic II')).not.toHaveTextContent('Because you rated');
+  });
+
+  it('with nothing finished and rated 8 or more, says how the list fills', async () => {
+    searchServer();
+    discoverServer({ 'from-your-ratings': { 0: ratingsPage([], {}, { seeds: 0 }) } });
+
+    renderDiscover(RATINGS);
+
+    expect(
+      await screen.findByText(
+        'Nothing here yet. Finish a game and rate it 8 or more, and games like it will show up here.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Nothing on this list right now.')).not.toBeInTheDocument();
+  });
+
+  it('with games rated and nothing left to offer, says what any empty list says', async () => {
+    // Every game the seeds name is on the board already, say. Telling somebody with three games
+    // rated 9 to go and rate one would be wrong, so the server's count of seeds decides.
+    searchServer();
+    discoverServer({ 'from-your-ratings': { 0: ratingsPage([], {}, { seeds: 3 }) } });
+
+    renderDiscover(RATINGS);
+
+    expect(await screen.findByText('Nothing on this list right now.')).toBeInTheDocument();
+    expect(screen.queryByText(/^Nothing here yet/)).not.toBeInTheDocument();
+  });
+
+  it('keeps each page’s reasons with its own titles as Load more adds them', async () => {
+    const first = numbered(1, 48);
+
+    searchServer();
+    discoverServer({
+      'from-your-ratings': {
+        0: ratingsPage(
+          first,
+          Object.fromEntries(first.map((title) => [title.id, [{ title: 'Hollow Knight', rating: 9 }]])),
+          { next: 48 },
+        ),
+        48: ratingsPage([game({ id: 49, title: 'Game 49' })], { 49: [{ title: 'Celeste', rating: 8 }] }),
+      },
+    });
+
+    renderDiscover(RATINGS);
+    await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
+
+    expect(await tile('Game 49')).toHaveTextContent('Because you rated Celeste 8');
+    expect(await tile('Game 1')).toHaveTextContent('Because you rated Hollow Knight 9');
+  });
+
+  it('is asked for afresh each time it is opened', async () => {
+    // A rating given in the journal has to move the list the next time the tab is opened. The
+    // other lists stay as loaded for five minutes after they are left — the page shows them from
+    // the cache on the way back — and kept the same way, this one would go on saying there was
+    // nothing rated after somebody had gone and rated something.
+    searchServer();
+    discoverServer({
+      'from-your-ratings': { 0: ratingsPage([], {}, { seeds: 0 }) },
+      'new-releases': [game({ id: 7, title: 'Tunic II' })],
+    });
+
+    // The cache kept, as it is in the app.
+    authServer();
+    renderWithProviders(<DiscoverPage />, {
+      route: RATINGS,
+      path: '/board/:hobby/discover/:list?',
+      keepsCache: true,
+    });
+    await screen.findByText(/^Nothing here yet/);
+
+    await userEvent.click(within(lists()).getByRole('link', { name: 'New releases' }));
+    await tile('Tunic II');
+
+    // Rated in the journal meanwhile.
+    discoverServer({
+      'from-your-ratings': {
+        0: ratingsPage([game({ id: 9, title: 'Dead Cells' })], {
+          9: [{ title: 'Hollow Knight', rating: 9 }],
+        }, { seeds: 1 }),
+      },
+      'new-releases': [game({ id: 7, title: 'Tunic II' })],
+    });
+    await userEvent.click(within(lists()).getByRole('link', { name: 'From your ratings' }));
+
+    expect(await tile('Dead Cells')).toHaveTextContent('Because you rated Hollow Knight 9');
   });
 });
 

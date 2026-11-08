@@ -351,6 +351,10 @@ CSS and React could disagree, and `grid.test.ts` reads it out of Tailwind's own
   reason.
 - **Discover takes the same gutter**, 16px on a phone, so the header does not step 8px sideways
   between the two pages.
+- **Discover's list tabs wrap to three rows since From your ratings** (#17, 8 November 2026), the
+  fifth alone on the third: 106px where two rows were 68px. Measured at the workshop and picked
+  anyway; nothing scrolls. The tile's reason runs to three lines at most. See **From your ratings**
+  in `docs/games-igdb.md`.
 - **The hobby nav still scrolls sideways at 390px** and cuts *Books Soon* mid-word, as its own
   comment says it should rather than wrapping. Left alone.
 

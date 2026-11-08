@@ -409,8 +409,10 @@ test.describe('the Discover wall', () => {
 
     expect(await wallTracks(page)).toBe(2);
 
+    // Five since From your ratings, which wraps the pills onto a third row here, the fifth alone on
+    // it — measured at the #17 workshop, and nothing scrolls.
     const tabs = page.getByRole('navigation', { name: 'Lists' }).getByRole('link');
-    await expect(tabs).toHaveCount(4);
+    await expect(tabs).toHaveCount(5);
 
     // What a tab measures with its words on one line: the line, its padding and its border. A
     // row that neither wraps nor scrolls keeps every tab on the screen by squeezing each one until
@@ -432,5 +434,55 @@ test.describe('the Discover wall', () => {
     // The board's gutter, so the header does not step 8px sideways between the two pages.
     const wall = await boxOf(page.getByRole('list', { name: 'New releases' }), 'the wall');
     expect(wall.x).toBeCloseTo(16, 0);
+  });
+
+  test('says why a title is from your ratings in three lines at most, and keeps every add on the row’s edge', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+
+    // The longest reason on the user's real list: its longest seed by name, at 8, on a game nothing
+    // else of theirs names. The #17 workshop drew page one, where the longest was 66 characters
+    // and took three lines; this one is 69, on two tiles further down.
+    await seed(page.request, 'Like a Dragon Gaiden: The Man Who Erased His Name', 'Completed', {
+      rating: 8,
+      completedAt: '2026-08-01',
+    });
+    await seed(page.request, 'Celeste', 'Completed', { rating: 8.5, completedAt: '2026-08-02' });
+
+    await page.goto('/board/games/discover/from-your-ratings');
+
+    const wall = page.getByRole('list', { name: 'From your ratings' });
+    await expect(wall.getByRole('heading', { level: 3 })).toHaveText(['Sea of Stars', 'Gris']);
+
+    const reason = wall
+      .getByRole('listitem')
+      .filter({ has: page.getByRole('heading', { name: 'Sea of Stars', exact: true }) })
+      .getByText(/^Because you rated/);
+    await expect(reason).toHaveText(
+      'Because you rated Like a Dragon Gaiden: The Man Who Erased His Name 8',
+    );
+
+    // Three lines is a ceiling the workshop set rather than a target: at two, the cut took the
+    // rating and the count. Measured against the line the paragraph's own style sets.
+    const { lines, cut } = await reason.evaluate((paragraph) => ({
+      lines: Math.round(paragraph.clientHeight / parseFloat(getComputedStyle(paragraph).lineHeight)),
+      cut: paragraph.scrollHeight > paragraph.clientHeight + 1,
+    }));
+    expect(cut, 'the longest reason is cut short').toBe(false);
+    expect(lines, 'the longest reason no longer reaches the third line, so proves nothing').toBe(3);
+
+    // One reason takes three lines and the other fewer, and the adds still sit on one line at the
+    // foot of the row.
+    const bottoms = await Promise.all(
+      ['Sea of Stars', 'Gris'].map(async (title) => {
+        const add = await boxOf(
+          page.getByRole('button', { name: `Add ${title} to backlog` }),
+          `${title}'s add`,
+        );
+        return add.y + add.height;
+      }),
+    );
+    expect(bottoms[0]).toBeCloseTo(bottoms[1]!, 0);
   });
 });

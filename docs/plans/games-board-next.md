@@ -41,7 +41,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 14 | Put a finished pass back | S–M | **Shipped and deployed 8 October 2026** (PR #72), the day it was found and workshopped: leaving Completed asks *Did you finish it?*, in the journal and on the card, and *No* moves the pass itself. See its section |
 | 15 | Deleting a pass keeps its notes | S | **Shipped and deployed 9 October 2026** (PR #74), the day it was picked up and workshopped: the notes move to the current pass, and every confirm that deletes notes says so. See its section |
 | 16 | What should I play next? | M | **Shipped and deployed 25 October 2026** (PR #80), the day it was workshopped, two days after it was planned: one panel with *Suggest three* and *Spin*, four bands in hours, genres left out, covers on a wheel, *Not this one*, and a *Pick* button in Backlog's header, the user's pick. The real backlog was read first, and holds six games. See its section |
-| 17 | A Discover list from your ratings | M | **Workshopped in full 7 November 2026**, after a look at the user's real ratings said build it: seeds rated 8 and up, a version asking about its original, the board and every original of a board title left out, and nothing with fewer than 10 ratings. A tab *From your ratings*, last, and each tile saying "Because you rated …" up to three lines, the user's pick over "Like …". Nothing built. **To be built in a session of its own**, from its section's **Where it stands** |
+| 17 | A Discover list from your ratings | M | **Built 8 November 2026**, tests first, the day after its workshop: seeds rated 8 and up by their latest finish, a version asking about its original, the board and every original of a board title left out, and nothing with fewer than 10 ratings, ordered by how many seeds name a game. A tab *From your ratings*, last, and each tile saying "Because you rated …" up to three lines, the user's pick over "Like …". Built against the live API through the client, it made the workshop's 220 titles with the same reasons, and the page differs from the picked prototype by no pixel. **Not yet merged or deployed.** See its section |
 | 18 | Pictures in notes | M–L | **Shipped and deployed 31 October 2026** (PR #84), built the day before, the day it was planned and workshopped, tests first, all seven steps. A picture pasted, dropped or picked into a note, shrunk to a 1920 edge as WebP and sent with the words, a note that is a picture alone, a collage, a lightbox Back closes, and on the card the newest note's first picture 28px tall, the user's pick. Kept in Postgres, four to a note, 1 GB an account but the admin's. Measured in Chromium and in Firefox. See its section |
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
@@ -2294,13 +2294,14 @@ thing to try after a deploy.
 
 ---
 
-## 17. A Discover list from your ratings · workshopped, to build
+## 17. A Discover list from your ratings · built
 
 **Planned 23 October 2026**, from suggestions the user picked that day. **Looked at and
 workshopped on 7 November 2026**: the look said build it, with four changes to the plan that its
 measurements found, and every choice was made the same day: round one in words (**Decided at
-pickup**), round two from renders (**Decided from the renders**). Nothing is built. **It is
-built in a session of its own**, from this section; **Where it stands** is the handoff.
+pickup**), round two from renders (**Decided from the renders**). **Built on 8 November 2026** in
+a session of its own, tests first; see **Built**, **Tests** and **What the plan got wrong, or left
+out**, below **Tests first**.
 
 **What.** A fifth tab on Discover whose list is yours. The four lists now are the same for
 everybody. This one starts from the games you rated highest, asks IGDB for each one's
@@ -2500,24 +2501,109 @@ What the renders measured, for the build to hold:
   turns its own test red. Then ask about the version instead of its original, drop the parent
   rule, drop the floor, and read the highest finish instead of the latest, each red on its own.
 
+### Built
+
+On the branch `discover-from-your-ratings`, 8 November 2026. The write-up for a reader is **From
+your ratings, the list made from your board** in `docs/games-igdb.md`.
+
+- **The rule is `Services/FromYourRatings.cs`**, pure, beside `IgdbRelevance`: `Seeds`,
+  `PointedAt` and `Rank`, with the look's measurements in their comments.
+  `GameCatalogService.FromYourRatingsAsync` does the rest. `BoardOfAsync(user.Id)` reads the board
+  with both reads of `log_entries` scoped, the latest finish being one more `logged_at DESC, id
+  DESC`. `AskOnceAsync` sorts the ids, asks IGDB 500 at a time, and keeps the answer under the ids
+  it asked about. The whole list is worked out for each page, which is sliced, upserted and given
+  its reasons.
+- **`IgdbClient` gained `GetSimilarGamesAsync` and `GetDiscoverableAsync`**, and `IgdbGame` gained
+  `SimilarGames` and `ParentGame`. The floor is the service's, `FromYourRatings.FewestRatings`,
+  and the clause the client's, so the fake can honour the floor as IGDB would and an endpoint test
+  can see it go. `RefreshBatchSize` became `IdsPerRequest`, now that three things use it.
+- **`DiscoverListPage` gained `Seeds` and `Because`**, null on the four lists, with `RatedTitle`;
+  `DiscoverList.FromYourRatings` is `from-your-ratings`.
+- **On the page**: `games.ts` has the fifth list with `yours.empty`; `DiscoverPage` drops a list of
+  yours from the cache as soon as nobody is looking at it, gathers each page's reasons, and picks
+  its empty line by the server's `seeds`; `WallTile` takes `because` and says the reason, class for
+  class the prototype's B at `line-clamp-3`.
+
+### Tests
+
+Backend 961 of 961: 28 new endpoint cases in `FromYourRatingsTests` and 7 new in
+`IgdbClientTests`. Frontend 1,346 of 1,346, 10 of them new, with tsc clean. End to end, three new
+specs, two in `discover.spec.ts` and one in `layout.spec.ts`, and the five-tab check changed: the
+full suite 220 of 220 in Chromium, and the Discover and layout specs 29 of 29 in Firefox.
+
+**Shown red first.** 24 of the 28 endpoint cases were red on the 404 a list that did not exist
+answers; the other 4 are the guard that the four lists send no seeds or reasons, true from the
+start. All 7 client cases were red on their placeholders. 11 of 13 Vitest cases were red; of the
+two green, one is a guard (no reason on a list that is the same for everybody) and the other, the
+line a list with seeds and nothing left says, passed for the wrong reason — the unknown tab
+redirected to an empty New releases.
+
+**Each fault put back alone**, and each red on its own tests:
+
+| fault | red |
+|---|---|
+| the list kept as the four are, under the list, the day and the place | `Two_users_with_different_seeds_get_different_lists_on_the_same_day`, `A_new_rating_changes_the_list…`, `A_cached_list_still_hands_out_media_ids_that_exist` |
+| the second question kept under the board instead of what it names | `A_new_rating_changes_the_list…` (with the guard and the batching it also dropped) |
+| the board not left out | `Nothing_on_your_board_is_offered_from_any_column` |
+| a version asking about itself | `A_version_brings_its_originals_similar_games_and_not_its_own` |
+| the parent rule dropped | `A_board_titles_original_is_never_offered_from_any_column`, all five columns |
+| the floor dropped in the service, then in the client | `Nothing_with_fewer_than_ten_ratings_is_offered`, then the client's body test |
+| the highest finish read, then the latest by id alone | `A_title_seeds_by_its_latest_finish`, both times |
+| the user off the board read, then off the rating read | `Somebody_elses_board_leaves_nothing_out_of_yours`, then `Seeds_are_yours_alone` |
+| seeds and reasons sent on the other four lists | `The_other_four_lists_send_no_seeds_and_no_reasons`, all four |
+| seeds from 7.5; ranked by ratings alone; tied seeds left unordered | `Seeds_start_at_8`; the ranking case; `Each_title_carries_the_seeds_behind_it_highest_rated_first` |
+| the Discover filter on the first question | the two client cases about it |
+| Vitest: the list of yours kept in the cache; the own line whatever the seeds; *and 0 more*; the reasons not passed on | each its own case, the last four cases |
+| end to end, written after the code: the reason clamped at two; `mt-auto` gone; the list of yours kept; the floor clause dropped; the filter dropped | the layout spec twice, then the ratings spec three times |
+
+**Sent to the live API as the client builds it**, before shipping: the real API with the real
+IGDB client in place of the fake, over the user's board as the workshop saved it, paged to the
+end. Both questions answered on every page, and the list was the workshop's: the same 220 titles
+and 38 seeds, the same first eight, and the same reason on every tile. 187 of the 220 stood where
+the staging had them; every other place is an exact tie in both keys. A captured answer, a remake
+and a plain game, pins the wire shape in `IgdbClientTests`.
+
+**The built page differs from the picked prototype by no pixel**, at 1440 light and dark, 768,
+and 390 light and dark, with the same reason on all 48 tiles and none cut.
+
+### What the plan got wrong, or left out
+
+- **The workshop drew page one.** Its longest reason there was 66 characters, at three lines,
+  and "nothing on the user's list needs a fourth" was measured on those 48. The longest anywhere is
+  69, *Because you rated Like a Dragon Gaiden: The Man Who Erased His Name 8*, at places 101 and
+  193; the layout spec now draws it, and it fits. The spec's first fixture added *and 2 more* to
+  it, 81 characters, which takes four lines and is cut: no tile on the user's list says it, and
+  three lines was picked as a ceiling.
+- **The page's cache was the plan's cache trap again.** The plan put the seeds in the server's
+  key; the page kept every list five minutes after it was left, so a rating given in the journal
+  showed nothing on returning to the tab. A list of yours is dropped from the page's cache once
+  nobody is looking at it.
+- **An empty list has two reasons, and the plan wrote one line.** With seeds and nothing left to
+  offer — every game they name already yours — the page says its own *Nothing on this list right
+  now*, since telling somebody with games rated 9 to go and rate one is wrong. The server's
+  `seeds` says which.
+- **The order needed a last key.** Ties in both keys are common far down the list; the staging
+  kept the order it found them in, and the build breaks them by IGDB's id, so a page is the same on
+  every request.
+- **Two seeds can share an original.** *Lies of P: Overture* and *Lies of P* both seed and both ask
+  about *Lies of P*'s ten, so each of those games counts two seeds. That is how the workshop
+  rendered it, and it is kept.
+- **The end-to-end API pages two at a time**, so a decoy that got through ranked below both titles
+  and waited on page two: dropping the floor or the filter left the spec green until it asserted
+  that the list ends there.
+- **The prototype wraps the real hobby definitions**, so once the build added the tab it drew
+  two. `hobbiesProto.ts` now leaves the built one out, and the comparison was rerun.
+- **`docs/api.md` had no Discover route at all**; it has one row for all five lists now.
+
 ### Where it stands
 
-**Workshopped in full on 7 November 2026, and nothing built.** No branch. Every choice is in the
-two tables above, and the build starts from **How it works**, **Things to get right** and
-**Tests first**, tests first and each shown red.
+**Built, green, and not yet committed or deployed.** Deploying needs nothing new: no migration, no
+option, no outside service IGDB is not already, and nothing to refresh, because what IGDB calls
+similar is asked for live rather than stored.
 
-- **The prototype never touched `src/`.** It is in `frontend/workshop.local/discover/`, which
-  git ignores: `WallTileProto.tsx` (the shipped tile class for class plus B's line, behind
-  `?why=` and `?clamp=`), `hobbiesProto.ts` (a fifth list, behind `?tab=`, `?blurb=` and
-  `?pos=`), `vite.config.mjs` swapping both in for `DiscoverPage` alone, and `staged.json`, round
-  one's list as the API would answer it. `shoot-picked.mjs` shoots the picked combination, which
-  the built page should match.
-- **The look's scripts are beside them**: `look.mjs` asks IGDB the questions above with the API's
-  own user-secrets, and `stage.mjs` turns the answers into the list. The board they read is
-  `frontend/workshop.local/estimates/board.json`, production on 3 November 2026.
-- **A new field on the wire**: the seeds behind each title, which no Discover response has
-  carried before. `docs/api.md` gains it when the route ships, and the write-up goes
-  to `docs/games-igdb.md` under **Discovery**.
+- **The prototype and the look's scripts are in `frontend/workshop.local/discover/`**, which git
+  ignores, beside `compare-built.mjs`, which shot the build against the prototype, and
+  `built.json`, the list the API built from the live API.
 
 ---
 

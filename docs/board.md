@@ -76,17 +76,20 @@ completion it replaced — the card sprang back to Completed and every retry add
 entry. `id` breaks ties, which is not a footnote: fixtures on a stopped clock share one `logged_at`,
 so the tie-break carries the whole ordering in the test suite.
 
-**Every place that orders a title's entries must agree, and there are nine**:
+**Every place that orders a title's entries must agree, and there are ten**:
 `LibraryService.BoardQuery`, `LibraryService.LatestEntryFor`, `LibraryService.ExportAsync`,
 `GameCatalogService.GetAsync`, `HltbService.DetailAsync`, `EntriesFor` in the film, show and
-anime catalogues, and `LogEntryService.DeleteAsync`, which picks the pass that keeps a deleted
-pass's notes. `GetAsync` used to order by `id DESC` alone, which meant the drawer could offer
-to edit one entry while the card reported another.
+anime catalogues, `LogEntryService.DeleteAsync`, which picks the pass that keeps a deleted
+pass's notes, and `GameCatalogService.BoardOfAsync`, which picks the latest finish Discover's
+From your ratings seeds by. `GetAsync` used to order by `id DESC` alone, which meant the drawer
+could offer to edit one entry while the card reported another.
 `LibraryEndpointTests.The_board_and_the_game_detail_agree_about_which_pass_is_current` pins it so a
 future drift fails loudly, and `LibraryExportTests.A_titles_first_pass_is_the_one_its_card_shows`
 pins the spreadsheet's, which was the eighth, on 4 October 2026.
 `DeletingAPassTests.The_notes_go_to_the_pass_the_board_calls_current_and_not_the_one_beside_it`
 pins the ninth, added on 9 October 2026, with passes logged in the opposite order to their ids.
+`FromYourRatingsTests.A_title_seeds_by_its_latest_finish` pins the tenth, added on 8 November
+2026 the same way; it orders only a title's finished passes, and by `id` alone it went red.
 
 **This was written down as three for months, and the fourth is the one that says so** —
 `HltbService.DetailAsync`'s own comment reads *"three places decide which pass is current"* while

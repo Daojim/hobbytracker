@@ -13,15 +13,61 @@ import { game } from '../test/games';
  * nothing, found only by clicking it.
  */
 describe('discover, on games', () => {
-  it('names four lists in tab order, each with its own address', () => {
+  it('names five lists in tab order, each with its own address, From your ratings last', () => {
     // The API's own slugs, which is what makes each one a place: a tab is a link to
     // /board/games/discover/<slug>, and GET /api/games/discover/<slug> answers it.
+    //
+    // The list from your ratings is last so the page still opens on New releases, which the
+    // #17 workshop picked over putting the list that is yours first.
     expect(hobbyDefinition('games').discover?.lists.map((list) => list.slug)).toEqual([
       'new-releases',
       'popular-now',
       'most-anticipated',
       'most-played',
+      'from-your-ratings',
     ]);
+  });
+
+  it('says what the list from your ratings holds, and what it says before it holds anything', () => {
+    const ratings = hobbyDefinition('games').discover!.lists.at(-1)!;
+
+    expect(ratings.blurb).toBe(
+      'Games like the ones you finished and rated 8 or more. Those like several of them come first.',
+    );
+    expect(ratings.yours).toEqual({
+      empty:
+        'Nothing here yet. Finish a game and rate it 8 or more, and games like it will show up here.',
+    });
+  });
+
+  it('marks only the list made from your board as yours', () => {
+    // The other four are the same for everybody, and are kept as loaded for as long as the page
+    // is open; only a list of yours is asked for afresh each time it is opened.
+    expect(
+      hobbyDefinition('games')
+        .discover!.lists.filter((list) => list.yours !== undefined)
+        .map((list) => list.slug),
+    ).toEqual(['from-your-ratings']);
+  });
+
+  it('passes on how many of your titles a list starts from, and the titles behind each one', async () => {
+    server.use(
+      http.get('/api/games/discover/:list', () =>
+        HttpResponse.json({
+          titles: [game({ id: 9, title: 'Dead Cells' })],
+          next: null,
+          seeds: 2,
+          because: { 9: [{ title: 'Hollow Knight', rating: 9 }] },
+        }),
+      ),
+    );
+
+    const ratings = hobbyDefinition('games').discover!.lists.at(-1)!;
+    const page = await ratings.run(0);
+
+    expect(page.seeds).toBe(2);
+    expect(page.because).toEqual({ 9: [{ title: 'Hollow Knight', rating: 9 }] });
+    expect(page.titles.map((hit) => hit.id)).toEqual([9]);
   });
 
   it('asks the API for each list by its address', async () => {
@@ -37,7 +83,13 @@ describe('discover, on games', () => {
       await list.run(0);
     }
 
-    expect(asked).toEqual(['new-releases', 'popular-now', 'most-anticipated', 'most-played']);
+    expect(asked).toEqual([
+      'new-releases',
+      'popular-now',
+      'most-anticipated',
+      'most-played',
+      'from-your-ratings',
+    ]);
   });
 
   it('asks for a page from the place it is given, and passes on where the next one starts', async () => {
@@ -103,6 +155,7 @@ describe('discover, on games', () => {
       'Popular now',
       'Most anticipated',
       'Most played',
+      'From your ratings',
     ]);
   });
 });

@@ -451,14 +451,18 @@ public sealed class IgdbClientTests
             HttpStatusCode.OK,
             request.Uri!.AbsolutePath == "/v4/popularity_primitives" ? ranking : games));
 
-    /// <summary>One discovery question by the name a theory can carry, from a place a page might start.</summary>
-    private static Task<IgdbSlice> DiscoverAsync(IgdbClient client, string list, int offset = 0) =>
+    /// <summary>
+    /// One discovery question by the name a theory can carry, from a place a page might start.
+    /// From your ratings' is the one with no place: it asks about ids.
+    /// </summary>
+    private static Task DiscoverAsync(IgdbClient client, string list, int offset = 0) =>
         list switch
         {
             "new" => client.GetNewReleasesAsync(Now.AddDays(-60), Now, offset, 49, Ct),
             "anticipated" => client.GetAnticipatedAsync(Now, offset, 96, Ct),
             "most" => client.GetMostRatedAsync(offset, 49, Ct),
             "popular" => client.GetPlayingNowAsync(offset, 96, Ct),
+            "ratings" => client.GetDiscoverableAsync([11], 10, Ct),
             _ => throw new ArgumentOutOfRangeException(nameof(list), list, null),
         };
 
@@ -660,6 +664,7 @@ public sealed class IgdbClientTests
     [InlineData("anticipated")]
     [InlineData("most")]
     [InlineData("popular")]
+    [InlineData("ratings")]
     public async Task Keeps_erotic_titles_off_every_discover_list(string list)
     {
         var stub = PopScoreAnswering("""[{ "game_id": 11, "value": 0.5 }]""");
@@ -681,6 +686,7 @@ public sealed class IgdbClientTests
     [InlineData("anticipated")]
     [InlineData("most")]
     [InlineData("popular")]
+    [InlineData("ratings")]
     public async Task Keeps_add_ons_off_every_discover_list(string list)
     {
         var stub = PopScoreAnswering("""[{ "game_id": 11, "value": 0.5 }]""");
@@ -713,6 +719,125 @@ public sealed class IgdbClientTests
         stub.Requests.Count.ShouldBe(2);
         stub.Requests.ShouldAllBe(request => !request.Body!.Contains("themes"));
         stub.Requests.ShouldAllBe(request => request.Body!.Contains("game_type != (3,5)"));
+    }
+
+    // ------------------------------------------------------------------------- from your ratings
+    //
+    // The fifth list's two questions, measured against the live API on 7 November 2026 in the
+    // shape below, and each body sent again as the client builds it before the list shipped.
+
+    [Fact]
+    public async Task Asks_what_igdb_calls_like_each_title_and_like_the_game_each_is_a_version_of()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetSimilarGamesAsync([115289, 266690], Ct);
+
+        var request = stub.Requests.ShouldHaveSingleItem();
+        request.Uri!.AbsolutePath.ShouldBe("/v4/games");
+
+        // The original and its ten come nested in the same answer, so asking about versions costs
+        // no request of its own: 30 of the 91 titles on the user's board were one.
+        var body = request.Body.ShouldNotBeNull();
+        body.ShouldContain("fields similar_games, parent_game, parent_game.similar_games;");
+        body.ShouldContain("where id = (115289,266690);");
+        body.ShouldContain("limit 2;");
+    }
+
+    [Fact]
+    public async Task Asks_about_every_title_on_a_board_whatever_kind_of_game_it_is()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetSimilarGamesAsync([240009], Ct);
+
+        // These are your own titles, not offers. Shadow of the Erdtree is a DLC and rated 10 on the
+        // user's board, and the Discover filter would decline to answer for it — so it would bring
+        // nothing, where it should bring Elden Ring's ten.
+        var body = stub.Requests.ShouldHaveSingleItem().Body.ShouldNotBeNull();
+        body.ShouldNotContain("game_type");
+        body.ShouldNotContain("themes");
+    }
+
+    /// <summary>
+    /// Captured verbatim from api.igdb.com on 7 November 2026, for <i>Hollow Knight: Silksong</i>
+    /// and the 2024 remake of <i>Paper Mario: The Thousand-Year Door</i>, both on the user's board.
+    /// </summary>
+    private const string LiveSimilarGamesPayload =
+        """
+        [
+          {
+            "id": 115289,
+            "similar_games": [14593, 26820, 23733, 90055, 194821, 135994, 26226, 18182, 110834, 115843]
+          },
+          {
+            "id": 266690,
+            "parent_game": {
+              "id": 3349,
+              "similar_games": [3340, 3364, 2191, 1075, 1035, 1076, 3351, 1819, 1078, 1028]
+            },
+            "similar_games": [174610, 103168, 80348, 47160, 279636, 204626, 194907, 188401, 120206, 57366]
+          }
+        ]
+        """;
+
+    [Fact]
+    public async Task Reads_a_version_and_its_original_out_of_what_igdb_actually_sends()
+    {
+        // A game that is nobody's version carries no parent_game key at all rather than a null,
+        // and a version's parent arrives as an object with its own ten, because that is how it was
+        // asked for.
+        var client = CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.OK, LiveSimilarGamesPayload));
+
+        var games = await client.GetSimilarGamesAsync([115289, 266690], Ct);
+
+        var silksong = games.Single(game => game.Id == 115289);
+        silksong.SimilarGames.ShouldNotBeNull().Count.ShouldBe(10);
+        silksong.ParentGame.ShouldBeNull();
+
+        var remake = games.Single(game => game.Id == 266690);
+        remake.SimilarGames.ShouldNotBeNull()[0].ShouldBe(174610);
+        var original = remake.ParentGame.ShouldNotBeNull();
+        original.Id.ShouldBe(3349);
+        original.SimilarGames.ShouldNotBeNull().ShouldBe([3340, 3364, 2191, 1075, 1035, 1076, 3351, 1819, 1078, 1028]);
+    }
+
+    [Fact]
+    public async Task Asks_for_the_games_a_list_from_your_ratings_names_and_how_many_rated_each()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetDiscoverableAsync([14593, 26820], 10, Ct);
+
+        var request = stub.Requests.ShouldHaveSingleItem();
+        request.Uri!.AbsolutePath.ShouldBe("/v4/games");
+
+        // Popular now's second question with a floor: the Discover filter and how many people rated
+        // a game, both inside the question, so IGDB applies them before its limit. Measured on the
+        // user's list, the floor in the query kept exactly the ids a filter afterwards kept.
+        var body = request.Body.ShouldNotBeNull();
+        body.ShouldContain(
+            "where id = (14593,26820) & game_type != (1,3,5,7,14) & themes != (42) & total_rating_count >= 10;");
+        body.ShouldContain("limit 2;");
+
+        // A search's fields, because these go through a search's upsert — and the count is what
+        // the list is ordered by after how many of your seeds name a game.
+        body.ShouldContain("cover.image_id");
+        body.ShouldContain("release_dates.date_format.format");
+        body.ShouldContain("total_rating_count");
+    }
+
+    [Fact]
+    public async Task Asks_igdb_nothing_about_no_games()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+        var client = CreateClient(stub);
+
+        (await client.GetSimilarGamesAsync([], Ct)).ShouldBeEmpty();
+        (await client.GetDiscoverableAsync([], 10, Ct)).ShouldBeEmpty();
+
+        // `where id = ()` is an APIcalypse syntax error.
+        stub.Requests.ShouldBeEmpty();
     }
 
     [Fact]

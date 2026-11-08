@@ -135,6 +135,57 @@ public sealed class FakeIgdbClient : IIgdbClient
             Ended: places.Count < limit));
     }
 
+    // ------------------------------------------------------------------ from your ratings
+    //
+    // Both questions are answered out of ById, as a lookup by id is, so a board's titles and the
+    // games they name are one catalogue set up with SetGames.
+
+    /// <summary>Every set of ids From your ratings' first question asked about, in order.</summary>
+    public List<int[]> SimilarLookups { get; } = [];
+
+    /// <summary>Every set of ids its second question asked about, and the floor it asked for.</summary>
+    public List<(int[] Ids, int FewestRatings)> DiscoverableLookups { get; } = [];
+
+    public Task<IReadOnlyList<IgdbGame>> GetSimilarGamesAsync(
+        IEnumerable<int> ids, CancellationToken cancellationToken)
+    {
+        var wanted = ids.ToArray();
+        SimilarLookups.Add(wanted);
+
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        return Task.FromResult<IReadOnlyList<IgdbGame>>(
+            [.. wanted.Where(ById.ContainsKey).Select(id => ById[id])]);
+    }
+
+    public Task<IReadOnlyList<IgdbGame>> GetDiscoverableAsync(
+        IEnumerable<int> ids, int fewestRatings, CancellationToken cancellationToken)
+    {
+        var wanted = ids.ToArray();
+        DiscoverableLookups.Add((wanted, fewestRatings));
+
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        // The floor the way IGDB applies `total_rating_count >= n`: inside the question, and a game
+        // nobody has rated carries no count at all, which no floor keeps. The Discover filter is the
+        // client's clause and IgdbClientTests' to pin; nothing here stands in for it.
+        return Task.FromResult<IReadOnlyList<IgdbGame>>(
+        [
+            .. wanted
+                .Where(ById.ContainsKey)
+                .Select(id => ById[id])
+                .Where(game => game.TotalRatingCount is { } count && count >= fewestRatings),
+        ]);
+    }
+
     public void SetResults(string search, params IgdbGame[] games) =>
         Results[search] = [.. games];
 
@@ -163,6 +214,12 @@ public sealed class FakeIgdbClient : IIgdbClient
     /// One of IGDB's eight: YYYYMMDD, YYYYMM, YYYY, YYYYQ1-Q4, TBD. Null alongside a date means
     /// a game whose release_dates rows IGDB has pruned, which is a real shape and its own test.
     /// </param>
+    /// <param name="similarGames">What IGDB calls like it, by id. Ten on the live API, always.</param>
+    /// <param name="parentGame">
+    /// The game it is a version of, carrying that game's own similar games — the shape
+    /// <c>parent_game.similar_games</c> asks for. Build it with this method too.
+    /// </param>
+    /// <param name="ratings">How many people have rated it: <c>total_rating_count</c>.</param>
     public static IgdbGame Game(
         int id,
         string name,
@@ -172,10 +229,16 @@ public sealed class FakeIgdbClient : IIgdbClient
         string[]? genres = null,
         DateOnly? releaseDate = null,
         string? dateFormat = null,
-        string? gameStatus = null) => new()
+        string? gameStatus = null,
+        int[]? similarGames = null,
+        IgdbGame? parentGame = null,
+        int? ratings = null) => new()
         {
             Id = id,
             Name = name,
+            SimilarGames = similarGames is null ? null : [.. similarGames],
+            ParentGame = parentGame,
+            TotalRatingCount = ratings,
             FirstReleaseDate = releaseDate is { } day
                 ? new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).ToUnixTimeSeconds()
                 : null,
