@@ -10,6 +10,8 @@ import { hltbTiers } from './fields';
 import { HltbPin } from './HltbPin';
 import { carriesFiles } from './NoteBox';
 import { NoteList, noteRowId, PICTURE_OVERLAY, type FoundNote } from './NoteList';
+import { ReviewRows } from './ReviewRows';
+import { useReviews } from './useReviews';
 import {
   automaticGenre,
   genreStripe,
@@ -149,6 +151,11 @@ export function EntryDrawer({
   // reload, picture and all, and one deleted since in another tab would otherwise leave the
   // journal deaf to its own Escape with nothing over it.
   const detail = title.data;
+
+  // What OpenCritic and Steam say, asked as soon as the title says it has the rows — beside the
+  // read rather than after it, so the links are drawn with `…` while the verdicts are on their way.
+  const reviews = useReviews(hobby, mediaId, detail?.reviews ?? null, journal.reviews);
+
   const viewing = useOverlayHistory(PICTURE_OVERLAY).openFor;
   const pictureOpen =
     viewing !== null &&
@@ -533,6 +540,24 @@ export function EntryDrawer({
                   setHltbId.reset();
                   refreshHltb.mutate(undefined, { onSuccess: () => setChecked(true) });
                 }}
+              />
+            )}
+
+            {/* What critics and players say, under HowLongToBeat's row and on every column: the
+                data's to decide, as the pin's is, so a hobby with no such pages has no rows. Keyed
+                on the number the box holds, for the pin's reason: useState reads it once, and a pin
+                or the first look changes it underneath. A refused pin leaves it alone, so what was
+                typed stays in the box. */}
+            {detail.reviews !== null && journal.reviews !== null && (
+              <ReviewRows
+                key={detail.reviews.openCriticId ?? 'none'}
+                pages={detail.reviews}
+                verdicts={reviews.verdicts.data}
+                asking={reviews.verdicts.isLoading}
+                words={journal.reviews.words}
+                pinning={reviews.pin.isPending}
+                error={reviews.pin.error?.message ?? null}
+                onPin={(openCriticId) => reviews.pin.mutate(openCriticId)}
               />
             )}
           </div>

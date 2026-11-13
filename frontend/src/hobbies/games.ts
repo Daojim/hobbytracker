@@ -1,10 +1,12 @@
 import {
   discoverGames,
   getGame,
+  getGameReviews,
   refreshGameHltb,
   searchGames,
   setGameGenre,
   setGameHltbId,
+  setGameOpenCriticId,
 } from '../api/games';
 import { formatHours, totalHours } from '../lib/hours';
 import type { Game } from '../api/types';
@@ -187,12 +189,60 @@ export const GAMES: HobbyDefinition = {
           hltbMainExtraHours: game.hltbMainExtraHours,
           hltbCompletionistHours: game.hltbCompletionistHours,
         },
+        // What the OpenCritic and Steam rows draw before anything is asked: the box's number and
+        // both links. `released` is the server's answer, passed through rather than re-decided.
+        reviews: {
+          openCriticId: game.openCriticId,
+          steamAppId: game.steamAppId,
+          released: game.released,
+        },
       };
     },
 
     setGenre: setGameGenre,
     setHltbId: setGameHltbId,
     refreshHltb: refreshGameHltb,
+
+    // What critics and players say, picked at #22's workshop on 12 November 2026 from renders of
+    // the real drawer with real scores: OpenCritic's words the user's pick over the recommendation
+    // (85 · Mighty), knowing they take two lines in the drawer and three on a phone; every other
+    // choice the recommendation. See docs/games-reviews.md.
+    reviews: {
+      load: getGameReviews,
+      pin: setGameOpenCriticId,
+      words: {
+        criticsLabel: 'OpenCritic ID',
+        criticsLink: 'View on OpenCritic',
+        playersLabel: 'Steam',
+        playersLink: 'View on Steam',
+
+        // The top critics' average rounded, OpenCritic's tier, and the share who recommend it,
+        // each left out where OpenCritic has none. With no score at all, a game not out is not
+        // out yet, and one that is has too few reviews — Rabbit and Steel, out since May 2024
+        // with three, which a plain "No score yet" would have misdescribed.
+        critics: (verdict, released) =>
+          verdict.topCriticScore === null
+            ? released
+              ? 'Too few reviews'
+              : 'Not out yet'
+            : [
+                String(Math.round(verdict.topCriticScore)),
+                verdict.tier,
+                verdict.percentRecommended === null
+                  ? null
+                  : `${Math.round(verdict.percentRecommended)}% recommend`,
+              ]
+                .filter((part) => part !== null)
+                .join(' · '),
+
+        // Steam's own word and the share positive, rounded. With no reviews Steam's word is
+        // "No user reviews", which is said as it is: a share of nought would be a claim.
+        players: (verdict) =>
+          verdict.total === 0
+            ? verdict.summary
+            : `${verdict.summary} · ${Math.round((100 * verdict.positive) / verdict.total)}%`,
+      },
+    },
 
     fields: { hoursPlayed: true, platform: true, progress: false },
   },

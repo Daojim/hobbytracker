@@ -143,12 +143,15 @@ export const ANIME: HobbyDefinition = {
         // MAL answers by id and the id came from MAL's own search, so there is no matcher to
         // have got it wrong — the film's argument, and what takes the pin off this drawer.
         hltb: null,
+        // OpenCritic and Steam are games' review sites. MAL's own rating is already a fact above.
+        reviews: null,
       };
     },
 
     setGenre: setAnimeGenre,
     setHltbId: null,
     refreshHltb: null,
+    reviews: null,
 
     // The episode alone, which is what makes this hobby's form different from every other one.
     // `ck_log_entries_episode_needs_season` forbade exactly this shape and was dropped for it.

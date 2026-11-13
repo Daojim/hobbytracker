@@ -96,6 +96,26 @@ public sealed class IgdbGame
     /// </summary>
     public IgdbGame? ParentGame { get; set; }
 
+    /// <summary>
+    /// IGDB's own name for the game in an address, <c>nier-automata</c> — which is what Wikidata
+    /// files IGDB's id under (P5794), and so the way to OpenCritic's id with no matching at all.
+    /// Asked for by <see cref="IgdbClient.GetStoreLinksAsync"/> alone.
+    /// </summary>
+    public string? Slug { get; set; }
+
+    /// <summary>
+    /// The game's pages elsewhere — its own site, its wiki, its store pages — each with what kind
+    /// of page it is. <b>The first place a Steam page is looked for</b>, because where an entry names
+    /// two Steam apps the store page is always the one here. See <see cref="Services.IgdbSteam"/>.
+    /// </summary>
+    public List<IgdbWebsite>? Websites { get; set; }
+
+    /// <summary>
+    /// The game's ids on other services, each with which service. The second place a Steam page is
+    /// looked for, and taken only when it names one app alone.
+    /// </summary>
+    public List<IgdbExternalGame>? ExternalGames { get; set; }
+
     public IgdbCover? Cover { get; set; }
     public List<IgdbPlatform>? Platforms { get; set; }
     public List<IgdbGenre>? Genres { get; set; }
@@ -149,6 +169,32 @@ public sealed class IgdbDateFormat
 public sealed class IgdbGameStatus
 {
     public string? Status { get; set; }
+}
+
+/// <summary>
+/// One of a game's pages elsewhere, from <c>websites</c>.
+///
+/// <b><c>type</c>, never the deprecated <c>category</c></b>: IGDB leaves a deprecated twin unpopulated
+/// rather than removing it, so a lookup written against <c>category</c> finds nothing while reading
+/// as correct — <c>game_type</c>'s trap a third time. The ids are <c>/v4/website_types</c>'.
+/// </summary>
+public sealed class IgdbWebsite
+{
+    public string? Url { get; set; }
+    public int? Type { get; set; }
+}
+
+/// <summary>
+/// The game's id on another service, from <c>external_games</c>.
+///
+/// <b><c>external_game_source</c>, never the deprecated <c>category</c></b>, for the reason
+/// <see cref="IgdbWebsite.Type"/> gives. The ids are <c>/v4/external_game_sources</c>'. The id
+/// itself arrives as a string, because most services' ids are not numbers.
+/// </summary>
+public sealed class IgdbExternalGame
+{
+    public string? Uid { get; set; }
+    public int? ExternalGameSource { get; set; }
 }
 
 public sealed class IgdbCover

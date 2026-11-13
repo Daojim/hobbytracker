@@ -736,6 +736,14 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("numeric(5,2)")
                         .HasColumnName("hltb_main_story_hours");
 
+                    b.Property<int?>("OpenCriticId")
+                        .HasColumnType("integer")
+                        .HasColumnName("opencritic_id");
+
+                    b.Property<DateTimeOffset?>("OpenCriticLookedForAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opencritic_looked_for_at");
+
                     b.PrimitiveCollection<List<string>>("Platforms")
                         .IsRequired()
                         .HasColumnType("text[]")
@@ -750,11 +758,21 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("release_year");
 
+                    b.Property<int?>("SteamAppId")
+                        .HasColumnType("integer")
+                        .HasColumnName("steam_app_id");
+
+                    b.Property<DateTimeOffset?>("SteamLookedForAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("steam_looked_for_at");
+
                     b.ToTable("games", null, t =>
                         {
                             t.HasCheckConstraint("ck_media_release_window", "CASE\r\n    WHEN release_precision IS NULL\r\n        THEN release_date IS NULL AND release_end IS NULL\r\n    WHEN release_precision = 'Unknown'\r\n        THEN release_date IS NULL AND release_end IS NULL\r\n    WHEN release_precision IN ('Day', 'Month', 'Quarter', 'Year')\r\n        THEN release_date IS NOT NULL AND release_end IS NOT NULL\r\n             AND release_end >= release_date\r\n    ELSE false\r\nEND");
 
                             t.HasCheckConstraint("ck_games_hltb_hours_positive", "(hltb_all_styles_hours    IS NULL OR hltb_all_styles_hours    > 0) AND\r\n(hltb_main_story_hours    IS NULL OR hltb_main_story_hours    > 0) AND\r\n(hltb_main_extra_hours    IS NULL OR hltb_main_extra_hours    > 0) AND\r\n(hltb_completionist_hours IS NULL OR hltb_completionist_hours > 0)");
+
+                            t.HasCheckConstraint("ck_games_review_ids_positive", "(steam_app_id  IS NULL OR steam_app_id  > 0) AND\r\n(opencritic_id IS NULL OR opencritic_id > 0)");
 
                             t.Property("Id")
                                 .HasColumnName("media_id");

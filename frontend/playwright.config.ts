@@ -7,7 +7,17 @@ const HLTB_STUB_PORT = 5398;
 const GOOGLE_STUB_PORT = 5397;
 const TMDB_STUB_PORT = 5396;
 const MAL_STUB_PORT = 5395;
+const STEAM_STUB_PORT = 5394;
+const OPENCRITIC_STUB_PORT = 5393;
+const WIKIDATA_STUB_PORT = 5392;
 const WEB_PORT = 5174;
+
+/**
+ * OpenCritic's key, which is optional in the app and set here so the real client runs. The stub
+ * refuses a request without it and RapidAPI's host beside it, so the client's own stamping of the
+ * two headers is what this run proves. Without a key nothing is asked; the backend suite holds that.
+ */
+const OPENCRITIC_STUB_KEY = 'e2e-rapidapi-key';
 
 /** Enforced by the stub, so removing the bearer from the typed client fails a spec. */
 const TMDB_STUB_TOKEN = 'e2e-tmdb-token';
@@ -77,6 +87,25 @@ export default defineConfig({
     {
       command: 'node e2e/support/mal-stub.mjs',
       url: `http://localhost:${MAL_STUB_PORT}/health`,
+      reuseExistingServer: true,
+    },
+    // #22's three: what Steam's players and OpenCritic's critics say, and Wikidata, which ties an
+    // IGDB slug to OpenCritic's ids. Every game's journal asks the reviews route when it opens, so
+    // these have to be up for every spec that opens one, not only for the spec about them.
+    {
+      command: 'node e2e/support/steam-stub.mjs',
+      url: `http://localhost:${STEAM_STUB_PORT}/health`,
+      reuseExistingServer: true,
+    },
+    {
+      command: 'node e2e/support/opencritic-stub.mjs',
+      url: `http://localhost:${OPENCRITIC_STUB_PORT}/health`,
+      reuseExistingServer: true,
+      env: { OPENCRITIC_STUB_KEY },
+    },
+    {
+      command: 'node e2e/support/wikidata-stub.mjs',
+      url: `http://localhost:${WIKIDATA_STUB_PORT}/health`,
       reuseExistingServer: true,
     },
     {
@@ -169,6 +198,14 @@ export default defineConfig({
         // because MAL does not document that a client id alone reaches the public catalogue.
         Mal__BaseUrl: `http://localhost:${MAL_STUB_PORT}/v2/`,
         Mal__ClientId: MAL_STUB_CLIENT_ID,
+
+        // The journal's OpenCritic and Steam rows, and Wikidata, which finds OpenCritic's page.
+        // Each is a plain option pointed at a stub; OpenCritic's key is optional in the app and
+        // set here, so the real client runs and the stub can refuse it without its headers.
+        Steam__BaseUrl: `http://localhost:${STEAM_STUB_PORT}/`,
+        OpenCritic__BaseUrl: `http://localhost:${OPENCRITIC_STUB_PORT}/`,
+        OpenCritic__ApiKey: OPENCRITIC_STUB_KEY,
+        Wikidata__Endpoint: `http://localhost:${WIKIDATA_STUB_PORT}/sparql`,
 
         // The provider, pointed at the stub the same way IGDB and HowLongToBeat are. Every
         // endpoint is a plain option precisely so this is possible: the framework's real OAuth

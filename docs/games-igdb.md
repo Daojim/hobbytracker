@@ -41,6 +41,9 @@ above the game itself.
 - **`category` is not the field, and writing the filter against it would fail silently.** It is
   deprecated in favour of `game_type` and **no longer populated at all**, so `where category !=
   (3,5)` excludes nothing while looking right. The ids came from `/v4/game_types`, not the old enum.
+  **The trap's third outing is #22's question for a game's slug and Steam page**: `websites` and
+  `external_games` each carried a `category` before `type` and `external_game_source`, so a Steam
+  page looked for by it is never found. `GetStoreLinksAsync`, in `docs/games-reviews.md`.
 - **It is in the query, not over the results.** IGDB applies `where` before `limit`, so a filter
   applied afterwards would ask for ten and hand back six.
 - **It deliberately does not reach `GetGamesAsync`.** Those ids are already on somebody's board, and

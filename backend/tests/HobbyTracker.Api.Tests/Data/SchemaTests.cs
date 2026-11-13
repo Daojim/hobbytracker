@@ -285,6 +285,72 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
     }
 
     [Fact]
+    public async Task Stores_a_games_steam_and_opencritic_pages_and_when_each_was_looked_for()
+    {
+        // Found the first time a journal asks, then kept: the two ids, and the two days the look
+        // was made, so a title found to have none is not asked about again on every open.
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            game.SteamAppId = 1888160;
+            game.SteamLookedForAt = Eastern(2026, 11, 12);
+            game.OpenCriticId = 15125;
+            game.OpenCriticLookedForAt = Eastern(2026, 11, 12);
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await WithDbAsync(db => db.Games.SingleAsync(g => g.Id == mediaId, Ct));
+        stored.SteamAppId.ShouldBe(1888160);
+        stored.SteamLookedForAt.ShouldBe(Eastern(2026, 11, 12));
+        stored.OpenCriticId.ShouldBe(15125);
+        stored.OpenCriticLookedForAt.ShouldBe(Eastern(2026, 11, 12));
+
+        // Under the provider's own name. OpenCritic is one word, so the naming convention's
+        // open_critic_id would be a column nobody would think to search for.
+        var columns = await WithDbAsync(db => db.Database
+            .SqlQuery<string>($"""
+                SELECT column_name AS "Value" FROM information_schema.columns
+                WHERE table_name = 'games' AND column_name IN
+                    ('steam_app_id', 'steam_looked_for_at', 'opencritic_id', 'opencritic_looked_for_at')
+                """)
+            .ToListAsync(Ct));
+        columns.ShouldBe(
+            ["steam_app_id", "steam_looked_for_at", "opencritic_id", "opencritic_looked_for_at"],
+            ignoreOrder: true);
+    }
+
+    [Theory]
+    [InlineData("steam", 0)]
+    [InlineData("steam", -1)]
+    [InlineData("opencritic", 0)]
+    [InlineData("opencritic", -1)]
+    public async Task Rejects_a_page_numbered_nought_or_less(string site, int id)
+    {
+        // Both are numbers handed out from one upwards, and a link is built from each. Nought is
+        // what a parse that failed quietly would leave behind, so it is refused rather than linked.
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            var game = await db.Games.SingleAsync(candidate => candidate.Id == mediaId, Ct);
+            if (site == "steam")
+            {
+                game.SteamAppId = id;
+            }
+            else
+            {
+                game.OpenCriticId = id;
+            }
+
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_games_review_ids_positive");
+    }
+
+    [Fact]
     public async Task A_movie_is_a_table_of_its_own_beside_games()
     {
         // The whole of what Table-Per-Type buys, finally spent: one media row, one movies row,

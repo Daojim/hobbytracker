@@ -118,6 +118,16 @@ the column in `media` too and leaves the base table with no `id` at all.
   about every unmatchable title on every run, for ever. It is also what makes a second backfill
   answer a count of nought, and what makes the card's poll terminate. See **The card waits for
   its own estimate** in `docs/games-hltb.md`.
+- **`games.steam_app_id` and `games.opencritic_id`, with a `_looked_for_at` each, are the same
+  distinction twice** (#22): a game's two review pages, found the first time a journal asks and
+  kept, and when each was looked for whatever came back, so a game with neither is not asked about
+  on every open. **`opencritic_id` is not `open_critic_id`**: OpenCritic is one word, so the column
+  is named for it by hand, beside its stamp. **A look writes either only into an empty slot, in its
+  own `WHERE`** — an `ExecuteUpdate` on the TPT table, which EF takes because both columns are on
+  `games` — and that is what keeps a pinned OpenCritic number from being overwritten by a look that
+  read the slot before the pin landed. There is no column saying a number was pinned; the empty slot
+  does that job. `ck_games_review_ids_positive` refuses nought for either. See
+  `docs/games-reviews.md`.
 - **`games.release_year` exists for the matcher and nothing else.** IGDB and HowLongToBeat both
   list "Resident Evil 4" twice under exactly that title, 2005 and 2023, and nothing in the
   strings can tell them apart. Read from IGDB's `first_release_date` in **UTC**, not the journal

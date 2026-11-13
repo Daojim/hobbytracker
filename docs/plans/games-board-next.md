@@ -48,7 +48,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
-| 22 | A game's OpenCritic and Steam pages | M | **Workshopped 12 November 2026, not built.** Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API is a free key; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. Round one, eight choices in words, all the recommendation; round two, five from renders with real scores, four the recommendation and OpenCritic's words the user's pick. The picked combination was re-rendered at every journal width. **Ready to build**, in the order its section gives. See its section |
+| 22 | A game's OpenCritic and Steam pages | M | **Built 12 November 2026, the day it was workshopped, tests first, and not yet merged**; the full e2e suite went 231 green on the 13th, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. **Deploying needs `OPENCRITIC_API_KEY` in the server's `.env` first.** See its section |
 | 23 | Hide a game from Discover | S–M | **Planned 8 November 2026**, at the user's request, once #17 was working on the real board: a game, or perhaps its whole series as IGDB files it, never offered again, starting with the Horizon games. Kept per account and applied on the server. Renders first for where the control goes. See its section |
 | 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. It changes what a pass's date can be, so **a workshop of its own comes first**. See its section |
 
@@ -3616,14 +3616,16 @@ which is one column everywhere, and turned the desktop case red instead.
 
 ---
 
-## 22. A game's OpenCritic and Steam pages · workshopped, not built
+## 22. A game's OpenCritic and Steam pages · built
 
-**Planned 7 November 2026**, out of #17's workshop, when the user set IGDB's scores aside. Nothing
-is built, and **a workshop of its own comes first**: it is a new outside connection, and the user
-has held off others. This is the reason for it, in the user's words: *"It would be convenient if I
-had a game in my backlog and I wanted to quickly take a look at the game's OpenCritic or Steam
-page to see what people are saying about the game. If the game doesn't have a Steam port, then
-only an OpenCritic page would be fine."* **Not Metacritic**, which the user does not care about.
+**Planned 7 November 2026**, out of #17's workshop, when the user set IGDB's scores aside, with **a
+workshop of its own first**, because it is a new outside connection and the user has held off
+others. **Workshopped 12 November 2026** in two rounds and **built the same day**, tests first; run
+end to end on the 13th, and not yet merged. This is the reason for it, in the user's words: *"It
+would be convenient if I had a game in my backlog and I wanted to quickly take a look at the game's
+OpenCritic or Steam page to see what people are saying about the game. If the game doesn't have a
+Steam port, then only an OpenCritic page would be fine."* **Not Metacritic**, which the user does
+not care about.
 
 **What.** From a game, a way to its OpenCritic page and its Steam page, and perhaps what each
 says: OpenCritic's critics' average, Steam's review summary (*Very Positive*). A game with no Steam
@@ -3866,6 +3868,123 @@ OpenCritic's search, was not taken: Wikidata was.*
   HowLongToBeat has.
 - **Stored or asked**: an id kept on `games` once found, which is a migration and a backfill, or
   asked each time the journal opens.
+
+### Built
+
+Built on 12 November 2026, the day it was workshopped, tests first, in the order above, on
+`opencritic-and-steam`, and run end to end on the 13th. **Not yet merged or deployed.** The
+write-up is `docs/games-reviews.md`, `docs/games-hltb.md`'s sibling with a row of its own in
+CLAUDE.md's map, with the look in `docs/design.md`, **A game's critics and players**, the four
+columns in `docs/data-model.md`, the two routes in `docs/api.md`, and the key in `docs/deploy.md`.
+
+- **The providers**, each a client with its options and its exception. `SteamClient` asks
+  `GetAppReviews` by `input_json` and reads the summary alone, an app Steam does not know read off
+  the missing `query_summary`. `OpenCriticClient` asks `/game/{id}` with RapidAPI's two headers
+  stamped per request, says by `HasKey` whether it can ask at all, reads a 400 or a 404 as no such
+  game and a 403 as the provider unhappy, and reads `-1` and a blank tier as nothing.
+  `WikidataClient` asks one SPARQL question from IGDB's slug to OpenCritic's ids, the slug escaped
+  and the app named in the User-Agent. IGDB's `GetStoreLinksAsync` asks for the slug and both
+  places a Steam page is kept, and `Services/IgdbSteam` chooses the page.
+- **The ids on `games`**: `AddReviewPages`, four columns, `steam_app_id` and `opencritic_id` with
+  when each was looked for, and `GameDetailDto` carrying the two ids.
+- **The verdicts**: `GameReviewService.ReviewsAsync` behind `GET /api/games/{mediaId}/reviews`,
+  answering `GameReviewsDto`, and `ReviewsOptions` in a `Reviews` block of `appsettings.json`: a
+  page found missing looked for again after 30 days, and a verdict kept 24 hours.
+- **The pin**: `PinOpenCriticAsync` behind `PUT /api/games/{mediaId}/opencritic`, taking
+  `SetOpenCriticIdRequest`, and `OpenCriticExceptionHandler` for its 502.
+- **The rows**: `getGameReviews` and `setGameOpenCriticId`; `GameDetail`'s two ids and
+  `GameReviews`; `TitleDetail.reviews` and `JournalSection.reviews`, null for films, shows and
+  anime; `reviewsKey`; `useReviews`; `ReviewRows`; `parseOpenCriticId`, `openCriticGameUrl` and
+  `steamAppUrl` in `journal/fields.ts`; and the words in `hobbies/games.ts`.
+- **The deploy**: `OpenCritic__ApiKey: ${OPENCRITIC_API_KEY:-}` in `deploy/compose.yml`, and its
+  line in `.env.example`.
+- **The harnesses**: `FakeReviewClients.cs`, `FakeIgdbClient.Links`, and `ApiFactory` swapping all
+  three clients for fakes; a stub each for Steam, OpenCritic and Wikidata, started with the others;
+  IGDB's stub naming five fixtures' Steam pages and adding *NieR: Automata*; and `reviews.spec.ts`.
+
+### Tests
+
+Backend 1,049 of 1,049, the 961 before and 88: 33 endpoint cases in `GameReviewsTests`, 14 in
+`OpenCriticClientTests`, 13 in `IgdbSteamTests`, 11 in `WikidataClientTests`, 8 in
+`SteamClientTests`, and 5 more in `SchemaTests` and 4 more in `IgdbClientTests`. Frontend 1,401 of
+1,401 with `tsc` clean, the 1,346 before and 55: 23 in `fields.test.ts`, 21 in
+`EntryDrawer.test.tsx`, 8 in `journal.test.ts` and 3 in `games.test.ts`. The 1,399 noted on the 12th
+was counted before the last two drawer cases were written; listed without running, main has 1,346
+and the branch 1,401. End to end, 11 new in `reviews.spec.ts`: **the full suite went 231 of 231 in
+Chromium on 13 November 2026**, the 220 before and the 11, in 6.6 minutes, and **`reviews.spec.ts`
+11 of 11 in Firefox**, the user's browser.
+
+| Step | Tests | Red first by |
+|---|---|---|
+| 1. The providers | 50: 14 OpenCritic, 13 `IgdbSteam`, 11 Wikidata, 8 Steam, 4 IGDB | all 50, against each new method put in first as a `NotImplementedException` |
+| 2. The ids | 5 schema | all 5, on EF refusing a model ahead of its migrations, before `AddReviewPages` was written |
+| 3 and 4. The verdicts and the pin | 33 endpoint | 30, against a service whose read answered nothing and whose pin threw. **Three were green from the start, and were proved by fault on the 13th**: a number below one refused, both cases, red with the request's `[Range]` taken off, which lets OpenCritic be asked; and a game with no Steam page of its own, red with `IgdbSteam` reading every external id as Steam's, which makes a GOG id an app |
+| 5. The rows | 55 Vitest | 44, with `journal.test.ts` red as a file on a section that was not there yet. Three drawer cases were not red: nothing asked about a film, nothing asked again when the pass is written, and the box held until the title is read again, each a guard proved by its fault below |
+| End to end | 11 | written after the code, and proved by fault below |
+
+**Every fault was put back alone, and each was red on its own tests**: 27 in the backend, 13 in
+Vitest and 4 end to end, the files restored byte for byte. The backend's first 25 and Vitest's 13
+were planted on the 12th, and **two of the backend's went uncaught at first**, each fixed in the
+tests rather than the code: the fakes threw synchronously where the real clients fail as faulted
+tasks, so a cache keeping a failure passed; and the pin-back test pinned a game with no stamp to
+clear. **On the 13th those two were planted again and both were red**, and so were all 13 in
+Vitest; the last two backend faults and the four end to end are the 13th's.
+
+| where | fault | red |
+|---|---|---|
+| `GameReviewService` | a look writing over a pin; never looking again for a page found missing; looking again for one found; the day left out of the cache key; Steam asked past the cache; a failure kept; Steam's failure taking the whole answer; names compared as written; several ids without a key stamped as none; IGDB failing stamped as a look; a pin unchecked with a key; a pin checked without one; a pin taken back keeping its stamp; OpenCritic asked without a key | the endpoint case named for each |
+| `IgdbSteam` | the external ids ahead of the store page; the first of two ids taken; every external id read as Steam's | `IgdbSteamTests`, and for the last the endpoint case for a game with no page of its own |
+| the clients | IGDB asking `websites.category`; OpenCritic's `-1` kept; a refused key read as an unknown game; OpenCritic asked without a key; Steam asked in every language; Wikidata's slug unescaped; Wikidata without a User-Agent | the client case named for each |
+| the routes | the journal's read without the pages; no handler for the pin's 502; the pin's `[Range]` taken off | the endpoint case named for each |
+| the frontend | an address on any site read as OpenCritic's; the score floored; *Not out yet* and *Too few reviews* swapped; Steam's own words for no reviews lost; no `…` while asking; a Steam row with no page; the title not read again; a film asking; the verdicts under `mediaKey`; the pin letting go before the read; a film's title carrying the pages; a number only looked at pinned again; a refusal sent anyway | the Vitest case named for each |
+| end to end | the client asking `websites.category`; the client asking `external_games.category`; OpenCritic's row not wrapping | 7 specs, every one whose game's Steam page is in `websites`; 2, Celeste's and Tunic II's, whose page is an external id alone; 3, both drawers and the phone, the modal being one line either way |
+
+**One fault is caught in Firefox alone: the Enter guard in `ReviewRows.commit`, taken out.** In
+Chromium `reviews.spec.ts` stayed 11 green on one PUT; in Firefox it went red on two. A bare input
+showed why. Chromium 151 fires the blur inside the `disabled = true` assignment itself, and React
+writes that assignment during its commit, while React DOM has its own events switched off, so the
+blur is dropped. Firefox 153 fires it a microtask later, when they are on again, and React hands it
+to `onBlur`. So the guard is Firefox's, and the default run, Chromium's alone, cannot see it go. `ReviewRows`' comment, the spec's,
+`docs/games-reviews.md` and `docs/games-hltb.md` said "a real browser" and now say Firefox, and
+CLAUDE.md's **What fails silently** gains the line. `HltbPin` has the same guard, and no spec counts
+its pins in any browser.
+
+**The pixels**: the built rows match `shots/picked/` to the pixel in all 32 shots, by
+`workshop.local/opencritic-steam/compare-built.mjs` on the app's own Vite with nothing swapped. In
+Playwright's Firefox every row's line count is the same in all 32, and the band at 390 is 16px
+narrower, which is desktop Firefox's scrollbar inside the drawer.
+
+### What the plan got wrong, or left out
+
+- **"A 429 or a failure is the provider unhappy, a 502 as IGDB's is."** For the clients it is: each
+  throws a provider exception. The read route catches them per half and answers a 200, because a 502
+  for both would have a spent OpenCritic allowance take Steam's verdict away too. The 502 is the
+  pin's, by `OpenCriticExceptionHandler`.
+- **"A pin replaces the OpenCritic id and no later look overwrites it, so the two have to be told
+  apart."** No column tells them apart. A look writes only into an empty slot, in its own
+  statement's `WHERE`, and a pin always holds a number, so no look can land on one:
+  `A_look_in_flight_never_overwrites_a_pin` lands a pin from inside a look and keeps it.
+- **When a page found missing is looked for again**, which the plan did not say: after 30 days,
+  HowLongToBeat's rule, because a game not out often has no OpenCritic id on Wikidata yet and a
+  console game can come to Steam. A page found is never looked for again.
+- **What the row does without a key and with several ids**, round one's question for the build:
+  nothing is chosen and nothing stamped, because the names cannot be read and not knowing yet is
+  not a miss. Two of the user's titles are like that.
+- **The first look's answer names pages the journal's read does not have**, which the plan did not
+  foresee: `useReviews` reads the title again when the two disagree. Two requests more, once per
+  game ever.
+- **"Measured in Firefox too"** found more than layout: the Enter guard is Firefox's.
+
+### Decided after the build
+
+- **Steam's share stays rounded.** Steam's page floors its share and the picked words round it, so
+  *Armored Core VI*'s 93.6% is 93% on its page and 94% in the journal, and 22 of the board's 54
+  shares differ by a point. Told so on 13 November 2026, the user kept rounded.
+
+### Left
+
+1. **The deploy**, once the pull request is merged. **`OPENCRITIC_API_KEY` goes in the server's
+   `.env` first** (`docs/deploy.md`), or production shows OpenCritic's link alone, in silence.
 
 ### Things to get right
 

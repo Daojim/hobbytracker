@@ -126,12 +126,15 @@ export const MOVIES: HobbyDefinition = {
         // Nothing HowLongToBeat has an opinion about, which is what takes the pin off this
         // drawer and the four estimate tiers off its pass.
         hltb: null,
+        // OpenCritic and Steam are games' review sites, and nothing asks a film's yet.
+        reviews: null,
       };
     },
 
     setGenre: setMovieGenre,
     setHltbId: null,
     refreshHltb: null,
+    reviews: null,
 
     // The two the user asked for by name. A film's pass is a rating and two dates.
     fields: { hoursPlayed: false, platform: false, progress: false },

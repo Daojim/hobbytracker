@@ -883,6 +883,39 @@ afternoon: https://claude.ai/artifact/E8TV1xCBeB5uampa9CdJvo. What it does is
 - **A pin in flight still shows *Checking…*, now in the arrow's place.** That is the pin's look as
   it has always shipped, which the follow-up did not take up; the turning arrow is the check's.
 
+### A game's critics and players
+
+**Two rows under HowLongToBeat's, in the band about the title, on every column.** Picked at #22's
+workshop on 12 November 2026, from renders of the real drawer around a prototype of the rows, on the
+user's board with Steam's verdicts measured that day and OpenCritic's read through the user's own
+key: https://claude.ai/artifact/2sCank5KRdqmTsMPc53PAF. What finds the pages and keeps what they say
+is `docs/games-reviews.md`'s.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| OpenCritic's words | **`85 · Mighty · 91% recommend`**: the top critics rounded, the tier, the share who recommend it. **The user's pick**, knowing it takes two lines in the drawer, one in the modal and three on a phone | `85 · Mighty`, the recommendation, one line in the drawer; `85 · 91% of critics recommend` |
+| Steam's words | **`Very Positive · 94%`**: Steam's word and the share positive, rounded | the word alone; the word, the share and the count, which took two lines in the drawer on *The Witcher 3 Remastered* |
+| The way to the page | ***View on OpenCritic* and *View on Steam*, links of their own after the words**, new tab and `noreferrer`, as HowLongToBeat's row and MAL's say it | the words themselves the link, which kept both rows to one line on a phone |
+| The pin | **An *OpenCritic ID* box on every game**, HowLongToBeat's box one row up, empty where there is no id, taking the number or a whole pasted address | a box only where there is no id, with *Change* otherwise |
+| No score | ***Not out yet* before release, *Too few reviews* after** | *No score yet* for both, untrue for *Rabbit and Steel*; *Too few reviews* for both |
+
+**Shown and not chosen, and built as drawn**: a verdict on its way is `…` with the link already there;
+with no key on the server OpenCritic's row is its link alone; no Steam page, no Steam row; and Steam's
+own *No user reviews* for a game nobody has reviewed.
+
+- **The markup is the prototype's, class for class.** Each row is the band's `font-medium` label and
+  a `flex flex-wrap items-center gap-2` row: the box is HowLongToBeat's box exactly (`w-24 rounded
+  border border-line bg-surface px-1 py-0.5 text-xs`, the placeholder an em dash), the words a plain
+  span, and the link `underline hover:text-fg`. The box gains `disabled:opacity-50` for a pin in
+  flight, which changes nothing at rest. Steam's label is a span, having no control to name.
+- **On a phone each row stacks its box, its words and its link, the label centred beside them**, as
+  HowLongToBeat's row already does: OpenCritic's takes three lines, the cost the pick was made
+  knowing.
+- **A refused pin's words go under the box across both tracks**, where HowLongToBeat's refusals go.
+- **Measured against the picked shots, the built rows differ by no pixel** in all 32: six titles, the
+  drawer at 1440 in Shelf Light and Dark and from 1536, the modal, and a phone in both, with every
+  row's line count the same. In Playwright's Firefox every line count is the same too.
+
 ### The page's ground
 
 **The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at

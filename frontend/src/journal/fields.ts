@@ -123,6 +123,58 @@ export function parseHltbId(input: string): ParsedRating {
   return value >= 1 && value <= 2_147_483_647 ? { value } : { error: HLTB_ID_RULE };
 }
 
+/** Mirrors the Range on SetOpenCriticIdRequest, and says the box takes an address as well. */
+export const OPENCRITIC_ID_RULE =
+  'An OpenCritic ID is a whole number, 1 or greater, or the address of its OpenCritic page.';
+
+/**
+ * A game's page on OpenCritic's site, as a pasted address has it: the number is the part that
+ * names the game, whatever follows. `https://opencritic.com/game/15125/armored-core-vi` and its
+ * `/reviews` both read as 15125, and the outlet and critic pages, numbered too, do not.
+ */
+const OPENCRITIC_ADDRESS = /^(?:https?:\/\/)?(?:www\.)?opencritic\.com\/game\/(\d+)(?:[/?#]|$)/i;
+
+/**
+ * Reads the OpenCritic box: OpenCritic's number, or a whole address from OpenCritic's site read
+ * for the number in it — the user's pick at #22's workshop, since a page open in another tab is
+ * where the number is found. Read off the text, as {@link parseHltbId} is, because there is
+ * nothing to learn from asking about something that cannot be an id.
+ *
+ * Read here rather than on the server, which takes a number: this file writes the address the
+ * link goes to, so OpenCritic's address is known in one place.
+ */
+export function parseOpenCriticId(input: string): ParsedRating {
+  const trimmed = input.trim();
+
+  // Empty takes the pin back, which sends the game to be looked for again.
+  if (trimmed === '') {
+    return { value: null };
+  }
+
+  const digits = /^\d+$/.test(trimmed) ? trimmed : OPENCRITIC_ADDRESS.exec(trimmed)?.[1];
+
+  if (digits === undefined) {
+    return { error: OPENCRITIC_ID_RULE };
+  }
+
+  const value = Number(digits);
+  return value >= 1 && value <= 2_147_483_647 ? { value } : { error: OPENCRITIC_ID_RULE };
+}
+
+/**
+ * A game's page on OpenCritic: the number and a dash. Any slug serves the page and `/game/{id}`
+ * alone is a 404, measured on 12 November 2026; Wikidata writes its own links to OpenCritic like
+ * this. Where the journal's *View on OpenCritic* goes.
+ */
+export function openCriticGameUrl(id: number): string {
+  return `https://opencritic.com/game/${id}/-`;
+}
+
+/** A game's store page on Steam — where the journal's *View on Steam* goes. */
+export function steamAppUrl(appId: number): string {
+  return `https://store.steampowered.com/app/${appId}/`;
+}
+
 export interface HltbTier {
   /**
    * Which figure this is, by the field it comes from. The label is for reading and may be

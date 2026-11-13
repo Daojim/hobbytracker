@@ -74,15 +74,21 @@ const CATALOGUE = [
   // `similar` is IGDB's similar_games, served only to a question that asks for it, so a search or
   // a refresh answers exactly as it did before Discover had a list from your ratings. See the
   // fixtures from 3019 on.
+  //
+  // `steam` is where IGDB names a Steam page, served only to the question for one (#22): `store` as a
+  // `websites` row of Steam's type, `ids` as `external_games` rows of Steam's source. Celeste's is an
+  // external id alone; Hollow Knight's store page sits beside a second app, so only taking the store
+  // page first finds the game; Outer Wilds has none, and so no Steam row.
   { id: 3001, released: '2018-01-25', precision: 'YYYYMMDD', gameType: 0, name: 'Celeste', platforms: ['PC', 'Switch'], developer: 'Extremely OK Games',
-    genres: ['Platform', 'Indie'], similar: [3027] },
+    genres: ['Platform', 'Indie'], similar: [3027], steam: { ids: [504230] } },
   { id: 3002, released: '2020-09-17', precision: 'YYYYMMDD', gameType: 0, name: 'Hades', platforms: ['PC', 'Switch'], developer: 'Supergiant Games',
     genres: ["Hack and slash/Beat 'em up", 'Indie'] },
   // Its ten, cut to four, are one of each fate a game named by a seed can meet: offered, kept off
   // by the Discover filter, kept off by the floor on ratings, and kept off for being the original
   // of a version on the board.
   { id: 3003, released: '2017-02-24', precision: 'YYYYMMDD', gameType: 0, name: 'Hollow Knight', platforms: ['PC', 'Switch'], developer: 'Team Cherry',
-    genres: ['Adventure', 'Platform', 'Indie'], similar: [3019, 3017, 3021, 3022] },
+    genres: ['Adventure', 'Platform', 'Indie'], similar: [3019, 3017, 3021, 3022],
+    steam: { store: 367520, ids: [1286410, 367520] } },
   { id: 3004, released: '2019-05-28', precision: 'YYYYMMDD', gameType: 0, name: 'Outer Wilds', platforms: ['PC', 'Xbox'], developer: 'Mobius Digital',
     genres: ['Adventure', 'Puzzle'] },
   // No precision, on purpose: IGDB prunes release_dates rows from older entries while keeping
@@ -115,7 +121,7 @@ const CATALOGUE = [
   // clause being honoured, and a search for "celeste" is typed in three specs, where any hype
   // would move it above Celeste — IgdbRelevance ranks on ratings plus hype.
   { id: 3011, released: inMonths(3), precision: 'YYYYMMDD', gameType: 0, hypes: 120, name: 'Silksong II',
-    platforms: ['PC'], developer: 'Team Cherry', genres: ['Platform'] },
+    platforms: ['PC'], developer: 'Team Cherry', genres: ['Platform'], steam: { store: 1030301 } },
   { id: 3012, ...upcomingQuarter(18), gameType: 0, hypes: 80, name: 'Hades III',
     platforms: ['PC'], developer: 'Supergiant Games', genres: ['Indie'] },
   { id: 3013, precision: 'TBD', gameType: 0, name: 'Celeste 64', platforms: ['PC'],
@@ -139,7 +145,7 @@ const CATALOGUE = [
 
   // The Discover page's New releases: out inside the last sixty days.
   { id: 3016, released: daysAgo(10), precision: 'YYYYMMDD', gameType: 0, hypes: 60, name: 'Tunic II',
-    platforms: ['PC', 'Switch'], developer: 'Isometricorp Games', genres: ['Adventure'] },
+    platforms: ['PC', 'Switch'], developer: 'Isometricorp Games', genres: ['Adventure'], steam: { ids: [553421] } },
 
   // Tagged Erotic, and given more hype than anything else here and first place in PopScore's
   // Playing list, so that the day the filter goes missing it is the first tile on two lists
@@ -199,6 +205,13 @@ const CATALOGUE = [
     platforms: ['PC', 'Switch'], developer: 'Sabotage Studio', genres: ['Role-playing (RPG)'] },
   { id: 3027, released: '2018-12-13', precision: 'YYYYMMDD', gameType: 0, ratings: 240, name: 'Gris',
     platforms: ['PC', 'Switch'], developer: 'Nomada Studio', genres: ['Platform', 'Adventure'] },
+
+  // #22's: a game whose Wikidata item carries three OpenCritic ids, the game and two editions, of
+  // which the journal names the one OpenCritic calls what IGDB calls it. No ratings and no hype, so
+  // it is on no Discover list, and no searched word or slug is inside its name.
+  { id: 3028, released: '2017-03-07', precision: 'YYYYMMDD', gameType: 0, name: 'NieR: Automata',
+    platforms: ['PC', 'PlayStation 4'], developer: 'PlatinumGames', genres: ['Role-playing (RPG)'],
+    steam: { store: 524220, ids: [524220] } },
 ];
 
 /**
@@ -230,11 +243,51 @@ const parentGameOf = (game, fields) => {
   return { id: game.parent, ...(original?.similar ? { similar_games: original.similar } : {}) };
 };
 
+/**
+ * A game's pages elsewhere, as #22's question asks for them: a site of IGDB's own type 1 on every
+ * game, so a reader that took any `websites` row would find a page that is not Steam's, and a GOG
+ * id among the external ids for the same reason. **`type` and `external_game_source` are served
+ * only when named**, as IGDB serves only what is asked for: a client asking for the deprecated
+ * `category` instead would find no Steam page anywhere, which is how IGDB itself fails.
+ */
+const storeLinksOf = (game, fields) => ({
+  ...(fields.includes('slug') ? { slug: slugOf(game.name) } : {}),
+  ...(fields.includes('websites.url')
+    ? {
+        websites: [
+          { id: game.id * 10, url: 'https://example.com/', ...(fields.includes('websites.type') ? { type: 1 } : {}) },
+          ...(game.steam?.store === undefined
+            ? []
+            : [
+                {
+                  id: game.id * 10 + 1,
+                  url: `https://store.steampowered.com/app/${game.steam.store}/`,
+                  ...(fields.includes('websites.type') ? { type: 13 } : {}),
+                },
+              ]),
+        ],
+      }
+    : {}),
+  ...(fields.includes('external_games.uid')
+    ? {
+        external_games: [
+          { id: game.id * 10 + 5, uid: '1558393671', ...(fields.includes('external_games.external_game_source') ? { external_game_source: 5 } : {}) },
+          ...(game.steam?.ids ?? []).map((app, index) => ({
+            id: game.id * 10 + 6 + index,
+            uid: String(app),
+            ...(fields.includes('external_games.external_game_source') ? { external_game_source: 1 } : {}),
+          })),
+        ],
+      }
+    : {}),
+});
+
 const asIgdbGame = (game, query = '') => {
   const fields = fieldsOf(query);
 
   return {
     id: game.id,
+    ...storeLinksOf(game, fields),
     // Only for a question that names them, as IGDB answers only the fields asked for: the search,
     // the refresh and the other lists never see either, and answer as they always did.
     ...(fields.includes('similar_games') && game.similar ? { similar_games: game.similar } : {}),
@@ -439,7 +492,10 @@ const server = createServer(async (request, response) => {
     // match, which together are what adding a game does, and `where id = (...)`, which is the
     // refresh and both of From your ratings' questions. Answering that last one with a name match
     // would hand back the whole catalogue for an empty term.
-    const ids = /where\s+id\s*=\s*\(([^)]*)\)/.exec(query)?.[1];
+    // `where id = (…)` from the refresh and From your ratings, and `where id = N` from #22's
+    // question for one game's pages: IGDB takes both.
+    const ids =
+      /where\s+id\s*=\s*\(([^)]*)\)/.exec(query)?.[1] ?? /where\s+id\s*=\s*(\d+)\s*;/.exec(query)?.[1];
     const slug = /slug\s*~\s*\*"([^"]*)"\*/.exec(query)?.[1];
     const term = /search\s+"([^"]*)"/.exec(query)?.[1];
 

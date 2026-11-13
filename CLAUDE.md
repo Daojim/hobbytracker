@@ -47,15 +47,18 @@ thing always known before an edit:
 | **Picking up a feature from What is next** | `docs/plans/games-board-next.md` — its status table, its rules, then the feature's section |
 | `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
 | `Integrations/Hltb/`, `Services/Hltb*`, `Infrastructure/Hltb*`, `board/estimates.ts`, `journal/HltbPin.tsx` | `docs/games-hltb.md` |
+| `Integrations/OpenCritic/`, `Integrations/Steam/`, `Integrations/Wikidata/`, `GameReviewService`, `IgdbSteam`, `journal/ReviewRows.tsx`, `journal/useReviews.ts` | `docs/games-reviews.md` |
 | `Integrations/Tmdb/`, `MovieCatalogService`, `TmdbOnMediaAdded`, `MoviesController`, `hobbies/movies.ts` | `docs/movies-tmdb.md` |
 | `TvCatalogService`, `TvOnMediaAdded`, `TvController`, `Domain/TvShow.cs`, `hobbies/tv.ts` | `docs/tv-tmdb.md` |
 | `Integrations/Mal/`, `AnimeCatalogService`, `MalRelevance`, `AnimeController`, `Domain/Anime.cs`, `hobbies/anime.ts` | `docs/anime-mal.md` |
 
-**The last five are the hobbies; everything above them is the platform.** That is the axis the
+**The last six are the hobbies; everything above them is the platform.** That is the axis the
 split was made on, because the phase after it was a second hobby — and `docs/movies-tmdb.md` was
 written as `docs/games-igdb.md`'s sibling, with no new section needed in any platform file.
 `docs/tv-tmdb.md` is the films file's sibling in turn and assumes it: the provider, the client
-and the attribution are shared, so it says only where television differs.
+and the attribution are shared, so it says only where television differs. `docs/games-reviews.md`
+is `docs/games-hltb.md`'s sibling: three more providers behind a game's journal, OpenCritic,
+Steam and Wikidata.
 
 **`docs/anime-mal.md` is nobody's sibling and should be read whole.** Anime and television are
 both episodic and that is where the resemblance ends: a different provider, a different client, a
@@ -85,6 +88,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Pictures in notes** | Pasted, dropped or picked into a note, four at most, **shrunk in the browser** to a 1920 edge as WebP, and sent with the words in one request; a note can be a picture alone. A collage under the words, a lightbox Back closes, and on a card the newest note's first picture. **Kept in Postgres with the bytes apart from what a journal reads**, never on a share, and 1 GB an account but the admin's | `docs/journal.md` |
 | **IGDB search** | A bar above the board. Two queries merged and re-ranked, mods and bundles filtered. **A switch beside it searches your notes instead**, on every board: every word in any order, and a note found opens its journal at the note | `docs/games-igdb.md` |
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill **that runs itself once a day**, a pin for when it refuses, and **an arrow beside the pin that asks again**, for a game matched before it had times | `docs/games-hltb.md` |
+| **OpenCritic and Steam** | Two rows in a game's journal under HowLongToBeat's, on every column: **OpenCritic's top critics, tier and share who recommend it, and Steam's word and share positive**, each beside a link to its page. The pages are found the first time a journal asks — Steam's from IGDB, OpenCritic's from Wikidata with no matching — and an *OpenCritic ID* box pins one. **OpenCritic's key is optional**: without it the row is its link alone | `docs/games-reviews.md` |
 | **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
 | **Discover** | A wall of covers for filling a board without searching, offered from under an empty search box: New releases, Popular now, Most anticipated, Most played, one list at a time. Every list was measured against IGDB before it was chosen, and every one carries a filter a search deliberately lacks. **And a fifth made from your own board, From your ratings**: what IGDB calls like the games you finished and rated 8 or more, less your board, each tile saying *Because you rated …* | `docs/games-igdb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
@@ -96,7 +100,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
 **Four hobbies are live**, anime included, and **no new phase is queued**: the games board has
-three planned features left, and books and music are on hold. See **What is next**, which also lists
+two planned features left, and books and music are on hold. See **What is next**, which also lists
 the smaller things named but not built.
 
 ## Start here
@@ -105,7 +109,8 @@ Five things that will otherwise cost a first run an hour.
 
 - **Sign-in and metadata credentials are all required to boot.** Google *and* Discord, IGDB *and*
   TMDB *and* MAL. The host fails deliberately and names the missing key; that is `ValidateOnStart`,
-  not a bug to work around.
+  not a bug to work around. **OpenCritic's key is the one exception**: without it a game's journal
+  shows OpenCritic's link alone, and nothing refuses to boot.
 - **Use http://localhost:5173, not the API's port.** The whole sign-in has to stay on one origin, and
   the Vite proxy is what makes that true. See **The five traps** in `docs/auth.md`.
 - **Docker has to be up before the e2e suite is.** `docker compose up -d db`, and the daemon itself if
@@ -137,6 +142,11 @@ dotnet user-secrets set "Tmdb:AccessToken" "..." --project backend/src/HobbyTrac
 # There is deliberately no client secret: it signs the OAuth exchange this app never performs.
 # Client-ID-only access is undocumented by MAL and was measured working; see docs/anime-mal.md.
 dotnet user-secrets set "Mal:ClientId" "..." --project backend/src/HobbyTracker.Api
+
+# Optional: OpenCritic's key, for the scores in a game's journal. A RapidAPI key, from
+# https://rapidapi.com/opencritic-opencritic-default/api/opencritic-api — free for 200 requests a
+# day. Without it the journal shows OpenCritic's link alone. Steam and Wikidata need no key.
+dotnet user-secrets set "OpenCritic:ApiKey" "..." --project backend/src/HobbyTracker.Api
 
 # One-time: sign-in credentials, one pair per provider. Both are required. Register the apps at
 # https://console.cloud.google.com/apis/credentials and
@@ -209,7 +219,7 @@ with everything a detail call would.
 | API | ASP.NET Core 10 Web API (controllers, not minimal APIs) |
 | Data | EF Core 10 + Npgsql 10, PostgreSQL 17 |
 | Frontend | React 19 + TypeScript, Vite 8, Tailwind v4, TanStack Query, dnd-kit, and write-excel-file for the spreadsheet, loaded only when one is asked for |
-| External data | IGDB v4 (games) through Twitch; HowLongToBeat by scrape; TMDB v3 (**films and shows**, two source rows) on a static bearer; MAL v2 (anime) on a client id alone |
+| External data | IGDB v4 (games) through Twitch; HowLongToBeat by scrape; TMDB v3 (**films and shows**, two source rows) on a static bearer; MAL v2 (anime) on a client id alone; and for a game's reviews, OpenCritic through RapidAPI (**an optional key**), Steam's review summary and Wikidata's query service, both keyless |
 
 Pinned: `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3, `Microsoft.EntityFrameworkCore.Design`
 10.0.11, `EFCore.NamingConventions` 10.0.1. The `dotnet-ef` CLI must match EF Core (10.0.11).
@@ -290,6 +300,11 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
     │   │                        same node, so there is nothing for a second one to say. No auth
     │   │                        handler and no image helper: a client id never expires, and MAL
     │   │                        sends full cover URLs where TMDB sends bare paths
+    │   ├── Integrations/OpenCritic/  client and options — the key optional and stamped per
+    │   │                        request, because whether there is one decides whether there is a
+    │   │                        request at all
+    │   ├── Integrations/Steam/       client and options, keyless: the review summary alone
+    │   ├── Integrations/Wikidata/    client and options, keyless: IGDB's slug to OpenCritic's ids
     │   ├── Services/         orchestration (provider → database → DTO), and AuthService
     │   ├── Contracts/        what the API accepts and returns
     │   ├── Controllers/
@@ -385,12 +400,14 @@ mounted twice** in `docs/board.md`.
 
 **The drag gets a real browser.** jsdom has no layout and no pointer events, so a dnd-kit assertion
 there passes or fails for reasons unrelated to whether dragging a card works. `npm run test:e2e`
-starts seven servers itself — no manual setup beyond `docker compose up -d db`: a **HowLongToBeat
+starts ten servers itself — no manual setup beyond `docker compose up -d db`: a **HowLongToBeat
 stub** on :5398 with `Hltb__MinSecondsBetweenRequests=0` (see **Testing it** in
 `docs/games-hltb.md`); an **OAuth provider stub** on :5397 (see **The test harnesses** in
 `docs/auth.md`); an **IGDB stub** on :5399, a **TMDB stub** on :5396 and a **MAL stub** on :5395,
 which are what make "seed through the API, never the provider" possible at all, since `media` rows
-are *only* ever written by a search; **the API** on :5202 under `ASPNETCORE_ENVIRONMENT=E2E`; and
+are *only* ever written by a search; a **Steam stub** on :5394, an **OpenCritic stub** on :5393 and
+a **Wikidata stub** on :5392, which every game's journal reaches when it opens (see **Testing it**
+in `docs/games-reviews.md`); **the API** on :5202 under `ASPNETCORE_ENVIRONMENT=E2E`; and
 **Vite** on :5174 with `VITE_API_TARGET` pointed at :5202. Two things about that wiring fail
 quietly:
 
@@ -514,6 +531,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | Searching notes | **A *Titles \| Notes* switch beside the search box: one box, and never both at once**, starting on Titles at every load. **Every word in any order, each matched as the characters it is by `ILIKE`** — not full-text search, because notes are written in Japanese — over one board's notes, newest first, fifty at most. A card per title with its cover, and a note found opens the journal **at that note**: scrolled to, a bar beside it, its words marked and the keyboard on it. **The words wear the accent at 25%, the user's pick over bold, which puts red behind text on Ember.** Four choices before any render and four from renders on 9 October 2026. `docs/games-igdb.md`, `docs/journal.md`, `docs/design.md` |
 | Pictures in notes | **Kept in Postgres, in two tables with the bytes apart**, on every board at once. In by a paste, a drop or a picker button, **a paste carrying words being words** (Excel puts a picture of the cells beside them), and sent with the words in one request, never ahead. **Shrunk in the browser to a 1920 edge as WebP at 85**, with a small copy for the card. Four to a note, 2 MB a picture, and **1 GB an account unless `users.role` is `admin`**, the user's choice for their own, the column's first reader. A collage under the words, a lightbox Back closes, the edit box taking pictures as the compose box does, a *Pictures* count in the spreadsheet, and pictures counted in the deletion warning. **On a card, the newest note's first picture 28px tall, the user's pick over the words *A picture***. Six choices in words and seven from renders on 30 October 2026. `docs/journal.md`, `docs/data-model.md`, `docs/design.md` |
 | Picking what to play | **A *Pick* button in Backlog's header, the user's pick over a sentence under the search box**, opening a dialog: four bands of the hours a card prints (an evening, a weekend, a few weeks, a long haul) and genres left out by the one a card is painted as, then *Spin*, a wheel of up to eight covers, or *Suggest three*. *Not this one* takes a game out of the draw until the panel closes. **The whole column, never a page, and the pick made before the wheel turns**, so reduced motion shows the same pick. Backlog only, games only, never on a share, nothing offered unasked and nothing recorded. Four choices in words and six from renders of the real backlog on 25 October 2026. `docs/board.md`, `docs/design.md` |
+| A game's critics and players | **Two rows under HowLongToBeat's in the journal's top band, on every column**: OpenCritic's top critics rounded, its tier and the share who recommend it, **the user's pick** over score and tier alone, knowing it takes two lines in the drawer and three on a phone; and Steam's word with the share positive, English and all time, the store page's line. Each beside *View on OpenCritic* or *View on Steam* of its own, in a new tab. ***Not out yet* before release and *Too few reviews* after** where OpenCritic has no score; `…` while asked; **OpenCritic's link alone without a key**, which is optional; and **no Steam row for a game with no page of its own there**, collections included. **Steam's page from IGDB, OpenCritic's from Wikidata by IGDB's slug** — the plan's OpenCritic search was not taken — kept on `games` once found; the verdicts kept a day under each provider's own id, never a person's. **An *OpenCritic ID* box on every game** takes a number or a whole address, checked against OpenCritic when there is a key. Eight choices in words and five from renders with real scores on 12 November 2026, every one but OpenCritic's words the recommendation. `docs/games-reviews.md`, `docs/design.md` |
 | Asking HowLongToBeat again | **A circular arrow between the pin's box and its link, on every game, the user's pick over *Check now* in the no-estimate line.** There and then, as the pin is, and the title back; **a 409 naming an id HowLongToBeat no longer has**, because its old figures are kept. It turns in place while it checks and dims under reduced motion. ***Last checked Sep 11* under the row on a game with no figures, the user's pick over every game**, and *Checked just now* after a press, nothing more, until the drawer closes. **The backfill once a day by its own 30-day rule, the user's pick over nightly for a release's first three months**, off in Development and in both test harnesses. Two choices in words and five from renders on 3 November 2026. `docs/games-hltb.md`, `docs/design.md` |
 | Spreadsheet | **A three-sheet `.xlsx` of everything on the board** — Games as the cards show them, every playthrough, every note — from a row in a *Your data* group after Columns in Settings. Every column, every year and the calendar's titles, because the year control and Settings decide what you see, not what you have. ISO dates as real date cells, numbers as numbers, nothing a formula, and the HowLongToBeat link a plain address. **The server sends facts and the client writes the words**, through write-excel-file loaded when the row is pressed. Games only, from `HobbyDefinition.export`. Every choice but one was the recommendation, from renders on 4 October 2026; *All genres* and the link were the user's. `docs/export.md`, `docs/design.md` |
 | Year | **One control above the whole board**, defaulting to the latest year there is. Backlog and On Hold are exempt; the other three filter on the date each is about. It **follows that list both ways** — a replay brings a year into existence and undoing it takes one away — and holds only when the list empties entirely, which is the one case where following changes nothing but the label. `docs/board.md` |
@@ -565,6 +583,7 @@ here**.
 | **Options captured from `builder.Configuration` while `Program.cs` runs miss any source added afterwards** — which is exactly what `ApiFactory` does. It surfaced once as all 153 endpoint tests 500ing on an empty ClientId | `docs/auth.md` |
 | **Data Protection falls back to keys held only in memory when its directory is not writable**, and says so in a log line nobody is reading at the time — so every redeploy signs everybody out | `docs/deploy.md` |
 | **A new *required* variable in `deploy/compose.yml` does not reach a deployment that already exists.** `.env` lives on the server and is gitignored, so `${NEW_THING:?…}` fails at interpolation — before compose picks a profile or looks at a service — and nothing starts. Loud, and it leaves the running site up; the quiet version is the same variable without `:?` | `docs/deploy.md` |
+| **`OPENCRITIC_API_KEY` is that quiet version on purpose.** It has no `:?`, because the app boots without it, so a server whose `.env` predates #22 starts cleanly and shows OpenCritic's link alone on every game, with no error and no log line: nothing was asked that could fail. Set it before the deploy that carries #22 | `docs/deploy.md` |
 | **Overriding `BaseOutputPath` un-excludes every *other* output directory from the source globs**, so the build copies its siblings into itself and compounds every run. It reached 289,490 files and 1.68 GB, nesting twenty-five deep, and presented only as a build that got slower — `git status` stays clean, because `bin/` is ignored. `backend/Directory.Build.props` holds it; delete those two lines and one build reproduces it | **Tests**, above |
 | **A cache must hold a provider's answer, never the rows it became.** The e2e suite truncates `media` with `RESTART IDENTITY` between specs while the API lives on, so a cached media id names a row that is gone — or, once the sequence comes round, a different title, and the wrong game is added with no error. The Discover lists upsert on every view for exactly this reason. **And a cache in front of anything made from a board is keyed on what it asked**: under the list and the day, as the other four lists are, From your ratings would hand one person's list to the next | `docs/games-igdb.md` |
 | **`media` rows are only ever written by a search**, so a column added by a migration stays empty on the library you already have until something asks. `POST /api/games/refresh`, `POST /api/movies/refresh`, `POST /api/games/hltb/refresh` — **none has any UI, and this has now caught people twice**. HowLongToBeat's runs itself daily since #19, over only what `hltb_checked_at` says is due: a new column on titles asked last week fills in a month from now | `docs/games-hltb.md` |
@@ -576,6 +595,7 @@ here**.
 | **The test server keeps no `[RequestSizeLimit]`, and `MultipartBodyLengthLimit` limits each part of a form rather than the request.** A backend test of a route's size limit passes because something further in refused the request, and the limit was never what refused it. Prove one against Kestrel in the e2e suite, asking with `Expect: 100-continue` so the answer comes before any body is sent | `docs/journal.md` |
 | **A read that carries a pass's notes has to `ThenInclude` their pictures**, or every note in it arrives with none and nothing fails: `NoteDto.From` maps what was loaded. Eleven reads do. A new one joins them and the `ReadsThatCarryNotes` list in `NotePicturesEndpointTests`, which proves each brings its pictures and never their bytes | `docs/journal.md` |
 | **A spy on `Storage.prototype` refuses nothing in the frontend suite.** `src/test/setup.ts` supplies a `localStorage` that implements `Storage` without being one, so a test of storage refusing passes without storage ever refusing — green over the very fallback it names, which is how the hidden-columns store's first version of that test went. Spy on the instance: `vi.spyOn(localStorage, 'setItem')` | `docs/design.md` |
+| **A box that commits on blur and disables itself is blurred by the disabling, and only Firefox's blur reaches React.** Chromium fires it inside React's commit, while React's own events are off, and Firefox a microtask later. So a guard against the second commit is Firefox's alone, and the e2e suite, which runs Chromium alone, stays green without it: two requests in the user's browser and nothing red anywhere. Prove one with `--browser=firefox` | `docs/games-reviews.md` |
 | **A stub that mirrors only today's shape cannot warn you about tomorrow's.** HowLongToBeat's search endpoint became a two-segment path and a guard refused it; the suite stayed green because the stub was a single segment for as long as the site was | `docs/games-hltb.md` |
 | **A null `media.release_precision` means *nobody has asked a provider* and must read as *released*.** Every row that existed before the release calendar carries it. Get it backwards and the migration empties every user's Backlog column on deploy day — no error, no log line, just a board with its queue gone. It is `games.hltb_checked_at`'s distinction, and `Unknown` is the *different* claim that a provider was asked and had no date. **No provider mapping writes null any more**, only the absence of one, so the two states no longer share a shape | `docs/data-model.md` |
 | **`~/.claude/plans/` is swept after 30 days, without a word.** Claude Code's `cleanupPeriodDays` deletes plan files along with old transcripts, and the hosting plan this file once called the source of truth went that way. Anything meant to last goes in the repo — plans in `docs/plans/` — or, if it must stay private, in this project's auto memory, which the sweep spares | **The plan archive**, below |
@@ -592,7 +612,7 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 | `hobby_lu` | `id`, `name` — games, movies, tv, anime, books, music |
 | `source_lu` | `id`, `name`, `base_url` (null for `manual`) |
 | `media` | `id`, `hobby_id`, `source_id`, `title`, `external_id`, `cover_url`, `release_date`, `release_end`, `release_precision`, `release_status`. **The four release columns are here rather than on `games` deliberately** — the board *filters* on them, and a TPT downcast in a filter position empties it with no error |
-| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_all_styles_hours`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at` |
+| `games` | `media_id` (PK **and** FK to media), `platforms`, `developers`, `genres`, `primary_genre`, `release_year`, `hltb_all_styles_hours`, `hltb_main_story_hours`, `hltb_main_extra_hours`, `hltb_completionist_hours`, `hltb_id`, `hltb_checked_at`, `steam_app_id`, `steam_looked_for_at`, `opencritic_id`, `opencritic_looked_for_at`. **A look writes the two ids only into an empty slot**, in the statement's own `WHERE`, which is what keeps a pinned `opencritic_id` from being overwritten |
 | `movies` | `media_id` (PK **and** FK to media), `release_year`, `runtime_minutes`, `genres`, `primary_genre`, `directors` |
 | `tv_shows` | `media_id` (PK **and** FK to media), `first_air_year`, `last_air_year`, `air_status`, `number_of_seasons`, `number_of_episodes`, `episode_runtime_minutes`, `total_runtime_minutes` (**generated**), `genres`, `primary_genre`, `creators` |
 | `tv_seasons` | `media_id` + `season_number` (composite PK), `name`, `episode_count`, `air_date` |
@@ -743,11 +763,12 @@ shuffled.
         row, and nothing opened from one. One filing for a column and its list, and a share's
         chart as it was. The rating on a row and dated replays were the user's picks (PR #91,
         deployed)
-      - [ ] a game's OpenCritic and Steam pages — from a game in the backlog, a quick look at
-        what people say about it, or OpenCritic's alone for a game not on Steam; not Metacritic.
-        **Measured and workshopped on 12 November 2026**: two rows in the journal under
-        HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it, the user's
-        pick, and Steam's word and share positive, each beside a link to its page
+      - [x] a game's OpenCritic and Steam pages — two rows in the journal under HowLongToBeat's:
+        OpenCritic's top critics, tier and share who recommend it, the user's pick, and Steam's
+        word and share positive, each beside a link to its page. Measured before the workshop,
+        which moved all three providers: Steam's review route is deprecated, OpenCritic's pages
+        may not be read, and Wikidata finds 61 of the board's 91 OpenCritic pages with no
+        matching. OpenCritic's key is optional. Built 12 November 2026, not yet merged
       - [ ] hiding a game from Discover — the user's own filter on From your ratings: a game, or
         perhaps its whole series as IGDB files it, never offered again, starting with the
         Horizon games. Kept per account; renders first for where the control goes

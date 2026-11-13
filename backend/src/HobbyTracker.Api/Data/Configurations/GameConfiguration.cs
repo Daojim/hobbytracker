@@ -36,7 +36,21 @@ public class GameConfiguration : IEntityTypeConfiguration<Game>
                 (hltb_main_extra_hours    IS NULL OR hltb_main_extra_hours    > 0) AND
                 (hltb_completionist_hours IS NULL OR hltb_completionist_hours > 0)
                 """);
+
+            // Both are numbers handed out from one upwards, and the journal builds a link from
+            // each. Nought is what a parse that failed quietly would leave behind.
+            table.HasCheckConstraint(
+                "ck_games_review_ids_positive",
+                """
+                (steam_app_id  IS NULL OR steam_app_id  > 0) AND
+                (opencritic_id IS NULL OR opencritic_id > 0)
+                """);
         });
+
+        // Under the provider's own name: OpenCritic is one word, so the naming convention's
+        // open_critic_id would be a column nobody thought to search for.
+        builder.Property(g => g.OpenCriticId).HasColumnName("opencritic_id");
+        builder.Property(g => g.OpenCriticLookedForAt).HasColumnName("opencritic_looked_for_at");
 
         // Native Postgres arrays. Npgsql maps List<string> to text[] with no converter and
         // no join table, and supplies the value comparer EF needs to detect edits.

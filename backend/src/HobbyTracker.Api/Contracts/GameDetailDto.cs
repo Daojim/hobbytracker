@@ -46,6 +46,19 @@ public sealed record GameDetailDto(
     /// reason to press for another.
     /// </summary>
     DateTimeOffset? HltbCheckedAt,
+
+    /// <summary>
+    /// OpenCritic's number for the game, found or pinned, or null for none yet. The journal's
+    /// OpenCritic box holds it and its link is built from it, so both are drawn the moment the
+    /// journal opens, while what OpenCritic says is still being asked.
+    /// </summary>
+    int? OpenCriticId,
+
+    /// <summary>
+    /// The game's Steam store page, or null for none. The journal's Steam row is drawn only when
+    /// there is one: a game with no page of its own on Steam has no Steam row.
+    /// </summary>
+    int? SteamAppId,
     IReadOnlyList<LogEntryDto> LogEntries)
 {
     public static GameDetailDto From(
@@ -71,5 +84,7 @@ public sealed record GameDetailDto(
 
         game.HltbId,
         game.HltbCheckedAt,
+        game.OpenCriticId,
+        game.SteamAppId,
         [.. entries.Select(LogEntryDto.From)]);
 }

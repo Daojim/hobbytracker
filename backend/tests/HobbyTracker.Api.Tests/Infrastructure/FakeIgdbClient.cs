@@ -186,6 +186,62 @@ public sealed class FakeIgdbClient : IIgdbClient
         ]);
     }
 
+    // -------------------------------------------------------------- a game's pages elsewhere
+
+    /// <summary>Every id the question for a game's slug and Steam page was asked about, in order.</summary>
+    public List<int> StoreLinkLookups { get; } = [];
+
+    /// <summary>
+    /// What that question finds, per IGDB id. An id absent from here is one IGDB does not know.
+    /// Kept apart from <see cref="ById"/>, because the real question asks for other fields than a
+    /// refresh does and a test should say which answer it is setting up.
+    /// </summary>
+    public Dictionary<int, IgdbGame> StoreLinks { get; } = [];
+
+    public Task<IgdbGame?> GetStoreLinksAsync(int id, CancellationToken cancellationToken)
+    {
+        StoreLinkLookups.Add(id);
+
+        if (ThrowOnNextCall is { } exception)
+        {
+            ThrowOnNextCall = null;
+            throw exception;
+        }
+
+        return Task.FromResult(StoreLinks.GetValueOrDefault(id));
+    }
+
+    /// <summary>
+    /// A game's slug and Steam pages, the way IGDB answers the question for them: the store page as a
+    /// <c>websites</c> row of Steam's type, and Steam's ids as <c>external_games</c> rows of Steam's
+    /// source. A Steam id is a string on the wire, as it is on IGDB.
+    /// </summary>
+    public static IgdbGame Links(
+        int id,
+        string? slug,
+        int? storePage = null,
+        params int[] steamIds) => new()
+        {
+            Id = id,
+            Slug = slug,
+            Websites = storePage is { } app
+                ?
+                [
+                    new IgdbWebsite { Url = "https://example.com/", Type = 1 },
+                    new IgdbWebsite { Url = $"https://store.steampowered.com/app/{app}/", Type = 13 },
+                ]
+                : [new IgdbWebsite { Url = "https://example.com/", Type = 1 }],
+            ExternalGames =
+            [
+                new IgdbExternalGame { Uid = "1558393671", ExternalGameSource = 5 },
+                .. steamIds.Select(steam => new IgdbExternalGame
+                {
+                    Uid = steam.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    ExternalGameSource = 1,
+                }),
+            ],
+        };
+
     public void SetResults(string search, params IgdbGame[] games) =>
         Results[search] = [.. games];
 

@@ -2,7 +2,10 @@ using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Integrations.Mal;
+using HobbyTracker.Api.Integrations.OpenCritic;
+using HobbyTracker.Api.Integrations.Steam;
 using HobbyTracker.Api.Integrations.Tmdb;
+using HobbyTracker.Api.Integrations.Wikidata;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -30,7 +33,10 @@ public sealed class ApiFactory(
     TimeProvider clock,
     string timeZone = "America/New_York",
     string googleClientId = "test-google-client",
-    string? publicOrigin = null)
+    string? publicOrigin = null,
+    FakeSteamClient? steam = null,
+    FakeOpenCriticClient? openCritic = null,
+    FakeWikidataClient? wikidata = null)
     : WebApplicationFactory<Program>
 {
     /// <summary>
@@ -108,6 +114,20 @@ public sealed class ApiFactory(
 
             services.RemoveAll<IHltbClient>();
             services.AddSingleton<IHltbClient>(hltb);
+
+            // The journal's OpenCritic and Steam rows, and the Wikidata question that finds an
+            // OpenCritic page. Always faked, defaulting to fakes of their own for the tests that
+            // build a host without naming them, so no test can reach a real provider. None needs a
+            // line in the configuration above: OpenCritic's key is the one optional credential,
+            // and Steam and Wikidata have none.
+            services.RemoveAll<ISteamClient>();
+            services.AddSingleton<ISteamClient>(steam ?? new FakeSteamClient());
+
+            services.RemoveAll<IOpenCriticClient>();
+            services.AddSingleton<IOpenCriticClient>(openCritic ?? new FakeOpenCriticClient());
+
+            services.RemoveAll<IWikidataClient>();
+            services.AddSingleton<IWikidataClient>(wikidata ?? new FakeWikidataClient());
 
             // The queue is faked and the worker that drains it is taken out entirely. Left in,
             // it would look up titles on a background thread while tests assert about the rows
