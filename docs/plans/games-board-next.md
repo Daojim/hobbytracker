@@ -48,11 +48,11 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
-| 22 | A game's OpenCritic and Steam pages | M | **Built 12 November 2026, the day it was workshopped, tests first, and not yet merged**; the full e2e suite went 231 green on the 13th, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. **Deploying needs `OPENCRITIC_API_KEY` in the server's `.env` first.** See its section |
+| 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
 | 23 | Hide a game from Discover | S–M | **Planned 8 November 2026**, at the user's request, once #17 was working on the real board: a game, or perhaps its whole series as IGDB files it, never offered again, starting with the Horizon games. Kept per account and applied on the server. Renders first for where the control goes. See its section |
 | 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. It changes what a pass's date can be, so **a workshop of its own comes first**. See its section |
 
-Production runs `de2fe65`'s code, which was `main` on 8 November 2026. Deploying is the runbook in
+Production runs `50b1245`'s code, which was `main` on 13 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -3616,16 +3616,16 @@ which is one column everywhere, and turned the desktop case red instead.
 
 ---
 
-## 22. A game's OpenCritic and Steam pages · built
+## 22. A game's OpenCritic and Steam pages · shipped
 
 **Planned 7 November 2026**, out of #17's workshop, when the user set IGDB's scores aside, with **a
 workshop of its own first**, because it is a new outside connection and the user has held off
 others. **Workshopped 12 November 2026** in two rounds and **built the same day**, tests first; run
-end to end on the 13th, and not yet merged. This is the reason for it, in the user's words: *"It
-would be convenient if I had a game in my backlog and I wanted to quickly take a look at the game's
-OpenCritic or Steam page to see what people are saying about the game. If the game doesn't have a
-Steam port, then only an OpenCritic page would be fine."* **Not Metacritic**, which the user does
-not care about.
+end to end on the 13th, and shipped and deployed that morning (PR #95). This is the reason for it,
+in the user's words: *"It would be convenient if I had a game in my backlog and I wanted to quickly
+take a look at the game's OpenCritic or Steam page to see what people are saying about the game. If
+the game doesn't have a Steam port, then only an OpenCritic page would be fine."* **Not
+Metacritic**, which the user does not care about.
 
 **What.** From a game, a way to its OpenCritic page and its Steam page, and perhaps what each
 says: OpenCritic's critics' average, Steam's review summary (*Very Positive*). A game with no Steam
@@ -3872,10 +3872,11 @@ OpenCritic's search, was not taken: Wikidata was.*
 ### Built
 
 Built on 12 November 2026, the day it was workshopped, tests first, in the order above, on
-`opencritic-and-steam`, and run end to end on the 13th. **Not yet merged or deployed.** The
-write-up is `docs/games-reviews.md`, `docs/games-hltb.md`'s sibling with a row of its own in
-CLAUDE.md's map, with the look in `docs/design.md`, **A game's critics and players**, the four
-columns in `docs/data-model.md`, the two routes in `docs/api.md`, and the key in `docs/deploy.md`.
+`opencritic-and-steam`, run end to end on the 13th, and **shipped and deployed at about 06:13
+Eastern that day** (PR #95). The write-up is `docs/games-reviews.md`, `docs/games-hltb.md`'s
+sibling with a row of its own in CLAUDE.md's map, with the look in `docs/design.md`, **A game's
+critics and players**, the four columns in `docs/data-model.md`, the two routes in `docs/api.md`,
+and the key in `docs/deploy.md`.
 
 - **The providers**, each a client with its options and its exception. `SteamClient` asks
   `GetAppReviews` by `input_json` and reads the summary alone, an app Steam does not know read off
@@ -3981,10 +3982,31 @@ narrower, which is desktop Firefox's scrollbar inside the drawer.
   *Armored Core VI*'s 93.6% is 93% on its page and 94% in the journal, and 22 of the board's 54
   shares differ by a point. Told so on 13 November 2026, the user kept rounded.
 
-### Left
+### The deploy, and what it left
 
-1. **The deploy**, once the pull request is merged. **`OPENCRITIC_API_KEY` goes in the server's
-   `.env` first** (`docs/deploy.md`), or production shows OpenCritic's link alone, in silence.
+- **Deployed at about 06:13 Eastern on 13 November 2026**, `de2fe65` to `50b1245`, carrying #94's
+  docs and the brief. **The key went in first**: `OPENCRITIC_API_KEY` moved from the maintainer's
+  user-secrets into the server's `.env` without crossing a screen, every other line of the file
+  unchanged by hash, and OpenCritic answered it with a 200 when asked from the server. api and
+  caddy were both recreated, api first, and no base image moved; the deploy took 26 seconds.
+- **Proved from outside.** The bundle went `index-DIeaRrom.js` to `index-Bnpl3GSK.js`, where a local
+  build said `index-BSnT3c6q.js`, and the stylesheet kept `index-B0uun50f.css`, as the local build
+  predicted, since no class was new. In the script *View on OpenCritic*, *View on Steam*, *Too few
+  reviews*, `/reviews` and `recommend` went 0 to 1, *OpenCritic ID* and `/opencritic` 0 to 2, and
+  *Not out yet* 1 to 2, each the local build's count. `GET /api/games/1/reviews` and `PUT
+  /api/games/1/opencritic` went an empty 404 to a 401 signed out, and `/api/auth/me` answered
+  `null` with a 200.
+- **Proved inside.** `AddReviewPages` is the newest migration production has, where
+  `AddNotePictures` was, and the API's log named it as it applied it. In the running DLL
+  `GameReviewService`, `PinOpenCriticAsync` and `GetStoreLinksAsync` went 0 to 2 and
+  `FillOpenCriticAsync` 0 to 1, and the API container had the key, where it had been empty, checked
+  with `test -n` so nothing printed. The startup log had no failure and no *switched off* line.
+- **The restart re-armed both timers, and both ran five minutes on**: the HowLongToBeat backfill
+  queued 0 titles, and the release sweep brought 16 unreleased titles up to date. The API's log
+  had no warning, failure or critical line in its first fifteen minutes.
+- **The user's own check**: open a game's journal on the live site, and see a score beside *View on
+  OpenCritic*. No session here can sign in to it. The first journal opened on each game is the one
+  that finds its pages, asking IGDB and Wikidata, so the first open of each is a moment slower.
 
 ### Things to get right
 
