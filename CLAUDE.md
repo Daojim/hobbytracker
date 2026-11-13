@@ -768,7 +768,8 @@ shuffled.
         word and share positive, each beside a link to its page. Measured before the workshop,
         which moved all three providers: Steam's review route is deprecated, OpenCritic's pages
         may not be read, and Wikidata finds 61 of the board's 91 OpenCritic pages with no
-        matching. OpenCritic's key is optional. Built 12 November 2026, not yet merged
+        matching. OpenCritic's key is optional, and production's was set before the deploy (PR
+        #95, deployed)
       - [ ] hiding a game from Discover — the user's own filter on From your ratings: a game, or
         perhaps its whole series as IGDB files it, never offered again, starting with the
         Horizon games. Kept per account; renders first for where the control goes

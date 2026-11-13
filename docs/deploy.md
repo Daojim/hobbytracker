@@ -98,6 +98,11 @@ else in the suite is quietly running against an origin it never mentioned.
   compose picked a service. **Set `OPENCRITIC_API_KEY` in the server's `.env` before the deploy that
   carries #22**, and prove it by opening a game's journal on the public site: a score beside *View on
   OpenCritic*, not the link alone. The key is the maintainer's, from their RapidAPI account.
+  **Production's went in on 13 November 2026, before #22's deploy**, placed by the session at the
+  maintainer's request rather than handed over: a script read it from the maintainer's
+  user-secrets and gave it to the server on stdin, and printed only counts, a hash of every other
+  line of `.env` before and after, and the 200 OpenCritic answered when asked from the server with
+  it. After the deploy the API container had it, checked with `test -n` so nothing printed.
 - **Data Protection keys have to outlive the container.** The session cookie is self-contained and
   encrypted with them, and a container filesystem goes with the container — so without somewhere
   durable, every redeploy signs **everybody** out, and there are a lot of redeploys.
