@@ -770,9 +770,9 @@ shuffled.
         may not be read, and Wikidata finds 61 of the board's 91 OpenCritic pages with no
         matching. OpenCritic's key is optional, and production's was set before the deploy (PR
         #95, deployed)
-      - [ ] hiding a game from Discover — the user's own filter on From your ratings: a game, or
-        perhaps its whole series as IGDB files it, never offered again, starting with the
-        Horizon games. Kept per account; renders first for where the control goes
+      - [ ] hiding a game from Discover — workshopped 13 November 2026 and not built: that one
+        IGDB entry, never its series or versions, off every Discover list and kept per account;
+        an eye on the cover under the pointer. The plan's section holds the picks
       - [ ] a game finished long ago — added with the year it was finished, and perhaps its
         hours, filed under that year and shown as it: never a made-up day, and never this year.
         It changes what a pass's date can be, so a workshop of its own comes first
