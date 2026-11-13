@@ -11,6 +11,8 @@ in notes, was added on 30 October 2026 at the user's request, and a nineteenth a
 an estimate that catches up and the titles a column's header leaves out, on 3 November 2026. A
 twenty-first, the titles behind a rating on the Stats page, followed on 4 November 2026, and a
 twenty-second, a game's OpenCritic and Steam pages, came out of #17's workshop on 7 November 2026.
+A twenty-third and a twenty-fourth were asked for on 8 November 2026, the morning #17 shipped:
+hiding a game from Discover, and adding a game finished long ago without inventing its dates.
 CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
@@ -46,7 +48,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 19 | An estimate that catches up | S–M | **Shipped and deployed 3 November 2026** (PR #87), built tests first the day it was planned and workshopped, at the user's request, after the full e2e suite went 213 green. A circular arrow beside the journal's ID box, turning while it checks, on every game; *Last checked Sep 11* under the row on a game with no figures; and the backfill run on a timer by its own 30-day rule. Three of the user's picks were over the recommendation. See its section |
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
-| 22 | A game's OpenCritic and Steam pages | M | **Planned 7 November 2026**, out of #17's workshop, at the user's request: from a game in the backlog, a quick way to what people say about it on OpenCritic and Steam, or OpenCritic alone for a game not on Steam. Not Metacritic. A new outside connection, so **a workshop of its own comes first**. See its section |
+| 22 | A game's OpenCritic and Steam pages | M | **Workshopped 12 November 2026, not built.** Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API is a free key; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. Round one, eight choices in words, all the recommendation; round two, five from renders with real scores, four the recommendation and OpenCritic's words the user's pick. The picked combination was re-rendered at every journal width. **Ready to build**, in the order its section gives. See its section |
+| 23 | Hide a game from Discover | S–M | **Planned 8 November 2026**, at the user's request, once #17 was working on the real board: a game, or perhaps its whole series as IGDB files it, never offered again, starting with the Horizon games. Kept per account and applied on the server. Renders first for where the control goes. See its section |
+| 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. It changes what a pass's date can be, so **a workshop of its own comes first**. See its section |
 
 Production runs `de2fe65`'s code, which was `main` on 8 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -3612,7 +3616,7 @@ which is one column everywhere, and turned the desktop case red instead.
 
 ---
 
-## 22. A game's OpenCritic and Steam pages · planned
+## 22. A game's OpenCritic and Steam pages · workshopped, not built
 
 **Planned 7 November 2026**, out of #17's workshop, when the user set IGDB's scores aside. Nothing
 is built, and **a workshop of its own comes first**: it is a new outside connection, and the user
@@ -3640,7 +3644,218 @@ version shows OpenCritic's alone.
 - **OpenCritic's API is sold through RapidAPI, with a key.** A community project puts the free tier
   at 200 requests and 25 searches a day. Not confirmed; the API's pricing page is where to check.
 
+### Measured at pickup, 12 November 2026
+
+Over the user's board as #19's workshop saved it from production on 3 November: 91 titles. The
+scripts and every answer are in the gitignored `frontend/workshop.local/opencritic-steam/`.
+
+**Steam**
+
+- **`appreviews` is deprecated, and answers every app with a 302 to the store's home page**,
+  whatever it is asked. Its Steamworks page says so and names the replacement,
+  `IUserReviewsService/GetAppReviews` on `api.steampowered.com`: **no key**, the question in
+  `input_json`, the summary (`review_score_desc`, `total_positive`, `total_reviews`) on the first
+  page only, keyless answers cached for up to ten minutes, and a 429 past a rate limit every
+  keyless caller shares. It answered all 83 apps the board names, its own and related ones, at
+  one request every two seconds with no 429.
+- **Its default is the line the store page shows an English reader.** For *Hollow Knight* the
+  default, English reviews by people who bought it on Steam, counted 186,188, and the store page
+  said *97% of the 186,389 user reviews in your language*. Every language counts 508,559.
+- **What it says, by that default, for the 64 with a page of their own**: Overwhelmingly Positive
+  21, Very Positive 28, Mostly Positive 4, Mixed 1, and *No user reviews* for 10, every one of them
+  a Backlog title not out. English and every language name a different verdict for 8. The widest
+  is *Monster Hunter Wilds*: Mostly Positive, 71% of 86,506, in English, and Mixed, 53% of 204,081,
+  in every language.
+- **IGDB names a Steam page on the title's own entry for 64 of the 91**: in `external_games`
+  (source 1) for 62, and only in `websites` (type 13) for 2. **Where an entry names two apps,
+  which eight do, the `websites` row is the store page every time.** The other is a demo (*Until
+  Then*), a playtest (*Nine Sols*), the Japanese release sold as an app of its own (three Trails
+  games), or an old id Steam forwards to the store page (three). *The Witcher 3 Remastered* names
+  the original's page, because on Steam the remaster is an update to it.
+- **9 of the 27 with no page of their own are sold on Steam inside a collection**, which IGDB
+  files as a bundle with a Steam id of its own: four Castlevanias in the Anniversary Collection,
+  *Circle of the Moon* and *Aria of Sorrow* in the Advance Collection, *Dawn of Sorrow* and *Order
+  of Ecclesia* in the Dominus Collection, and *Metal Gear Solid* in its Master Collection Version.
+  A tenth, *Metal Gear Solid 4*, has a page through its remaster. The rest are console games, or
+  not out.
+
+**OpenCritic**
+
+- **Its API refuses without a key**: *"API key is required. Go to
+  https://rapidapi.com/opencritic-opencritic-default/api/opencritic-api to sign up to use the
+  OpenCritic API."*
+- **RapidAPI's pricing**, rendered in Chromium, since a plain fetch of the page gets its title
+  alone: **Basic, $0 a month, 25 searches and 200 requests a day, hard limits, 4 a second.** Ultra
+  is $19 a month for 4,000 searches and 2,000 requests, and Mega $50 for no limit. Whether Basic
+  asks for a card is not on the page. The community figure above was right.
+- **Its spec** (SwaggerHub, 1.0.0, host `opencritic-api.p.rapidapi.com`): `/game/search?criteria=`
+  answers an id, a name and a `dist`; `/game/{id}` answers `topCriticScore` and
+  `percentRecommended` (-1 with too few reviews), `tier` (blank then), `numReviews`, `url`, and
+  OpenCritic's own `steamId`.
+- **Reading OpenCritic's pages is forbidden.** The pages carry the score, but the owner's terms,
+  Valnet's, last updated 12 January 2026, forbid scraping and the automatic download or
+  extraction of any content "in any form and by any means". A score comes through the API or not
+  at all. A link is not that.
+- **Wikidata ties 61 of the 91 to an OpenCritic id, with no key and no matching**: one item
+  carries IGDB's slug (P5794) and OpenCritic's id (P2864) both. Completed 48 of 64, On Hold 4 of
+  4, Backlog 7 of 20. Of the 30 it does not: 10 are not out, 11 came out before 2015, and **9 are
+  later versions**, the ports, remakes and remasters IGDB slugs with `--1` or `--2`, which Wikidata
+  files under the original if at all: *Paper Mario: The Thousand-Year Door*, *Ghost Trick*, four
+  Castlevania ports among them. OpenCritic is likely to have most of those 9, so they are the real
+  gap.
+- **Two titles have several OpenCritic ids there**, an edition or a release each: *NieR:
+  Automata* (the game, *Become as Gods*, *Game of the YoRHa*) and *Trails Through Daybreak* (*Kuro
+  no Kiseki*, and the English release).
+- **A link needs only OpenCritic's number**: `https://opencritic.com/game/{id}/-` is the page, any
+  slug serves it, and `/game/{id}` alone is a 404. Wikidata writes its own link that way.
+
+**Together**, 54 of the 91 have both, 10 a Steam page alone, 7 an OpenCritic id alone, and 20
+neither. By column, Steam pages and OpenCritic ids: Backlog 15 and 7 of 20, Playing 1 and 1 of 2,
+On Hold 2 and 4 of 4, Completed 46 and 48 of 64, Dropped 0 and 1 of 1.
+
+**Two checks made for round one's second half**: Steam's own store search, asked for the 27 with
+no page of their own, found no game IGDB missed, only the collections and *Metal Gear Solid 4*'s
+remaster; and the store page's two lines are counted differently. *All Reviews* is English
+(*Armored Core VI*: 93% of 41,302, where `GetAppReviews` said 41,283) and *Recent Reviews* is every
+language over 30 days (90% of 237, where a 30-day `date_range` in every language said 231).
+
+### Round one, 12 November 2026: what it does, in words
+
+Eight choices asked before anything was drawn, four at a time, with the measurements above in
+each question. **All eight were the recommendation.**
+
+| choice | picked | against |
+|---|---|---|
+| what shows | **both verdicts and both links**: OpenCritic's top-critic score and tier, Steam's review summary, each beside a link to its page | Steam's verdict and both links, no key; links only; verdicts with no links |
+| where | **the journal's top band**, two rows under HowLongToBeat's, where anime's MAL rating and *View on MyAnimeList* already sit | a card's `⋯` menu, links only; both |
+| which columns | **every column**, wherever the journal opens | Backlog only, the user's words; Backlog, Playing and On Hold |
+| finding OpenCritic's page | **Wikidata, and a pin** where it has none | Wikidata then OpenCritic's search, refusing when unsure; OpenCritic's search alone, the plan's |
+| OpenCritic's key | **optional**: without it the row is its link alone, and nothing refuses to boot | required to boot, as IGDB, TMDB and MAL are |
+| stored or asked | **the ids kept on the game** once found, a migration; **the verdicts asked when a journal opens and kept a day** | both kept and refreshed daily, as HowLongToBeat's figures are; everything asked on every open |
+| a game with no Steam page of its own | **its own page only**: 64 of the 91 get a row | the collection's or the remaster's page, named; its own page and a pin |
+| which Steam reviews | **English, all time**, the store page's main line for an English reader | every language, all time; both of the store page's lines |
+
+What follows from them, and is not a choice:
+
+- **A missing key is a tested path, not an error.** The OpenCritic row is its link alone, from
+  Wikidata's id or a pin, and the score arrives once a key is set. Nothing about boot changes, so
+  `deploy/compose.yml` gains the variable without `:?`, and the trap in **What fails silently**
+  about a new required variable does not apply. Say so in `docs/deploy.md`.
+- **Several OpenCritic ids for one title** (*NieR: Automata*'s three, *Trails Through Daybreak*'s
+  two): the one whose OpenCritic name is IGDB's, which is the game in both, and the pin wins over
+  any rule. Without a key the names cannot be read, so the rule needs one; what the row does
+  without a key and with several ids is a question for the build.
+- **The pin is kept whichever way the rest goes**, so the migration holds a pinned OpenCritic id
+  as well as the found ones, told apart as HowLongToBeat's are.
+- **Wikidata is a third outside service**, keyless and read-only, with a User-Agent of its own.
+  A stub in the e2e suite and a fake in the backend suite, as every provider has.
+
+### Round two, 12 November 2026: how it looks
+
+Drawn by the real drawer around a prototype of the two rows, on the user's board as #19 saved it,
+with Steam's verdicts measured that day and OpenCritic's read through the user's own key:
+https://claude.ai/artifact/2sCank5KRdqmTsMPc53PAF. Five choices, one varying at a time. **Four
+were the recommendation, and the user picked OpenCritic's words over it**, knowing the cost the
+option stated.
+
+| choice | picked | against |
+|---|---|---|
+| OpenCritic's words | **`85 · Mighty · 91% recommend`**: the top critics' score rounded, OpenCritic's tier, and the share of critics who recommend it, the user's pick. Two lines in the drawer, one in the modal, three on a phone | `85 · Mighty`, the recommendation, one line in the drawer; `85 · 91% of critics recommend` |
+| Steam's words | **`Very Positive · 94%`**: Steam's word and the share positive, rounded. *Very Positive* covers 84% to 95% on the user's board | the word alone; the word, the share and the count, two lines in the drawer on *The Witcher 3 Remastered* |
+| the way to the page | **`View on OpenCritic` and `View on Steam`**, links of their own after the words, in a new tab with `noreferrer`, as HowLongToBeat's row and MAL's say it | the words themselves the link, which kept both rows to one line on a phone |
+| the pin | **an `OpenCritic ID` box on every game**, HowLongToBeat's control one row up, empty where there is no id, taking the number or a whole pasted OpenCritic address | a box only where there is no id, with *Change* otherwise |
+| a game with no score | ***Not out yet* before release, *Too few reviews* after** | *No score yet* for both, which is wrong for *Rabbit and Steel*; *Too few reviews* for both |
+
+**Shown and not chosen, and built as drawn**: a verdict on its way is `…` with the link already
+there; with no key, OpenCritic's row is its link alone; no Steam page, no Steam row; and Steam's own
+*No user reviews* for a game not out.
+
+**The picked combination was re-rendered before building**, on all six titles at every width the
+journal has: the drawer at 1440 (a 407px band) and from 1536 (471px), the modal (622px) and a phone
+(365px), light and dark. OpenCritic's row took two lines in both drawers, one in the modal and
+three on a phone, as measured before the pick, and nothing else moved. On a phone the row stacks
+the box, the words and the link with the label centred between them, as HowLongToBeat's row already
+does. **Those shots are what the build is compared with**, pixel for pixel:
+`workshop.local/opencritic-steam/shots/picked/`.
+
+What the real scores found:
+
+- **All 64 ids answered.** By title, 57 of the 61 have a score, from 76 to 95, 38 Mighty and 19
+  Strong. Four have none, `-1` with a blank tier: three not out (*Persona 4 Revival*, *Fable*,
+  *Stranger Than Heaven*) and **one out since May 2024 with three critic reviews, *Rabbit and
+  Steel***, which a plain *No score yet* would misdescribe. That added a fifth choice.
+- **The name rule picks the game where Wikidata gives several ids**: *Nier: Automata*, 123 top
+  critics, over two editions (22 and 10), and *Trails Through Daybreak*, 31, over *Kuro no Kiseki*,
+  3. Taking the most top critics would pick the same two.
+- **OpenCritic's own `steamId` came back empty on all 64**, so Steam's id comes from IGDB.
+- **RapidAPI's quota headers**: `x-ratelimit-requests-remaining` and `x-ratelimit-searches-
+  remaining`, each with a `-reset` in seconds. The run left 134 of the day's 200.
+- **Critics and players differ, which is the argument for both rows**: *Final Fantasy VII
+  Rebirth* is 91, Mighty, on OpenCritic and Mostly Positive, 78%, on Steam.
+
+- **The harness is `frontend/workshop.local/opencritic-steam/`**, #19's reused: `vite.config.mjs`
+  swaps `./HltbPin` for `ReviewRowsProto.tsx` only when `EntryDrawer` imports it, so the real
+  drawer draws the real HowLongToBeat row and then the two new rows. Vite on 5183; `stage.mjs`
+  answers `/api/` from #19's saved board; `shoot.mjs` shoots every option and measures each row's
+  lines. With the key set: `node opencritic.mjs` (every Wikidata id through `/game/{id}`, about 64
+  of the day's 200 requests), then `node build-reviews.mjs`, then the shoot again.
+- **The first shots found a structural cost before any look was judged.** At 390 every row with a
+  `View on …` link wraps it onto a second line, and the label sits between the two. The page showed
+  it beside the words-as-link option, which kept both rows to one line, and the user kept the
+  links of their own.
+- **The first line count was wrong**: counting text fragments' tops read one line as three,
+  because the ID box is taller than the words beside it. The shots count flex lines. A Playwright
+  geometry check in the build should count the same way.
+- **The prototype needed one fact the plan did not list**: whether a title is out, for *Not out
+  yet*. The build reads it from `released`, which the journal's title already carries.
+
+### The build, in order
+
+Tests first in every step, each shown red, and each rule's test checked by planting its fault.
+
+1. **The providers, each behind a client of its own and a stub.**
+   - `Integrations/Steam/`: `GetAppReviews` with `input_json` (`appid`, `num_per_page: 1`), English
+     by default, reading the summary alone. A 429 or a failure is the provider unhappy, a 502 as
+     IGDB's is.
+   - `Integrations/OpenCritic/`: `/game/{id}` on `opencritic-api.p.rapidapi.com`, with
+     `X-RapidAPI-Key` and `X-RapidAPI-Host`. **An optional option**: no key, no request, and nothing
+     refuses to boot, so `ApiFactory` needs no entry and the suite runs both ways.
+   - `Integrations/Wikidata/`: one SPARQL question, IGDB's slug (P5794) to OpenCritic's ids (P2864),
+     with a User-Agent naming the app.
+   - IGDB's question for a game's slug and Steam id: `fields slug, websites.url, websites.type,
+     external_games.uid, external_games.external_game_source`. The `websites` row of type 13 first,
+     then a lone `external_games` row of source 1. **`category` on either is deprecated** and would
+     find nothing while looking right, `game_type`'s trap again.
+   - The e2e harness gains a stub for each of the three, as IGDB, TMDB and MAL have, serving every
+     endpoint its client calls.
+2. **The ids on `games`**: a migration adding `steam_app_id` and `opencritic_id`, and when each was
+   looked for, so a title found to have none is not asked on every open. Found the first time a
+   journal asks, then kept. A pin replaces the OpenCritic id and no later look overwrites it, so
+   the two have to be told apart. **`GameDetail` carries both ids**, since they are facts about the
+   game.
+3. **The verdicts**: one route answering both, asked when the journal opens and each kept a day
+   under the provider's own id, never under a person (**What fails silently**: a cache in front of
+   anything made from a board is keyed on what it asked). Where Wikidata gives several OpenCritic
+   ids, the one whose name is IGDB's. OpenCritic's `-1` arrives as no score.
+4. **The pin's route**, on HowLongToBeat's shape: `PUT` a number, or a whole OpenCritic address
+   read for it. A number OpenCritic does not know is refused in words, as a HowLongToBeat pin is,
+   and without a key a pin is kept unchecked.
+5. **The rows**, in the drawer's top band under HowLongToBeat's, on every column, following the
+   data rather than the hobby: the words in `hobbies/games.ts`, the five picks exactly, `…` while
+   asked, and the link alone without a key. **Compared pixel for pixel with the picked prototype's
+   shots**, as #17's and #21's builds were. Measured in Firefox too, the user's desktop browser,
+   with Playwright's Firefox.
+6. **The deploy**: `OpenCritic__ApiKey: ${OPENCRITIC_API_KEY:-}` in `deploy/compose.yml`, without
+   `:?`, in `.env.example`, and set in the server's `.env` before the deploy that carries it, or
+   production shows OpenCritic's link alone. `docs/deploy.md` says so.
+7. **The docs**: the three providers' file (a `docs/games-reviews.md` would be HowLongToBeat's
+   sibling, and the map in CLAUDE.md gains its row), `docs/api.md` for the routes, and
+   `docs/history.md` when it ships.
+
 ### Decide at pickup
+
+*All five decided on 12 November 2026: see **Round one**. The plan's own recommendation on matching,
+OpenCritic's search, was not taken: Wikidata was.*
 
 - **Links, what each says, or both.** A link needs an id; what a page says needs a request to it.
 - **Where it shows**: the journal beside HowLongToBeat's figures, a card's `⋯` menu, or both; on
@@ -3656,10 +3871,144 @@ version shows OpenCritic's alone.
 
 - **Measure Steam's review endpoint before relying on it.** `store.steampowered.com/appreviews/
   {appid}?json=1` is believed to answer with no key and a summary; nothing here has asked it yet.
+  *Measured on 12 November 2026: it is deprecated, and `GetAppReviews` replaces it. See
+  **Measured at pickup**.*
 - **OpenCritic's daily allowance is small**, so a game is searched for once and its answer kept.
 - **A new provider is a stub in the e2e suite and a fake in the backend suite**, as IGDB, TMDB,
   MAL and HowLongToBeat each have, and an `ApiFactory` entry if its option is required, since a
   missing required option refuses to boot the whole suite.
+
+---
+
+## 23. Hide a game from Discover · planned
+
+**Planned 8 November 2026**, at the user's request, the morning #17 shipped and was checked on
+the real board. Nothing is built. In the user's words: *"Add a way to hide a game from this page.
+For example, I do not like the Horizon series, so I don't want to see it as well as do some of my
+own filtering that way."*
+
+**What.** On a Discover tile, a way to say *not this one*, so it is never offered again, and,
+since the user's example is a series, perhaps a way to say *none of these*. Kept until taken back.
+
+**What is known**, measured on 8 November 2026:
+
+- **The user's list holds two Horizon games**: *Horizon Zero Dawn* at #1 and *Horizon Forbidden
+  West* at #80, in `frontend/workshop.local/discover/built.json`, the list the API built from the
+  live API before #17 shipped.
+- **IGDB ties the two together both ways it can.** Each is in collection 6304, *Horizon*
+  (`collections`), and franchise 2000, *Horizon* (`franchises`). `franchise`, singular, came back
+  absent on all three titles asked about. So a series is one id to keep, not a name to match.
+- **A name would be wrong.** *The Legend of Heroes: Trails Beyond the Horizon* is on the user's
+  board, finished, and IGDB files it under collection 2413, *The Legend of Heroes: Trails*. Hiding
+  everything called Horizon would take its series-mates off for one word in a title. #17's parent
+  rule learned the same thing: a name is not a link.
+- **A hide has to be applied on the server, before the page is cut.** A page is 48 titles and
+  `next` is a place in the whole list, so dropping titles in the browser would leave pages short
+  and Load more counting places nobody was shown.
+
+### Decide at pickup
+
+- **What one press hides**: the game; the game and its series, by IGDB's `collections`; or a
+  choice of the two on the tile. The user's example is a series.
+- **Which lists**: From your ratings only; every Discover list; or those and the search strip too.
+  A search is somebody asking for a title by name, which argues for leaving search alone, as the
+  Discover filter does.
+- **Where the control goes on a tile**, picked from renders: a fourth part of the add control, a
+  mark on the cover, or a `⋯` menu like a card's. The tile already has + ▶ ✓ at its foot and, on
+  From your ratings, a reason up to three lines long.
+- **Taking a hide back**: a list of what is hidden, in Settings beside the columns taken off; an
+  *Undo* on the tile for a moment after the press; or both.
+- **Where a hide is kept**: per account, in a table, so it follows the user to the phone; or per
+  browser, as a hidden column is. Per account is the recommendation, because a hide is taste rather
+  than a view setting, and only the server can apply one before a page is cut.
+
+### Things to get right
+
+- **A table of the user's own**, scoped by `user_id` at its call site and cascading when the
+  account is deleted, with the tests `docs/auth.md` asks of every scoped read: somebody else's
+  hide never hides anything from you.
+- **Applied with the board, not in front of IGDB.** Left out beside the board's titles and their
+  originals, a hide asks IGDB nothing new, and no cache key gains a person (**From your ratings**
+  in `docs/games-igdb.md`). Hiding a series needs each offered game's `collections`, one more field
+  on the second question, which `GetDiscoverableAsync`'s test pins.
+- **`collection`, singular, is deprecated in favour of `collections`.** Asked for by the old name
+  it comes back absent on every game, and a series hide would quietly hide nothing.
+- **The deletion warning counts what goes with an account** (#8). Whether hidden games earn a line
+  there is a small question for the renders.
+
+---
+
+## 24. A game you finished long ago · planned
+
+**Planned 8 November 2026**, at the user's request. Nothing is built, and **a workshop of its own
+comes first**, because it changes what a pass's date can be. In the user's words: *"Some type of
+way to add completed games to my board when I don't exactly remember the dates I started or
+completed it. I could remember maybe the years and hours of when I played the some of the games,
+but I don't exactly want to add random dates for them either, nor do I just want them to be added
+to the current year."*
+
+**What.** A finished game added with the year it was finished, perhaps the year it was begun, and
+perhaps its hours. Filed under that year wherever a year is asked for, and shown as that year:
+never as a day nobody named, and never as this year.
+
+**What happens today**, read from the code on 8 November 2026:
+
+- **Adding straight to Completed stamps today.** `ApplyTransitionTimestamps` gives a pass moving
+  into Completed a finish of now, and an add is that move. Most played is the list for filling a
+  board backwards, and `discover.spec.ts` says what its ✓ does: "finished today — the date a drag
+  would have stamped — for the journal to correct if it was years ago".
+- **The journal's Started and Finished are day inputs**, and either can be cleared.
+- **A finish with no date is already a state, and it belongs to no year.** On the board, Completed
+  under a year filters on `completed_at` (`LibraryService.InYear`), so an undated finish shows only
+  under *All years*. On the Stats page it is *finished, no date*, filed after every year under All
+  years and counted in none. So *I don't remember at all* has a shape, and *I remember the year*
+  has none.
+- **Hours played is per pass already** (`hours_played`), so the hours need no new field.
+- **Nothing reads the time between two dates**: the pace in "How long will it take me?" is a figure
+  you state.
+
+### Decide at pickup
+
+- **How a year is kept.** Both ways below keep every pass that exists today exactly as it reads now.
+  - **As a year**: `completed_year` and `started_year` beside the two instants, used when the
+    instant is empty. `docs/data-model.md`'s rule argues for it: an instant is stored as an
+    instant and a day as a day, so a year somebody remembers is a year, never run through the
+    zone. Every filter on a pass's dates gains a second arm, and one that forgets shows the pass
+    under All years alone: less than the truth, rather than something untrue.
+  - **As a precision beside an instant**: `completed_precision`, Day or Year, with the instant at
+    the edge of the year, as the release window keeps a precision. Every filter keeps working
+    unchanged, and every display has to read the precision. One that forgets prints *Dec 31,
+    2019*, a day nobody named, which is the release calendar's trap, and it raises no error.
+  - **The recommendation is as a year**, because forgetting it shows too little rather than
+    something untrue.
+- **A month as well as a year?** The user said years. A month would be a third state for every
+  place a date is shown.
+- **Where the year is given**: at the add itself, the ✓ asking *When did you finish it?* (today, a
+  year, or I don't remember); in the journal, its date fields growing a year-only mode; or both.
+  And whether the hours are asked for at the add.
+- **Many at once?** Filling a board backwards is many games in one sitting, so perhaps the add
+  remembers the last year given.
+- **How a year-only finish shows**: on a card (*2019*), in the journal, on the Stats page (counted
+  in its year, and under that year in a group of its own rather than in a month), in the
+  spreadsheet (a year in a date column is text, not a date), and on a share.
+- **Where it sorts among a year's finishes**: before the dated ones or after them, wherever finishes
+  are listed in order.
+- **Every hobby, or games first.** The dates are on `log_entries`, which every hobby shares, so a
+  year-only date reaches every journal unless `PassFields` holds it back. The platform's rule is
+  never to branch on the slug.
+
+### Things to get right
+
+- **Never a day nobody named**, the release calendar's rule: every place that prints a pass's date
+  gets a test with a year-only one.
+- **The order of a start and a finish.** A start in 2019 and a finish on 3 March 2019 are in order;
+  a start year after a finish year is not. `ck_log_entries_timestamp_order` needs a sibling, and
+  breaking it should be a 400 before it is ever a 500.
+- **The year filter stays a range of instants, never an `EXTRACT`** (CLAUDE.md, **What fails
+  silently**). A year kept as a year is compared with the year asked for, with no zone involved,
+  so `docs/data-model.md`'s four places the zone is applied stay four.
+- **PUT replaces a pass outright** (`UpdateLogEntryRequest`), so any new field goes into the
+  autosave's body, or the autosave clears it.
 
 ---
 

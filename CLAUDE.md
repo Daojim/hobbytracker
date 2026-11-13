@@ -96,7 +96,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
 **Four hobbies are live**, anime included, and **no new phase is queued**: the games board has
-one planned feature left, and books and music are on hold. See **What is next**, which also lists
+three planned features left, and books and music are on hold. See **What is next**, which also lists
 the smaller things named but not built.
 
 ## Start here
@@ -645,7 +645,8 @@ shuffled.
       order, an eleventh, a bug, was added on 4 October 2026, two about the journal on
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
       notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
-      two more on 3 November, one on 4 November, and one on 7 November, out of #17's workshop:
+      two more on 3 November, one on 4 November, one on 7 November, out of #17's workshop, and
+      two on 8 November:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -744,7 +745,15 @@ shuffled.
         deployed)
       - [ ] a game's OpenCritic and Steam pages — from a game in the backlog, a quick look at
         what people say about it, or OpenCritic's alone for a game not on Steam; not Metacritic.
-        A new outside connection, asked for by the user, so a workshop of its own comes first
+        **Measured and workshopped on 12 November 2026**: two rows in the journal under
+        HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it, the user's
+        pick, and Steam's word and share positive, each beside a link to its page
+      - [ ] hiding a game from Discover — the user's own filter on From your ratings: a game, or
+        perhaps its whole series as IGDB files it, never offered again, starting with the
+        Horizon games. Kept per account; renders first for where the control goes
+      - [ ] a game finished long ago — added with the year it was finished, and perhaps its
+        hours, filed under that year and shown as it: never a made-up day, and never this year.
+        It changes what a pass's date can be, so a workshop of its own comes first
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.

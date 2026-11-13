@@ -203,4 +203,8 @@
       on IGDB's scores
 - [ ] A game's OpenCritic and Steam pages, for a quick look at what people say about a game in
       the backlog
+- [ ] Hiding a game from Discover, a game or perhaps its whole series, starting with the Horizon
+      games
+- [ ] Adding a game finished long ago with the year it was finished, never a made-up day and
+      never this year
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration
