@@ -13,10 +13,13 @@ export type {
   JournalSection,
   LengthBand,
   PassFields,
+  ReviewSection,
+  ReviewWords,
   SearchHit,
   TitleDetail,
   TitleFact,
   TitleHltb,
+  TitleReviews,
   TitleSeason,
 } from './types';
 

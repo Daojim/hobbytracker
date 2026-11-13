@@ -95,4 +95,33 @@ public class Game : Media
     /// backfill would re-ask about every unmatchable title on every run, for ever.
     /// </summary>
     public DateTimeOffset? HltbCheckedAt { get; set; }
+
+    /// <summary>
+    /// The Steam app that is this game's store page, as IGDB names it — the journal's Steam row
+    /// and its link. Null for a game with no page of its own on Steam, which is most console games
+    /// and anything Steam sells only inside a collection.
+    ///
+    /// Found the first time a journal asks and then kept, because which page a game has does not
+    /// change; it is the verdict on the page that does, and that is asked for, not stored.
+    /// </summary>
+    public int? SteamAppId { get; set; }
+
+    /// <summary>
+    /// When IGDB was last asked for <see cref="SteamAppId"/>, whatever it answered — the
+    /// <see cref="HltbCheckedAt"/> distinction again, between "never asked" and "asked, and there is
+    /// none", so a game with no Steam page is not asked about on every open.
+    /// </summary>
+    public DateTimeOffset? SteamLookedForAt { get; set; }
+
+    /// <summary>
+    /// OpenCritic's number for the game, which is the whole of its page's address: found through
+    /// Wikidata the first time a journal asks, or pinned by hand in the journal.
+    ///
+    /// <b>A look only ever fills this when it is empty</b>, so a pin, which always holds a number,
+    /// is never overwritten by one. Taking a pin back empties it, and the next journal looks again.
+    /// </summary>
+    public int? OpenCriticId { get; set; }
+
+    /// <summary>When Wikidata was last asked for <see cref="OpenCriticId"/>, whatever it answered.</summary>
+    public DateTimeOffset? OpenCriticLookedForAt { get; set; }
 }

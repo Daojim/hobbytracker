@@ -87,6 +87,12 @@ services:
       Igdb__ClientSecret: ${IGDB_CLIENT_SECRET:?set IGDB_CLIENT_SECRET in .env}
       Tmdb__AccessToken: ${TMDB_ACCESS_TOKEN:?set TMDB_ACCESS_TOKEN in .env}
       Mal__ClientId: ${MAL_CLIENT_ID:?set MAL_CLIENT_ID in .env}
+
+      # OpenCritic's key, and deliberately without :? — the one credential the app boots without.
+      # Missing, the journal shows OpenCritic's link alone and asks OpenCritic nothing; set, the
+      # score appears. Required here would refuse to start the whole stack on a server whose .env
+      # predates it, before compose even picks a service. See docs/deploy.md.
+      OpenCritic__ApiKey: ${OPENCRITIC_API_KEY:-}
       Auth__Google__ClientId: ${GOOGLE_CLIENT_ID:?set GOOGLE_CLIENT_ID in .env}
       Auth__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:?set GOOGLE_CLIENT_SECRET in .env}
       Auth__Discord__ClientId: ${DISCORD_CLIENT_ID:?set DISCORD_CLIENT_ID in .env}

@@ -92,6 +92,24 @@ export const yearsKey = (hobby: string) => ['library', hobby, 'years'] as const;
 export const mediaKey = (hobby: string, mediaId: number) => ['media', hobby, mediaId] as const;
 
 /**
+ * What OpenCritic and Steam say about one title, asked for the two pages the journal holds.
+ *
+ * **The pages are in the key**, so a pin, or a first look finding them, is a new question rather
+ * than an answer to invalidate: the drawer reads the title again, the key moves, and the rows say
+ * `…` until the new answer comes. An answer is only ever drawn beside the pages it was asked for.
+ *
+ * **Not under `['media', ...]` and not under `['library', ...]`**, though it is about the title the
+ * journal holds: every write of a pass settles {@link mediaKey}, and under it each autosave would ask
+ * OpenCritic and Steam again about a game whose pages it did not touch. Nothing on a board shows a
+ * review, so nothing on a board settles this.
+ */
+export const reviewsKey = (
+  hobby: string,
+  mediaId: number,
+  pages: { openCriticId: number | null; steamAppId: number | null },
+) => ['reviews', hobby, mediaId, { openCriticId: pages.openCriticId, steamAppId: pages.steamAppId }] as const;
+
+/**
  * The release calendar under the board — the Backlog entries whose title is not out yet.
  *
  * `'upcoming'` sits where a `LogStatus` sits, beside `'years'` and the tiles' `'statuses'`.

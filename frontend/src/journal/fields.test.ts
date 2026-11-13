@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   HOURS_RULE,
+  OPENCRITIC_ID_RULE,
   dateFieldValue,
   hltbTiers,
+  openCriticGameUrl,
   parseHltbId,
   parseHours,
+  parseOpenCriticId,
   parseRating,
+  steamAppUrl,
 } from './fields';
 
 describe('dateFieldValue', () => {
@@ -108,6 +112,69 @@ describe('parseHltbId', () => {
     // worse message than the rule that could have caught it here.
     expect(parseHltbId('2147483648').error).toBeTruthy();
     expect(parseHltbId('2147483647')).toEqual({ value: 2147483647 });
+  });
+});
+
+describe('parseOpenCriticId', () => {
+  // The box takes OpenCritic's number, or a whole OpenCritic address pasted from the browser and
+  // read for the number in it — the user's pick at #22's workshop. The number is the whole of the
+  // address that matters: any slug after it serves the page.
+
+  it('reads a number', () => {
+    expect(parseOpenCriticId('15125')).toEqual({ value: 15125 });
+    expect(parseOpenCriticId(' 15125 ')).toEqual({ value: 15125 });
+  });
+
+  it.each([
+    'https://opencritic.com/game/15125/armored-core-vi-fires-of-rubicon',
+    'https://opencritic.com/game/15125/armored-core-vi-fires-of-rubicon/reviews',
+    'https://opencritic.com/game/15125',
+    'https://opencritic.com/game/15125/',
+    'https://www.opencritic.com/game/15125/-',
+    'http://opencritic.com/game/15125/x?utm_source=share',
+    'opencritic.com/game/15125/armored-core-vi-fires-of-rubicon',
+    'HTTPS://OpenCritic.com/game/15125/Armored-Core-VI',
+  ])('reads the number out of %s', (address) => {
+    expect(parseOpenCriticId(address)).toEqual({ value: 15125 });
+  });
+
+  it('treats an empty box as taking the pin back', () => {
+    expect(parseOpenCriticId('')).toEqual({ value: null });
+    expect(parseOpenCriticId('   ')).toEqual({ value: null });
+  });
+
+  it.each([
+    '0',
+    '-4',
+    '12.5',
+    'abc',
+    '15125x',
+    // OpenCritic's other pages carry numbers too, and none of them is a game's.
+    'https://opencritic.com/outlet/56/ign',
+    'https://opencritic.com/critic/1234/someone',
+    // A game's number on another site is not OpenCritic's.
+    'https://howlongtobeat.com/game/15125',
+    'https://store.steampowered.com/app/15125/',
+    'https://notopencritic.com/game/15125/x',
+  ])('refuses %s, in words that say what it takes', (input) => {
+    expect(parseOpenCriticId(input).error).toBe(OPENCRITIC_ID_RULE);
+  });
+
+  it('refuses a number past what the column can hold', () => {
+    expect(parseOpenCriticId('2147483648').error).toBe(OPENCRITIC_ID_RULE);
+    expect(parseOpenCriticId('2147483647')).toEqual({ value: 2147483647 });
+  });
+});
+
+describe('the pages the links go to', () => {
+  it("writes OpenCritic's page from its number alone", () => {
+    // Any slug serves the page and `/game/{id}` alone is a 404, measured on 12 November 2026:
+    // Wikidata writes its own links to OpenCritic exactly like this.
+    expect(openCriticGameUrl(15125)).toBe('https://opencritic.com/game/15125/-');
+  });
+
+  it("writes Steam's store page from the app", () => {
+    expect(steamAppUrl(1888160)).toBe('https://store.steampowered.com/app/1888160/');
   });
 });
 

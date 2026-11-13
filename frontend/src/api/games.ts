@@ -1,5 +1,5 @@
 import { apiJson } from './client';
-import type { DiscoverListPage, Game, GameDetail } from './types';
+import type { DiscoverListPage, Game, GameDetail, GameReviews } from './types';
 
 /**
  * Searching hits IGDB on every call by design — the debounce lives here, in the client, not in a
@@ -74,4 +74,31 @@ export function setGameHltbId(mediaId: number, hltbId: number | null): Promise<G
  */
 export function refreshGameHltb(mediaId: number): Promise<GameDetail> {
   return apiJson<GameDetail>(`/api/games/${mediaId}/hltb/refresh`, { method: 'POST' });
+}
+
+/**
+ * What OpenCritic's critics and Steam's players say about a game, and which page each was read
+ * from. The first time any journal asks, this is what finds the two pages; after that it is the
+ * verdicts, kept a day by the server under each provider's own id.
+ *
+ * A 200 whichever provider is unhappy: one that cannot be read leaves its half empty, and its row
+ * is the link alone.
+ */
+export function getGameReviews(mediaId: number): Promise<GameReviews> {
+  return apiJson<GameReviews>(`/api/games/${mediaId}/reviews`);
+}
+
+/**
+ * Pins OpenCritic's number for a game by hand, or takes the pin back with a null — which sends the
+ * game to be looked for again.
+ *
+ * Worth waiting on, as the HowLongToBeat pin is: with a key on the server the number is checked
+ * against OpenCritic there and then, and one it does not know is a 400 naming it. Without one it
+ * is kept as typed.
+ */
+export function setGameOpenCriticId(mediaId: number, openCriticId: number | null): Promise<GameDetail> {
+  return apiJson<GameDetail>(`/api/games/${mediaId}/opencritic`, {
+    method: 'PUT',
+    body: { openCriticId },
+  });
 }

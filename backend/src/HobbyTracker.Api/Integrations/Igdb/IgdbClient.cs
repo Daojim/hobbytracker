@@ -52,6 +52,12 @@ public interface IIgdbClient
     /// </summary>
     Task<IReadOnlyList<IgdbGame>> GetDiscoverableAsync(
         IEnumerable<int> ids, int fewestRatings, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// A game's slug and the pages it names elsewhere, for finding its OpenCritic and Steam pages.
+    /// Null when IGDB does not know the id.
+    /// </summary>
+    Task<IgdbGame?> GetStoreLinksAsync(int id, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -501,6 +507,32 @@ public sealed class IgdbClient(HttpClient httpClient, ILogger<IgdbClient> logger
             limit {wanted.Count};
             """,
             cancellationToken);
+    }
+
+    /// <summary>
+    /// A game's slug and the pages it names elsewhere: the two things finding its OpenCritic and
+    /// Steam pages needs. The slug is what Wikidata files IGDB's id under, and a Steam page is in
+    /// <c>websites</c> or <c>external_games</c>; <see cref="Services.IgdbSteam"/> says which.
+    ///
+    /// <para>
+    /// <b><c>websites.type</c> and <c>external_games.external_game_source</c>, never the deprecated
+    /// <c>category</c> either one carried before.</b> IGDB leaves a deprecated twin unpopulated
+    /// rather than removing it, so asked for by it, every row comes back without one and a Steam
+    /// page is never found, while the lookup reads as correct — <c>game_type</c>'s trap a third
+    /// time, after the search filter's and the release calendar's.
+    /// </para>
+    /// </summary>
+    public async Task<IgdbGame?> GetStoreLinksAsync(int id, CancellationToken cancellationToken)
+    {
+        var games = await QueryAsync<IgdbGame>(
+            GamesEndpoint,
+            $"""
+            fields slug, websites.url, websites.type, external_games.uid, external_games.external_game_source;
+            where id = {id};
+            """,
+            cancellationToken);
+
+        return games.FirstOrDefault(game => game.Id == id);
     }
 
     /// <summary>

@@ -35,6 +35,15 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
 
     protected FakeHltbQueue HltbQueue { get; } = new();
 
+    /// <summary>Steam's players, for the journal's Steam row.</summary>
+    protected FakeSteamClient Steam { get; } = new();
+
+    /// <summary>OpenCritic, with a key unless a test takes it away. See FakeOpenCriticClient.</summary>
+    protected FakeOpenCriticClient OpenCritic { get; } = new();
+
+    /// <summary>Wikidata, which ties an IGDB slug to OpenCritic's ids.</summary>
+    protected FakeWikidataClient Wikidata { get; } = new();
+
     /// <summary>
     /// The host's clock, stopped. xUnit builds a fresh instance of the test class per fact, so
     /// each test owns its own and moving it cannot disturb anything running alongside.
@@ -73,7 +82,9 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
     private HttpClient? _anonymousClient;
     private readonly List<HttpClient> _extraClients = [];
 
-    protected ApiFactory Factory => _factory ??= new ApiFactory(Postgres, Igdb, Tmdb, Mal, Hltb, HltbQueue, Clock);
+    protected ApiFactory Factory => _factory ??= new ApiFactory(
+        Postgres, Igdb, Tmdb, Mal, Hltb, HltbQueue, Clock,
+        steam: Steam, openCritic: OpenCritic, wikidata: Wikidata);
     /// <summary>
     /// Whose journal this is. Created fresh per test, because Respawn truncates users between
     /// them; every fixture below and every request through <see cref="Client"/> belongs to it.

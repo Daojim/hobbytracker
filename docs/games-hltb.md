@@ -352,8 +352,10 @@ and *Time to beat* orders on it. Three things about it are deliberate:
 - **`commit()` returns early while a pin is in flight, and jsdom cannot show you why.** Enter commits
   while the box still has focus, and the commit disables it — which a real browser reports as a blur,
   which is the same event that commits, so without the guard one pin is two upstream lookups. **jsdom
-  does not implement "disabling a focused element blurs it"**, so the Vitest suite passes either way;
-  the Playwright specs are what run that path.
+  does not implement "disabling a focused element blurs it"**, so the Vitest suite passes either way.
+  **Nor does the default e2e run, and no spec counts the pins.** Only Firefox's blur reaches React,
+  measured for #22's box, whose spec does count them and goes red without its guard in Firefox alone:
+  **What fails quietly here** in `docs/games-reviews.md`.
 
 The component is keyed on `detail.hltbId` for `EntryForm`'s reason, which also gives the error path
 what it needs free: a refused pin leaves the stored id alone, so what was typed stays in the box.

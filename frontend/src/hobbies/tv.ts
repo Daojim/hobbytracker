@@ -145,12 +145,15 @@ export const TV: HobbyDefinition = {
         // TMDB answers by id and the id came from TMDB's own search, so there is no matcher to
         // have got it wrong — the film's argument, and what takes the pin off this drawer.
         hltb: null,
+        // OpenCritic and Steam are games' review sites, and nothing asks a show's yet.
+        reviews: null,
       };
     },
 
     setGenre: setShowGenre,
     setHltbId: null,
     refreshHltb: null,
+    reviews: null,
 
     // The pair is the whole of what a show adds. Still no hours: nobody records how long an
     // evening of television took, and the facts band already says how long one episode runs.

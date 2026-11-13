@@ -13,8 +13,8 @@ import { server } from '../test/server';
 import { mediaKey } from '../board/keys';
 import { setPace, setPlayStyle } from '../lib/pace';
 import { columnsFor } from '../hobbies';
-import { AUTOSAVE_MS } from './fields';
-import type { GameDetail, LogStatus } from '../api/types';
+import { AUTOSAVE_MS, OPENCRITIC_ID_RULE } from './fields';
+import type { GameDetail, GameReviews, LogStatus } from '../api/types';
 
 const rating = () => screen.getByRole('spinbutton', { name: 'Exact rating' });
 const slider = () => screen.getByRole('slider', { name: 'Rating' });
@@ -3050,5 +3050,377 @@ describe('EntryDrawer, moving the title', () => {
       'Watched',
       'Dropped',
     ]);
+  });
+});
+
+describe("EntryDrawer, a game's OpenCritic and Steam pages", () => {
+  // #22, as round two of its workshop picked it: two rows under HowLongToBeat's in the band about
+  // the title, on every column. OpenCritic's top critics, tier and share who recommend it, the
+  // user's pick; Steam's word and share positive; each beside a link of its own; an OpenCritic box
+  // on every game; and Not out yet or Too few reviews where OpenCritic has no score.
+
+  /** Armored Core VI, as the workshop's renders had it: both pages found, both answering. */
+  const armoredCore = (overrides: Partial<GameDetail> = {}) =>
+    gameDetail({
+      id: 3003,
+      title: 'Armored Core VI: Fires of Rubicon',
+      openCriticId: 15125,
+      steamAppId: 1888160,
+      released: true,
+      logEntries: [logEntry({ id: 7, status: 'Backlog' })],
+      ...overrides,
+    });
+
+  const saying = (current: GameDetail): GameReviews => ({
+    openCriticId: current.openCriticId,
+    steamAppId: current.steamAppId,
+    openCritic: { topCriticScore: 84.91176470588235, tier: 'Mighty', percentRecommended: 90.97222222222221 },
+    steam: { summary: 'Very Positive', positive: 38640, total: 41283 },
+  });
+
+  /** What follows a label in the band's grid: its row. */
+  const rowOf = (label: string) => within(screen.getByText(label).nextElementSibling as HTMLElement);
+
+  it('shows what OpenCritic and Steam say, each beside the way to its page', async () => {
+    journalServer({ detail: armoredCore(), reviews: saying });
+
+    open();
+
+    expect(await screen.findByText('85 · Mighty · 91% recommend')).toBeInTheDocument();
+    expect(screen.getByText('Very Positive · 94%')).toBeInTheDocument();
+
+    const openCritic = screen.getByRole('link', { name: 'View on OpenCritic' });
+    expect(openCritic).toHaveAttribute('href', 'https://opencritic.com/game/15125/-');
+    expect(openCritic).toHaveAttribute('target', '_blank');
+    expect(openCritic).toHaveAttribute('rel', 'noreferrer');
+
+    const steam = screen.getByRole('link', { name: 'View on Steam' });
+    expect(steam).toHaveAttribute('href', 'https://store.steampowered.com/app/1888160/');
+    expect(steam).toHaveAttribute('target', '_blank');
+    expect(steam).toHaveAttribute('rel', 'noreferrer');
+  });
+
+  it('puts the two rows under HowLongToBeat’s, in the band about the title', async () => {
+    journalServer({ detail: armoredCore(), reviews: saying });
+
+    open();
+    await screen.findByText('85 · Mighty · 91% recommend');
+
+    const band = screen.getByText('Genre').parentElement!;
+    const labels = [...band.children]
+      .filter((child) => child.classList.contains('font-medium'))
+      .map((child) => child.textContent);
+    expect(labels).toEqual(['Genre', 'HowLongToBeat ID', 'OpenCritic ID', 'Steam']);
+  });
+
+  it('says … while asking, with the links already there', async () => {
+    let answer = () => {};
+    journalServer({
+      detail: armoredCore(),
+      reviews: saying,
+      reviewsHeldUntil: new Promise<void>((resolve) => (answer = resolve)),
+    });
+
+    open();
+
+    expect(await screen.findByRole('link', { name: 'View on OpenCritic' })).toBeInTheDocument();
+    expect(rowOf('OpenCritic ID').getByText('…')).toBeInTheDocument();
+    expect(rowOf('Steam').getByText('…')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View on Steam' })).toBeInTheDocument();
+
+    answer();
+    expect(await screen.findByText('85 · Mighty · 91% recommend')).toBeInTheDocument();
+    expect(screen.queryByText('…')).not.toBeInTheDocument();
+  });
+
+  it("shows OpenCritic's link alone where the server has no key to ask with", async () => {
+    // The optional key: no request, so no score, and the row is its link alone. Steam needs none.
+    journalServer({
+      detail: armoredCore(),
+      reviews: (current) => ({ ...saying(current), openCritic: null }),
+    });
+
+    open();
+
+    expect(await screen.findByText('Very Positive · 94%')).toBeInTheDocument();
+    const openCritic = rowOf('OpenCritic ID');
+    expect(openCritic.queryByText('…')).not.toBeInTheDocument();
+    expect(openCritic.getByRole('link', { name: 'View on OpenCritic' })).toBeInTheDocument();
+    expect(openCritic.queryByText(/Mighty|recommend|reviews|Not out/)).not.toBeInTheDocument();
+  });
+
+  it('shows the links alone when the reviews cannot be asked for at all', async () => {
+    journalServer({ detail: armoredCore(), reviews: { status: 500 } });
+
+    open();
+
+    expect(await screen.findByRole('link', { name: 'View on OpenCritic' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText('…')).not.toBeInTheDocument());
+    expect(screen.getByRole('link', { name: 'View on Steam' })).toBeInTheDocument();
+  });
+
+  it('says a game OpenCritic has no score for is not out yet, before it is', async () => {
+    journalServer({
+      detail: armoredCore({ title: 'Persona 4 Revival', released: false }),
+      reviews: (current) => ({
+        ...saying(current),
+        openCritic: { topCriticScore: null, tier: null, percentRecommended: null },
+        steam: { summary: 'No user reviews', positive: 0, total: 0 },
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByText('Not out yet')).toBeInTheDocument();
+    // And Steam's own words for a game nobody has reviewed, with no share to give.
+    expect(screen.getByText('No user reviews')).toBeInTheDocument();
+  });
+
+  it('says a game OpenCritic has no score for has too few reviews, once it is out', async () => {
+    // Rabbit and Steel: out since May 2024, three critic reviews.
+    journalServer({
+      detail: armoredCore({ title: 'Rabbit & Steel', released: true }),
+      reviews: (current) => ({
+        ...saying(current),
+        openCritic: { topCriticScore: null, tier: null, percentRecommended: null },
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByText('Too few reviews')).toBeInTheDocument();
+  });
+
+  it('has no Steam row for a game with no page of its own on Steam', async () => {
+    journalServer({ detail: armoredCore({ steamAppId: null }), reviews: saying });
+
+    open();
+
+    expect(await screen.findByText('85 · Mighty · 91% recommend')).toBeInTheDocument();
+    expect(screen.queryByText('Steam')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'View on Steam' })).not.toBeInTheDocument();
+  });
+
+  it('offers the OpenCritic box on every game, empty with nothing to link to where there is no number', async () => {
+    // Paper Mario: The Thousand-Year Door, the remake, which Wikidata files under the original.
+    journalServer({
+      detail: armoredCore({ title: 'Paper Mario: The Thousand-Year Door', openCriticId: null, steamAppId: null }),
+    });
+
+    open();
+
+    expect(await screen.findByLabelText('OpenCritic ID')).toHaveValue('');
+    expect(screen.queryByRole('link', { name: 'View on OpenCritic' })).not.toBeInTheDocument();
+  });
+
+  it('holds the number it has in the box', async () => {
+    journalServer({ detail: armoredCore(), reviews: saying });
+
+    open();
+
+    expect(await screen.findByLabelText('OpenCritic ID')).toHaveValue('15125');
+  });
+
+  it('pins a number typed into the box, and asks what OpenCritic says about it', async () => {
+    const journal = journalServer({
+      detail: armoredCore({ openCriticId: null }),
+      reviews: (current) =>
+        current.openCriticId === 16438
+          ? {
+              ...saying(current),
+              openCritic: { topCriticScore: 88.4, tier: 'Mighty', percentRecommended: 96.2 },
+            }
+          : { ...saying(current), openCritic: null },
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('OpenCritic ID'), '16438');
+    await userEvent.tab();
+
+    await waitFor(() =>
+      expect(journal.openCriticPins).toEqual([{ mediaId: 3003, openCriticId: 16438 }]),
+    );
+    expect(await screen.findByText('88 · Mighty · 96% recommend')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View on OpenCritic' })).toHaveAttribute(
+      'href',
+      'https://opencritic.com/game/16438/-',
+    );
+  });
+
+  it('reads the number out of a whole OpenCritic address pasted into the box', async () => {
+    const journal = journalServer({ detail: armoredCore({ openCriticId: null }) });
+
+    open();
+    await userEvent.click(await screen.findByLabelText('OpenCritic ID'));
+    await userEvent.paste('https://opencritic.com/game/16438/paper-mario-the-thousand-year-door');
+    await userEvent.tab();
+
+    await waitFor(() =>
+      expect(journal.openCriticPins).toEqual([{ mediaId: 3003, openCriticId: 16438 }]),
+    );
+  });
+
+  it('pins on Enter, once, without having to tab away', async () => {
+    const journal = journalServer({ detail: armoredCore({ openCriticId: null }) });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('OpenCritic ID'), '16438{Enter}');
+
+    await waitFor(() => expect(journal.openCriticPins).toHaveLength(1));
+    await waitFor(() => expect(screen.getByLabelText('OpenCritic ID')).toBeEnabled());
+    expect(journal.openCriticPins).toEqual([{ mediaId: 3003, openCriticId: 16438 }]);
+  });
+
+  it('takes the pin back when the box is emptied', async () => {
+    const journal = journalServer({ detail: armoredCore(), reviews: saying });
+
+    open();
+    await userEvent.clear(await screen.findByLabelText('OpenCritic ID'));
+    await userEvent.tab();
+
+    await waitFor(() =>
+      expect(journal.openCriticPins).toEqual([{ mediaId: 3003, openCriticId: null }]),
+    );
+  });
+
+  it('does not re-pin a number that was only looked at', async () => {
+    const journal = journalServer({ detail: armoredCore(), reviews: saying });
+
+    open();
+    await userEvent.click(await screen.findByLabelText('OpenCritic ID'));
+    await userEvent.tab();
+
+    expect(journal.openCriticPins).toHaveLength(0);
+  });
+
+  it('refuses what is neither a number nor an OpenCritic address, without asking', async () => {
+    const journal = journalServer({ detail: armoredCore({ openCriticId: null }) });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('OpenCritic ID'), 'https://howlongtobeat.com/game/9134');
+    await userEvent.tab();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(OPENCRITIC_ID_RULE);
+    expect(journal.openCriticPins).toHaveLength(0);
+  });
+
+  it('says so when OpenCritic does not know the number, and keeps what was typed', async () => {
+    journalServer({
+      detail: armoredCore({ openCriticId: null }),
+      openCriticPinErrors: { OpenCriticId: ['OpenCritic has no game 99999999.'] },
+    });
+
+    open();
+    await userEvent.type(await screen.findByLabelText('OpenCritic ID'), '99999999');
+    await userEvent.tab();
+
+    expect(await screen.findByText('OpenCritic has no game 99999999.')).toBeInTheDocument();
+    expect(screen.getByLabelText('OpenCritic ID')).toHaveValue('99999999');
+  });
+
+  it('asks OpenCritic and Steam nothing again when the pass is written', async () => {
+    // Every write of the pass reads the journal's title again, and the rows are about the title. A
+    // key under the title's would have each autosave ask both providers about a game whose pages
+    // it did not touch — two requests a keystroke's pause, against a 200-a-day allowance.
+    let reads = 0;
+    const journal = journalServer({ detail: armoredCore(), reviews: saying });
+    server.use(
+      http.get('/api/games/:id', () => {
+        reads += 1;
+        return HttpResponse.json(armoredCore());
+      }),
+    );
+
+    open();
+    await screen.findByText('85 · Mighty · 91% recommend');
+    await userEvent.type(rating(), '8.5');
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+    // The title has been read again since the save, and anything the save set off with it has gone.
+    await waitFor(() => expect(reads).toBeGreaterThan(1));
+    expect(journal.reviewAsks).toHaveLength(1);
+  });
+
+  it('holds the box until the title has been read again with the new number', async () => {
+    // Let go at the server's answer, the box would come back, and the row say the old number's
+    // words, for as long as the title took to read again.
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let pinned = false;
+    journalServer({ detail: armoredCore({ openCriticId: null }) });
+    server.use(
+      http.get('/api/games/:id', async () => {
+        if (pinned) {
+          await held;
+        }
+        return HttpResponse.json(armoredCore({ openCriticId: pinned ? 16438 : null }));
+      }),
+      http.put('/api/games/:mediaId/opencritic', () => {
+        pinned = true;
+        return HttpResponse.json(armoredCore({ openCriticId: 16438 }));
+      }),
+    );
+
+    open();
+    await userEvent.type(await screen.findByLabelText('OpenCritic ID'), '16438');
+    await userEvent.tab();
+
+    // The server has answered the pin, and the title has not been read again yet.
+    await waitFor(() => expect(pinned).toBe(true));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    expect(screen.getByLabelText('OpenCritic ID')).toBeDisabled();
+
+    release();
+    await waitFor(() => expect(screen.getByLabelText('OpenCritic ID')).toBeEnabled());
+    expect(screen.getByLabelText('OpenCritic ID')).toHaveValue('16438');
+  });
+
+  it('catches up with the pages the first look finds', async () => {
+    // The first journal on a game is what finds its pages, so the reviews route answers with
+    // pages the read beside it does not have yet. The drawer reads the title again and draws
+    // them, rather than leaving the box empty under a page it should name.
+    let found = false;
+    journalServer({ detail: armoredCore() });
+    server.use(
+      http.get('/api/games/:id', () =>
+        HttpResponse.json(found ? armoredCore() : armoredCore({ openCriticId: null, steamAppId: null })),
+      ),
+      http.get('/api/games/:mediaId/reviews', () => {
+        found = true;
+        return HttpResponse.json(saying(armoredCore()));
+      }),
+    );
+
+    open();
+
+    expect(await screen.findByText('85 · Mighty · 91% recommend')).toBeInTheDocument();
+    expect(screen.getByLabelText('OpenCritic ID')).toHaveValue('15125');
+    expect(screen.getByRole('link', { name: 'View on Steam' })).toBeInTheDocument();
+  });
+
+  it('asks nothing about a film, and draws neither row', async () => {
+    // A request nobody stated is refused by the suite's server and fails nothing on its own, so
+    // asking about a film would pass every other case here. This one counts the asks.
+    let asked = 0;
+    movieJournalServer();
+    server.use(
+      http.get('/api/movies/:mediaId/reviews', () => {
+        asked += 1;
+        return HttpResponse.json(null, { status: 404 });
+      }),
+      http.get('/api/games/:mediaId/reviews', () => {
+        asked += 1;
+        return HttpResponse.json(null, { status: 404 });
+      }),
+    );
+
+    renderWithProviders(
+      <EntryDrawer hobby="movies" mediaId={4004} onClose={vi.fn()} {...fromBoard('movies')} />,
+    );
+
+    await screen.findByRole('heading', { name: 'Arrival' });
+    expect(screen.queryByLabelText('OpenCritic ID')).not.toBeInTheDocument();
+    expect(screen.queryByText('Steam')).not.toBeInTheDocument();
+    expect(asked).toBe(0);
   });
 });

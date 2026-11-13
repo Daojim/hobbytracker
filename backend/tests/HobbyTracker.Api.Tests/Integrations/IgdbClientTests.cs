@@ -854,6 +854,76 @@ public sealed class IgdbClientTests
         exception.Message.ShouldContain("Invalid field name");
     }
 
+    // ------------------------------------------------------------- a game's pages elsewhere
+
+    [Fact]
+    public async Task Asks_for_a_games_slug_and_its_steam_pages_by_type_and_source()
+    {
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetStoreLinksAsync(11208, Ct);
+
+        var body = stub.Requests.ShouldHaveSingleItem().Body!;
+        body.ShouldContain("fields slug, websites.url, websites.type, external_games.uid, external_games.external_game_source;");
+        body.ShouldContain("where id = 11208;");
+    }
+
+    [Fact]
+    public async Task Never_asks_for_the_deprecated_category_on_either()
+    {
+        // game_type's trap a third time. Both `websites` and `external_games` carried a `category`
+        // before `type` and `external_game_source` replaced it, and IGDB leaves a deprecated twin
+        // unpopulated rather than removing it: asked for, it comes back absent on every row, and a
+        // Steam page looked for by it is never found while the lookup reads as correct.
+        var stub = StubHttpMessageHandler.Always(HttpStatusCode.OK);
+
+        await CreateClient(stub).GetStoreLinksAsync(11208, Ct);
+
+        stub.Requests.ShouldHaveSingleItem().Body!.ShouldNotContain("category");
+    }
+
+    [Fact]
+    public async Task Reads_the_slug_the_websites_and_the_external_ids()
+    {
+        // Until Then, as IGDB answered it, cut to its Steam rows: a websites row of Steam's type
+        // naming the store page, and two external_games rows of Steam's source — the game, and its
+        // demo, which is an app of its own on Steam.
+        const string body = """
+            [{"id":136725,"slug":"until-then",
+              "websites":[{"id":1,"url":"https://untilthengame.com","type":1},
+                          {"id":2,"url":"https://store.steampowered.com/app/1574820/Until_Then/","type":13}],
+              "external_games":[{"id":3,"uid":"2296400","external_game_source":1},
+                                {"id":4,"uid":"1574820","external_game_source":1},
+                                {"id":5,"uid":"1558393671","external_game_source":5}]}]
+            """;
+
+        var found = await CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.OK, body))
+            .GetStoreLinksAsync(136725, Ct);
+
+        found.ShouldNotBeNull();
+        found.Slug.ShouldBe("until-then");
+        found.Websites!.Select(site => (site.Type, site.Url)).ShouldBe(
+        [
+            (1, "https://untilthengame.com"),
+            (13, "https://store.steampowered.com/app/1574820/Until_Then/"),
+        ]);
+        found.ExternalGames!.Select(external => (external.ExternalGameSource, external.Uid)).ShouldBe(
+        [
+            (1, "2296400"),
+            (1, "1574820"),
+            (5, "1558393671"),
+        ]);
+    }
+
+    [Fact]
+    public async Task Answers_null_for_a_game_igdb_does_not_know()
+    {
+        var found = await CreateClient(StubHttpMessageHandler.Always(HttpStatusCode.OK, "[]"))
+            .GetStoreLinksAsync(999_999_999, Ct);
+
+        found.ShouldBeNull();
+    }
+
     private static IgdbClient CreateClient(StubHttpMessageHandler stub) =>
         new(new HttpClient(stub) { BaseAddress = new Uri("https://api.igdb.com/v4/") },
             NullLogger<IgdbClient>.Instance);

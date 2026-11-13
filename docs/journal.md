@@ -168,6 +168,13 @@ Settled:
   *Last checked Sep 11* on a game with no figures, and *Checked just now* after a press until the
   drawer closes. Both are `HltbPin`'s and both sit in the band's two tracks, the line spanning
   them. See **The arrow asks again** in `docs/games-hltb.md`.
+- **Under the pin's row, what critics and players say: OpenCritic's row and Steam's**, since #22. An
+  *OpenCritic ID* box on every game, with OpenCritic's verdict and *View on OpenCritic* after it, and
+  a Steam row only where the game has a page of its own there. `ReviewRows` renders them into the
+  band's two tracks as `HltbPin` does, after it, and off `TitleDetail.reviews` and `journal.reviews`,
+  which are null together for every hobby but games. Asked when the journal opens, under a key of its
+  own rather than the title's, so a write of the pass does not ask OpenCritic and Steam again. See
+  `docs/games-reviews.md`, **On the page**.
 - **A film's Runtime is a *fact* and lives in that band; the HowLongToBeat figures are not and do
   not.** The four chips sit beside *Hours played* because comparing them is the entire point. A
   film has nothing to compare against, so its runtime is a fact about the film like the director —

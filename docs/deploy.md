@@ -89,6 +89,15 @@ else in the suite is quietly running against an origin it never mentioned.
   is the same variable without `:?`, which starts the API with an empty token and turns every search
   into a 401 nobody sees until they try one. **Check the server's `.env` before deploying a change
   that adds one**, and prove the value works from the server rather than assuming the paste landed.
+- **OpenCritic's key is the bad version on purpose, so it fails quietly.** `OpenCritic__ApiKey:
+  ${OPENCRITIC_API_KEY:-}` has no `:?`, since #22, because the app has something to show without
+  it: the journal draws OpenCritic's link alone and asks OpenCritic nothing. That is the right
+  answer for a development machine and the wrong one for production, where **a server whose `.env`
+  predates #22 starts cleanly and shows no score anywhere**, with no error and no log line, because
+  nothing was asked that could fail. Required, it would refuse the whole file on such a server before
+  compose picked a service. **Set `OPENCRITIC_API_KEY` in the server's `.env` before the deploy that
+  carries #22**, and prove it by opening a game's journal on the public site: a score beside *View on
+  OpenCritic*, not the link alone. The key is the maintainer's, from their RapidAPI account.
 - **Data Protection keys have to outlive the container.** The session cookie is self-contained and
   encrypted with them, and a container filesystem goes with the container — so without somewhere
   durable, every redeploy signs **everybody** out, and there are a lot of redeploys.
@@ -186,7 +195,9 @@ Each check reads what `main` has gained since the commit the server is on:
   `git diff <deployed>..main -- deploy/compose.yml deploy/.env.example`. A new `${NAME:?…}` has to
   be in the server's `.env` first; the first of **The things that fail quietly here** says what
   happens otherwise. **The value is the maintainer's to place**, never a session's to write. Hand
-  over a command that moves it from where it already lives without printing it.
+  over a command that moves it from where it already lives without printing it. **And a new
+  optional one**, `${NAME:-}`, which nothing refuses without: `OPENCRITIC_API_KEY` is the first,
+  with #22, and missing it costs the scores in silence. The second bullet there says why.
 - **The admin's account, once, with the deploy that carries #18.** An account's pictures are
   capped at 1 GB unless its `users.role` is `admin`, the user's choice for their own account, and
   nothing in the app grants it. After the deploy, the maintainer runs the one `UPDATE`, naming

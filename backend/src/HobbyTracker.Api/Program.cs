@@ -6,7 +6,10 @@ using HobbyTracker.Api.Infrastructure;
 using HobbyTracker.Api.Integrations.Hltb;
 using HobbyTracker.Api.Integrations.Igdb;
 using HobbyTracker.Api.Integrations.Mal;
+using HobbyTracker.Api.Integrations.OpenCritic;
+using HobbyTracker.Api.Integrations.Steam;
 using HobbyTracker.Api.Integrations.Tmdb;
+using HobbyTracker.Api.Integrations.Wikidata;
 using HobbyTracker.Api.Services;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
@@ -135,6 +138,68 @@ builder.Services.AddHttpClient<IMalClient, MalClient>((serviceProvider, client) 
     client.DefaultRequestHeaders.Add("X-MAL-CLIENT-ID", mal.ClientId);
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 });
+
+// ------------------------------------- OpenCritic, Steam and Wikidata (the journal's reviews)
+// Three providers behind two rows in a game's journal: what OpenCritic's critics say, and what
+// Steam's players say. Wikidata is how a game's OpenCritic page is found, by IGDB's slug, with no
+// matching. See docs/games-reviews.md.
+//
+// IOptions is resolved inside each configuring lambda, for the reason every client above is: the
+// configuration is still being assembled while this file runs.
+
+// Keyless, so nothing to validate but the address.
+builder.Services.AddOptions<SteamOptions>()
+    .Bind(builder.Configuration.GetSection(SteamOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddHttpClient<ISteamClient, SteamClient>((serviceProvider, client) =>
+{
+    var steam = serviceProvider.GetRequiredService<IOptions<SteamOptions>>().Value;
+
+    client.BaseAddress = new Uri(steam.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(steam.RequestTimeoutSeconds);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+// The one optional credential. ValidateOnStart still runs, but the key is not [Required]: without
+// it the journal shows OpenCritic's link alone and nothing is asked, so a deployment that has not
+// set it yet boots and loses only the score. The headers are OpenCriticClient's to stamp, because
+// whether there is a key decides whether there is a request at all.
+builder.Services.AddOptions<OpenCriticOptions>()
+    .Bind(builder.Configuration.GetSection(OpenCriticOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddHttpClient<IOpenCriticClient, OpenCriticClient>((serviceProvider, client) =>
+{
+    var openCritic = serviceProvider.GetRequiredService<IOptions<OpenCriticOptions>>().Value;
+
+    client.BaseAddress = new Uri(openCritic.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(openCritic.RequestTimeoutSeconds);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+
+// Keyless and read-only. The endpoint is a whole address rather than a base, because the client
+// asks one question of one URL; the User-Agent is the client's to stamp, beside the question.
+builder.Services.AddOptions<WikidataOptions>()
+    .Bind(builder.Configuration.GetSection(WikidataOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddHttpClient<IWikidataClient, WikidataClient>((serviceProvider, client) =>
+{
+    var wikidata = serviceProvider.GetRequiredService<IOptions<WikidataOptions>>().Value;
+
+    client.Timeout = TimeSpan.FromSeconds(wikidata.RequestTimeoutSeconds);
+});
+
+builder.Services.AddOptions<ReviewsOptions>()
+    .Bind(builder.Configuration.GetSection(ReviewsOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
+
+builder.Services.AddScoped<IGameReviewService, GameReviewService>();
 
 // -------------------------------------------------- HowLongToBeat integration
 // No credentials to validate: HowLongToBeat has no account to hold one, so every setting has a
@@ -397,6 +462,10 @@ builder.Services.AddExceptionHandler<IgdbExceptionHandler>();
 builder.Services.AddExceptionHandler<HltbExceptionHandler>();
 builder.Services.AddExceptionHandler<TmdbExceptionHandler>();
 builder.Services.AddExceptionHandler<MalExceptionHandler>();
+
+// OpenCritic's only, of the three review providers: the pin is the one route that waits on a
+// provider, and the read of what each says catches its own. See OpenCriticExceptionHandler.
+builder.Services.AddExceptionHandler<OpenCriticExceptionHandler>();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

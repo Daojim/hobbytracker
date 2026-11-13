@@ -9,7 +9,10 @@ namespace HobbyTracker.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/games")]
-public class GamesController(IGameCatalogService catalog, IHltbService hltb) : ControllerBase
+public class GamesController(
+    IGameCatalogService catalog,
+    IHltbService hltb,
+    IGameReviewService reviews) : ControllerBase
 {
     /// <summary>
     /// Searches IGDB by title, stores what comes back in media + games, and returns the
@@ -202,6 +205,73 @@ public class GamesController(IGameCatalogService catalog, IHltbService hltb) : C
 
             default:
                 return Ok(game);
+        }
+    }
+
+    /// <summary>
+    /// What OpenCritic's critics and Steam's players say about a game, for the journal's two rows,
+    /// and which page each was read from.
+    ///
+    /// <para>
+    /// The first time a journal asks, this is what finds the two pages — Steam's from IGDB, and
+    /// OpenCritic's from Wikidata by IGDB's slug — and keeps them on the game. What each says is
+    /// kept a day under the provider's own id, never under whoever asked, because a score is the
+    /// same for everybody.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Each half stands alone, so this is a 200 whoever is unhappy.</b> A provider that cannot be
+    /// read takes its own verdict with it, and the row is its link alone, as OpenCritic's is with
+    /// no key. <b>404</b> for a media id that is not a game.
+    /// </para>
+    /// </summary>
+    [HttpGet("{mediaId:int}/reviews")]
+    [ProducesResponseType<GameReviewsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<GameReviewsDto>> Reviews(int mediaId, CancellationToken cancellationToken)
+    {
+        var answer = await reviews.ReviewsAsync(mediaId, cancellationToken);
+        return answer is null ? NotFound() : Ok(answer);
+    }
+
+    /// <summary>
+    /// Pins OpenCritic's number for a game by hand, or takes the pin back with a null — the
+    /// journal's <em>OpenCritic ID</em> box.
+    ///
+    /// <para>
+    /// The correction for a page Wikidata does not have, or has wrong. Checked against OpenCritic
+    /// there and then when there is a key to ask with, because the point of typing a number is to
+    /// learn whether it was right: one OpenCritic does not know is a <b>400</b> naming it, as a
+    /// HowLongToBeat pin's is. Without a key it is kept as typed. A pin is never overwritten by a
+    /// look, and taking it back sends the game to be looked for again.
+    /// </para>
+    ///
+    /// <para><b>404</b> for a media id that is not a game, and <b>502</b> when OpenCritic cannot be read.</para>
+    /// </summary>
+    [HttpPut("{mediaId:int}/opencritic")]
+    [ProducesResponseType<GameDetailDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<ActionResult<GameDetailDto>> SetOpenCriticId(
+        int mediaId, SetOpenCriticIdRequest request, CancellationToken cancellationToken)
+    {
+        switch (await reviews.PinOpenCriticAsync(mediaId, request.OpenCriticId, cancellationToken))
+        {
+            case OpenCriticPinOutcome.NoSuchGame:
+                return NotFound();
+
+            case OpenCriticPinOutcome.NoSuchOpenCriticId:
+                ModelState.AddModelError(
+                    nameof(request.OpenCriticId),
+                    $"OpenCritic has no game {request.OpenCriticId}.");
+
+                return ValidationProblem(ModelState);
+
+            default:
+                // The journal's own read, rather than one more copy of it: a title's passes are
+                // ordered at ten call sites that must agree, and this adds none.
+                return Ok(await catalog.GetAsync(mediaId, cancellationToken));
         }
     }
 

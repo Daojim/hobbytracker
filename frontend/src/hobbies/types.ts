@@ -1,4 +1,12 @@
-import type { DiscoverListPage, LogEntry, LogStatus, ReleasePrecision } from '../api/types';
+import type {
+  DiscoverListPage,
+  GameReviews,
+  LogEntry,
+  LogStatus,
+  OpenCriticVerdict,
+  ReleasePrecision,
+  SteamVerdict,
+} from '../api/types';
 import type { HltbEstimates } from '../journal/fields';
 import type { Voiced } from '../lib/voice';
 import type { Hobby } from '../shell/hobbies';
@@ -382,8 +390,56 @@ export interface JournalSection {
    */
   refreshHltb: ((mediaId: number) => Promise<unknown>) | null;
 
+  /**
+   * What critics and players say about a title, the box that pins the critics' page, and the words
+   * both rows are written in — or null for a hobby whose journal has no such rows.
+   *
+   * Null exactly where {@link TitleDetail.reviews} is, for {@link setHltbId}'s reason: rows with
+   * nothing behind them would draw links to nowhere, and a reader with no rows would ask for
+   * nothing anybody reads. `journal.test.ts` holds the two together.
+   */
+  reviews: ReviewSection | null;
+
   /** Which of a pass's fields this hobby keeps at all. */
   fields: PassFields;
+}
+
+/**
+ * The journal's two rows about what people say: OpenCritic's critics, with a box to pin its page,
+ * and Steam's players. Games' alone, because they are the two sites a game's are on.
+ */
+export interface ReviewSection {
+  /** What each page says, asked when the journal opens, and which pages it read. */
+  load(mediaId: number): Promise<GameReviews>;
+
+  /** Pins OpenCritic's number by hand, or takes the pin back with a null. */
+  pin(mediaId: number, openCriticId: number | null): Promise<unknown>;
+
+  words: ReviewWords;
+}
+
+/** The two rows' words, picked at #22's workshop on 12 November 2026. */
+export interface ReviewWords {
+  /** The box's label: `OpenCritic ID`. */
+  criticsLabel: string;
+
+  /** The way to OpenCritic's page: `View on OpenCritic`. */
+  criticsLink: string;
+
+  /** The second row's label: `Steam`. */
+  playersLabel: string;
+
+  /** The way to Steam's page: `View on Steam`. */
+  playersLink: string;
+
+  /**
+   * What OpenCritic says: `85 · Mighty · 91% recommend`, or with no score, `Not out yet` for a
+   * title that is not out and `Too few reviews` for one that is.
+   */
+  critics(verdict: OpenCriticVerdict, released: boolean): string;
+
+  /** What Steam says: `Very Positive · 94%`, or Steam's own `No user reviews` with none. */
+  players(verdict: SteamVerdict): string;
 }
 
 /**
@@ -501,6 +557,29 @@ export interface TitleDetail {
    * where this is present with four nulls inside it.
    */
   hltb: TitleHltb | null;
+
+  /**
+   * The title's pages where critics and players say what they think of it, and whether it is out —
+   * what the journal's OpenCritic and Steam rows draw before anything is asked. Null for a hobby
+   * with no such rows, which is not the same as a game with neither page, where this is present
+   * with two nulls inside it: the box is on every game.
+   */
+  reviews: TitleReviews | null;
+}
+
+/** The two pages a game's reviews are read from, and the one fact their words need. */
+export interface TitleReviews {
+  /** OpenCritic's number, found or pinned, or null. The box holds it and the link is built from it. */
+  openCriticId: number | null;
+
+  /** The Steam store page, or null — and then there is no Steam row at all. */
+  steamAppId: number | null;
+
+  /**
+   * Whether the title is out, which is the server's answer and never re-derived here: OpenCritic
+   * with no score says *Not out yet* before and *Too few reviews* after.
+   */
+  released: boolean;
 }
 
 export interface TitleFact {

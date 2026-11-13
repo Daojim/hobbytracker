@@ -506,3 +506,87 @@ describe('journal.setHltbId and journal.refreshHltb', () => {
     }
   });
 });
+
+describe('journal.reviews', () => {
+  it("carries a game's two pages and whether it is out, and nothing for the other hobbies", async () => {
+    // What the OpenCritic and Steam rows draw from before anything is asked: the box's number and
+    // the two links. Whether the game is out tells "Not out yet" from "Too few reviews".
+    server.use(
+      http.get('/api/games/14', () =>
+        HttpResponse.json(gameDetail({ openCriticId: 15125, steamAppId: 1888160, released: true })),
+      ),
+      http.get('/api/movies/14', () => HttpResponse.json(movieDetail())),
+    );
+
+    expect((await hobbyDefinition('games').journal.load(14)).reviews).toEqual({
+      openCriticId: 15125,
+      steamAppId: 1888160,
+      released: true,
+    });
+    expect((await hobbyDefinition('movies').journal.load(14)).reviews).toBeNull();
+  });
+
+  it('exists for exactly the hobbies whose titles carry the two pages', async () => {
+    // The setHltbId and hltb pairing again: rows with nothing to ask would draw links to nowhere,
+    // and a reader with no rows would ask for nothing anybody reads.
+    server.use(
+      http.get('/api/games/14', () => HttpResponse.json(gameDetail())),
+      http.get('/api/movies/14', () => HttpResponse.json(movieDetail())),
+      http.get('/api/tv/14', () => HttpResponse.json(tvShowDetail())),
+      http.get('/api/anime/14', () => HttpResponse.json(animeDetail())),
+    );
+
+    for (const slug of ['games', 'movies', 'tv', 'anime']) {
+      const { journal } = hobbyDefinition(slug);
+      expect(journal.reviews !== null, slug).toBe((await journal.load(14)).reviews !== null);
+    }
+  });
+});
+
+describe("a game's critics and players, in words", () => {
+  // The five picks of #22's round two, and exactly them: OpenCritic's words were the user's pick
+  // over the recommendation, knowing they take two lines in the drawer.
+  const { words } = hobbyDefinition('games').journal.reviews!;
+
+  it("writes OpenCritic's top critics rounded, its tier, and the share who recommend it", () => {
+    expect(
+      words.critics({ topCriticScore: 84.91176470588235, tier: 'Mighty', percentRecommended: 90.97222222222221 }, true),
+    ).toBe('85 · Mighty · 91% recommend');
+  });
+
+  it('leaves out the share where OpenCritic has too few reviews for one', () => {
+    // Kuro no Kiseki: a score from three top critics, and no share.
+    expect(
+      words.critics({ topCriticScore: 83.66666666666667, tier: 'Mighty', percentRecommended: null }, true),
+    ).toBe('84 · Mighty');
+  });
+
+  it('says a game with no score is not out yet, or has too few reviews once it is', () => {
+    // One sentence for both would be untrue for Rabbit and Steel, out since May 2024 with three
+    // critic reviews — which is what added this choice to round two.
+    const none = { topCriticScore: null, tier: null, percentRecommended: null };
+
+    expect(words.critics(none, false)).toBe('Not out yet');
+    expect(words.critics(none, true)).toBe('Too few reviews');
+  });
+
+  it("writes Steam's own word and the share positive, rounded", () => {
+    expect(words.players({ summary: 'Very Positive', positive: 38640, total: 41283 })).toBe(
+      'Very Positive · 94%',
+    );
+  });
+
+  it("prints Steam's own words, alone, for a game nobody has reviewed", () => {
+    // Steam says "No user reviews" for a game not out, and a share of nought would be a claim.
+    expect(words.players({ summary: 'No user reviews', positive: 0, total: 0 })).toBe(
+      'No user reviews',
+    );
+  });
+
+  it('names the rows and their links as the workshop drew them', () => {
+    expect(words.criticsLabel).toBe('OpenCritic ID');
+    expect(words.criticsLink).toBe('View on OpenCritic');
+    expect(words.playersLabel).toBe('Steam');
+    expect(words.playersLink).toBe('View on Steam');
+  });
+});

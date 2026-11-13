@@ -1,7 +1,14 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import { server } from '../test/server';
-import { getGame, refreshGameHltb, searchGames, setGameHltbId } from './games';
+import {
+  getGame,
+  getGameReviews,
+  refreshGameHltb,
+  searchGames,
+  setGameHltbId,
+  setGameOpenCriticId,
+} from './games';
 import type { Game } from './types';
 
 const celeste: Game = {
@@ -75,6 +82,56 @@ describe('getGame', () => {
 
     expect(game.title).toBe('Celeste');
     expect(game.logEntries).toEqual([]);
+  });
+});
+
+describe('getGameReviews', () => {
+  it('asks what OpenCritic and Steam say, and which pages it read', async () => {
+    server.use(
+      http.get('/api/games/14/reviews', () =>
+        HttpResponse.json({
+          openCriticId: 15125,
+          steamAppId: 1888160,
+          openCritic: { topCriticScore: 84.9, tier: 'Mighty', percentRecommended: 91 },
+          steam: { summary: 'Very Positive', positive: 38640, total: 41283 },
+        }),
+      ),
+    );
+
+    const reviews = await getGameReviews(14);
+
+    expect(reviews.openCriticId).toBe(15125);
+    expect(reviews.steam?.summary).toBe('Very Positive');
+  });
+});
+
+describe('setGameOpenCriticId', () => {
+  it('pins the number against the title', async () => {
+    let body: unknown;
+    server.use(
+      http.put('/api/games/14/opencritic', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...celeste, openCriticId: 16438, logEntries: [] });
+      }),
+    );
+
+    await setGameOpenCriticId(14, 16438);
+
+    expect(body).toEqual({ openCriticId: 16438 });
+  });
+
+  it('sends a null to take the pin back, rather than omitting it', async () => {
+    let body: unknown;
+    server.use(
+      http.put('/api/games/14/opencritic', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ ...celeste, openCriticId: null, logEntries: [] });
+      }),
+    );
+
+    await setGameOpenCriticId(14, null);
+
+    expect(body).toEqual({ openCriticId: null });
   });
 });
 

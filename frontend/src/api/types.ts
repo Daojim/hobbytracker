@@ -369,7 +369,54 @@ export interface GameDetail extends Game {
    * figures, and this is what says how long ago that was.
    */
   hltbCheckedAt: string | null;
+
+  /**
+   * OpenCritic's number for the game, found through Wikidata or pinned in the journal, or null
+   * for none yet. The journal's box holds it and its link is built from it, so both are there the
+   * moment the journal opens, while what OpenCritic says is still being asked.
+   */
+  openCriticId: number | null;
+
+  /** The game's Steam store page, or null for none — and then the journal has no Steam row. */
+  steamAppId: number | null;
   logEntries: LogEntry[];
+}
+
+/**
+ * What OpenCritic's critics and Steam's players say about a game, and which page each was read
+ * from — `GET /api/games/{id}/reviews`, asked when the journal opens.
+ *
+ * **The ids come with the verdicts**, though the journal's read carries them too: the first time a
+ * journal asks, this is what finds them, so an answer naming other pages than the read is how the
+ * drawer learns the read is out of date. A page with no verdict is a link alone — OpenCritic
+ * without a key on the server, or a provider that could not be read that day.
+ */
+export interface GameReviews {
+  openCriticId: number | null;
+  steamAppId: number | null;
+  openCritic: OpenCriticVerdict | null;
+  steam: SteamVerdict | null;
+}
+
+/**
+ * OpenCritic's verdict, unrounded: the words are the hobby's to write. A null score is OpenCritic
+ * having none yet, which the journal says as *Not out yet* or *Too few reviews*.
+ */
+export interface OpenCriticVerdict {
+  topCriticScore: number | null;
+  /** Mighty, Strong, Fair or Weak, or null with no score. */
+  tier: string | null;
+  /** The share of critics who recommend it, or null with too few reviews for one. */
+  percentRecommended: number | null;
+}
+
+/** Steam's verdict, as its store page shows an English reader: its word, and the counts behind it. */
+export interface SteamVerdict {
+  /** Steam's own word: *Very Positive*, or *No user reviews* for a game not out. */
+  summary: string;
+  positive: number;
+  /** Nought for a game nobody has reviewed. */
+  total: number;
 }
 
 /**

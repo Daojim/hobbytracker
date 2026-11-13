@@ -201,6 +201,17 @@
       of its own; the same rule leaves your own games off when they come back under another
       number. Nothing fewer than ten people rated is offered, because the user would not rest it
       on IGDB's scores
-- [ ] A game's OpenCritic and Steam pages, for a quick look at what people say about a game in
-      the backlog
+- [x] A game's OpenCritic and Steam pages. Two rows in a game's journal, under HowLongToBeat's,
+      say what critics and players think: *85 · Mighty · 91% recommend* from OpenCritic, the
+      user's pick from renders over the score and tier alone, and *Very Positive · 94%* from
+      Steam, each beside a link to its page. Measuring the providers first moved all three:
+      Steam's review route was deprecated and its replacement needs no key, OpenCritic's pages
+      may not be read and its API takes a key, which the app does without if it has to, and
+      Wikidata ties most games to their OpenCritic page by IGDB's own name for them, with no
+      matching. A box beside the score pins a page Wikidata does not have, and takes a whole
+      address pasted from the browser. The built rows match the picked renders to the pixel
+- [ ] Hiding a game from Discover, a game or perhaps its whole series, starting with the Horizon
+      games
+- [ ] Adding a game finished long ago with the year it was finished, never a made-up day and
+      never this year
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration
