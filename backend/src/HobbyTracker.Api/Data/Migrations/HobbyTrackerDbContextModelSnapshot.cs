@@ -121,6 +121,31 @@ namespace HobbyTracker.Api.Data.Migrations
                     b.ToTable("board_shares", (string)null);
                 });
 
+            modelBuilder.Entity("HobbyTracker.Api.Domain.DiscoverHide", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.Property<int>("MediaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("media_id");
+
+                    b.Property<DateTimeOffset>("HiddenAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("hidden_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.HasKey("UserId", "MediaId")
+                        .HasName("pk_discover_hides");
+
+                    b.HasIndex("MediaId")
+                        .HasDatabaseName("ix_discover_hides_media_id");
+
+                    b.ToTable("discover_hides", (string)null);
+                });
+
             modelBuilder.Entity("HobbyTracker.Api.Domain.Hobby", b =>
                 {
                     b.Property<int>("Id")
@@ -911,6 +936,27 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasConstraintName("fk_board_shares_users_user_id");
 
                     b.Navigation("Hobby");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HobbyTracker.Api.Domain.DiscoverHide", b =>
+                {
+                    b.HasOne("HobbyTracker.Api.Domain.Media", "Media")
+                        .WithMany()
+                        .HasForeignKey("MediaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_discover_hides_media_media_id");
+
+                    b.HasOne("HobbyTracker.Api.Domain.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_discover_hides_users_user_id");
+
+                    b.Navigation("Media");
 
                     b.Navigation("User");
                 });

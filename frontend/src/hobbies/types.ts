@@ -1,6 +1,7 @@
 import type {
   DiscoverListPage,
   GameReviews,
+  HiddenTitle,
   LogEntry,
   LogStatus,
   OpenCriticVerdict,
@@ -157,6 +158,17 @@ export interface HobbyDefinition {
 
     /** The lists, in tab order. The page opens on the first. */
     lists: readonly DiscoverList[];
+
+    /**
+     * The games you hid from the page (#23): the list of them, a hide, and taking one back, each
+     * by the media id a tile carries. The server leaves a hidden game off every list; the page
+     * keeps one hidden on this visit in its place, as a card with Undo, until it is left.
+     */
+    hidden: {
+      list(): Promise<HiddenTitle[]>;
+      hide(mediaId: number): Promise<void>;
+      show(mediaId: number): Promise<void>;
+    };
   } | null;
 
   /**

@@ -1,13 +1,16 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Navigate, useParams } from 'react-router';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppHeader } from '../shell/AppHeader';
-import { hobbyDefinition, type DiscoverList } from '../hobbies';
-import { discoverKey } from '../board/keys';
+import { hobbyDefinition, type DiscoverList, type HobbyDefinition, type SearchHit } from '../hobbies';
+import { discoverKey, hiddenKey } from '../board/keys';
 import { useAddToBoard } from '../search/useAddToBoard';
 import { DEFAULT_HOBBY, boardPath, discoverPath, isReadyHobby } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
-import type { RatedTitle } from '../api/types';
+import type { HiddenTitle, RatedTitle } from '../api/types';
+import { EyeOff } from './EyeOff';
+import { HiddenDialog } from './HiddenDialog';
+import { HiddenTile } from './HiddenTile';
 import { WallTile } from './WallTile';
 
 /**
@@ -74,7 +77,13 @@ export function DiscoverPage() {
   }
 
   return (
-    <Discover hobby={hobby} heading={discover.heading} lists={discover.lists} list={chosen} />
+    <Discover
+      hobby={hobby}
+      heading={discover.heading}
+      lists={discover.lists}
+      list={chosen}
+      hidden={discover.hidden}
+    />
   );
 }
 
@@ -83,10 +92,19 @@ interface DiscoverProps {
   heading: string;
   lists: readonly DiscoverList[];
   list: DiscoverList;
+  hidden: NonNullable<HobbyDefinition['discover']>['hidden'];
 }
 
-function Discover({ hobby, heading, lists, list }: DiscoverProps) {
+/** An Undo pressed on a hidden tile, or Show again in the list of hides. */
+interface ShowAgain {
+  mediaId: number;
+  /** From the card on the wall, whose tile then takes the keyboard back; not from the list. */
+  fromTheWall: boolean;
+}
+
+function Discover({ hobby, heading, lists, list, hidden }: DiscoverProps) {
   const definition = hobbyDefinition(hobby);
+  const queryClient = useQueryClient();
 
   // The search strip's own add, its idea of what is on the board already and where, and the
   // columns this board will take a title into, so one title cannot read as addable here and on
@@ -107,6 +125,81 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
     ...(list.yours === undefined ? {} : { gcTime: YOURS_KEPT_MS }),
   });
 
+  // The games you hid (#23): what the count by the way back to the board says, the list it opens,
+  // and what a wall loaded before a hide still holds. Under a key of its own, outside the walls',
+  // so nothing that settles it can set a wall asking again.
+  const hiddenTitles = useQuery({ queryKey: hiddenKey(hobby), queryFn: () => hidden.list() });
+
+  // What this visit has done about a title: hidden here, and drawn as a card in its tile's place
+  // until the page is left — the workshop's pick, as an add leaves its tile — or shown again here,
+  // and drawn as its tile whatever the list of hides last said. Kept by the page rather than the
+  // tile, because the page outlives a tab and a card has to be one on every wall that holds it.
+  const [decided, setDecided] = useState<ReadonlyMap<number, boolean>>(() => new Map());
+  const decide = (mediaId: number, isHidden: boolean) =>
+    setDecided((was) => new Map(was).set(mediaId, isHidden));
+
+  // Hidden before this visit, and not shown again on it. The server leaves these off every list,
+  // so only a wall loaded before the hide can still hold one — TanStack keeps a list for five
+  // minutes after it is left — and the page drops it as the server would.
+  const hiddenBefore = useMemo(
+    () =>
+      new Set(
+        (hiddenTitles.data ?? [])
+          .map((title) => title.mediaId)
+          .filter((mediaId) => !decided.has(mediaId)),
+      ),
+    [hiddenTitles.data, decided],
+  );
+
+  // Where the keyboard goes once a hide or an Undo has redrawn its tile. The control pressed goes
+  // with the tile it was in, and the keyboard with it would fall to the top of the page.
+  const refocus = useRef<number | null>(null);
+
+  const hide = useMutation({
+    mutationFn: (hit: SearchHit) => hidden.hide(hit.id),
+
+    // Into the list's answer at once rather than asked for again, so the count moves with the
+    // card. A game hidden already — in another tab — keeps its place, as the server keeps it.
+    onSuccess: (_nothing, hit) => {
+      queryClient.setQueryData<HiddenTitle[]>(hiddenKey(hobby), (was = []) =>
+        was.some((title) => title.mediaId === hit.id)
+          ? was
+          : [{ mediaId: hit.id, title: hit.title, coverUrl: hit.coverUrl }, ...was],
+      );
+
+      refocus.current = hit.id;
+      decide(hit.id, true);
+    },
+  });
+
+  const show = useMutation({
+    mutationFn: ({ mediaId }: ShowAgain) => hidden.show(mediaId),
+
+    onSuccess: (_nothing, { mediaId, fromTheWall }) => {
+      queryClient.setQueryData<HiddenTitle[]>(hiddenKey(hobby), (was = []) =>
+        was.filter((title) => title.mediaId !== mediaId),
+      );
+
+      // From the list, the keyboard is the list's to place.
+      if (fromTheWall) {
+        refocus.current = mediaId;
+      }
+
+      decide(mediaId, false);
+    },
+  });
+
+  const [listing, setListing] = useState(false);
+  const opener = useRef<HTMLButtonElement>(null);
+  const back = useRef<HTMLAnchorElement>(null);
+
+  // Back to what opened the list, or, when the last hide was taken back from inside it and the
+  // count has gone, to the way back to the board beside where it was.
+  const closeList = () => {
+    setListing(false);
+    (opener.current ?? back.current)?.focus();
+  };
+
   // Every page so far, as one wall. A title already on it is dropped rather than drawn twice:
   // the server keeps the provider's answer for hours and asks again at midnight, so a page loaded
   // either side of that can carry a title the page before it already showed.
@@ -116,14 +209,14 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
     return (titles.data?.pages ?? [])
       .flatMap((page) => page.titles)
       .filter((hit) => {
-        if (seen.has(hit.id)) {
+        if (seen.has(hit.id) || hiddenBefore.has(hit.id)) {
           return false;
         }
 
         seen.add(hit.id);
         return true;
       });
-  }, [titles.data]);
+  }, [titles.data, hiddenBefore]);
 
   // Why each title is on a list made from your board, gathered from every page so far. A title a
   // later page carries again keeps the reason it was drawn with, as it keeps its place.
@@ -179,6 +272,27 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
     void titles.fetchNextPage();
   };
 
+  // The keyboard handed over once a tile is redrawn: to Undo on the card a hide left, and back to
+  // the mark on the tile an Undo brought back — the first button in either. Only when it fell with
+  // the control that was pressed, so somebody who moved on before the answer came keeps their place.
+  useEffect(() => {
+    const mediaId = refocus.current;
+
+    if (mediaId === null) {
+      return;
+    }
+
+    refocus.current = null;
+
+    if (document.activeElement !== null && document.activeElement !== document.body) {
+      return;
+    }
+
+    wall.current?.children[hits.findIndex((hit) => hit.id === mediaId)]
+      ?.querySelector('button')
+      ?.focus();
+  }, [decided, hits]);
+
   return (
     // The board's gutter at every width, 16px on a phone, so the header does not step sideways
     // between the two pages.
@@ -188,10 +302,27 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
 
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 className="text-lg font-semibold">{heading}</h2>
-          <Link to={boardPath(hobby)} className="text-sm text-muted hover:text-fg">
-            <span aria-hidden="true">← </span>
-            Back to your board
-          </Link>
+          <div className="flex items-baseline gap-4">
+            {/* How many games you hid, from the first hide on, opening the list of them: by the way
+                back to the board, the #23 workshop's pick over a row in Settings. Its words are the
+                card's and the mark's, an eye struck through and the word hidden. */}
+            {(hiddenTitles.data?.length ?? 0) > 0 && (
+              <button
+                ref={opener}
+                type="button"
+                aria-haspopup="dialog"
+                onClick={() => setListing(true)}
+                className="inline-flex items-baseline gap-1.5 text-sm text-muted hover:text-fg"
+              >
+                <EyeOff className="size-3.5 self-center" />
+                {hiddenTitles.data?.length} hidden
+              </button>
+            )}
+            <Link ref={back} to={boardPath(hobby)} className="text-sm text-muted hover:text-fg">
+              <span aria-hidden="true">← </span>
+              Back to your board
+            </Link>
+          </div>
         </div>
 
         {/* Pills rather than the hobby nav's underline, picked from rendered comparisons: under
@@ -240,6 +371,20 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
           </p>
         )}
 
+        {/* A hide that failed leaves its tile as it was, and says why here, as an add does. One
+            taken back from the list says so in the list while it is open. */}
+        {hide.error !== null && (
+          <p role="alert" className="text-sm text-danger">
+            {hide.error.message}
+          </p>
+        )}
+
+        {show.error !== null && !listing && (
+          <p role="alert" className="text-sm text-danger">
+            {show.error.message}
+          </p>
+        )}
+
         {titles.isSuccess && hits.length === 0 && !titles.hasNextPage && (
           <p className="text-sm text-muted">{empty}</p>
         )}
@@ -257,18 +402,27 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
             aria-label={list.label}
             className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 3xl:grid-cols-12"
           >
-            {hits.map((hit) => (
-              <WallTile
-                key={hit.id}
-                hit={hit}
-                onBoard={board.statusOf(hit.id)}
-                adding={board.isAdding(hit.id)}
-                onAdd={board.add}
-                columns={board.columns}
-                definition={definition}
-                because={reasons.get(hit.id) ?? null}
-              />
-            ))}
+            {hits.map((hit) =>
+              decided.get(hit.id) === true ? (
+                <HiddenTile
+                  key={hit.id}
+                  hit={hit}
+                  onUndo={() => show.mutate({ mediaId: hit.id, fromTheWall: true })}
+                />
+              ) : (
+                <WallTile
+                  key={hit.id}
+                  hit={hit}
+                  onBoard={board.statusOf(hit.id)}
+                  adding={board.isAdding(hit.id)}
+                  onAdd={board.add}
+                  columns={board.columns}
+                  definition={definition}
+                  because={reasons.get(hit.id) ?? null}
+                  onHide={() => hide.mutate(hit)}
+                />
+              ),
+            )}
           </ul>
         )}
 
@@ -307,6 +461,15 @@ function Discover({ hobby, heading, lists, list }: DiscoverProps) {
           )
         )}
       </div>
+
+      {listing && (
+        <HiddenDialog
+          titles={hiddenTitles.data ?? []}
+          onShow={(mediaId) => show.mutate({ mediaId, fromTheWall: false })}
+          error={show.error}
+          onClose={closeList}
+        />
+      )}
     </main>
   );
 }

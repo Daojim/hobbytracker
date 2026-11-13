@@ -277,6 +277,10 @@ builder.Services.AddScoped<ILibraryService, LibraryService>();
 builder.Services.AddScoped<IStatsService, StatsService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 
+// The games each person has hidden from Discover. The lists leave them out in GameCatalogService,
+// which reads them itself, beside what else a list leaves out.
+builder.Services.AddScoped<IDiscoverHideService, DiscoverHideService>();
+
 // A share link, which two kinds of request reach. The owner's routes take IShareService and act
 // as whoever is signed in. The anonymous controller takes the three interfaces after it and
 // nothing else: a token lookup, and reads whose owner the caller names. Each of those classes

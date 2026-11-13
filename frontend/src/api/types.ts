@@ -183,6 +183,17 @@ export interface DiscoverListPage<T> {
   because?: Readonly<Record<number, readonly RatedTitle[]>> | null;
 }
 
+/**
+ * A game you hid from Discover, as the list of them draws it: a cover and a name a row, the newest
+ * hide first. See `Contracts/HiddenTitleDto.cs`.
+ */
+export interface HiddenTitle {
+  mediaId: number;
+  /** The name its tile leads with. */
+  title: string;
+  coverUrl: string | null;
+}
+
 /** One of your titles and what you rated its latest finish, as a tile on From your ratings names it. */
 export interface RatedTitle {
   /** The name its card leads with. */

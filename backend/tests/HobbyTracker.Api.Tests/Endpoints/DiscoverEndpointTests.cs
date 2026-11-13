@@ -209,22 +209,23 @@ public sealed class DiscoverEndpointTests(PostgresFixture postgres) : DatabaseTe
     }
 
     [Theory]
-    [InlineData("new-releases", 49)]
-    [InlineData("most-played", 49)]
-    [InlineData("popular-now", 96)]
-    [InlineData("most-anticipated", 96)]
-    public async Task Asks_for_enough_to_fill_the_wall_and_know_whether_there_is_more(
-        string list, int asked)
+    [InlineData("new-releases")]
+    [InlineData("most-played")]
+    [InlineData("popular-now")]
+    [InlineData("most-anticipated")]
+    public async Task Asks_for_twice_the_wall_so_what_is_left_out_afterwards_still_fills_it(string list)
     {
         await DiscoverAsync(list);
 
-        // Popular now is filtered after PopScore has ranked it and Most anticipated after IGDB has
-        // answered, so both ask for twice the wall and trim. The other two are filtered inside the
-        // query, where IGDB applies the filter before the limit — so one place past the wall is all
-        // it takes to know whether there is a next page, rather than offering one that brings nothing.
+        // Every list loses titles after IGDB has answered, because your hides go there and never
+        // into the question everybody shares. Popular now and Most anticipated lost them anyway, to
+        // PopScore's second question and the calendar's rule. New releases and Most played asked
+        // for one place past the wall until hides came (#23), their own filters being inside the
+        // question: enough to know whether there was a next page, and a page short with two hides
+        // on it. The user picked twice the wall for all four on 13 November 2026.
         var call = Igdb.DiscoverCalls.ShouldHaveSingleItem();
         call.Offset.ShouldBe(0);
-        call.Limit.ShouldBe(asked);
+        call.Limit.ShouldBe(96);
     }
 
     // ------------------------------------------------------------------------------ load more
@@ -265,8 +266,8 @@ public sealed class DiscoverEndpointTests(PostgresFixture postgres) : DatabaseTe
 
         var page = await PageAsync("new-releases");
 
-        // Asked about one place more than a page holds and found nothing there, so there is no
-        // next page — rather than a Load more whose only effect is to find that out.
+        // Asked about more places than a page holds and found nothing past it, so there is no next
+        // page — rather than a Load more whose only effect is to find that out.
         page.Titles.Count.ShouldBe(48);
         page.Next.ShouldBeNull();
     }

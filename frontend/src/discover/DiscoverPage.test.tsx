@@ -10,7 +10,7 @@ import { game, searchServer } from '../test/games';
 import { authServer } from '../test/auth';
 import { boardServer } from '../test/library';
 import { server } from '../test/server';
-import type { DiscoverListPage, Game, RatedTitle } from '../api/types';
+import type { DiscoverListPage, Game, HiddenTitle, RatedTitle } from '../api/types';
 
 /**
  * A list a page at a time, keyed by the place each page starts at — `0` for the first. A page's
@@ -41,6 +41,10 @@ function discoverServer(lists: Record<string, Game[] | Pages> = {}, status?: num
     );
 
   server.use(
+    // Nothing hidden, which every visit to the page asks about. Ahead of the lists, whose path
+    // would otherwise read "hidden" as a list's name; `hiddenServer`, registered after, wins.
+    http.get('/api/games/discover/hidden', () => HttpResponse.json([])),
+
     http.get('/api/games/discover/:list', async ({ params, request }) => {
       const list = String(params['list']);
       const start = new URL(request.url).searchParams.get('from');
@@ -64,6 +68,65 @@ function discoverServer(lists: Record<string, Game[] | Pages> = {}, status?: num
   );
 
   return { asked, from };
+}
+
+/**
+ * The games hidden from Discover, kept as the API keeps them: newest first, a hide putting a game
+ * at the top unless it is there already and Show again taking it out, and every hide and show
+ * recorded in order. Registered after `discoverServer`, whose answer is that nothing is hidden.
+ *
+ * `games` is what a hide can name, since the request carries a media id alone. A status fails
+ * every hide and show with it, for the unhappy path.
+ */
+function hiddenServer(
+  initial: HiddenTitle[] = [],
+  { games = [], status }: { games?: Game[]; status?: number } = {},
+) {
+  let hidden = [...initial];
+  const sent: string[] = [];
+
+  const refused = (code: number) =>
+    HttpResponse.json(
+      { title: 'Server Error', detail: 'The database is unhappy.', status: code },
+      { status: code },
+    );
+
+  server.use(
+    http.get('/api/games/discover/hidden', () => HttpResponse.json(hidden)),
+
+    http.put('/api/games/discover/hidden/:mediaId', ({ params }) => {
+      const mediaId = Number(params['mediaId']);
+      sent.push(`hide ${mediaId}`);
+
+      if (status !== undefined) {
+        return refused(status);
+      }
+
+      const named = games.find((candidate) => candidate.id === mediaId);
+      if (!hidden.some((title) => title.mediaId === mediaId)) {
+        hidden = [
+          { mediaId, title: named?.title ?? `Game ${mediaId}`, coverUrl: named?.coverUrl ?? null },
+          ...hidden,
+        ];
+      }
+
+      return new HttpResponse(null, { status: 204 });
+    }),
+
+    http.delete('/api/games/discover/hidden/:mediaId', ({ params }) => {
+      const mediaId = Number(params['mediaId']);
+      sent.push(`show ${mediaId}`);
+
+      if (status !== undefined) {
+        return refused(status);
+      }
+
+      hidden = hidden.filter((title) => title.mediaId !== mediaId);
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+
+  return { sent };
 }
 
 /** Games numbered from `first`, `count` of them, each titled by its number. */
@@ -189,8 +252,11 @@ describe('DiscoverPage', () => {
     await waitFor(() => expect(onBoard).toHaveTextContent('On your board: Playing'));
     expect(within(onBoard).queryByRole('button')).not.toBeInTheDocument();
 
+    // The hide first, after the name and before the add, and none of it on the title above: a
+    // title on your board offers no hide either.
     const notYet = await tile('Blue Prince');
     expect(within(notYet).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual([
+      'Hide Blue Prince from Discover',
       'Add Blue Prince to backlog',
       'Add Blue Prince to playing',
       'Add Blue Prince to completed',
@@ -634,6 +700,273 @@ describe('From your ratings', () => {
     await userEvent.click(within(lists()).getByRole('link', { name: 'From your ratings' }));
 
     expect(await tile('Dead Cells')).toHaveTextContent('Because you rated Hollow Knight 9');
+  });
+});
+
+/**
+ * Hiding a game from Discover (#23), workshopped on 13 November 2026: an eye struck through on
+ * the cover's corner, a plain card with Undo where the tile was for the rest of the visit, and
+ * *1 hidden* by the way back to the board, opening the list. That one entry, kept on the server,
+ * which leaves it off every list from then on; what is here is the page's half.
+ *
+ * When the mark shows — under the pointer, with the keyboard in the tile, always on a phone — is
+ * CSS that jsdom does not run, so `discover.spec.ts` holds it in a real browser.
+ */
+describe('Hiding a game', () => {
+  const tunic = game({ id: 7, title: 'Tunic II', coverUrl: 'https://images.igdb.com/t.jpg' });
+  const prince = game({ id: 8, title: 'Blue Prince' });
+  const first = game({ id: 1, title: 'First' });
+
+  const horizon: HiddenTitle = { mediaId: 4, title: 'Horizon Zero Dawn', coverUrl: null };
+  const forbidden: HiddenTitle = {
+    mediaId: 9,
+    title: 'Horizon Forbidden West',
+    coverUrl: 'https://images.igdb.com/f.jpg',
+  };
+
+  const wallTitles = () =>
+    within(screen.getByRole('list', { name: 'New releases' }))
+      .getAllByRole('heading', { level: 3 })
+      .map((heading) => heading.textContent);
+
+  const markOf = (title: string) =>
+    screen.findByRole('button', { name: `Hide ${title} from Discover` });
+
+  it('offers a hide on a title after its name, and none on a title already on your board', async () => {
+    searchServer({ library: [{ mediaId: 8, status: 'InProgress' }] });
+    discoverServer({ 'new-releases': [tunic, prince] });
+
+    renderDiscover();
+
+    const offered = await tile('Tunic II');
+    const mark = await markOf('Tunic II');
+    const heading = within(offered).getByRole('heading', { level: 3 });
+
+    // After the name, though it sits on the cover's corner: a screen reader hears what the tile
+    // is before what it does, and Tab from the heading — where Load more leaves the keyboard —
+    // reaches the mark before the add.
+    expect(heading.compareDocumentPosition(mark) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    act(() => heading.focus());
+    await userEvent.tab();
+    expect(mark).toHaveFocus();
+
+    // On your board already, so there is nothing to hide it from, the workshop's pick: the corner
+    // is the chip's.
+    const onBoard = await tile('Blue Prince');
+    await waitFor(() => expect(onBoard).toHaveTextContent('On your board: Playing'));
+    expect(within(onBoard).queryByRole('button', { name: /^Hide / })).not.toBeInTheDocument();
+  });
+
+  it('leaves a card where the tile was, saying it is hidden, with Undo and the name under it', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [first, tunic, prince] });
+    const hides = hiddenServer([], { games: [tunic] });
+
+    renderDiscover();
+    await userEvent.click(await markOf('Tunic II'));
+
+    await waitFor(() => expect(hides.sent).toEqual(['hide 7']));
+
+    const card = await tile('Tunic II');
+    expect(await within(card).findByText('Hidden')).toBeInTheDocument();
+    expect(card).toHaveTextContent("It won't show up on Discover again.");
+    expect(within(card).getByRole('button', { name: 'Undo hiding Tunic II' })).toHaveTextContent('Undo');
+
+    // In its place, as an add leaves its tile, and with nothing else to press.
+    expect(wallTitles()).toEqual(['First', 'Tunic II', 'Blue Prince']);
+    expect(within(card).getAllByRole('button')).toHaveLength(1);
+  });
+
+  it('never asks for the wall again, so the card stays where the tile was', async () => {
+    searchServer();
+    const discover = discoverServer({ 'new-releases': [first, tunic, prince] });
+    hiddenServer([], { games: [tunic] });
+
+    renderDiscover();
+    await userEvent.click(await markOf('Tunic II'));
+    await within(await tile('Tunic II')).findByText('Hidden');
+
+    // Asked again, the server would leave the game out and the wall would close up under the
+    // pointer. The next visit asks.
+    expect(discover.asked).toEqual(['new-releases']);
+  });
+
+  it('takes a hide back with Undo, and puts the tile back as it was', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [first, tunic, prince] });
+    const hides = hiddenServer([], { games: [tunic] });
+
+    renderDiscover();
+    await userEvent.click(await markOf('Tunic II'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Undo hiding Tunic II' }));
+
+    await waitFor(() => expect(hides.sent).toEqual(['hide 7', 'show 7']));
+
+    const back = await tile('Tunic II');
+    expect(await within(back).findByRole('button', { name: 'Add Tunic II to backlog' })).toBeInTheDocument();
+    expect(within(back).getByRole('button', { name: 'Hide Tunic II from Discover' })).toBeInTheDocument();
+    expect(wallTitles()).toEqual(['First', 'Tunic II', 'Blue Prince']);
+  });
+
+  it('takes the keyboard from the mark to Undo, and from Undo back to the mark', async () => {
+    // The control pressed goes with the tile each time, and focus left on it would fall to the
+    // top of the page.
+    searchServer();
+    discoverServer({ 'new-releases': [tunic, prince] });
+    hiddenServer([], { games: [tunic] });
+
+    renderDiscover();
+    const mark = await markOf('Tunic II');
+    act(() => mark.focus());
+    await userEvent.keyboard('{Enter}');
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Undo hiding Tunic II' })).toHaveFocus(),
+    );
+
+    await userEvent.keyboard('{Enter}');
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Hide Tunic II from Discover' })).toHaveFocus(),
+    );
+  });
+
+  it('keeps a game hidden here hidden on every list the page draws it on', async () => {
+    // Until the page is left, wherever the wall still holds it: a list asked for afresh after
+    // the hide never carries it, and one loaded before it shows the card rather than the game.
+    searchServer();
+    discoverServer({ 'new-releases': [tunic], 'most-played': [prince, tunic] });
+    hiddenServer([], { games: [tunic] });
+
+    renderDiscover();
+    await userEvent.click(await markOf('Tunic II'));
+    await screen.findByRole('button', { name: 'Undo hiding Tunic II' });
+
+    await userEvent.click(within(lists()).getByRole('link', { name: 'Most played' }));
+
+    await screen.findByRole('list', { name: 'Most played' });
+    expect(await screen.findByRole('button', { name: 'Undo hiding Tunic II' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add Tunic II to backlog' })).not.toBeInTheDocument();
+  });
+
+  it('leaves a game hidden before this visit off a wall loaded before it was hidden', async () => {
+    // The server leaves a hidden game out of every list. A wall kept from before the hide still
+    // holds it — TanStack keeps a list five minutes after it is left — and drops it here.
+    searchServer();
+    discoverServer({ 'new-releases': [first, tunic, prince] });
+    hiddenServer([{ mediaId: 7, title: 'Tunic II', coverUrl: null }]);
+
+    renderDiscover();
+
+    await waitFor(() => expect(wallTitles()).toEqual(['First', 'Blue Prince']));
+  });
+
+  it('says how many are hidden by the way back to the board, from the first hide on', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [tunic] });
+    hiddenServer([], { games: [tunic] });
+
+    renderDiscover();
+    await tile('Tunic II');
+    expect(screen.queryByRole('button', { name: /hidden$/ })).not.toBeInTheDocument();
+
+    await userEvent.click(await markOf('Tunic II'));
+
+    expect(await screen.findByRole('button', { name: '1 hidden' })).toBeInTheDocument();
+  });
+
+  it('counts what was hidden on an earlier visit as the page opens', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [tunic] });
+    hiddenServer([forbidden, horizon]);
+
+    renderDiscover();
+
+    expect(await screen.findByRole('button', { name: '2 hidden' })).toBeInTheDocument();
+  });
+
+  it('opens the list from the count: the newest hide first, a cover and a name a row', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [tunic] });
+    hiddenServer([forbidden, horizon]);
+
+    renderDiscover();
+    await userEvent.click(await screen.findByRole('button', { name: '2 hidden' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Hidden from Discover' });
+    expect(dialog).toHaveTextContent(
+      'None of these is offered on any Discover list. Search still finds them.',
+    );
+
+    const rows = within(dialog).getAllByRole('listitem');
+    expect(rows.map((row) => within(row).getByRole('button').getAttribute('aria-label'))).toEqual([
+      'Show Horizon Forbidden West on Discover again',
+      'Show Horizon Zero Dawn on Discover again',
+    ]);
+    expect(within(rows[0]!).getByRole('button')).toHaveTextContent('Show again');
+  });
+
+  it('shows a game again from the list, takes it off the count, and closes with Done', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [tunic] });
+    const hides = hiddenServer([forbidden, horizon]);
+
+    renderDiscover();
+    await userEvent.click(await screen.findByRole('button', { name: '2 hidden' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Hidden from Discover' });
+
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Show Horizon Forbidden West on Discover again' }),
+    );
+
+    await waitFor(() => expect(hides.sent).toEqual(['show 9']));
+    await waitFor(() => expect(within(dialog).getAllByRole('listitem')).toHaveLength(1));
+    expect(screen.getByRole('button', { name: '1 hidden' })).toBeInTheDocument();
+
+    // The row the keyboard was on is gone, so it moves to the row that took its place rather than
+    // falling out of the dialog onto the page behind.
+    expect(
+      within(dialog).getByRole('button', { name: 'Show Horizon Zero Dawn on Discover again' }),
+    ).toHaveFocus();
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1 hidden' })).toHaveFocus();
+  });
+
+  it('turns a card back into its tile when its game is shown again from the list', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [tunic, prince] });
+    hiddenServer([], { games: [tunic] });
+
+    renderDiscover();
+    await userEvent.click(await markOf('Tunic II'));
+    await userEvent.click(await screen.findByRole('button', { name: '1 hidden' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Hidden from Discover' });
+    await userEvent.click(
+      within(dialog).getByRole('button', { name: 'Show Tunic II on Discover again' }),
+    );
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }));
+
+    expect(await within(await tile('Tunic II')).findByRole('button', { name: 'Add Tunic II to backlog' }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /hidden$/ })).not.toBeInTheDocument();
+  });
+
+  it('says why when a hide fails, and leaves the tile as it was', async () => {
+    searchServer();
+    discoverServer({ 'new-releases': [tunic] });
+    hiddenServer([], { games: [tunic], status: 500 });
+
+    renderDiscover();
+    await userEvent.click(await markOf('Tunic II'));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The database is unhappy.');
+    expect(within(await tile('Tunic II')).getByRole('button', { name: 'Add Tunic II to backlog' }))
+      .toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /hidden$/ })).not.toBeInTheDocument();
   });
 });
 

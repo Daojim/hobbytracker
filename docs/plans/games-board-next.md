@@ -49,7 +49,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
-| 23 | Hide a game from Discover | S–M | **Planned 8 November 2026 and workshopped on the 13th**, two rounds from renders of the real Discover page over the user's own list. **Not built.** A hide is that one IGDB entry, never its series or its versions, kept per account and left out of all five lists on the server. An eye on the cover under the pointer, always on a phone; a plain card with Undo for the rest of the visit; *1 hidden* on the page opening the list. Four of the thirteen picks were the user's over the recommendation. See its section |
+| 23 | Hide a game from Discover | S–M | **Built 13 November 2026, the day it was workshopped, tests first, and not yet merged**; the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
 | 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. It changes what a pass's date can be, so **a workshop of its own comes first**. See its section |
 
 Production runs `50b1245`'s code, which was `main` on 13 November 2026. Deploying is the runbook in
@@ -4021,10 +4021,11 @@ narrower, which is desktop Firefox's scrollbar inside the drawer.
 
 ---
 
-## 23. Hide a game from Discover · workshopped
+## 23. Hide a game from Discover · built
 
 **Planned 8 November 2026**, at the user's request, the morning #17 shipped and was checked on
-the real board. Nothing is built. In the user's words: *"Add a way to hide a game from this page.
+the real board, **workshopped on the 13th and built the same day, tests first**; see **Built**
+below. In the user's words: *"Add a way to hide a game from this page.
 For example, I do not like the Horizon series, so I don't want to see it as well as do some of my
 own filtering that way."*
 
@@ -4152,28 +4153,105 @@ workshop saved it (220 titles) and the first 96 places of the other four lists:
   page's line, `HiddenDialog.tsx`, and `shoot-picked.mjs`, which the built page can be compared
   with pixel for pixel, as #17's was.
 
-### Where the build stands
+### Decided at the build, 13 November 2026
 
-**Not started.** The branch `hide-from-discover` was made from `main` on 13 November 2026 for a
-fresh session to build in, carrying this section's workshop write-up and CLAUDE.md's corrected
-line for #23, both uncommitted: commit them first, as their own docs commit.
+- **Every list asks IGDB for twice the wall, the user's pick when the build asked**, over leaving
+  New releases and Most played at one place past it. There, one hide on a page was absorbed by
+  the 49th place and two or more left it short. It is still one request a page.
+- **The routes**, the build's to decide: `GET /api/games/discover/hidden` for the list, newest
+  first; `PUT` and `DELETE /api/games/discover/hidden/{mediaId}` to hide and to show again. Under
+  Discover's own address, since a hide is about the page, and by the media id a tile carries.
+- **The table and its key**: `discover_hides`, keyed on `(user_id, media_id)` with no id of its
+  own, cascading from `users` and from `media`. The lists read a hide back as the title's IGDB
+  id through `media.external_id`. See `docs/data-model.md`.
+- **A second hide of the same game is the first**: a 204, and it keeps its place in the list.
+  Showing again a game that is not hidden is a 204 too, so a second Undo is no error. A media id
+  that is not a game is a 404.
 
-- **Still open: whether New releases and Most played ask IGDB for twice the wall**, so a page
-  with a hide on it still holds 48 (above). The recommendation is yes. Ask the user before
-  building that part.
-- **Not designed yet, and the build's to decide**: the routes (hide, show again, the list), the
-  table and its key, and what a second hide of the same game answers. They follow
-  **What the build has to get right** above and **Scoping** in `docs/auth.md`.
-- **Tests first, each shown red, and each rule's test checked by putting the fault back.** The
-  faults worth planting: the hide in the shared cache's question or key; the user off the hide's
-  read; the filter on From your ratings alone; search filtered too; the mark before the name in
-  the DOM; `invisible` for `opacity-0`; a mark on a title on your board.
-- **Hover and the keyboard need a real browser**: Playwright for the mark at rest, under the
-  pointer and with the keyboard in the tile, in Chromium and with `--browser=firefox`, and in the
-  phone block, where it shows at rest.
-- **When it ships**: `docs/games-igdb.md` (Discovery), `docs/design.md`, `docs/data-model.md` for
-  the table, `docs/auth.md` for the scoped reads it adds, `docs/api.md`, `docs/history.md`, this
-  section and its row, and CLAUDE.md's **Settled** table, schema and **What is next**.
+### Built
+
+**Built 13 November 2026, the day it was workshopped, tests first.** The backend went red on all
+26 of its first cases before anything existed, then green; the frontend's 16 the same.
+
+- **Backend.** `Domain/DiscoverHide.cs`, its configuration and the `AddDiscoverHides` migration;
+  `Services/DiscoverHideService.cs` for the list, a hide and a show again, each scoped at its
+  query; three routes on `GamesController`; and in `GameCatalogService`, `HiddenFromAsync` and
+  the hide left out in two places — the four lists' `Page` after the shared cache, and From your
+  ratings' ranked list before it is paged — with every list asking for twice the wall.
+- **Frontend.** `discover/EyeOff.tsx`, `HiddenTile.tsx` and `HiddenDialog.tsx`; the mark in
+  `WallTile.tsx`; and in `DiscoverPage.tsx` the list of hides under `hiddenKey`, the visit's own
+  record of what it hid and showed again, the count, the dialog and the keyboard's handoff.
+  `hobbies/games.ts` dispatches the three requests, so the page still names no hobby.
+- **Measured against the picked prototype**: see **Hiding a game from Discover** in
+  `docs/design.md`.
+
+### Tests
+
+**Backend, 27 new cases in `DiscoverHideTests` and 1 in `SchemaTests`**; the full suite went
+1,077 green, the 1,049 before and those 28. Every fault the plan named and the ones the build
+added was put back alone and went red on exactly the tests that name it:
+
+| fault put back | red |
+|---|---|
+| the hides in the shared cache's key | the 8 that count one question to IGDB |
+| the hide in the shared question, filtered inside the cache | 13, the 4 *never reaches the answer everybody shares* among them |
+| the user off the hide's read | the 5 about somebody else's hide |
+| the filter on From your ratings alone | 13, every case on the four lists |
+| the filter on the four lists alone | the 2 on From your ratings |
+| search filtered too | *A_search_still_finds_a_hidden_game* |
+| From your ratings' hide in its second question | *…asks_igdb_nothing_new* |
+| From your ratings filtered after the page is cut | *…with_a_hide_on_it_still_holds_48* |
+| the four lists filtered after the page is cut | the page-fill theory, which then had a row for each of the two lists asking twice already |
+| versions hidden with their original | *Hiding_a_game_leaves_its_versions_on_the_list* |
+| the user off Show again | *…leaves_somebody_elses_hide_where_it_is* |
+| the user off the list | *Your_hidden_list_holds_your_hides_alone* |
+| a second hide stamped again | *…twice_is_one_hide_that_keeps_its_place* |
+| the list oldest first | that and the newest-first case |
+| no check that a title is a game | *…not_a_game_is_not_found* |
+
+Twice the wall went in after the user's answer, red first: the theory pinning what each list asks
+for, now 96 on all four, and the page-fill theory widened to four lists, red on New releases and
+Most played alone.
+
+**Frontend, 16 new cases**, 2 in `api/games.test.ts`, 1 in `hobbies/discover.test.ts` and 13 in
+`DiscoverPage.test.tsx`; the suite went 1,417 green, with `tsc` clean. One existing case changed
+because the page did: *says on the cover which column a title is in* now lists the mark first
+among a tile's buttons. Six faults put back, each red on exactly its own case: the mark before the
+name; a mark on a title on your board (the 3 that say such a title offers nothing to press); the
+wall asked for again after a hide; a game hidden before this visit left on a stale wall; the
+keyboard's handoff after a hide or an Undo; and the dialog's when a row goes.
+
+**End to end, 5 new specs in `discover.spec.ts`**, and the full suite went 236 green in Chromium, the
+231 before and these 5, in 7.0 minutes: a hide and its Undo; a hidden game off another
+list and its own on the next visit, and found by a search; the list from the count, newest first,
+and *Show again*; the eye at rest, under the pointer and with the keyboard; and on a phone, shown
+at rest and hidden by a tap. All 16 of the file green in Chromium, and 15 in Firefox with the phone
+spec skipped, Firefox having no phone to emulate. Four faults put back, each red in Chromium at
+the line that names it: `invisible` for `opacity-0`, at the check that the mark is there by its
+role at rest; always shown, at the check that it is out of sight; `pointer-coarse:` taken off, on
+the phone spec; and the mark before the name, at Tab from the heading. The three that can run in
+Firefox went red there too, at the same lines.
+
+### What the plan got wrong, or left out
+
+- **`invisible` takes the mark out of the accessibility tree, not only the tab order.** The first
+  version of the eye spec judged *at rest* by opacity alone, so `invisible` went red there for the
+  wrong reason, opacity being 1. It now judges what is drawn by opacity and visibility both, and
+  checks first that the mark is there by its role and name, which is where `invisible` fails.
+- **The keyboard falls with the control pressed.** A hide replaces the tile, so the mark that had
+  the keyboard is gone, and nothing in the plan said where the keyboard went: to the top of the
+  page. It goes to Undo, and back to the mark after an Undo, and the dialog does the same when a
+  row goes.
+- **A wall loaded before a hide can still hold the game on a later visit**, because TanStack keeps
+  a list five minutes after it is left. The page drops a game the server's list of hides names
+  unless this visit decided otherwise.
+- **Nothing is disabled while a hide is on its way**, unlike the add: a button that disables
+  itself is blurred by it in Firefox alone, and none needs to be, since the two directions cannot
+  race.
+- **The prototype's empty dialog said *A game's tile on Discover can hide it***, a hobby's word in
+  a folder that names none, and it was never rendered. The build says *Nothing hidden.*
+- **"A title short" was one hide in two.** On New releases and Most played, one hide on a page was
+  absorbed by the 49th place; it took two to leave the page short.
 
 ---
 

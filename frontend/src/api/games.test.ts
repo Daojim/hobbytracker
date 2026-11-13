@@ -4,10 +4,13 @@ import { server } from '../test/server';
 import {
   getGame,
   getGameReviews,
+  hiddenFromDiscover,
+  hideFromDiscover,
   refreshGameHltb,
   searchGames,
   setGameHltbId,
   setGameOpenCriticId,
+  showOnDiscover,
 } from './games';
 import type { Game } from './types';
 
@@ -102,6 +105,45 @@ describe('getGameReviews', () => {
 
     expect(reviews.openCriticId).toBe(15125);
     expect(reviews.steam?.summary).toBe('Very Positive');
+  });
+});
+
+describe('hiding a game from Discover', () => {
+  it('asks for the games you hid, and keeps the order they came in: the newest hide first', async () => {
+    server.use(
+      http.get('/api/games/discover/hidden', () =>
+        HttpResponse.json([
+          { mediaId: 9, title: 'Horizon Forbidden West', coverUrl: null },
+          { mediaId: 4, title: 'Horizon Zero Dawn', coverUrl: 'https://images.igdb.com/y.jpg' },
+        ]),
+      ),
+    );
+
+    expect(await hiddenFromDiscover()).toEqual([
+      { mediaId: 9, title: 'Horizon Forbidden West', coverUrl: null },
+      { mediaId: 4, title: 'Horizon Zero Dawn', coverUrl: 'https://images.igdb.com/y.jpg' },
+    ]);
+  });
+
+  it('hides a game and shows it again by its media id, each answered with nothing', async () => {
+    // Set membership, so a PUT and a DELETE on the same address: a second hide is the first, and
+    // showing again a game that was not hidden is no error.
+    const sent: string[] = [];
+    server.use(
+      http.put('/api/games/discover/hidden/:mediaId', ({ params }) => {
+        sent.push(`PUT ${String(params['mediaId'])}`);
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.delete('/api/games/discover/hidden/:mediaId', ({ params }) => {
+        sent.push(`DELETE ${String(params['mediaId'])}`);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    await hideFromDiscover(4);
+    await showOnDiscover(4);
+
+    expect(sent).toEqual(['PUT 4', 'DELETE 4']);
   });
 });
 
