@@ -776,8 +776,8 @@ shuffled.
         the keyboard and always on a phone, hides that one IGDB entry, never its series or
         versions, from every list and never from a search, kept per account. A plain card with
         Undo where the tile was, and *1 hidden* opening the list. Applied after the shared
-        cache, so every list now asks IGDB for twice the wall, the user's pick at the build.
-        Built 13 November 2026, the day it was workshopped, not yet merged
+        cache, so every list now asks IGDB for twice the wall, the user's pick at the build
+        (PR #97, deployed)
       - [ ] a game finished long ago — added with the year it was finished, and perhaps its
         hours, filed under that year and shown as it: never a made-up day, and never this year.
         It changes what a pass's date can be, so a workshop of its own comes first
