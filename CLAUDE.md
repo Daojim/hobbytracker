@@ -778,9 +778,10 @@ shuffled.
         Undo where the tile was, and *1 hidden* opening the list. Applied after the shared
         cache, so every list now asks IGDB for twice the wall, the user's pick at the build
         (PR #97, deployed)
-      - [ ] a game finished long ago — added with the year it was finished, and perhaps its
-        hours, filed under that year and shown as it: never a made-up day, and never this year.
-        It changes what a pass's date can be, so a workshop of its own comes first
+      - [ ] a game finished long ago — workshopped 14 November 2026 and not built: a year kept as
+        a year beside each date, never a made-up day and never this year; the ✓ asking *When did
+        you finish it?* with an optional hours box, and a Day | Year switch on the journal's
+        dates, on every board. The plan's section holds the picks
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.

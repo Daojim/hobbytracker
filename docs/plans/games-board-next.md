@@ -50,7 +50,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
-| 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. It changes what a pass's date can be, so **a workshop of its own comes first**. See its section |
+| 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Workshopped, and not built.** See its section |
 
 Production runs `4be04e3`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -4283,7 +4283,7 @@ Firefox went red there too, at the same lines.
 
 ---
 
-## 24. A game you finished long ago · planned
+## 24. A game you finished long ago · workshopped
 
 **Planned 8 November 2026**, at the user's request. Nothing is built, and **a workshop of its own
 comes first**, because it changes what a pass's date can be. In the user's words: *"Some type of
@@ -4354,6 +4354,229 @@ never as a day nobody named, and never as this year.
   so `docs/data-model.md`'s four places the zone is applied stay four.
 - **PUT replaces a pass outright** (`UpdateLogEntryRequest`), so any new field goes into the
   autosave's body, or the autosave clears it.
+
+### The workshop, 14 November 2026
+
+**Workshopped in three rounds on 14 November 2026, and not yet built: nineteen choices, every one
+the recommendation.** **Round one, in words, eight**: four about what #24 is, then four
+follow-ons, since the add will ask. **Round two, the looks of the two new controls, three.**
+**Round three, how a year-only date reads wherever one shows, eight.** Each round's picks are
+below, with what its renders found and what the build has to get right.
+
+**Measured before round one**, from two saved production reads: `workshop.local/months/
+finished.json`, every finish on 29 October (61), and `workshop.local/estimates/board.json`, the
+board on 3 November.
+
+- **Nothing on the board needs converting.** Every finish carries a date and none is before 2024:
+  15 in 2024, 28 in 2025 and 21 in 2026 on 3 November. Of the 61 in October, 51 were days typed
+  in the journal, which land at midnight here, and 10 were stamped by a move, each after a
+  stamped start. None still carried the bare stamp a ✓ straight to Completed leaves. 60 had a
+  start and 53 had hours. So #24 is for older games that are not on the board yet, and the
+  journal is where the user has put dates and hours so far.
+- **A pass's dates are read in eight places on the server**: `InYear`'s Playing, Completed and
+  Dropped arms, the board's list of years and the Stats page's, and `StatsService`'s year of
+  finishes, their order and its completion. **They are shown in eleven**: the card's date, *Did
+  you finish it?* on a card and in the journal, the journal's earlier passes and its two date
+  boxes, the Stats page's months, All years and rating rows, and the spreadsheet's Games and
+  Playthroughs sheets. A share reuses the card and the Stats page. Each gets a test with a
+  year-only date.
+- **The board has no sort by date.** `LibrarySort` is manual, title, added, rating and length, so
+  where a year-only finish sorts matters on the Stats page and in the spreadsheet only.
+
+| choice | picked | against |
+|---|---|---|
+| how a year is kept | **as a year**: `started_year` and `completed_year` beside the two instants, read when the instant is empty | a precision beside the instant, at the edge of the year |
+| a month | **years only** | a month too |
+| where the year is given | **both**: the ✓ asks *When did you finish it?* (today, a year, or I don't remember) before anything is added, and the journal's Started and Finished each gain a year mode | the journal only; the add only, with the journal showing the year read-only; the ✓ stamping today and the tile offering *Change* afterwards |
+| which boards | **every board at once**: the add's question and the journal's year mode on films, TV and anime too | games first, behind a `PassFields` flag |
+| hours at the add | **an optional Hours played box in the ✓'s question**, where a pass has hours, which is games | hours in the journal only |
+| many at once | **the year box starts at the last year given, for the visit** | kept per board and per browser; never |
+| a start year at the add | **the finish year only**; a start year goes in the journal | Started in and Finished in, both at the add |
+| which passes take a year | **every pass, whatever its column**: a Playing game begun in 2019 files under 2019 | finished passes only |
+
+**What was left to be seen**, each picked from renders before a value goes into code. Round two
+took the first three, and round three the last:
+
+- **The ✓'s question**: where it opens (over the tile, in its place, or as a dialog), its three
+  answers, and the year and hours boxes. On the search strip's tile and the Discover wall's, at
+  1440, at 1280, where a wall tile is narrowest at 140px, and at 390.
+- **The year remembered for the visit**: already in the box, or offered beside it.
+- **The journal's year mode** on Started and Finished, at every journal width: the drawer at
+  448px and at 512px, the modal at 672px, and a phone at 390.
+- **A year-only date wherever one shows**: the card (*2019*), the journal's earlier passes, *Did
+  you finish it in 2019?*, the Stats page's year (a group of its own before January or after
+  December, and a year with no days in it at all), All years, a rating row, the spreadsheet's
+  cell, and a share.
+
+**What the build has to get right, added by round one**:
+
+- **Never both.** A pass holds at most one of `completed_at` and `completed_year`, and one of
+  `started_at` and `started_year`: a check constraint each. Every arm of
+  `ApplyTransitionTimestamps` that writes or clears an instant writes or clears its year with it:
+  Backlog clears both, Playing and On Hold the finish, Completed stamps a finish over a year, and
+  #14's *No* takes the finish back (`latest.CompletedAt = null` in the move).
+- **The Dropped arm copies a finish into a missing start**, and has to copy a year as a year.
+  Otherwise a Playing pass the journal gave a finish year, dragged to Dropped, is stamped a start
+  of today after a finish in 2019, and the order rule refuses a drag with nothing wrong with it.
+- **The order of a start and a finish across the two kinds**: a year against a year by number;
+  a day against a year by the day's year here, through `SpanOf`, the first of the four places,
+  so the count stays four. The 400 is `LogEntryRules.TimestampOrder`'s. A database check can
+  compare a year with a year; one comparing a year with an instant would have to name the zone,
+  which the schema never does.
+- **A year is no later than this year here**, as a finish is never in the future, and no earlier
+  than a floor the build picks.
+- **The add names its finish**: today, as now; a year; or none, the state *I don't remember*
+  already has. `POST /api/library/{mediaId}` gains it, and the optional hours, beside the status.
+- **The autosave sends both years** (the field list in `api/logEntries.ts`), and an untouched
+  year goes back as it came, as `dateFieldValue` returns an untouched day.
+
+**Round two, how the two new controls look, 14 November 2026: three choices, every one the
+recommendation**, from renders of the shipped app with two prototypes swapped in, on the board
+as production held it on 3 November, the From your ratings list as #17 staged it, and a search
+for *metal gear* answered from that list. The page is
+https://claude.ai/artifact/9KBDkZaRUgwdVvBTC7iMw2.
+
+| choice | picked | against |
+|---|---|---|
+| where the ✓'s question opens | **over the tile**: a panel 288px wide above the add control, its right edge on the ✓'s, over the tile and its neighbour, held 8px inside the window | in the cover's place, the name staying beneath it; a dialog in the share dialog's frame, naming the game with its cover |
+| the year from the last add | **already in the box, and selected**: Enter adds the next game in that year, and typing a year replaces it | a button beside an empty box, adding at once |
+| the journal's year mode | **a Day \| Year switch beside each label**, each box on its own | *Just the year* or *A full day* under each box; a Day or Year select before each box |
+
+The panel as rendered: *When did you finish it?* and a close ×; *In* [Year] and *Hours played*
+[optional] in a row that wraps, the hours on games only, from `PassFields.hoursPlayed`; then
+*Add*, *or*, *Today* and *I don't remember*. Its words, and a film's, are round three's.
+
+**What the renders found**:
+
+- **The search strip cuts off whatever hangs over its edge**, because it scrolls sideways. So the
+  panel leaves the strip in a portal, placed from the control's box, and over the strip's first
+  tile it is held 8px inside the window.
+- **In the cover's place did not fit the search strip.** Its cover is 126 × 176px, and *I don't
+  remember* wrapped and ran past the bottom. With the remembered year as a button it did not fit
+  a 140px Discover tile either.
+- **A select before the box overflowed whenever a box held a day**, which is most passes: by
+  34px in the 448px drawer with both days, and by 20px on a phone.
+- **The switch is 18px tall at a desk.** The prototype grows it to 26px under a coarse pointer
+  (`pointer-coarse:`), and the row stays 54px, as it is now.
+- **An error message widens its field**, so a switch at the field's far end was pushed away from
+  its label. It sits beside the label.
+
+**What the build has to get right, added by round two**:
+
+- **The keyboard goes to the year box when the panel opens**, selecting a remembered year, and
+  only once the panel can take it: a panel kept hidden while it measures cannot be focused, which
+  the first shots showed. Escape and the × close it and give the keyboard back to the ✓.
+- **A layout effect cannot read an ancestor's ref on the first render**, because a descendant's
+  effect runs before the ancestor's ref is attached. The panel measures from its own element.
+- **The ✓ says it is asking**: `aria-expanded`, and its hover fill held while the panel is open.
+- **The prototype is `frontend/workshop.local/finished-long-ago/`**, gitignored:
+  `AddControlProto.tsx` under `?ask=over&mem=box&last=2019`, `DatesProto.tsx` under
+  `?ym=switch&sy=2018&fy=2019`, the stage, `shoot.mjs`, `measures.json` and `build-page.mjs`,
+  which the built pieces can be compared with pixel for pixel. Its Vite server runs on 5188.
+
+**Round three: a year-only date wherever one shows.** The card (*2019*), the journal's earlier
+passes, *Did you finish it in 2019?* on a card and in the journal, the Stats page's year (a group
+of its own, before January or after December, and a year with no days in it at all), All years,
+a rating row, the spreadsheet's cell and a share. And the words: the panel's *In*, *Add*, *Today*
+and *I don't remember*, a film's and a show's question, and the order rule's message, which says
+*Completed* on every board today.
+
+### Round three, 14 November 2026
+
+**Eight choices, every one the recommendation**, from renders of the shipped app with prototypes
+swapped in. The page is https://claude.ai/artifact/9XHpL3rd31aagu6E9ceugD, built by
+`round3/build-page.mjs` from `measures.json` and the shots, A the recommendation in every section,
+and the questions were asked in two rounds of four in the page's order.
+
+- **The harness** is `frontend/workshop.local/finished-long-ago/round3/`, gitignored, beside
+  round two's files, which are untouched. From `frontend/`: `npx vite --config
+  workshop.local/finished-long-ago/round3/vite.config.mjs --port 5189`, then `node
+  workshop.local/finished-long-ago/round3/shoot.mjs` (`ONLY=cards,passes,rating,ask,group,nodays,
+  all,share,words,question,order` for a part) writes `shots/*.jpg` and `measures.json`.
+  `xlsx.mjs` writes `xlsx/kept-year-{right,left,column,number}.xlsx` through the app's own
+  writer, and `render-xlsx.ps1` has Excel draw them into `shots/xl-*.png`. `sheet.mjs` makes
+  review sheets. 74 pictures, 7.2 MB. `build-page.mjs` writes the page from them on round two's
+  model, every number in a caption read from `measures.json` or the shot itself, and
+  `preview.mjs` takes one look at it at 1440 and 390.
+- **What is staged**, which the page says: fourteen older games from the local catalogue
+  added as finished in a year, 2016 to 2024, none of them on the board; Stardew Valley On Hold
+  since 2020; and a 2019 first pass under Red Dead Redemption 2's real 2024 one. Everything else
+  is the board as production held it on 3 November. A kept year travels as a sentinel, `"Y2019"`,
+  in the instant's place, and lib/time is swapped per importer (Card, EntryDrawer, RatingSpread,
+  journal/fields), so a place the swaps missed throws rather than printing a day. There were no
+  console errors and no unanswered requests.
+- **What the renders found**:
+  - **All years breaks once a board has many years.** Ten year groups make each pile one cover
+    wide, 2025's 28 finishes a tower, and the panel 1,755px tall at 1440. A row per year, the
+    phone's layout at every width, is 660px (757 at 1024). Piles four across that wrap: 1,195px.
+  - **"No month" takes two lines even at 1440** and lifts its stack 15px. Without a rule, "Dec"
+    and "2024" read as one label.
+  - **On a phone a card's date shares the genre's line**, so "in 2023" reads "Puzzle in 2023".
+  - **Excel marks every year written as text** with its green "number stored as text" triangle,
+    at either alignment, as it already does the Released column's year-only releases. Sorted by
+    Finished, text years land after every date, so a 2016 game follows 2026. A number lands before
+    every date, because Excel reads 2019 as a day in 1905; that looks right on this board only
+    because every kept year is older than its first dated finish. *Started in* and *Finished in*
+    columns sort by year. Excel's own copies drew the triangle on some sheets and not others,
+    whatever the alignment: the right-aligned Games sheet and the left-aligned Playthroughs sheet
+    have it, the other two none. So the page shows each alignment where Excel drew it.
+  - *Add in 2021* pushes *I don't remember* onto a second row: the panel goes from 156px to 190px.
+  - The order rule's two long wordings take two lines on a phone (a 98px row); the short one
+    stays on one (82px), and keeps the finish's field 171px wide where the others widen it to
+    about 231px at 1440.
+  - *Did you finish it in 2022?* fits on a card and in the journal at every width. A share shows
+    no word addressed to the owner but the banner's own *Make your own*.
+- **The eight picks**, each from its own shots, every one the recommendation:
+
+| choice | picked | against |
+|---|---|---|
+| a year where a day runs on from a word | **"Completed in 2019" and "finished in 2019"; the card's year alone, "2019"**, as the calendar prints a year | "Completed 2019" and "finished 2019"; "in 2019" on the card too |
+| the year's group on the Stats page | **after December, set apart by a rule, labelled with the year**, and last among a year's finishes wherever they are listed | before January with a rule, and first; after December with no rule; "No month" |
+| a year with no days at all | **the group alone, as a pile**: 199px at 1440, 105px on a phone | twelve empty months and the group: 255px, 369px |
+| All years | **a row per year at every width** | as now; piles four across that wrap |
+| the spreadsheet | ***Started in* and *Finished in* year columns beside the dates, on both sheets** | the year as text, right-aligned as Released is; a number in the date cell; text where Excel puts it |
+| the panel's words | **In · Add · or · Today · I don't remember** | *Add in 2021* when the box holds a year; Year · Add · or · Today · No date |
+| the question on other boards | **watch for a film, finish for a show and an anime** | finish on every board; watch on all three |
+| the order rule | ***Cannot be earlier than Started.*** | *Completed* (or *Watched*) *cannot be earlier than started.*; *The finish cannot be earlier than the start.* |
+
+- **Traps met**: a full-page capture stretches the fixed journal and moves what is in it, so
+  crops inside it are taken in the viewport; a cover in the row layout needs the phone's `w-8`,
+  or it keeps `sm:w-full` and the panel is 15,764px tall; and Excel's `CopyPicture(1, 2)` draws
+  a range as on screen, leaving hidden rows out, which is how the sheets were rendered.
+
+**What the build has to get right, added by round three**:
+
+- **A year takes *in* after a word, and a card prints it alone.** An earlier pass is headed
+  *Completed in 2019* (*Watched in 2019* on a film), a rating row says *finished in 2019*, and
+  *Did you finish it in 2019?* asks where a day takes *on*. A card prints *2019*, as the calendar
+  prints a year, and On Hold's start year the same. Each of round one's eleven places gets its
+  test with a year-only date.
+- **A year's undated finishes come after its dated ones** in `StatsService`'s order, and so in
+  every list the Stats page makes. Finished each month files them in a group after December,
+  behind a rule and labelled with the year. On a phone the months are rows, and the group is a
+  row after December with no rule, as the prototype drew it. A year with no dated finish shows
+  the group alone, with no empty months.
+- **All years is a row per year at every width**, the phone's layout, its covers keeping the
+  phone's `w-8` at every width (the trap above).
+- **The spreadsheet gains *Started in* and *Finished in*** beside Started and Finished, on Games
+  and Playthroughs: a number, the year of every start and finish, a day's through `lib/time.ts`
+  and a kept year as kept. A kept year leaves its date cell empty, so a date column holds days
+  only. At width 10 the *Finished in* header ran past its column. `docs/export.md` gains both.
+- **The panel's words**: *When did you finish it?*, *In* before the year box, *Hours played*
+  where the pass has hours, then *Add*, *or*, *Today* and *I don't remember*. The question's verb
+  is the hobby's, from `hobbies/`, never a branch on the slug: *watch* on films, *finish* on
+  games, television and anime.
+- **The order rule's message is *Cannot be earlier than Started.***, on every board and for a day
+  as much as a year. It replaces *Completed cannot be earlier than started.* in `EntryForm.tsx`,
+  which says *Completed* even on a film, and it stays on one line at every width.
+- **A share needs nothing new.** It shows a year as the owner's pages do, and none of round
+  three's words is addressed to anybody, so there is no new `Voiced` pair.
+
+**Where #24 stands, 14 November 2026: workshopped, and not built.** The build is next, tests
+first, from the three lists of what the build has to get right, rounds one, two and three. The
+prototypes are the pixel reference for the built pieces: round two's under
+`frontend/workshop.local/finished-long-ago/` and round three's in its `round3/`, both gitignored,
+their Vite servers on 5188 and 5189.
 
 ---
 
