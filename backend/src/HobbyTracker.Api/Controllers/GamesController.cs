@@ -12,7 +12,8 @@ namespace HobbyTracker.Api.Controllers;
 public class GamesController(
     IGameCatalogService catalog,
     IHltbService hltb,
-    IGameReviewService reviews) : ControllerBase
+    IGameReviewService reviews,
+    IDiscoverHideService hides) : ControllerBase
 {
     /// <summary>
     /// Searches IGDB by title, stores what comes back in media + games, and returns the
@@ -76,6 +77,49 @@ public class GamesController(
         }
 
         return Ok(await catalog.DiscoverAsync(which, from ?? 0, cancellationToken));
+    }
+
+    /// <summary>
+    /// The games you hid from Discover, the newest hide first, each with its cover and its name:
+    /// the list the Discover page's <i>1 hidden</i> opens.
+    ///
+    /// <para>
+    /// A literal segment, so it is answered here rather than read as a list called "hidden" —
+    /// routing ranks a literal above a parameter, whichever is declared first.
+    /// </para>
+    /// </summary>
+    [HttpGet("discover/hidden")]
+    [ProducesResponseType<IReadOnlyList<HiddenTitleDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<HiddenTitleDto>>> Hidden(CancellationToken cancellationToken) =>
+        Ok(await hides.HiddenAsync(cancellationToken));
+
+    /// <summary>
+    /// Hides a game from every Discover list, for you, until you take it back (#23). That one
+    /// entry: never its series, never its versions, and never out of a search, where somebody who
+    /// typed a title asked for it.
+    ///
+    /// <para>
+    /// <b>204</b> whether or not it was hidden already, because a second hide is the first and keeps
+    /// its place in the list. <b>404</b> for a media id that is not a game.
+    /// </para>
+    /// </summary>
+    [HttpPut("discover/hidden/{mediaId:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> Hide(int mediaId, CancellationToken cancellationToken) =>
+        await hides.HideAsync(mediaId, cancellationToken) ? NoContent() : NotFound();
+
+    /// <summary>
+    /// Takes your hide of a game back: a hidden tile's <i>Undo</i>, and <i>Show again</i> in the
+    /// list. <b>204</b> whether or not the game was hidden, because what was asked for is so either
+    /// way, and a second press of Undo is not a mistake worth an error.
+    /// </summary>
+    [HttpDelete("discover/hidden/{mediaId:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ShowAgain(int mediaId, CancellationToken cancellationToken)
+    {
+        await hides.ShowAgainAsync(mediaId, cancellationToken);
+        return NoContent();
     }
 
     /// <summary>

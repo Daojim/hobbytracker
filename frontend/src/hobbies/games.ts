@@ -2,11 +2,14 @@ import {
   discoverGames,
   getGame,
   getGameReviews,
+  hiddenFromDiscover,
+  hideFromDiscover,
   refreshGameHltb,
   searchGames,
   setGameGenre,
   setGameHltbId,
   setGameOpenCriticId,
+  showOnDiscover,
 } from '../api/games';
 import { formatHours, totalHours } from '../lib/hours';
 import type { Game } from '../api/types';
@@ -307,6 +310,9 @@ export const GAMES: HobbyDefinition = {
         },
       ),
     ],
+    // That one IGDB entry, never its series or its versions, and off every list but never out of
+    // a search — all the user's picks at the #23 workshop on 13 November 2026.
+    hidden: { list: hiddenFromDiscover, hide: hideFromDiscover, show: showOnDiscover },
   },
 
   // The Stats page. Your hours are set against HowLongToBeat's figures, the ones a card prints.

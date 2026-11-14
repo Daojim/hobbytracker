@@ -916,6 +916,61 @@ own *No user reviews* for a game nobody has reviewed.
   drawer at 1440 in Shelf Light and Dark and from 1536, the modal, and a phone in both, with every
   row's line count the same. In Playwright's Firefox every line count is the same too.
 
+### Hiding a game from Discover
+
+**An eye struck through on the cover's corner, a plain card where a hidden tile was, and *1 hidden*
+by the way back to the board.** Picked at #23's workshop on 13 November 2026, in two rounds of
+renders of the real Discover page over the user's own From your ratings list:
+https://claude.ai/artifact/Fc8pVFbsoZRm8uQ7dVwy7A. What a hide is and where it is applied is
+`docs/games-igdb.md`'s, under **Hiding a game**.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| The control | **A mark on the cover's top-right corner, the user's pick**: the corner a board title's chip uses, and a board title offers no hide | its own 28 × 28 button beside the add, the recommendation; a fourth part of the add; a `⋯` menu on the cover, which ran 11px into the gutter at 390 |
+| When it shows | **Under the pointer, or with the keyboard anywhere in the tile, and always on a phone, the user's pick** | always, the recommendation |
+| The mark | **An eye struck through** | a cross, which elsewhere in the app closes or clears |
+| A tile hidden on this visit | **A plain card where the cover was**: *Hidden*, *It won't show up on Discover again.*, Undo, and the name under it in grey | the cover faded with Undo across the add's row, where a double press would put the game straight back; a dashed outline, which read as a cover that had failed to load |
+| The list | ***1 hidden* on the page, by *Back to your board***, opening a dialog: newest first, a cover and a name a row, *Show again* on each | a row in Settings, which grew the panel from 1,009px to 1,116 and put *Your data* below a 900px fold; both |
+
+- **The mark is `absolute top-1.5 right-1.5 size-6 rounded-full`, the chip's corner and the chip's
+  `border-line bg-surface shadow-card`, in `text-muted` with `hover:text-accent`.** The eye is drawn
+  (`discover/EyeOff.tsx`), at the add symbols' `size-3` and close to their stroke.
+- **It shows by `group-hover`, `group-focus-within` and `pointer-coarse:`**, on a tile that is a
+  `group`. Tailwind v4 compiles `group-hover` inside `@media (hover: hover)`, so a phone never sees
+  it, and `pointer-coarse:` is what keeps the mark on there.
+- **It is `opacity-0` at rest, never `invisible`**, which would take it out of the accessibility
+  tree and the tab order both: a screen reader would not hear it and Tab arriving from the tile
+  before would pass it by. `discover.spec.ts` checks that it is there by its role and name at rest,
+  and red with `invisible` there, in Chromium and in Firefox.
+- **It comes after the name in the page**, placed over the cover by the tile's `relative`, so a
+  screen reader hears what a tile is before what it does and Tab goes from the heading, where Load
+  more leaves the keyboard, to the mark and then the add. The prototype had it before the name.
+- **The card is `aspect-[5/7] rounded-md bg-surface shadow-card`, the cover's box**, with the eye
+  at `size-5`, *Hidden* in `text-sm font-medium`, the sentence in `text-xs text-muted`, and Undo as
+  a `h-7` bordered button; the name under it is the tile's heading in `text-muted`.
+- **The line is a button, `text-sm text-muted hover:text-fg`**, the eye at `size-3.5` before the
+  count, beside the Back link in the heading's row; it is drawn from the first hide on and not at
+  nought.
+- **The dialog is the share dialog's frame**, 448px across and 12vh down over the journal's scrim,
+  with `useModalPanel`'s keyboard. A row is the column header's list of what it leaves out, a
+  `h-8 w-6` cover and a name, with *Show again* as a small bordered button beside it. The list
+  scrolls within itself past half the screen.
+- **Not rendered, and decided in the build**: the dialog once every game in it has been shown
+  again says *Nothing hidden.*, since the way in is a count not drawn at nought; and the Undo
+  carries the game's name to a screen reader, *Undo hiding Dead Cells*.
+- **Measured against the picked prototype, with the same staged answers to both**, by the
+  gitignored `workshop.local/hide-from-discover/compare-built.mjs`, which hides *Horizon Zero
+  Dawn* on the build by its mark where the prototype had it hidden by its address. **At 1440 at
+  rest, under the pointer and with the keyboard in a tile, under the pointer in Shelf Dark, and
+  under the pointer at 1280 and 768, the build differs by no pixel**, with the same marks shown in
+  each: none at rest, one under the pointer or the keyboard. **At 390 it differs only in the
+  antialiasing of a few headings' first lines**, at most 59 of 765 across a pixel's channels, and
+  only because the tile is `relative` so the mark can come after the name: with the prototype's
+  tile made `relative` too, the two differ by no pixel at 390 either, light and dark, with a game
+  hidden and without, and 47 of 47 marks shown beside the card.
+- **The keyboard's move to Undo after a hide by the pointer draws no ring**: `:focus-visible` was
+  false on it in every shot, so the card looks as rendered.
+
 ### The page's ground
 
 **The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at

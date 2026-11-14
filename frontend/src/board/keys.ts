@@ -165,6 +165,16 @@ export const noteSearchKey = (hobby: string, query: string) =>
 export const discoverKey = (hobby: string, list: string) => ['discover', hobby, list] as const;
 
 /**
+ * The games you hid from a hobby's Discover page: what *1 hidden* counts, and the list it opens.
+ *
+ * **Not under `['discover', hobby, …]`**, where the walls are, so nothing that settles it can set a
+ * wall asking again: a card left by a hide stays where its tile was only while the wall under it
+ * is the one that was loaded. And not under `['library', …]`, because a hide is not on the board,
+ * and nothing that changes the board changes what is hidden.
+ */
+export const hiddenKey = (hobby: string) => ['hidden', hobby] as const;
+
+/**
  * A year of one hobby on the Stats page, `undefined` for every year.
  *
  * Not under `['library', ...]` either, and nothing on the board settles it. The page is never

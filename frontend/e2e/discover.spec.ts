@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { card, openJournal, passSaved, seed, titlesIn, todayOnCard } from './support/board';
@@ -33,11 +33,33 @@ test.beforeEach(async ({ page }) => {
 });
 
 /** A tile on the wall, named by its heading — `hasText` would also match a title it prefixes. */
-const tile = (page: import('@playwright/test').Page, title: string) =>
+const tile = (page: Page, title: string) =>
   page
     .getByRole('main')
     .getByRole('listitem')
     .filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+
+/** The eye on a tile's cover that hides its title from Discover. */
+const markOf = (page: Page, title: string) =>
+  tile(page, title).getByRole('button', { name: `Hide ${title} from Discover` });
+
+/**
+ * Whether the browser draws something where it stands, as an eye would judge it: neither faded out
+ * nor made invisible. Both, so that how the mark is kept out of sight at rest is the keyboard
+ * check's to tell apart, and not this one's.
+ */
+const isDrawn = (locator: Locator) =>
+  locator.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return style.opacity !== '0' && style.visibility !== 'hidden';
+  });
+
+/** Hides a title from its tile, with the pointer on the tile as somebody's would be. */
+async function hide(page: Page, title: string) {
+  await tile(page, title).hover();
+  await markOf(page, title).click();
+  await expect(tile(page, title)).toContainText("It won't show up on Discover again.");
+}
 
 test('an empty search box offers the wall, and typing takes the offer away', async ({ page }) => {
   await page.goto('/board/games');
@@ -253,6 +275,145 @@ test('from your ratings offers games like the ones you rated, says why, and move
   await page.getByRole('link', { name: 'Back to your board' }).click();
   await expect(card(page, 'Dead Cells')).toBeVisible();
   expect(await titlesIn(page, 'Backlog')).toEqual(['Dead Cells']);
+});
+
+// ------------------------------------------------------------------ hiding a game (#23)
+
+test('hiding a game leaves a card in its place with Undo, and Undo puts the tile back', async ({
+  page,
+}) => {
+  await page.goto('/board/games/discover/most-played');
+
+  const wall = page.getByRole('list', { name: 'Most played' });
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText(['Hollow Knight: Silksong', 'Dead Cells']);
+
+  await hide(page, 'Dead Cells');
+
+  // A plain card where the cover was, in the tile's place, and the count by the way back to the
+  // board from the first hide on.
+  await expect(tile(page, 'Dead Cells')).toContainText('Hidden');
+  await expect(wall.getByRole('heading', { level: 3 })).toHaveText(['Hollow Knight: Silksong', 'Dead Cells']);
+  await expect(page.getByRole('button', { name: '1 hidden' })).toBeVisible();
+
+  await tile(page, 'Dead Cells').getByRole('button', { name: 'Undo hiding Dead Cells' }).click();
+
+  await expect(tile(page, 'Dead Cells').getByRole('button', { name: 'Add Dead Cells to backlog' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /hidden$/ })).toHaveCount(0);
+});
+
+test('a hidden game is off every Discover list from then on, and a search still finds it', async ({
+  page,
+}) => {
+  // Rated 9, Hollow Knight starts From your ratings, which then offers Dead Cells — the second
+  // place on Most played too.
+  await seed(page.request, 'Hollow Knight', 'Completed', { rating: 9, completedAt: '2026-09-01' });
+
+  await page.goto('/board/games/discover/most-played');
+  await hide(page, 'Dead Cells');
+
+  // Another list, asked for after the hide, is answered without it by the server.
+  await page.getByRole('navigation', { name: 'Lists' }).getByRole('link', { name: 'From your ratings' }).click();
+  await expect(page.getByRole('list', { name: 'From your ratings' }).getByRole('heading', { level: 3 })).toHaveText([
+    'Castlevania: Symphony of the Night',
+  ]);
+
+  // And the list it was hidden on, on the next visit, closes up over it.
+  await page.goto('/board/games/discover/most-played');
+  await expect(page.getByRole('list', { name: 'Most played' }).getByRole('heading', { level: 3 })).toHaveText([
+    'Hollow Knight: Silksong',
+    'Castlevania: Symphony of the Night',
+  ]);
+  await expect(page.getByRole('button', { name: '1 hidden' })).toBeVisible();
+
+  // Somebody who typed its name asked for it, so search leaves a hide alone.
+  await page.goto('/board/games');
+  await page.getByRole('searchbox', { name: 'Search games' }).fill('dead cells');
+  await expect(page.getByRole('button', { name: 'Add Dead Cells to backlog' })).toBeVisible();
+});
+
+test('the count opens the list of hides, newest first, and Show again puts a game back', async ({
+  page,
+}) => {
+  await page.goto('/board/games/discover/most-played');
+  await hide(page, 'Dead Cells');
+
+  await page.getByRole('navigation', { name: 'Lists' }).getByRole('link', { name: 'Popular now' }).click();
+  await hide(page, 'Hades');
+
+  // A visit later, so the list is the server's and in its order.
+  await page.reload();
+  await page.getByRole('button', { name: '2 hidden' }).click();
+
+  const dialog = page.getByRole('dialog', { name: 'Hidden from Discover' });
+  await expect(dialog.getByRole('listitem')).toHaveText([/^Hades/, /^Dead Cells/]);
+
+  await dialog.getByRole('button', { name: 'Show Dead Cells on Discover again' }).click();
+
+  await expect(dialog.getByRole('listitem')).toHaveText([/^Hades/]);
+  await expect(page.getByRole('button', { name: '1 hidden' })).toBeAttached();
+
+  await dialog.getByRole('button', { name: 'Done' }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '1 hidden' })).toBeFocused();
+
+  await page.goto('/board/games/discover/most-played');
+  await expect(page.getByRole('list', { name: 'Most played' }).getByRole('heading', { level: 3 })).toHaveText([
+    'Hollow Knight: Silksong',
+    'Dead Cells',
+  ]);
+});
+
+test('the eye shows under the pointer and with the keyboard in its tile, and is a tab stop at rest', async ({
+  page,
+}) => {
+  await page.goto('/board/games/discover/most-played');
+  await expect(tile(page, 'Dead Cells').getByRole('button', { name: 'Add Dead Cells to backlog' })).toBeVisible();
+
+  const mark = markOf(page, 'Dead Cells');
+
+  // Out of sight at rest, the user's pick over always showing — and still there, by its role and
+  // name, for a screen reader and the keyboard. Faded rather than made invisible for exactly this:
+  // `visibility: hidden` takes a button out of the accessibility tree and the tab order both, so
+  // an invisible mark would not be found here at all.
+  await page.mouse.move(0, 0);
+  await expect(mark).toBeAttached();
+  await expect.poll(() => isDrawn(mark)).toBe(false);
+
+  await tile(page, 'Dead Cells').hover();
+  await expect.poll(() => isDrawn(mark)).toBe(true);
+
+  await page.mouse.move(0, 0);
+  await expect.poll(() => isDrawn(mark)).toBe(false);
+
+  // The keyboard arriving from the tile before lands on it, though nothing in its tile had the
+  // keyboard to bring it out — a mark made invisible rather than faded would be passed by — and it
+  // shows once it has.
+  await tile(page, 'Hollow Knight: Silksong')
+    .getByRole('button', { name: 'Add Hollow Knight: Silksong to completed' })
+    .focus();
+  await page.keyboard.press('Tab');
+  await expect(mark).toBeFocused();
+  await expect.poll(() => isDrawn(mark)).toBe(true);
+
+  // And from the heading, where Load more leaves the keyboard: the mark comes after the name.
+  await tile(page, 'Dead Cells').getByRole('heading', { level: 3 }).focus();
+  await page.keyboard.press('Tab');
+  await expect(mark).toBeFocused();
+});
+
+test.describe('hiding on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  test.skip(({ browserName }) => browserName === 'firefox', 'Firefox has no phone to emulate.');
+
+  test('the eye shows at rest, with no pointer to bring it out, and a tap hides', async ({ page }) => {
+    await page.goto('/board/games/discover/most-played');
+
+    const mark = markOf(page, 'Dead Cells');
+    await expect.poll(() => isDrawn(mark)).toBe(true);
+
+    await mark.tap();
+    await expect(tile(page, 'Dead Cells')).toContainText("It won't show up on Discover again.");
+  });
 });
 
 test('a board with no wall offers no way to one', async ({ page }) => {

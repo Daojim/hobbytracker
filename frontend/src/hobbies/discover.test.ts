@@ -145,6 +145,33 @@ describe('discover, on games', () => {
     ]);
   });
 
+  it('asks for what you hid, and hides and shows a game again, at the API’s addresses', async () => {
+    // The page names no hobby, so hiding is dispatched here like everything else it asks for.
+    const asked: string[] = [];
+    server.use(
+      http.get('/api/games/discover/hidden', () => {
+        asked.push('list');
+        return HttpResponse.json([{ mediaId: 4, title: 'Horizon Zero Dawn', coverUrl: null }]);
+      }),
+      http.put('/api/games/discover/hidden/:mediaId', ({ params }) => {
+        asked.push(`hide ${String(params['mediaId'])}`);
+        return new HttpResponse(null, { status: 204 });
+      }),
+      http.delete('/api/games/discover/hidden/:mediaId', ({ params }) => {
+        asked.push(`show ${String(params['mediaId'])}`);
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const hidden = hobbyDefinition('games').discover!.hidden;
+
+    expect(await hidden.list()).toEqual([{ mediaId: 4, title: 'Horizon Zero Dawn', coverUrl: null }]);
+    await hidden.hide(4);
+    await hidden.show(4);
+
+    expect(asked).toEqual(['list', 'hide 4', 'show 4']);
+  });
+
   it('says what the page is called and how an empty search box offers it', () => {
     const discover = hobbyDefinition('games').discover!;
 

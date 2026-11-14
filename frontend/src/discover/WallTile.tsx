@@ -1,6 +1,7 @@
 import { formatRelease } from '../lib/release';
 import { AddControl } from '../search/AddControl';
 import { awaitsRelease, boardWords } from '../search/addWords';
+import { EyeOff } from './EyeOff';
 import type { AddColumn, HobbyDefinition, SearchHit } from '../hobbies';
 import type { LogStatus, RatedTitle } from '../api/types';
 
@@ -18,6 +19,11 @@ export interface WallTileProps {
    * reason. Absent on a list that is the same for everybody, and then the tile says nothing about why.
    */
   because?: readonly RatedTitle[] | null;
+  /**
+   * Hides the title from Discover, from the mark on the cover's corner. The tile offers it only
+   * while the title is not on your board, as it does the add.
+   */
+  onHide?: () => void;
 }
 
 /**
@@ -33,6 +39,10 @@ export interface WallTileProps {
  * one control shorter than its neighbours' — seen in the renders, and chosen anyway. Since 24
  * September 2026 the chip names the column rather than saying "On your board", because a title
  * can arrive in three of them and filling a board backwards means knowing which one each went to.
+ *
+ * A title not on your board can be hidden from Discover (#23), by a mark in the corner the chip
+ * would use, so the two never meet: the user's pick at the 13 November 2026 workshop over a button
+ * of its own beside the add.
  */
 export function WallTile({
   hit,
@@ -42,12 +52,15 @@ export function WallTile({
   columns,
   definition,
   because = null,
+  onHide,
 }: WallTileProps) {
   const upcoming = awaitsRelease(hit, definition);
   const [reason, ...others] = because ?? [];
 
   return (
-    <li className="flex flex-col gap-1.5">
+    // A group, so the mark on the cover can show while the pointer or the keyboard is anywhere in
+    // the tile, and the place the mark is measured from, since it sits outside the cover's box.
+    <li className="group relative flex flex-col gap-1.5">
       <div className="relative">
         {hit.coverUrl === null ? (
           // On the page's own ground rather than inside a card, so the placeholder takes the
@@ -83,7 +96,8 @@ export function WallTile({
           and none needed a third.
 
           Focusable from script and nowhere else, because Load more moves focus to the first
-          title a page added, and Tab goes from there to that title's own add. */}
+          title a page added, and Tab goes from there to that title's own controls: its hide,
+          then its add. */}
       <h3 tabIndex={-1} className="line-clamp-2 text-sm leading-snug font-medium break-words">
         {hit.title}
       </h3>
@@ -107,6 +121,38 @@ export function WallTile({
           Because you rated <span className="text-fg">{reason.title}</span> {reason.rating}
           {others.length > 0 && ` and ${others.length} more`}
         </p>
+      )}
+
+      {/* Hide from Discover: an eye struck through on the cover's top-right corner, which is the
+          chip's on a title on your board, and a title there offers no hide. Picked at the #23
+          workshop, with when it shows: under the pointer, with the keyboard anywhere in the tile,
+          and always on a phone, where there is no pointer to bring it out.
+
+          After the name in the page though it sits over the cover, so a screen reader hears what
+          the tile is before what it does, and Tab goes from the heading — where Load more leaves
+          the keyboard — to the mark and then the add. The first button in the tile, which is where
+          the page finds it to hand the keyboard back after an Undo.
+
+          Faded rather than made invisible, so it stays in the page for a screen reader and the
+          keyboard: visibility: hidden takes a button out of the accessibility tree and the tab
+          order both, and Tab arriving from the tile before would pass it by, since nothing in this
+          tile would have the keyboard yet to bring it out. group-hover only matches where a
+          pointer can hover, which is why a phone needs pointer-coarse to show it.
+
+          Never disabled while its hide is on its way, unlike the add: a button that disables
+          itself is blurred by it in Firefox alone, and the keyboard would fall to the top of the
+          page. A second press only sends the same hide again, which the server answers as the
+          first. */}
+      {onBoard === null && onHide !== undefined && (
+        <button
+          type="button"
+          aria-label={`Hide ${hit.title} from Discover`}
+          title="Hide from Discover"
+          onClick={onHide}
+          className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full border border-line bg-surface text-muted opacity-0 shadow-card group-focus-within:opacity-100 group-hover:opacity-100 hover:text-accent pointer-coarse:opacity-100"
+        >
+          <EyeOff />
+        </button>
       )}
 
       {onBoard === null && (

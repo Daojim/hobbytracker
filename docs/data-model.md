@@ -195,6 +195,21 @@ the column in `media` too and leaves the base table with no `id` at all.
   Anyone who can read it out of the database can already read the board there. Encrypting it with
   the Data Protection keys, which the nightly dump does not hold, beside a hash to look it up by,
   was offered and not taken.
+- **`discover_hides` is keyed on `(user_id, media_id)`, with no id of its own** (#23, 13 November
+  2026). One person hiding one game is one row, which makes a second hide nothing more than the
+  first: the service checks before it adds, and a 23505 from two landing at once means the hide
+  is there, which is all that was asked. `Rejects_a_second_hide_of_one_game_by_one_person` holds
+  the key. `hidden_at` orders the list of hides newest first, never moves, and defaults to `now()`
+  as a backstop, as `users.created_at` does.
+- **A hide points at the shared title by media id, and the lists read it as an IGDB id.** A tile
+  carries a media id and the list of hides needs a title and a cover, which the `media` row has;
+  a list is IGDB's answer before anything is stored, so the hide is read back through
+  `media.external_id`. Storing the IGDB id beside it would be a second copy of a fact the row
+  already holds.
+- **`discover_hides` cascades from `users` and from `media`.** From `users`, so deleting an account
+  takes its hides, as it takes every pass; the deletion warning does not count them, the
+  workshop's pick. From `media`, as `log_entries` does: nothing in the app deletes a title, and the
+  e2e suite's truncation of `media` takes the hides with it.
 
 **One cosmetic quirk, left alone deliberately.** The two TPT tables get `PK_media` / `PK_games`
 while every other primary key is snake_case; `EFCore.NamingConventions` does not rewrite key names

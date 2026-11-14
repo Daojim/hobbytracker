@@ -210,8 +210,15 @@
       Wikidata ties most games to their OpenCritic page by IGDB's own name for them, with no
       matching. A box beside the score pins a page Wikidata does not have, and takes a whole
       address pasted from the browser. The built rows match the picked renders to the pixel
-- [ ] Hiding a game from Discover, a game or perhaps its whole series, starting with the Horizon
-      games
+- [x] Hiding a game from Discover. An eye struck through on a tile's cover, under the pointer or
+      the keyboard and always on a phone, hides that game from every Discover list for good,
+      and the tile becomes a plain card with Undo until the page is left; *1 hidden* by the way
+      back to the board opens the list of them, each with *Show again*. That one entry, never
+      its series or its versions, both the user's picks over the recommendation, after a look at
+      their own list found a third of it in no series and *Forza Horizon* waiting to be caught
+      by the name. A hide is kept per account and left out after IGDB's answer, which stays one
+      answer shared by everybody, and search still finds a hidden game, because somebody who
+      typed its name asked for it
 - [ ] Adding a game finished long ago with the year it was finished, never a made-up day and
       never this year
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

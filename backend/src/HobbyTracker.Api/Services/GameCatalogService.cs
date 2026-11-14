@@ -127,7 +127,16 @@ public sealed class GameCatalogService(
 
         var today = clock.Today;
         var size = options.Value.DiscoverListSize;
-        var asked = PlacesToAskAbout(list, size);
+
+        // Twice the wall, on every list, because every list loses titles after IGDB has answered:
+        // your hides go there and never into the question everybody shares, and two of the lists
+        // lose more besides — PopScore's second question declines games its ranking holds, and
+        // Most anticipated keeps only what the calendar calls upcoming. What is left still fills
+        // a page. New releases and Most played asked for one place past the wall until hides came
+        // (#23), their own filters being inside the question, and a page with two hides on it came
+        // up short; the user picked twice the wall for them on 13 November 2026. Still one request
+        // a page, so IGDB's four a second are untouched, and only the kept answer is longer.
+        var asked = size * 2;
 
         // IGDB's answer is what is kept, never the rows it turns into. The rows are upserted on
         // every view instead, which is idempotent and almost always writes nothing — and it is what
@@ -152,9 +161,17 @@ public sealed class GameCatalogService(
                 return AskIgdbAsync(list, from, asked, cancellationToken);
             }) ?? new IgdbSlice([], Ended: true);
 
+        // Your hides leave the list here, after IGDB's answer is kept and never inside it. What is
+        // kept is everybody's, under the list, the day and the place, so a hide in the question or
+        // in the key would hand one person's hides to the next to ask. And while the page is
+        // filled rather than once it is cut, as the list's own rules are, so a hide leaves the page
+        // reaching one place further rather than a title short.
+        var hidden = await HiddenFromAsync(user.Id, cancellationToken);
+
         // Filtered and trimmed before the upsert, as a search is, so the catalogue grows by one
         // row per title a person could have seen and no more.
-        var (shown, next) = Page(slice, game => Keeps(list, game, today), size, from + asked);
+        var (shown, next) = Page(
+            slice, game => !hidden.Contains(game.Id) && Keeps(list, game, today), size, from + asked);
 
         var stored = await UpsertAsync(shown, cancellationToken);
 
@@ -167,21 +184,6 @@ public sealed class GameCatalogService(
             ],
             next);
     }
-
-    /// <summary>
-    /// How many of IGDB's places to ask about for one page.
-    ///
-    /// Twice the wall where titles are dropped after IGDB has answered — PopScore's filter can
-    /// only run on its second question, and the calendar's rule after the anticipated list — so
-    /// what is left still fills it. The other two filter inside the query, before the limit, so
-    /// one place past the wall is enough to know whether there is a next page, rather than
-    /// offering one that brings nothing.
-    /// </summary>
-    private static int PlacesToAskAbout(DiscoverList list, int size) => list switch
-    {
-        DiscoverList.PopularNow or DiscoverList.MostAnticipated => size * 2,
-        _ => size + 1,
-    };
 
     private Task<IgdbSlice> AskIgdbAsync(
         DiscoverList list, int from, int asked, CancellationToken cancellationToken)
@@ -205,10 +207,11 @@ public sealed class GameCatalogService(
     ///
     /// <para>
     /// <b>The next page starts at the first title this one kept back</b> — at its place in IGDB's
-    /// ordering, never at its position in the slice or a page's worth of places on. Two lists drop
-    /// titles after IGDB has answered, so page one of Most anticipated already reaches past the
-    /// 48th place to fill itself; and PopScore's slice has holes where its second question
-    /// declined a game. Either way a page two starting at 48 would show titles twice.
+    /// ordering, never at its position in the slice or a page's worth of places on. Titles are
+    /// dropped after IGDB has answered — your hides from every list, and the calendar's rule from
+    /// Most anticipated, whose page one already reaches past the 48th place to fill itself — and
+    /// PopScore's slice has holes where its second question declined a game. Either way a page two
+    /// starting at 48 would show titles twice.
     /// </para>
     ///
     /// <para>
@@ -335,7 +338,16 @@ public sealed class GameCatalogService(
             (batch, token) => igdb.GetDiscoverableAsync(batch, FromYourRatings.FewestRatings, token),
             cancellationToken);
 
-        var ranked = FromYourRatings.Rank(offered, pointedAt);
+        // Your hides leave the list once everything that decides it is decided: after IGDB's two
+        // answers, so neither question changes and a hide or an Undo asks IGDB nothing, and before
+        // the list is cut into pages, so no page comes up short. Left out with the board instead,
+        // in what the second question asks about, every hide would be a question of its own.
+        var hidden = await HiddenFromAsync(ownerId, cancellationToken);
+        List<IgdbGame> ranked =
+        [
+            .. FromYourRatings.Rank(offered, pointedAt).Where(game => !hidden.Contains(game.Id)),
+        ];
+
         var size = options.Value.DiscoverListSize;
 
         // Trimmed before the upsert, as every list is, so the catalogue grows by one row per title a
@@ -416,6 +428,37 @@ public sealed class GameCatalogService(
                 .Where(row => row.Parsed.HasValue)
                 .Select(row => new BoardTitle(row.Parsed!.Value, row.Row.Title, row.Row.LatestFinish)),
         ];
+    }
+
+    /// <summary>
+    /// The IGDB ids of every game one person has hidden from Discover (#23), which every list leaves
+    /// out: that entry alone, never its series or its versions.
+    ///
+    /// <para>
+    /// A hide is kept by media id, which is what a tile carries, and a list is IGDB's answer before
+    /// anything is stored, so a hide is read back as the IGDB id its title was stored under.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The owner is this query's whole scope.</b> Without it, somebody else's hide would take the
+    /// game off your lists — on the four that are the same for everybody as much as on yours.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlySet<int>> HiddenFromAsync(int ownerId, CancellationToken cancellationToken)
+    {
+        var externalIds = await db.DiscoverHides
+            .AsNoTracking()
+            .Where(hide => hide.UserId == ownerId
+                           && hide.Media!.SourceId == SeedData.Sources.Igdb
+                           && hide.Media.ExternalId != null)
+            .Select(hide => hide.Media!.ExternalId!)
+            .ToListAsync(cancellationToken);
+
+        return externalIds
+            .Select(external => int.TryParse(external, CultureInfo.InvariantCulture, out var id) ? id : (int?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToHashSet();
     }
 
     /// <summary>

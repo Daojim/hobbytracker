@@ -820,7 +820,8 @@ tiles would say *Add to calendar* and land in Backlog. So the service keeps only
 `IgdbRelease` maps — put on a `Game` that is never stored — and asks IGDB for twice the wall so what
 is left still fills it. `Most_anticipated_holds_only_what_the_calendar_would_call_upcoming` pins it,
 and dropping the filter fails it and nothing else. Popular now asks for twice as well, because its
-filter can only go on the second question, after PopScore's limit.
+filter can only go on the second question, after PopScore's limit — and since #23 every list does,
+for your hides.
 
 **And nothing cancelled, which is where this list and the calendar part company.** The calendar
 keeps a cancelled title somebody already tracks — `NotOnItsDate` — because that is where they find
@@ -901,10 +902,14 @@ either, because it would cost IGDB another question for a number nobody reads.
   `A_filtered_list_carries_on_from_the_first_title_it_did_not_show` and
   `Popular_now_carries_on_from_a_place_in_popscore_rather_than_a_count_of_titles`, and nothing
   else — the plain lists are exactly where the two agree.
-- **The plain lists ask about one place more than a page holds.** Their filters are inside the
-  question, so the 49th answers whether there is a next page, and a list that fills its last page
-  exactly offers no Load more whose only effect would be to find that out. The other two still ask
-  for twice the wall.
+- **Every list asks about twice the wall**, since #23 on 13 November 2026. Your hides are left out
+  after IGDB answers, so every list can lose titles there, and two of them lose more besides. New
+  releases and Most played asked about one place past the wall until then, their own filters being
+  inside the question: enough to say whether there was a next page, and one hide a page could be
+  absorbed, but a page with two on it came up short. The user picked twice the wall for them, as
+  Popular now and Most anticipated already asked. It is still one request a page; only the answer
+  kept is longer. A list that fills its last page exactly still offers no Load more, because the
+  places asked about past it come back empty and the slice has ended.
 - **The cache is keyed on the place as well.** Keyed on the list alone, page two is answered with
   page one — and because the wall drops a title it already shows, **that is a Load more that does
   nothing, with no error anywhere**. `Keeps_each_page_of_a_list_apart` was red for exactly that
@@ -1076,6 +1081,67 @@ What fails quietly here:
 - **The end-to-end API pages two at a time, so a decoy that got through would wait on page two**,
   below the two titles a spec looks at. The list's spec asserts the list ends there, and dropping
   either clause of the second question only went red once it did.
+
+### Hiding a game
+
+**Built 13 November 2026** (#23), the day it was workshopped over the user's own list, at their
+request: *"I do not like the Horizon series, so I don't want to see it as well as do some of my own
+filtering that way."* An eye struck through on
+a tile's cover hides that title from every Discover list, for you, until you take it back. The plan's
+section holds both rounds' tables, and the renders are https://claude.ai/artifact/Fc8pVFbsoZRm8uQ7dVwy7A.
+
+- **That one IGDB entry, never its series and never its versions**, both the user's picks over the
+  recommendation. Hiding *Horizon Zero Dawn* leaves its Remastered, and *Horizon Forbidden West*,
+  where they were. A series would have had to be named, and sometimes chosen: a third of the user's
+  tiles were in none, and *Paper Mario* sits in *Super Mario*, 123 games. A name would have been
+  wrong twice over — *Forza Horizon* is a series of its own, and *Trails Beyond the Horizon* is on
+  the user's board.
+- **All five lists, and never a search**, the Discover filter's reason: somebody who typed a
+  title asked for it. `A_search_still_finds_a_hidden_game` pins that half.
+- **Kept per account, by media id, and applied by IGDB id.** A tile carries a media id and a list
+  is IGDB's answer before anything is stored, so `HiddenFromAsync` reads a person's hides back as
+  the `external_id` each title was stored under. `discover_hides` is in `docs/data-model.md`.
+- **Applied after the shared cache, never in the question or the key.** The four lists keep IGDB's
+  answer under the list, the day and the place for everybody, so a hide there would hand one
+  person's hides to the next. `A_hide_never_reaches_the_answer_everybody_shares` has your view of a
+  list asked first and somebody else's after, and counts one question to IGDB: a hide in the key
+  makes it two, and a hide in the question hands them yours.
+- **Left out while a page is filled, in `Page`'s `keeps`**, as each list's own rules are, so a
+  hidden title is passed over rather than cut from a finished page. **Every list now asks for
+  twice the wall** to leave room for it; see **Load more**. `A_page_with_hides_on_it_still_holds_48`
+  hides two titles on each list's first page.
+- **From your ratings leaves a hide out of its ranked list before it is cut into pages**, after
+  both of IGDB's answers, so neither question changes and a hide or an Undo asks IGDB nothing.
+  Left out with the board instead, in what the second question asks about, every hide would be a
+  question of its own, and `From_your_ratings_leaves_a_hidden_game_out_and_asks_igdb_nothing_new`
+  counts them.
+- **A second hide of the same game is the first**: `PUT` answers 204 either way and the hide keeps
+  its place in the list, newest first. **Show again of a game not hidden is no error** either, so
+  Undo pressed twice says nothing. A media id that is not a game is a 404.
+- **A hide outlives an add.** A game hidden and then added from a search stays off the four
+  lists, which is what the card promised, and From your ratings leaves it out as a board title
+  anyway. The list of hides still offers *Show again*.
+
+**On the page** (the look is `docs/design.md`'s, under **Hiding a game from Discover**):
+
+- **A hide made on this visit stays where its tile was, as a card with Undo, until the page is
+  left**, the user's pick, as an add leaves its tile with its column on the cover. It is the page's
+  own state over the loaded wall, which is never asked for again while it is open
+  (`staleTime: Infinity`), and it holds across tabs: a list loaded before the hide shows the card
+  wherever it holds the game. The next visit asks the server, which leaves the game out.
+- **A game hidden on an earlier visit is dropped from a wall loaded before it was**, since
+  TanStack keeps a list five minutes after it is left. The server's list of hides says which.
+- **`hiddenKey` is outside the walls' `['discover', …]`**, so nothing that settles the list of
+  hides can set a wall asking again, and `never asks for the wall again` is red the moment one does.
+- **The keyboard follows the hide.** The control pressed goes with its tile, so the page hands the
+  keyboard to Undo on the card, and back to the mark after an Undo: the first button in either.
+  Only when it fell with the control, so somebody who moved on before the answer came keeps their
+  place. The list of hides does the same when a row goes.
+- **Nothing is disabled while a hide or a show is on its way.** A button that disables itself is
+  blurred by it in Firefox alone (CLAUDE.md's **What fails silently**), and none needs to be: the
+  card's Undo exists only once the hide has landed and the mark only once the Undo has, so the two
+  directions cannot race, and a repeat in the same direction is what the server already answers
+  as the first.
 
 ### The stub
 

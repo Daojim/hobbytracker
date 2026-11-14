@@ -1,5 +1,5 @@
-import { apiJson } from './client';
-import type { DiscoverListPage, Game, GameDetail, GameReviews } from './types';
+import { apiJson, apiVoid } from './client';
+import type { DiscoverListPage, Game, GameDetail, GameReviews, HiddenTitle } from './types';
 
 /**
  * Searching hits IGDB on every call by design — the debounce lives here, in the client, not in a
@@ -23,6 +23,28 @@ export function discoverGames(list: string, from: number): Promise<DiscoverListP
   return apiJson<DiscoverListPage<Game>>(`/api/games/discover/${encodeURIComponent(list)}`, {
     query: { from },
   });
+}
+
+/**
+ * The games you hid from Discover, the newest hide first: what the page's *1 hidden* counts and
+ * the list it opens draws. Every list already leaves these out on the server.
+ */
+export function hiddenFromDiscover(): Promise<HiddenTitle[]> {
+  return apiJson<HiddenTitle[]>('/api/games/discover/hidden');
+}
+
+/**
+ * Hides a game from every Discover list, for you, until you take it back: that one entry, never
+ * its series or its versions, and never out of a search. A second hide is the first, so this
+ * answers the same whether or not the game was hidden already.
+ */
+export function hideFromDiscover(mediaId: number): Promise<void> {
+  return apiVoid(`/api/games/discover/hidden/${mediaId}`, { method: 'PUT' });
+}
+
+/** Takes a hide back: a hidden tile's *Undo*, and *Show again* in the list. */
+export function showOnDiscover(mediaId: number): Promise<void> {
+  return apiVoid(`/api/games/discover/hidden/${mediaId}`, { method: 'DELETE' });
 }
 
 /** One stored game plus everything logged against it, in a single request. */

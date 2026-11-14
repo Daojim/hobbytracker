@@ -1324,6 +1324,33 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
             .ShouldBe([theirs]);
     }
 
+    // ------------------------------------------------------- hidden from Discover
+
+    [Fact]
+    public async Task Rejects_a_second_hide_of_one_game_by_one_person()
+    {
+        var mediaId = await GivenAGameAsync();
+        var someoneElse = await GivenUserAsync("Someone Else");
+
+        await HideFromDiscoverAsync(UserId, mediaId);
+
+        // One person hiding one game is one row, so a second press of the eye can be nothing more
+        // than the first: the service's 23505 recovery stands on this key.
+        var exception = await Should.ThrowAsync<PostgresException>(HideFromDiscoverAsync(UserId, mediaId));
+        exception.SqlState.ShouldBe(PostgresErrorCodes.UniqueViolation);
+
+        // A hide is a person's, so the same game hidden by somebody else is a row of their own.
+        await HideFromDiscoverAsync(someoneElse, mediaId);
+    }
+
+    /// <summary>
+    /// A hide written as psql would write one, with no time: the column's default is the backstop,
+    /// as <c>users.created_at</c>'s is.
+    /// </summary>
+    private Task HideFromDiscoverAsync(int userId, int mediaId) => WithDbAsync(db =>
+        db.Database.ExecuteSqlAsync(
+            $"INSERT INTO discover_hides (user_id, media_id) VALUES ({userId}, {mediaId})", Ct));
+
     /// <summary>A note on a pass of a game, by default this test's user's.</summary>
     private async Task<int> GivenANoteAsync(int? userId = null)
     {

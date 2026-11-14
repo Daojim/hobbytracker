@@ -45,7 +45,7 @@ thing always known before an edit:
 | `ShareService`, `ShareController`, `SharedController`, `ISharedLibrary`, `ISharedStats`, `frontend/src/share/`, `lib/voice.ts` | `docs/auth.md` — **Sharing a board** — then `docs/board.md` for a shared column and its years |
 | `Dockerfile`, `deploy/`, `PublicOriginMiddleware`, **or being asked to deploy** | `docs/deploy.md` — the source of truth, runbook included |
 | **Picking up a feature from What is next** | `docs/plans/games-board-next.md` — its status table, its rules, then the feature's section |
-| `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
+| `Integrations/Igdb/`, `GameCatalogService`, `IgdbRelevance`, `DiscoverHideService`, `frontend/src/search/`, `frontend/src/discover/`, `hobbies/games.ts` | `docs/games-igdb.md` |
 | `Integrations/Hltb/`, `Services/Hltb*`, `Infrastructure/Hltb*`, `board/estimates.ts`, `journal/HltbPin.tsx` | `docs/games-hltb.md` |
 | `Integrations/OpenCritic/`, `Integrations/Steam/`, `Integrations/Wikidata/`, `GameReviewService`, `IgdbSteam`, `journal/ReviewRows.tsx`, `journal/useReviews.ts` | `docs/games-reviews.md` |
 | `Integrations/Tmdb/`, `MovieCatalogService`, `TmdbOnMediaAdded`, `MoviesController`, `hobbies/movies.ts` | `docs/movies-tmdb.md` |
@@ -90,7 +90,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **HowLongToBeat** | Four completion figures, a matcher that refuses rather than guesses, a queue, a backfill **that runs itself once a day**, a pin for when it refuses, and **an arrow beside the pin that asks again**, for a game matched before it had times | `docs/games-hltb.md` |
 | **OpenCritic and Steam** | Two rows in a game's journal under HowLongToBeat's, on every column: **OpenCritic's top critics, tier and share who recommend it, and Steam's word and share positive**, each beside a link to its page. The pages are found the first time a journal asks — Steam's from IGDB, OpenCritic's from Wikidata with no matching — and an *OpenCritic ID* box pins one. **OpenCritic's key is optional**: without it the row is its link alone | `docs/games-reviews.md` |
 | **The release calendar** | A *Coming soon* agenda under the board, **derived from Backlog rather than stored**: a title arrives in the column on its release day with no job having run. Dates shown at the precision a publisher announced, and a nightly sweep because they slip | `docs/games-igdb.md` |
-| **Discover** | A wall of covers for filling a board without searching, offered from under an empty search box: New releases, Popular now, Most anticipated, Most played, one list at a time. Every list was measured against IGDB before it was chosen, and every one carries a filter a search deliberately lacks. **And a fifth made from your own board, From your ratings**: what IGDB calls like the games you finished and rated 8 or more, less your board, each tile saying *Because you rated …* | `docs/games-igdb.md` |
+| **Discover** | A wall of covers for filling a board without searching, offered from under an empty search box: New releases, Popular now, Most anticipated, Most played, one list at a time. Every list was measured against IGDB before it was chosen, and every one carries a filter a search deliberately lacks. **And a fifth made from your own board, From your ratings**: what IGDB calls like the games you finished and rated 8 or more, less your board, each tile saying *Because you rated …*. **An eye on a tile's cover hides that game from all five for good**, until *Show again* in the list *1 hidden* opens | `docs/games-igdb.md` |
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
@@ -539,6 +539,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | What counts as coming | **Asked a provider and got no date at all is *TBA* on the calendar**, whatever shape the nothing arrived in — that is *Stellar Blade: Blood Rain*, and it read as released until 12 September 2026. **A title the provider calls a rumour is not**, because it was never announced, and it stays in the Backlog column. Measured both ways round in `docs/games-igdb.md` |
 | Discover | **A page of its own, a wall with tabs, one list at a time**, offered by a sentence under the empty search box — for finding what to add, where search is for adding what you have in mind. Four lists the same for everybody and a fifth made from your board, **48 covers a page, with a Load more that asks for the next page from the place the server said the last one stopped — never by page number**, because two lists drop titles after IGDB answers. Tile, density, tabs, words and the on-board chip were each picked from rendered comparisons on 23 September 2026, and the Load more button and the line that ends a list on the 24th. **Browsing upserts, as search does**, and **every list carries `themes != (42)` and leaves DLC, seasons and updates off, which search deliberately does not.** Games only, and that is a fact about providers. `docs/games-igdb.md` |
 | From your ratings | **A fifth Discover tab, last, of what IGDB calls like the games whose latest finish you rated 8 or more**, ordered by how many of those name a game and then by how many people rated it. **A version asks about its original; your board and every board title's original are left out, from any column; nothing fewer than ten people rated is offered**, because the user would not rest it on IGDB's scores. **Its two IGDB questions are cached under the ids each asked about, never under the list and the day**, which would hand one person's list to the next. Each tile says *Because you rated Hollow Knight 9 and 2 more* in up to three lines, the user's pick over *Like …*, and with nothing rated 8 or more the tab says so in a line of its own. Every other choice was the recommendation, from the user's real ratings and renders on 7 November 2026. `docs/games-igdb.md` |
+| Hiding from Discover | **That one IGDB entry, never its series or its versions, the user's picks, off all five lists and never out of a search; kept per account.** An eye struck through on the cover's top-right corner, **the user's pick**, shown under the pointer, with the keyboard in the tile and always on a phone, **the user's pick over always**. A hide made on this visit is **a plain card with Undo in its tile's place until the page is left**; *1 hidden* by the way back to the board opens the list, newest first, *Show again* on each. A title on your board offers no hide, and the deletion warning does not count them. **Applied after IGDB's answer is kept, never in the shared question or key**, and so **every list asks IGDB for twice the wall**, the user's pick when the build asked on 13 November 2026, so a page with hides on it still holds 48. Nine of thirteen choices were the recommendation, from renders of the user's own list on 13 November 2026. `docs/games-igdb.md`, `docs/design.md` |
 | Ordering | `manual` is the default sort; dragging is enabled **only** in that mode |
 | Sort control | **Per column**, not board-wide. Completed reads well by rating while Backlog stays in the order you put it in |
 | Libraries | TanStack Query, dnd-kit, Tailwind v4 |
@@ -625,6 +626,7 @@ that makes EF choose it, the decisions that will look arbitrary later, and the E
 | `users` | `id`, `display_name`, `role`, `created_at` |
 | `auth_identities` | `id`, `user_id`, `provider`, `provider_user_id`, `email` |
 | `board_shares` | `id`, `user_id` (**cascades**), `hobby_id`, `token` (**unique, plain text**), `parts` (`text[]` of **what it shows**), `shows_name`, `created_at`. One per board: unique on `(user_id, hobby_id)` |
+| `discover_hides` | `user_id` (**cascades**) + `media_id` (**cascades**) (composite PK), `hidden_at`. A game you hid from Discover: one row per person per title, read by the lists as the title's IGDB id |
 
 ## What is next
 
@@ -770,9 +772,12 @@ shuffled.
         may not be read, and Wikidata finds 61 of the board's 91 OpenCritic pages with no
         matching. OpenCritic's key is optional, and production's was set before the deploy (PR
         #95, deployed)
-      - [ ] hiding a game from Discover — the user's own filter on From your ratings: a game, or
-        perhaps its whole series as IGDB files it, never offered again, starting with the
-        Horizon games. Kept per account; renders first for where the control goes
+      - [x] hiding a game from Discover — an eye on the cover's corner, under the pointer, with
+        the keyboard and always on a phone, hides that one IGDB entry, never its series or
+        versions, from every list and never from a search, kept per account. A plain card with
+        Undo where the tile was, and *1 hidden* opening the list. Applied after the shared
+        cache, so every list now asks IGDB for twice the wall, the user's pick at the build.
+        Built 13 November 2026, the day it was workshopped, not yet merged
       - [ ] a game finished long ago — added with the year it was finished, and perhaps its
         hours, filed under that year and shown as it: never a made-up day, and never this year.
         It changes what a pass's date can be, so a workshop of its own comes first

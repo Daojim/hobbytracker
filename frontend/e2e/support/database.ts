@@ -51,7 +51,10 @@ export function resetDatabase(): void {
   // So are note_pictures and note_picture_bytes. Their ids restart with the rest, which a
   // browser that kept a picture for a year would mind, and a spec's browser keeps nothing
   // from one spec to the next.
+  //
+  // And discover_hides, which CASCADE reaches from users and from media both. Named so a run
+  // plainly starts with nothing hidden from Discover.
   psql(
-    'TRUNCATE note_picture_bytes, note_pictures, notes, status_changes, log_entries, games, movies, tv_seasons, tv_shows, anime, media, board_shares, auth_identities, users RESTART IDENTITY CASCADE;',
+    'TRUNCATE note_picture_bytes, note_pictures, notes, status_changes, log_entries, discover_hides, games, movies, tv_seasons, tv_shows, anime, media, board_shares, auth_identities, users RESTART IDENTITY CASCADE;',
   );
 }

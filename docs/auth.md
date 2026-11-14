@@ -179,6 +179,17 @@ for everybody, so that key would have handed one person's list to the next — a
 the ids IGDB was asked about instead, so no key names a person. See **From your ratings** in
 `docs/games-igdb.md`.
 
+**A hide from Discover is yours on a title that is everybody's, and three reads and a delete each
+need the user** (#23, 13 November 2026). The lists leave out what you hid: `HiddenFromAsync` takes
+the owner as a parameter and `DiscoverAsync` passes `user.Id` at its call site, for the four lists
+and for From your ratings. Without the user there, somebody else's hide would take a game off your
+lists. The list of hides reads `discover_hides` by the user, and *Show again* deletes by the user
+and the title together: without the user, taking your hide back would take theirs too.
+`DiscoverHideTests` has a case for each, and each went red alone with its predicate taken out.
+**The shared cache stays shared**: a hide is applied after IGDB's answer is kept, never in the
+question or the key, so the four lists still ask IGDB once a day for everybody. See **Hiding a
+game** in `docs/games-igdb.md`.
+
 **Left unscoped deliberately:** `GameCatalogService.RefreshLibraryAsync` and
 `HltbService.BackfillAsync` — both select on "any user has logged this" and write only shared
 columns. Both carry a comment, because they read like missed sites. **404 rather than 403**

@@ -65,6 +65,12 @@ public class HobbyTrackerDbContext(DbContextOptions<HobbyTrackerDbContext> optio
     /// </summary>
     public DbSet<BoardShare> BoardShares => Set<BoardShare>();
 
+    /// <summary>
+    /// The games each person has hidden from Discover. Child of users and of media, cascade
+    /// deleted from both, and keyed on the two together.
+    /// </summary>
+    public DbSet<DiscoverHide> DiscoverHides => Set<DiscoverHide>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Mapping lives in one IEntityTypeConfiguration<T> per entity under
