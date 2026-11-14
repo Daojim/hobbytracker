@@ -4578,6 +4578,100 @@ prototypes are the pixel reference for the built pieces: round two's under
 `frontend/workshop.local/finished-long-ago/` and round three's in its `round3/`, both gitignored,
 their Vite servers on 5188 and 5189.
 
+### Decided at the build, 14 November 2026
+
+**Six choices the plan left to the build, asked before any code and every one the
+recommendation.**
+
+| choice | picked | against |
+|---|---|---|
+| the earliest year a box takes | **1900**: it refuses only a typo, for anybody alive, on every board | 1950; 1970, the year before the first home consoles |
+| what a year box says when it cannot take what is in it | ***A year from 1900 to 2026.***, under the box in the order rule's red, for text that is not a year, a year either side of the range, and an empty box when the panel's *Add* is pressed. The last year is this year here | *Cannot be later than 2026.*, *Cannot be earlier than 1900.* and *A year, like 2019.*; *Between 1900 and 2026.* |
+| what the Day \| Year switch does to the date in its box | **carries what it can and invents nothing**: Day → Year keeps the day's year, Year → Day leaves the day empty, and switching back while the drawer is open brings back what was there. What the boxes show is what is saved | both ways empty; the year kept on the pass until a whole day is typed, with the box showing nothing meanwhile |
+| the year remembered for the visit | **per board** | the last year given on any board |
+| the spreadsheet's two year columns | **width 12**, as *Hours played*, whose twelve characters fit at 12 | 11 |
+| a press away from the ✓'s panel | **closes it**, as the card's ⋯ menu, Settings and a header's list close. A year typed and not added goes with it; the box offers the last year *added* | only Escape and the × |
+
+### Where the build stands
+
+**Begun 14 November 2026 on the branch `finished-long-ago`**, whose first commit is the workshop's
+notes. Baseline before any code: backend 1,077 of 1,077, frontend 1,417 of 1,417, and the full
+e2e suite 236 of 236 in 6.4 minutes. **Each step is tests first, red before the code, and every
+guard checked by putting its fault back.** A step is marked done when its tests are green and
+its faults have been planted. A fresh session starts at the first step not marked done.
+
+1. **The schema.** `started_year` and `completed_year`, `int`, beside the two instants on
+   `log_entries`. Check constraints: never a day and a year for one date (one each), a finish
+   year no earlier than a start year (`ck_log_entries_timestamp_order`'s sibling), and no year
+   before 1900. No upper bound in the database, which cannot ask what year it is here. One
+   migration. `SchemaTests` first.
+2. **The rules on the way in.** `CreateLogEntryRequest` and `UpdateLogEntryRequest` gain both
+   years, defaulted as the season is; `LogEntryDto` carries them. `LogEntryRules` answers 400
+   before any check can be a 500: a day and a year for one date; a year outside 1900 to this year
+   here (`IJournalClock.Today`, the fourth place); and the order across the two kinds, a year
+   against a year by number and a day against a year through `SpanOf`, the first place, so the
+   count stays four. The order message becomes *Cannot be earlier than Started.* on the server
+   too, under `completedAt` or `completedYear`. `LogEntriesEndpointTests` first.
+3. **The transitions.** Every arm of `ApplyTransitionTimestamps` writes or clears a year with its
+   instant: Backlog clears all four; Playing and On Hold stamp a start only when neither kind is
+   there, and clear the finish; Completed stamps a finish over a year; Dropped copies a finish
+   into a missing start as the kind it is. #14's *No* takes a finish year back as it takes an
+   instant. `StatusTransitionTests` first, with a Playing pass given a finish year dragged to
+   Dropped among them.
+4. **The add names its finish.** `POST /api/library/{mediaId}` takes, beside the column, a
+   finish year or that there is none, and optional hours; neither means today, as now. Only with
+   Completed, and the year by step 2's rule. `AddingToBoardTests` first.
+5. **The board reads a year.** `InYear`'s Playing, Completed and either-date arms each gain a
+   kept year compared with the year asked for by number; the board's list of years takes kept
+   years; and both terminal projections give a card `lastActivityYear` and `completedYear`
+   beside the two instants, a year only where its date is not a day. `LibraryOrderingTests`,
+   `LibraryEndpointTests` and the share's tests first.
+6. **The Stats page reads a year.** A year's finishes take its kept ones, sorted after its dated
+   ones, and All years sorts each kept year after its year's last instant, by `SpanOf`; completion
+   counts a kept start, or a kept finish where there is no start of either kind; the page's years
+   take kept years; `FinishDto` carries `completedYear`. `StatsEndpointTests` first.
+7. **The spreadsheet's half on the server** is step 2's, since a pass is `LogEntryDto`.
+   `LibraryExportTests` says so.
+8. **The client's wire and the autosave.** The types gain the fields; `pick()` sends both years;
+   a date field holds a day, a year or nothing, and an untouched year goes back as it came, as
+   `dateFieldValue` sends back an untouched day. `logEntries.test.ts` and `fields.test.ts` first.
+9. **The journal's Day \| Year switch**, from round two's `DatesProto` under `ym=switch`: beside
+   each label, a box in Year mode for a pass that keeps a year, the switch carrying what it can,
+   the order rule as *Cannot be earlier than Started.* for a day as much as a year, the year rule
+   as *A year from 1900 to 2026.*, and nothing changed while a move is on its way.
+   `EntryDrawer.test.tsx` first.
+10. **A year wherever a date is shown.** The card prints *2019*, On Hold's start year as well;
+    *Did you finish it in 2019?* on a card and in the journal; an earlier pass is *Completed in
+    2019* and its Delete names *the Completed pass from 2019*; a rating row says *finished in
+    2019*. Each of the eleven places gets its test with a year-only date.
+11. **The Stats page's covers.** A year's kept finishes are a group after December, behind a rule
+    and labelled with the year, a row after December with no rule on a phone; a year with no
+    days is that group alone, as a pile; All years is a row per year at every width, its covers
+    the phone's `w-8`. From round three's `FinishedCoversProto`. `stats.test.ts` and
+    `StatsPage.test.tsx` first.
+12. **The spreadsheet.** *Started in* and *Finished in* after *Finished* on Games and
+    Playthroughs, width 12, a number: a day's year here or a kept year as kept. A kept year leaves
+    its date cell empty. `sheets.test.ts` first.
+13. **The ✓'s question**, from round three's `AddControlProto`: a panel 288px wide over the tile
+    in a portal, its right edge on the ✓'s, 8px inside the window; the question in the hobby's
+    verb from `hobbies/`, *watch* on films; *In* and the year box, the last year added on this
+    board this visit already in it and selected; *Hours played* where the pass has hours; *Add*,
+    *or*, *Today*, *I don't remember*; the year rule's line under the boxes. The keyboard to the
+    year box once the panel is placed, back to the ✓ on Escape or the ×; `aria-expanded` and the
+    hover fill held on the ✓; a press elsewhere closes it. `useAddToBoard` sends the finish.
+    `BoardSearch.test.tsx`, `DiscoverPage.test.tsx` and the hobby files' tests first.
+14. **End to end.** The specs that pressed a ✓ answer its question now; new specs for the
+    question on the strip and the wall at 1440, 1280 and 390, the switch, a year on a card,
+    in the journal, on the Stats page and in the spreadsheet. The panel and the switch in Firefox
+    too.
+15. **Against the prototypes, pixel for pixel**: the panel and the switch against round two's
+    and three's, and the Stats page's groups and All years against round three's, at the
+    workshop's widths.
+16. **The docs.** `data-model.md`, `board.md`, `journal.md`, `stats.md`, `export.md`,
+    `games-igdb.md`, `design.md`, `api.md` and `history.md`; CLAUDE.md's schema, its settled
+    decisions and **What is next**; this section's *Built*, *Tests* and *What the plan got wrong*.
+17. **All three suites green, then the PR.** Not merged and not deployed.
+
 ---
 
 ## Noted for the other hobbies (no plans, as the user asked)
