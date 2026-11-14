@@ -49,10 +49,10 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 20 | The titles a column's header leaves out | S–M | **Shipped and deployed 4 November 2026** (PR #89), built tests first the day after it was planned and workshopped beside #19, after the full e2e suite went 215 green. A count in a header, in the accent (the user's pick), opens a list of covers and names under the whole header at the column's width, and a title in it opens its journal, at Hours played from the list without your hours. Your board's columns only. See its section |
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
-| 23 | Hide a game from Discover | S–M | **Built 13 November 2026, the day it was workshopped, tests first, and not yet merged**; the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
+| 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
 | 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. It changes what a pass's date can be, so **a workshop of its own comes first**. See its section |
 
-Production runs `50b1245`'s code, which was `main` on 13 November 2026. Deploying is the runbook in
+Production runs `4be04e3`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -4021,11 +4021,11 @@ narrower, which is desktop Firefox's scrollbar inside the drawer.
 
 ---
 
-## 23. Hide a game from Discover · built
+## 23. Hide a game from Discover · shipped
 
 **Planned 8 November 2026**, at the user's request, the morning #17 shipped and was checked on
-the real board, **workshopped on the 13th and built the same day, tests first**; see **Built**
-below. In the user's words: *"Add a way to hide a game from this page.
+the real board, **workshopped on the 13th and built the same day, tests first**, and shipped and
+deployed early on the 14th (PR #97); see **Built** and **The deploy, and what it left** below. In the user's words: *"Add a way to hide a game from this page.
 For example, I do not like the Horizon series, so I don't want to see it as well as do some of my
 own filtering that way."*
 
@@ -4252,6 +4252,34 @@ Firefox went red there too, at the same lines.
   a folder that names none, and it was never rendered. The build says *Nothing hidden.*
 - **"A title short" was one hide in two.** On New releases and Most played, one hide on a page was
   absorbed by the 49th place; it took two to leave the page short.
+
+### The deploy, and what it left
+
+- **Deployed at about 01:18 Eastern on 14 November 2026**, `50b1245` to `4be04e3`, carrying #96's
+  docs. No new variable, and **one migration, `AddDiscoverHides`**, which adds a table and drops
+  nothing; the night's backup had run under two hours before. api and caddy were both recreated, api
+  first, and no base image moved; the deploy took 14 seconds.
+- **Proved from outside.** The bundle went `index-Bnpl3GSK.js` to `index-CiZAmd41.js`, where a local
+  build said `index-XkMVDwEL.js`, and the stylesheet `index-B0uun50f.css` to `index-C2ksD7K5.css`,
+  the local build's name. In the script *Hide from Discover*, *It won't show up on Discover again.*,
+  *Hidden from Discover*, *Nothing hidden.*, *None of these is offered on any Discover list* and
+  *Undo hiding* went 0 to 1, *on Discover again* 0 to 2 and `/api/games/discover/hidden` 0 to 3, each
+  the local build's count. A diff of the two stylesheets' selectors found eight rules new and none
+  gone, the mark's `.opacity-0`, its three ways of showing (`group-hover`, `group-focus-within` and
+  `pointer-coarse`, inside `@media (pointer:coarse)`), `.size-5`, `.size-6` and the dialog's
+  `.max-h-[50vh]`, each 0 to 1. `PUT` and `DELETE /api/games/discover/hidden/1` went an empty 404 to
+  a 401 signed out; `GET /api/games/discover/hidden` was a 401 before as well, read as a list slug
+  by `discover/{list}`, which `docs/deploy.md` now says. `/api/auth/me` answered `null` with a 200.
+- **Proved inside.** `AddDiscoverHides` is the newest migration production has, where
+  `AddReviewPages` was, and the API's log named it as it applied it. In the running DLL
+  `DiscoverHideService`, `HiddenFromAsync` and `ShowAgainAsync` went 0 to 2 and `HiddenTitleDto`
+  0 to 1.
+- **The restart re-armed both timers, and both ran five minutes on**: the HowLongToBeat backfill
+  queued 0 titles, and the release sweep brought 16 unreleased titles up to date. The API's log
+  had no warning, failure or critical line.
+- **The user's own check**: on the live site's Discover page, the eye under the pointer on any
+  tile not on the board, and after a hide, *1 hidden* by the way back to the board. No session
+  here can sign in to it.
 
 ---
 

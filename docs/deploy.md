@@ -223,9 +223,13 @@ Each check reads what `main` has gained since the commit the server is on:
   every route but sign-in and a share's reads is behind `[Authorize]`. **A new anonymous route can
   answer 404 before and after**, as a share's does for a token nobody holds, so record its body as
   well. An unmatched route's 404 is empty, and a controller's `NotFound()` is
-  `application/problem+json`: that is how #65's `GET /api/shared/{token}` was told apart. For a
-  backend change with neither a route nor a migration, record the count under **Proving it**: a
-  name the change adds, in the DLL that is running.
+  `application/problem+json`: that is how #65's `GET /api/shared/{token}` was told apart. **A new
+  route that an existing route's parameter already matches answers 401 before as well**, and so
+  proves nothing: #23's `GET /api/games/discover/hidden` was read as a list called *hidden* by
+  `discover/{list}` before the deploy, and #17's new list slug likewise. Record a method nothing
+  matched instead — #23's `PUT` and `DELETE` went an empty 404 to a 401 — or count names in the
+  DLL. For a backend change with neither a route nor a migration, record the count under
+  **Proving it**: a name the change adds, in the DLL that is running.
 
 ### Running it
 
