@@ -4,7 +4,7 @@ import { BOARD_STATUSES, resolveGenre, type HobbyDefinition } from '../hobbies';
 import { HLTB_TIER_LABELS, hltbGameUrl, type HltbEstimates } from '../journal/fields';
 import { picturesInWords } from '../lib/pictures';
 import { formatRelease, type Day } from '../lib/release';
-import { journalDateInput, journalMinute, todayHere } from '../lib/time';
+import { journalDateInput, journalMinute, journalYear, todayHere } from '../lib/time';
 
 /**
  * The spreadsheet a board downloads from Settings, as the sheets the writer is handed: one row per
@@ -80,6 +80,15 @@ const day = (value: Day): Cell => ({ type: Date, value: wallClock(value), format
 
 /** The day an instant fell on here — through `lib/time.ts`, like every instant the board shows. */
 const dayOf = (instant: string | null): Cell => (instant === null ? null : day(journalDateInput(instant)));
+
+/**
+ * The year a pass's date is in, as a number (#24): a day's year here, through `lib/time.ts`, or a
+ * year kept as a year as it was kept. What *Started in* and *Finished in* hold, so a column sorts by
+ * year whichever kind each date is — round three's pick, over a kept year written in the date cell,
+ * which Excel sorts after every date as text, or reads as a day in 1905 as a number.
+ */
+const yearOf = (instant: string | null, kept: number | null): Cell =>
+  number(instant === null ? kept : journalYear(instant));
 
 /** The day and the minute an instant fell on here. */
 const minuteOf = (instant: string): Cell => ({
@@ -247,8 +256,17 @@ export function exportSheets(
       cell: ({ current }) => number(current.hoursPlayed),
     },
     fields.platform && { header: 'Platform', width: 16, cell: ({ current }) => text(current.platform) },
+    // Days only: a date kept as a year (#24) leaves its cell empty, and its year goes in the
+    // column after. 12 wide, as Hours played, whose twelve characters fit: at 10 the bold
+    // *Finished in* ran past its column.
     { header: 'Started', width: 11, cell: ({ current }) => dayOf(current.startedAt) },
     { header: 'Finished', width: 11, cell: ({ current }) => dayOf(current.completedAt) },
+    { header: 'Started in', width: 12, cell: ({ current }) => yearOf(current.startedAt, current.startedYear) },
+    {
+      header: 'Finished in',
+      width: 12,
+      cell: ({ current }) => yearOf(current.completedAt, current.completedYear),
+    },
 
     // When it went on the board, which is the only date a Backlog row has.
     { header: 'Added', width: 11, cell: ({ first }) => dayOf(first.loggedAt) },
@@ -296,6 +314,8 @@ export function exportSheets(
     fields.platform && { header: 'Platform', width: 16, cell: ({ pass }) => text(pass.platform) },
     { header: 'Started', width: 11, cell: ({ pass }) => dayOf(pass.startedAt) },
     { header: 'Finished', width: 11, cell: ({ pass }) => dayOf(pass.completedAt) },
+    { header: 'Started in', width: 12, cell: ({ pass }) => yearOf(pass.startedAt, pass.startedYear) },
+    { header: 'Finished in', width: 12, cell: ({ pass }) => yearOf(pass.completedAt, pass.completedYear) },
     { header: words.sheets.notes, width: 7, cell: ({ pass }) => number(pass.notes.length) },
   ];
 

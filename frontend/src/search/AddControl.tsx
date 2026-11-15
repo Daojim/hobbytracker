@@ -1,6 +1,8 @@
-import type { ReactNode } from 'react';
+import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { addOffer } from './addWords';
+import { WhenFinished } from './WhenFinished';
 import type { AddColumn, AddStatus, HobbyDefinition, SearchHit } from '../hobbies';
+import type { AddedFinish } from '../api/library';
 import type { LogStatus } from '../api/types';
 
 /**
@@ -60,7 +62,11 @@ export interface AddControlProps {
   columns: readonly AddColumn[];
   /** An add for this title is on its way, so nothing here may be pressed again. */
   adding: boolean;
-  onAdd: (mediaId: number, status: LogStatus) => void;
+  /**
+   * Puts the title in a column. The ✓'s also says what its question was told about the finish,
+   * where + and ▶ say nothing beside the column.
+   */
+  onAdd: (mediaId: number, status: LogStatus, finish?: AddedFinish) => void;
   /**
    * What the Discover wall adds: its own ground under the control, and the stretch that sits
    * every control on its row's bottom edge. The strip's tile is a surface already.
@@ -84,6 +90,11 @@ export interface AddControlProps {
  * a focused button's outline at the control's edge, which leaves the keyboard only two short
  * bars to see. The end thirds round their own inner corners instead, at the border's 4px less
  * its 1px width.
+ *
+ * **The ✓ asks before it adds** (#24): *When did you finish it?*, in a panel over the tile — see
+ * `WhenFinished`. It says so with `aria-expanded`, and holds its hover fill while the panel is
+ * open, so the panel is seen to belong to it. + and ▶ add at a press, as they always did: a
+ * title arriving in Backlog or Playing has no finish to be wrong about.
  */
 export function AddControl({
   hit,
@@ -94,6 +105,17 @@ export function AddControl({
   className = '',
 }: AddControlProps) {
   const offer = addOffer(hit, definition, columns);
+  const [asking, setAsking] = useState(false);
+  const control = useRef<HTMLDivElement>(null);
+  const check = useRef<HTMLButtonElement>(null);
+
+  // Stable, so the panel's listener for a press elsewhere is attached once while it is open.
+  const close = useCallback((giveBack: boolean) => {
+    setAsking(false);
+    if (giveBack) {
+      check.current?.focus();
+    }
+  }, []);
 
   if (offer.kind === 'calendar') {
     return (
@@ -109,21 +131,49 @@ export function AddControl({
     );
   }
 
+  // The panel is a portal, so it adds nothing to the control's own box: the tile lays the control
+  // out exactly as it did, and the Discover wall's `mt-auto w-full` still reach it.
   return (
-    <div className={`flex h-7 divide-x divide-line rounded border border-line ${className}`}>
-      {offer.actions.map(({ column, label, hint }) => (
-        <button
-          key={column.status}
-          type="button"
-          disabled={adding}
-          aria-label={label}
-          title={hint}
-          onClick={() => onAdd(hit.id, column.status)}
-          className="flex min-w-0 flex-1 items-center justify-center text-muted first:rounded-l-[3px] last:rounded-r-[3px] hover:bg-hover hover:text-accent disabled:opacity-50"
-        >
-          {SYMBOLS[column.status]}
-        </button>
-      ))}
-    </div>
+    <>
+      <div
+        ref={control}
+        className={`flex h-7 divide-x divide-line rounded border border-line ${className}`}
+      >
+        {offer.actions.map(({ column, label, hint }) => {
+          const asks = column.status === 'Completed';
+
+          return (
+            <button
+              key={column.status}
+              ref={asks ? check : undefined}
+              type="button"
+              disabled={adding}
+              aria-label={label}
+              aria-expanded={asks ? asking : undefined}
+              title={hint}
+              onClick={() => (asks ? setAsking(!asking) : onAdd(hit.id, column.status))}
+              className="flex min-w-0 flex-1 items-center justify-center text-muted first:rounded-l-[3px] last:rounded-r-[3px] hover:bg-hover hover:text-accent disabled:opacity-50 aria-expanded:bg-hover aria-expanded:text-accent"
+            >
+              {SYMBOLS[column.status]}
+            </button>
+          );
+        })}
+      </div>
+
+      {asking && (
+        <WhenFinished
+          hobby={definition.slug}
+          question={definition.whenFinished}
+          hours={definition.journal.fields.hoursPlayed}
+          control={control}
+          opener={check}
+          onAnswer={(finish) => {
+            close(true);
+            onAdd(hit.id, 'Completed', finish);
+          }}
+          onClose={close}
+        />
+      )}
+    </>
   );
 }

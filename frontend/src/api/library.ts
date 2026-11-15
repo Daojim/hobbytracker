@@ -126,8 +126,30 @@ export function transition(
  * Answers with the card as the board will draw it; a title already on your board is a 409, since
  * a second pass would be a replay nobody made.
  */
-export function addToBoard(mediaId: number, status: LogStatus): Promise<LibraryItem> {
-  return apiJson<LibraryItem>(`/api/library/${mediaId}`, { method: 'POST', body: { status } });
+export function addToBoard(
+  mediaId: number,
+  status: LogStatus,
+  finish: AddedFinish = {},
+): Promise<LibraryItem> {
+  // Only what was said: an add with no finish named is the request it always was, and today.
+  const body: Record<string, unknown> = { status };
+  if (finish.completedYear !== undefined) body['completedYear'] = finish.completedYear;
+  if (finish.undated === true) body['undated'] = true;
+  if (finish.hoursPlayed !== undefined) body['hoursPlayed'] = finish.hoursPlayed;
+
+  return apiJson<LibraryItem>(`/api/library/${mediaId}`, { method: 'POST', body });
+}
+
+/**
+ * What the check mark's question was told about a finish (#24): a year, kept as the year it is, or
+ * that there is no date at all — *I don't remember*. Saying neither is today, the drag's rule, which
+ * is what *Today* sends. And the hours it took, where a pass of the hobby keeps hours. Only an add to
+ * Completed says any of it; the server refuses it for any other column.
+ */
+export interface AddedFinish {
+  completedYear?: number;
+  undated?: boolean;
+  hoursPlayed?: number;
 }
 
 /**

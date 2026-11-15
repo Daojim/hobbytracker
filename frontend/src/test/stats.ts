@@ -21,6 +21,7 @@ export function finish(overrides: Partial<Finish> = {}): Finish {
     title: 'Celeste',
     coverUrl: null,
     completedAt: '2026-04-12T16:00:00Z',
+    completedYear: null,
     rating: null,
     hoursPlayed: null,
     lengthHours: null,

@@ -169,8 +169,7 @@ public class LibraryController(ILibraryService library) : ControllerBase
     public async Task<ActionResult<LibraryItemDto>> AddToBoard(
         int mediaId, AddToBoardRequest request, CancellationToken cancellationToken)
     {
-        var (outcome, item) = await library.AddToBoardAsync(
-            mediaId, request.Status, cancellationToken);
+        var (outcome, item) = await library.AddToBoardAsync(mediaId, request, cancellationToken);
 
         switch (outcome)
         {

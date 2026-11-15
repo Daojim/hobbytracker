@@ -92,6 +92,7 @@ export const GAMES: HobbyDefinition = {
   describeLength: (hours) => `About ${hours} hours to finish`,
 
   countPasses: (count) => `${count} playthroughs`,
+  whenFinished: 'When did you finish it?',
   titleNoun: (count) => (count === 1 ? 'game' : 'games'),
 
   describeRemoval: (title, entryCount, hasNotes) =>

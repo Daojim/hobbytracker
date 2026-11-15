@@ -3,6 +3,7 @@ import { AddControl } from '../search/AddControl';
 import { awaitsRelease, boardWords } from '../search/addWords';
 import { EyeOff } from './EyeOff';
 import type { AddColumn, HobbyDefinition, SearchHit } from '../hobbies';
+import type { AddedFinish } from '../api/library';
 import type { LogStatus, RatedTitle } from '../api/types';
 
 export interface WallTileProps {
@@ -10,7 +11,7 @@ export interface WallTileProps {
   /** The column this title is in on your board, or null when it is not on it. */
   onBoard: LogStatus | null;
   adding: boolean;
-  onAdd: (mediaId: number, status: LogStatus) => void;
+  onAdd: (mediaId: number, status: LogStatus, finish?: AddedFinish) => void;
   /** Where this board can take a title — see `addColumns`. */
   columns: readonly AddColumn[];
   definition: HobbyDefinition;

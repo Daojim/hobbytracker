@@ -123,7 +123,8 @@ test("a film's journal is a film's: a director, a runtime, and no hours box", as
 
   // And what is left says what a film's pass says.
   await expect(drawer.getByRole('region', { name: 'Watching' })).toBeVisible();
-  await expect(drawer.getByLabel('Watched')).toBeVisible();
+  // The box by its role and exact name: since #24 a Day | Year switch beside it is "Watched as".
+  await expect(drawer.getByRole('textbox', { name: 'Watched', exact: true })).toBeVisible();
 });
 
 test('a co-directed film names both of them', async ({ page }) => {

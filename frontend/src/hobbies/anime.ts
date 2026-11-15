@@ -42,6 +42,9 @@ export const ANIME: HobbyDefinition = {
 
   countPasses: (count) => `${count} watches`,
 
+  // Finished, as a show is: a cour is watched over weeks and finished once.
+  whenFinished: 'When did you finish it?',
+
   // One anime, two anime: the word has no plural in English as people use it.
   titleNoun: () => 'anime',
 

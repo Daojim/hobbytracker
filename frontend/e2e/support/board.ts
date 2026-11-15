@@ -62,6 +62,9 @@ export const COLUMN_LABEL: Record<Hobby, Record<LogStatus, string>> = {
 interface SeedOptions {
   startedAt?: string;
   completedAt?: string;
+  /** A start or a finish kept as a year (#24), in place of the instant beside it. */
+  startedYear?: number;
+  completedYear?: number;
   rating?: number;
   hoursPlayed?: number;
   /** Which catalogue to search, and therefore which board the title lands on. */
@@ -346,6 +349,52 @@ export async function chooseOption(page: Page, title: string, option: string): P
     .getByRole('group', { name: `Options for ${title}` })
     .getByRole('button', { name: option })
     .click();
+}
+
+/**
+ * What a tile's ✓ asks before a title goes straight to the finished column (#24): a game's
+ * question by default, and a film's is *When did you watch it?*
+ */
+export function whenFinished(page: Page, question = 'When did you finish it?'): Locator {
+  return page.getByRole('dialog', { name: question });
+}
+
+type Box = { x: number; y: number; width: number; height: number };
+
+async function boxOf(locator: Locator, what: string): Promise<Box> {
+  const box = await locator.boundingBox();
+  if (box === null) {
+    throw new Error(`${what} is not on screen`);
+  }
+  return box;
+}
+
+/**
+ * That the ✓'s question is where it belongs, from the add control its ✓ is in, mirroring
+ * `placePanel` as `today()` mirrors `journalDateInput`: 288px wide, 6px above the control with its
+ * right edge on the ✓'s, held 8px inside the window, and 6px below the control when above would
+ * leave less than 8px over it. Answers both boxes, for a spec that goes on to move them.
+ */
+export async function expectQuestionPlaced(
+  page: Page,
+  check: Locator,
+): Promise<{ panel: Box; control: Box }> {
+  const panel = await boxOf(whenFinished(page), 'the question');
+  const control = await boxOf(check.locator('..'), 'the add control');
+  const width = await page.evaluate(() => document.documentElement.clientWidth);
+
+  expect(panel.width, 'the question is 288px wide').toBe(288);
+  const left = Math.max(8, Math.min(control.x + control.width - 288, width - 8 - 288));
+  expect(panel.x, 'the question sits by its ✓, inside the window').toBeCloseTo(left, 0);
+
+  const above = control.y - 6 - panel.height;
+  const top = above >= 8 ? above : control.y + control.height + 6;
+  expect(panel.y, above >= 8 ? 'the question sits 6px above its ✓' : 'and 6px below it').toBeCloseTo(
+    top,
+    0,
+  );
+
+  return { panel, control };
 }
 
 /**

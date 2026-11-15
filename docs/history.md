@@ -219,6 +219,14 @@
       by the name. A hide is kept per account and left out after IGDB's answer, which stays one
       answer shared by everybody, and search still finds a hidden game, because somebody who
       typed its name asked for it
-- [ ] Adding a game finished long ago with the year it was finished, never a made-up day and
-      never this year
+- [x] A game finished long ago. The ✓ on a search result or a Discover tile asks *When did you
+      finish it?* before it adds anything, *watch* on a film: a year, today, or *I don't
+      remember*, with the hours if they are known, and the box starts at the year given last, so
+      a sitting of one year's games is a press and an Enter each. The journal's Started and
+      Finished each gained a Day | Year switch, on every board and every pass. A year is kept as a
+      year, never a day nobody named and never this year: a card says *2019*, an earlier pass
+      *Completed in 2019*, the Stats page files a year's undated finishes after December, and the
+      spreadsheet has a column of years beside each date. Nineteen choices in three rounds of
+      renders, every one the recommendation, and the built pieces match the picked renders to the
+      pixel
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

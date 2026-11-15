@@ -53,8 +53,19 @@ public sealed record LibraryItemDto(
     /// <summary>How many times this has been logged. Greater than one means replays.</summary>
     int EntryCount,
     decimal? LatestRating,
-    /// <summary>When the latest entry finished, or when it started if it has not.</summary>
+    /// <summary>
+    /// When the latest entry finished, or when it started if it has not — and null when that date
+    /// is kept as a year, which <see cref="LastActivityYear"/> then carries.
+    /// </summary>
     DateTimeOffset? LastActivity,
+
+    /// <summary>
+    /// The same date where it is kept as a year (#24): the finish's year, or the start's when the
+    /// pass has no finish of either kind. Null whenever <see cref="LastActivity"/> is not, so a card
+    /// is handed a day or a year and never has to choose — and a card that forgot this field prints
+    /// nothing rather than a day nobody named.
+    /// </summary>
+    int? LastActivityYear,
 
     /// <summary>
     /// When the latest entry finished, and null when it carries no finish — which a Completed
@@ -66,6 +77,12 @@ public sealed record LibraryItemDto(
     /// one.
     /// </summary>
     DateTimeOffset? CompletedAt,
+
+    /// <summary>
+    /// The finish where it is kept as a year (#24), and then <see cref="CompletedAt"/> is null: what
+    /// a card leaving Completed asks about, <i>Did you finish it in 2019?</i>
+    /// </summary>
+    int? CompletedYear,
 
     /// <summary>
     /// The title's genres, and which of them was chosen to stand for it — the card's colour.

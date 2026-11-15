@@ -102,6 +102,46 @@ test('the row downloads the board as a workbook of three sheets', async ({ page 
   expect(minuteOf(writtenCell as unknown as Date)).toBe(minuteOf(wallClockHere(note.writtenAt)));
 });
 
+test('a year kept as a year is a number in Started in and Finished in, its date cells empty', async ({
+  page,
+}) => {
+  // #24: round three's pick, a column of years beside each date column on both sheets, so a date
+  // column holds days only and sorts as one, and a kept year sorts among the others by year.
+  await seed(page.request, 'Dead Cells', 'Completed', { startedYear: 2018, completedYear: 2019 });
+  await seed(page.request, 'Celeste', 'Completed', {
+    startedAt: '2026-08-01T12:00:00',
+    completedAt: '2026-08-20T21:30:00',
+  });
+
+  await page.goto('/board');
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const downloading = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download a spreadsheet' }).click();
+  const workbook = await readXlsxFile(await (await downloading).path());
+
+  for (const sheet of ['Games', 'Playthroughs']) {
+    const [header, ...rows] = workbook.find((each) => each.sheet === sheet)!.data;
+    const rowOf = (title: string) => rows.find((row) => row.includes(title))!;
+    const at = (row: (typeof rows)[number], column: string) => row[header!.indexOf(column)];
+
+    // The two new columns sit after Finished, in that order.
+    const finished = header!.indexOf('Finished');
+    expect(header!.slice(finished + 1, finished + 3), sheet).toEqual(['Started in', 'Finished in']);
+
+    const kept = rowOf('Dead Cells');
+    expect(at(kept, 'Started'), sheet).toBeNull();
+    expect(at(kept, 'Finished'), sheet).toBeNull();
+    expect(at(kept, 'Started in'), sheet).toBe(2018);
+    expect(at(kept, 'Finished in'), sheet).toBe(2019);
+
+    // A day's year is the year it was here.
+    const dated = rowOf('Celeste');
+    expect(at(dated, 'Finished'), sheet).toEqual(new Date(Date.UTC(2026, 7, 20)));
+    expect(at(dated, 'Started in'), sheet).toBe(2026);
+    expect(at(dated, 'Finished in'), sheet).toBe(2026);
+  }
+});
+
 test('the keyboard stays on the row while the file is made', async ({ page }) => {
   // A real browser takes focus off a control the moment it is disabled, and jsdom does not, so
   // this is the layer that can say the row is held still some other way.

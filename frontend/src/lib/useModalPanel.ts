@@ -6,6 +6,40 @@ const FOCUSABLE =
   'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
+ * Keeps a Tab inside a panel: on from its last stop to its first, and back from its first, or from
+ * the panel itself, to its last. Anything else is left to the browser, which moves between the
+ * stops in between as it would anyway.
+ *
+ * The modal panels' half, and the ✓'s question's since #24, which is not modal — a press elsewhere
+ * closes it — but sits in a portal at the end of the page, where Tab past either end would walk
+ * the page from its bottom.
+ */
+export function keepTabIn(
+  panel: HTMLElement,
+  event: Pick<KeyboardEvent, 'key' | 'shiftKey' | 'preventDefault'>,
+) {
+  if (event.key !== 'Tab') {
+    return;
+  }
+
+  const stops = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)];
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  if (first === undefined || last === undefined) {
+    return;
+  }
+
+  const here = document.activeElement;
+  if (event.shiftKey && (here === first || here === panel)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && here === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
+/**
  * A modal panel's keyboard: it follows the panel in, it cannot Tab out onto the page behind, and
  * Escape closes the panel.
  *
@@ -43,24 +77,8 @@ export function useModalPanel(
         return;
       }
 
-      if (event.key !== 'Tab' || panel.current === null) {
-        return;
-      }
-
-      const stops = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)];
-      const first = stops[0];
-      const last = stops[stops.length - 1];
-      if (first === undefined || last === undefined) {
-        return;
-      }
-
-      const here = document.activeElement;
-      if (event.shiftKey && (here === first || here === panel.current)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && here === last) {
-        event.preventDefault();
-        first.focus();
+      if (panel.current !== null) {
+        keepTabIn(panel.current, event);
       }
     }
 

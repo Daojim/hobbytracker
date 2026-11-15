@@ -74,6 +74,20 @@ public sealed class JournalClockTests
         years.ShouldBe([2026, 2025, 2024]);
     }
 
+    [Fact]
+    public void Years_kept_as_years_join_the_years_of_instants_as_they_are()
+    {
+        // A year a pass keeps for a date nobody remembers the day of (#24) never meets the zone:
+        // 2019 is 2019. It joins the instants' years once each, newest first, and a null is a date
+        // a pass does not have — 8pm on New Year's Eve 2025 here being the instant, and 2025 a year
+        // kept as well, it is one year on the list.
+        var years = ClockAt("2026-08-20T16:00:00Z").YearsOf(
+            [DateTimeOffset.Parse("2026-01-01T01:00:00Z"), null],
+            [2019, null, 2025, 2019]);
+
+        years.ShouldBe([2025, 2019]);
+    }
+
     private static JournalClock ClockAt(string instant) => new(
         new FrozenTimeProvider { UtcNow = DateTimeOffset.Parse(instant) },
         Options.Create(new JournalOptions { TimeZone = "America/New_York" }));

@@ -35,7 +35,9 @@ https://claude.ai/artifact/Cb1T1pYGFvdi35ULXn3Pq2. All twelve recommendations we
 
 - **`finished`**: every pass in Completed whose finish is in the year, oldest first, each with its
   title, cover, the instant it was finished, its rating, your hours and the title's length. With
-  no year, every pass in Completed, a finish with its date cleared included and sorted last.
+  no year, every pass in Completed, a finish with its date cleared included and sorted last. Since
+  #24 a finish can be kept as a year, `completedYear` beside a null `completedAt`, and it is in its
+  year as it is, after the year's dated finishes.
 - **`hours`**: a `ColumnHours`, over those finishes, by the column header's rules.
 - **`completion`**: `{ finished, going, dropped }` over the passes started in the year.
 - **`backlog`**: the Backlog column as the board draws it, oldest first, each with when its pass was
@@ -58,7 +60,8 @@ somebody finds.
 **The years are the page's own for the same reason.** `GET /api/library/years` is the board's,
 read off current passes, so a game finished in 2024 and replayed now leaves 2024 off it.
 `GET /api/stats/years` reads every pass. A pass in Backlog offers no year, because a date on one
-was left there by an edit and its year would open on a page with nothing in it.
+was left there by an edit and its year would open on a page with nothing in it. A date kept as a
+year (#24) offers its year as it is, through `IJournalClock.YearsOf`'s second overload.
 
 ## What each number means
 
@@ -75,7 +78,9 @@ recorded since 1 October 2026, and over an all-time share with the backlog in it
 under it:
 
 - **Started is the start, or the finish when there is no start.** Adding a title straight to
-  Completed stamps a finish and nothing else, and a finish began no later than it ended.
+  Completed stamps a finish and nothing else, and a finish began no later than it ended. **Each
+  of either kind** (#24): a start kept as 2018 beside a finish on a day in 2019 is a 2018 start,
+  and a finish kept as a year with no start of either kind starts in that year.
 - **A pass in Backlog has not started**, whatever date it carries: the move into Backlog clears
   both, so a date there is left over from an edit. It is in none of the three counts. That is
   the one place this is decided. The query used to filter Backlog out *as well*, and the
@@ -135,6 +140,15 @@ Backlog card, and a card would need a date the board row does not carry.
 from `lib/time.ts`, a sibling of `journalYear`. That is the UI, one of the places
 `docs/data-model.md` counts, rather than a new one. Under All years, `byYear` files them by year
 instead, oldest first, with the undated last.
+
+**A finish kept as a year is filed as the year it is, and never in a month** (#24). `noMonth` in
+`stats/stats.ts` takes a year's kept finishes, and `byYear` files each under its kept year with no
+zone involved. **The server orders them**, after every instant in their year and before every
+instant that is not: `StatsService` files a kept year at `IJournalClock.SpanOf(year).To`, the end
+of its year, sorting in C# over an id order from SQL, with a kept year first at a tie, since a day
+exactly at that end is the next year's first instant. So a year's undated finishes come after its
+dated ones in this list and in every list the page makes of it, and under All years each sits with
+its own year. The year's span is the first place the zone is applied, so this adds none.
 
 **The year meets an instant on the clock, in both directions.** `IJournalClock.SpanOf(year)`
 turns a year asked for into the instants it covers, and `IJournalClock.YearsOf(instants)` turns
@@ -199,9 +213,19 @@ goes by title.
   backlog six with *Show all 14*, the wording the renders had.
 - **The months reflow rather than swap.** One list: across on a wide screen, a stack per month
   with the first finish at the bottom; a row per month on a phone, where the months still to come
-  are left off. A screen reader and a test meet one of each. **Under All years a year piles at
-  most four covers across** instead of standing in a stack, because its column has the room and
-  a stack of 2025's 28 would make the panel 1,755px tall.
+  are left off. A screen reader and a test meet one of each.
+- **A year's kept finishes are a group after December** (#24), set apart by a rule and labelled
+  with the year, and named *2024, no month* aloud: round three's picks over a group before
+  January, no rule, and *No month*, which took two lines even at 1440 and lifted its stack. On a
+  phone the group is a row after December's with no rule. **A year with no day in it at all is
+  that group alone**, piled four across, rather than twelve empty months beside it: 199px tall at
+  1440 where the months made it 255.
+- **Under All years each year is a row, at every width** (#24), the phone's layout: round three's
+  pick, once a board filled backwards has many years. Ten year piles side by side made each one
+  cover wide and 2025's 28 finishes a tower, the panel 1,755px tall at 1440; a row a year is 660px.
+  **The covers keep the phone's `w-8` at every width**: given a stack's `sm:w-full`, a cover in a
+  row is as wide as the panel, and the renders measured that page 15,764px tall. It replaced a pile
+  four covers across per year.
 - **The months still to come are not dimmed**, which the renders showed with an opacity. A month's
   label is `text-muted`, held at 4.5:1 on every theme, and an opacity takes it under — the rule
   the hobby nav's *Soon* is written down for in `docs/design.md`.
@@ -231,7 +255,9 @@ choices, from renders of the user's own finishes; the look is `docs/design.md`'s
   over its column. A game finished twice at one point is two rows, and **only those two say which
   finish each is**, *finished Sep 15, 2025*, by the day `formatJournalDate` writes rather than the
   month, which would read the same for two finishes in one month. The user picked dated rows over
-  two plain ones. None of their 61 finishes was a replay when it was built.
+  two plain ones. None of their 61 finishes was a replay when it was built. A finish kept as a year
+  says *finished in 2019* (#24), round three's pick, through `passDateAfterWord` in
+  `lib/passDate.ts`.
 - **Highest first, then the order sent**, which is the order finished: under 8, the 8.5s lead and
   the 8.0s follow oldest first. `Array.prototype.sort` is stable, which is what keeps the second
   half of that.

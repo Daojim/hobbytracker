@@ -213,6 +213,16 @@ It was added on 17 September 2026 as a fifth `LogStatus`, **with no migration**:
 `varchar(20)` text with no check constraint on what it holds, which `dotnet ef migrations
 has-pending-model-changes` confirmed rather than anybody assuming.
 
+**Since #24 a date can be kept as a year, and every arm moves the year with its instant**, because
+a pass holds a day or a year for each date and never both (`docs/data-model.md`). Backlog clears
+all four. Playing and On Hold stamp a start only when there is neither kind, so a start kept as
+2019 survives a pause, and clear the finish of both kinds. Completed stamps a finish over a year.
+**Dropped copies a finish into a missing start as the kind it is**, a year as a year: otherwise a
+Playing pass given a finish year in the journal, dragged to Dropped, would be stamped a start of
+today after a finish in 2019, and the order rule would refuse a drag with nothing wrong with it.
+And #14's *No* takes a finish year back as it takes a finish day. `StatusTransitionTests` holds
+each arm with a kept year, that Dropped case among them.
+
 **A new status needs a decision in four places, and each fails silently without one.**
 `ApplyTransitionTimestamps` is a `switch` *statement* with no default, so a status with no arm
 compiles and stamps nothing — On Hold's first red run was exactly that, three `StartedAt` nulls.
@@ -541,7 +551,7 @@ record:
 |---|---|---|
 | Backlog | — | — |
 | Playing | now | — |
-| Completed | — | now — **no start is made up**, as a drag out of Backlog makes none |
+| Completed | — | now — **no start is made up**, as a drag out of Backlog makes none. Or, since #24, the year the ✓ was told, or none |
 
 `AddingToBoardTests.An_add_leaves_exactly_what_adding_to_the_backlog_and_moving_would` states that
 as an equivalence over **all five** columns, so a rule that changes cannot leave the two behind
@@ -572,9 +582,19 @@ announcement moved out of `LogEntryService`, unchanged, into `MediaAddedAnnounce
 add paths call — so a handler that throws still cannot lose the pass, and still cannot rob the
 handlers behind it of the news.
 
-**One consequence worth knowing rather than fixing:** a game finished in 2019 and added straight to
-Completed is stamped today, because today is the only finish anybody has said — exactly what a drag
-does. The journal's date is where the real one goes.
+**An add to Completed names its finish, since #24.** A game finished in 2019 and added straight to
+Completed was stamped today, because today was the only finish anybody had said, which is exactly
+what a drag does. That was written here as a consequence worth knowing rather than fixing, until
+the user asked for a way to add a game they remember only by its year. Now the tile's ✓ asks when,
+and the body carries the answer beside `status`: `completedYear`, kept as the year it is;
+`undated: true` for *I don't remember*, the state a finish cleared by hand already has; and
+`hoursPlayed`, if they are known. **Saying neither is today**, the drag's rule, which is what
+*Today* sends, so the request a ✓ always sent still means what it meant. Each is refused with any
+column but Completed (*Only an add to Completed names a finish.*, *Only an add to Completed takes
+hours.*), the two together are refused (*A finish is a year or none, never both.*), and a year is
+held to the year boxes' rule, *A year from 1900 to 2026.*, ending at this year here.
+`AddingToBoardTests` holds all of it. The tile's half, the panel that asks, is in
+`docs/games-igdb.md`.
 
 ### The board is one year at a time
 
@@ -593,10 +613,10 @@ filter rather than a strict one.
 | Column | Answers with |
 |---|---|
 | Backlog | **Nothing — it is exempt.** Both timestamps are cleared by the rule that puts a title there, so it belongs to no year; and it is what you drag out of while reading a past one |
-| Playing | `started_at`. The transition into this column clears `completed_at` |
+| Playing | `started_at`, or a start kept as the year. The transition into this column clears the finish |
 | On Hold | **Nothing — exempt too**, for the second half of Backlog's reason alone. It carries a start, so the data could answer "paused in 2019", but it is a list you come back to — narrowed on its start, everything paused since last year would leave the board the first time anything was logged in a new one, because the board opens on the latest year there is |
-| Completed | `completed_at`, pointedly **not** `started_at`. A game begun in 2019 and finished in 2021 is a 2021 completion |
-| Dropped | **Either.** A drop stamps a start when the pass has none and leaves a completion alone, so an abandoned title carries a start, an earlier completion, or both. Only a pass written straight through `POST /api/log-entries` carries neither |
+| Completed | `completed_at`, or a finish kept as the year, pointedly **not** the start. A game begun in 2019 and finished in 2021 is a 2021 completion |
+| Dropped | **Either, of either kind.** A drop stamps a start when the pass has none and leaves a completion alone, so an abandoned title carries a start, an earlier completion, or both. Only a pass written straight through `POST /api/log-entries` carries neither |
 | *no column named* | Either, for Dropped's reason: with no column named there is no one date to prefer |
 
 `LibraryService.InYear` holds the server's half and `yearFor` in `frontend/src/board/keys.ts` the
@@ -609,6 +629,16 @@ Hold, and so cannot tell you they agree.
 **`GET /api/library/years` answers with any activity, not completions.** It had to move with the
 filter: a year you began something in and finished nothing in is a year the Playing column handles
 perfectly well, and while the list was completions alone the picker had no way to ask for it.
+
+**A date kept as a year is compared with the year asked for as the number it is** (#24). Each of
+`InYear`'s dated arms has a second half beside its range of instants, `StartedYear == year` for
+Playing, `CompletedYear == year` for Completed and either for Dropped, and the list of years takes
+kept years through `IJournalClock.YearsOf`'s second overload, unconverted, so the places the zone
+is applied stay four. A reader that forgets the
+year shows the pass under All years and nowhere else, which is the trap *as a year* was picked
+for: less than the truth, never something untrue. A card carries `lastActivityYear` and
+`completedYear` beside its two instants, each null wherever its date is a day, from both terminal
+projections, and prints a year alone, *2019*, as the calendar prints one: round three's pick.
 
 **A move invalidates the years as well as the two columns, and that is easy to miss.** A transition
 stamps `started_at` or `completed_at`, so a drag is one of only two things that can bring a year into

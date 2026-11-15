@@ -29,6 +29,10 @@ export const MOVIES: HobbyDefinition = {
 
   countPasses: (count) => `${count} viewings`,
 
+  // Watched, where a game is finished: a film is seen in an evening, and nobody finishes one.
+  // Round three's pick at the #24 workshop, over finish on every board.
+  whenFinished: 'When did you watch it?',
+
   // "Film", the word the search box and the pass already use, though the nav says Movies.
   titleNoun: (count) => (count === 1 ? 'film' : 'films'),
 

@@ -210,6 +210,25 @@ the column in `media` too and leaves the base table with no `id` at all.
   takes its hides, as it takes every pass; the deletion warning does not count them, the
   workshop's pick. From `media`, as `log_entries` does: nothing in the app deletes a title, and the
   e2e suite's truncation of `media` takes the hides with it.
+- **A pass's date is a day or a year, and the year is a column of its own** (#24, 14 November
+  2026): `started_year` and `completed_year`, `int`, beside `started_at` and `completed_at`, each
+  read only where its instant is empty. They are for a game finished long ago that somebody
+  remembers by the year, kept as the year it is: never a day nobody named, and never this year.
+  **Picked at the workshop over a precision beside the instant**, at the edge of the year, which is
+  the release window's shape. There, a reader that forgot the precision would print *Dec 31,
+  2019*, a day nobody named, with no error. Here a reader that forgets the year shows the pass
+  under All years alone, which is less than the truth rather than something untrue. **Years only,
+  never a month**: a month would be a third state for every place a date is shown.
+- **Four checks hold the pair, and each is a 400 from `LogEntryRules` before it can be a 500.**
+  `ck_log_entries_start_day_or_year` and `ck_log_entries_finish_day_or_year` mean a date is a day
+  or a year and never both, since a reader shown both would have to pick one.
+  `ck_log_entries_year_order` keeps a finish year no earlier than a start year, the sibling of
+  `ck_log_entries_timestamp_order`. `ck_log_entries_years_range` refuses a year before 1900, the
+  floor picked at the build because it refuses only a typo. **No ceiling in the database**, which
+  cannot ask what year it is here: the request's rule holds that, through `IJournalClock.Today`.
+  **Nor a check across the two kinds**, because comparing a year with an instant needs the zone,
+  which the schema never names. A day against a year is ordered by the request's rule alone, the
+  day's year here through `SpanOf`.
 
 **One cosmetic quirk, left alone deliberately.** The two TPT tables get `PK_media` / `PK_games`
 while every other primary key is snake_case; `EFCore.NamingConventions` does not rewrite key names
@@ -326,6 +345,17 @@ on the wire since #19, and the line under the HowLongToBeat pin turns it into th
 here with `journalDateInput`, then writes that day with `formatDayShort` from `lib/release.ts`,
 whose year shows only when it is not this one. Nothing on the server turns it into a day.
 
+**A year kept as a year adds no fifth place** (#24), and it was built not to. A kept year was
+never an instant, so it belongs to no zone: 2019 is compared with the year asked for as the number
+it is, in `InYear`'s arms and the Stats page's, and joins the lists of years as it is, through
+`YearsOf`'s second overload. What does meet the zone goes through a place already counted. The
+order of a day and a year is the day's year here, through `SpanOf`, the first place. The newest
+year a box takes is this year here: `IJournalClock.Today` on the server and `todayHere()` through
+`thisYearHere` in `lib/passDate.ts`, the fourth. A day's year in the spreadsheet's *Finished in*
+is `journalYear`'s, the third. The Stats page files a kept year at `SpanOf(year).To`, the end
+of its year, which is how a year's undated finishes come after its dated ones in every list it
+makes.
+
 *This sentence is still a tripwire. A fifth place updates it rather than quietly falsifying it.*
 
 `IJournalClock` (`Infrastructure/JournalClock.cs`) wraps `TimeProvider` plus the zone. It exists
@@ -363,6 +393,15 @@ still valid, but `LogEntryService` sets it explicitly on every insert it makes.
   26 September release becomes the 25th. The four `media.release_*` columns are `date`, and the
   column type is the enforcement: there is no validation anywhere that would catch a day stored as
   an instant, because by the time it is read it looks like a perfectly ordinary timestamp.
+
+**And one more that fails not at all, since #24: a reader of a pass's date that takes the instant
+alone.** A date kept as a year has a null instant, so a filter, a list of years or a sort that
+reads only `completed_at` leaves the pass out of its year without an error, and it shows under All
+years and nowhere else. Every reader takes the pair: on the server `InYear`, the two lists of
+years, the Stats page's year of finishes, their order and its completion; on the client
+`formatPassDate` and `passDateAfterWord` in `lib/passDate.ts`, which are handed both so that one
+forgetting the year prints nothing rather than a day nobody named. Each has a case with a year-only
+date.
 
 **docker-compose sets `timezone=America/New_York` on the server**, so `psql` renders timestamps in
 Eastern and what you read there matches what the app shows. Convenience only — nothing is correct

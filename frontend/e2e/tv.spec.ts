@@ -133,7 +133,8 @@ test("a show's journal is a show's: a creator, three facts, and where you are", 
   await expect(drawer.getByLabel('HowLongToBeat ID')).toHaveCount(0);
 
   await expect(drawer.getByRole('region', { name: 'Watching' })).toBeVisible();
-  await expect(drawer.getByLabel('Watched')).toBeVisible();
+  // The box by its role and exact name: since #24 a Day | Year switch beside it is "Watched as".
+  await expect(drawer.getByRole('textbox', { name: 'Watched', exact: true })).toBeVisible();
 });
 
 test('a show that began and ended in one year says that year once', async ({ page }) => {

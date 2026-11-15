@@ -2,6 +2,7 @@ import { formatRelease } from '../lib/release';
 import { AddControl } from './AddControl';
 import { awaitsRelease, boardWords } from './addWords';
 import type { AddColumn, HobbyDefinition, SearchHit } from '../hobbies';
+import type { AddedFinish } from '../api/library';
 import type { LogStatus } from '../api/types';
 
 /**
@@ -22,7 +23,7 @@ export interface SearchResultProps {
    */
   onBoard: LogStatus | null;
   adding: boolean;
-  onAdd: (mediaId: number, status: LogStatus) => void;
+  onAdd: (mediaId: number, status: LogStatus, finish?: AddedFinish) => void;
 
   /**
    * Opens the journal of a title on your board, from its name, as a card's name does.

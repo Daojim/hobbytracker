@@ -43,6 +43,9 @@ export const TV: HobbyDefinition = {
   // "Watches" rather than "viewings": a film is viewed and a series is watched, and a rewatch
   // of nineteen episodes is not a viewing of anything.
   countPasses: (count) => `${count} watches`,
+  // Finished, where a film is watched: round three's pick at the #24 workshop. A show is watched
+  // over weeks and finished once, which is the day the question is about.
+  whenFinished: 'When did you finish it?',
   titleNoun: (count) => (count === 1 ? 'show' : 'shows'),
 
   describeRemoval: (title, entryCount, hasNotes) =>

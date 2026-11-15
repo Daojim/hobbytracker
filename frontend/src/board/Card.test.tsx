@@ -307,6 +307,29 @@ describe('Card', () => {
     expect(screen.getByText('Dec 31, 2025')).toBeInTheDocument();
   });
 
+  it('prints a date kept as a year as the year alone, never a day nobody named', () => {
+    // #24, round three's pick: "2019", as the release calendar prints a year — and on a phone,
+    // where the date shares the genre's line, "Puzzle 2019" rather than "Puzzle in 2019".
+    renderCard(
+      libraryItem({
+        currentStatus: 'Completed',
+        genres: ['Puzzle'],
+        lastActivity: null,
+        lastActivityYear: 2019,
+        completedYear: 2019,
+      }),
+    );
+
+    expect(screen.getByText('2019')).toBeInTheDocument();
+    expect(screen.queryByText(/Jan 1|Dec 31|in 2019/)).not.toBeInTheDocument();
+  });
+
+  it('prints the year an On Hold title was begun in the same way', () => {
+    renderCard(libraryItem({ currentStatus: 'OnHold', lastActivityYear: 2020 }));
+
+    expect(screen.getByText('2020')).toBeInTheDocument();
+  });
+
   it('marks a replay only when there has been more than one pass', () => {
     const replayed = renderCard(libraryItem({ entryCount: 2 }));
     expect(screen.getByRole('img', { name: '2 playthroughs' })).toBeInTheDocument();
@@ -736,6 +759,24 @@ describe('Card', () => {
     expect(leaving.onPutBack).toHaveBeenCalledOnce();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(leaving.onStay).toHaveBeenCalledOnce();
+  });
+
+  it('asks about a finish kept as a year in its year', () => {
+    // #24: "in" where a day takes "on", and the answers carry the question as before.
+    renderLeaving(
+      'InProgress',
+      libraryItem({
+        title: 'Hollow Knight',
+        currentStatus: 'Completed',
+        lastActivityYear: 2019,
+        completedYear: 2019,
+      }),
+    );
+
+    expect(screen.getByText('Did you finish it in 2019?')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Yes — start a new pass' })).toHaveAccessibleDescription(
+      'Did you finish it in 2019?',
+    );
   });
 
   it('asks nothing while it is not leaving', () => {

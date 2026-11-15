@@ -424,6 +424,29 @@ public sealed class SharedBoardTests(PostgresFixture postgres) : DatabaseTestBas
         board.ShouldBe([2025, 2024, 2023]);
     }
 
+    [Fact]
+    public async Task A_share_shows_a_year_kept_as_a_year_as_the_owners_board_does()
+    {
+        // #24 needs nothing new on a share: the same card, the same year filter and the same years,
+        // so a game the owner finished in 2019 is under 2019 there, with the year and no day.
+        var hollowKnight = await GivenGameAsync("Hollow Knight", externalId: "1");
+        await GivenLogEntryAsync(hollowKnight, LogStatus.Completed, completedYear: 2019);
+        var celeste = await GivenGameAsync("Celeste", externalId: "2");
+        await GivenLogEntryAsync(celeste, LogStatus.Completed, completedAt: Eastern(2024, 4, 1));
+
+        var share = await ShareAsync(SharePart.Completed);
+
+        (await YearsAsync(share)).ShouldBe([2024, 2019]);
+
+        var column = await ReadAsync<LibraryPage>(await AnonymousClient.GetAsync(
+            Shared(share, "library?status=Completed&year=2019"), Ct));
+        var card = column.Items.ShouldHaveSingleItem();
+        card.Title.ShouldBe("Hollow Knight");
+        card.LastActivity.ShouldBeNull();
+        card.LastActivityYear.ShouldBe(2019);
+        card.CompletedYear.ShouldBe(2019);
+    }
+
     // ---------------------------------------------------------------- stats, whole
 
     [Fact]

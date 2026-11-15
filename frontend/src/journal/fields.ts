@@ -1,3 +1,4 @@
+import { parseYear } from '../lib/passDate';
 import { journalDateInput } from '../lib/time';
 import type { LogEntry } from '../api/types';
 
@@ -250,11 +251,72 @@ export function hltbGameUrl(hltbId: number): string {
  * edited one is sent as a bare date, which the server reads as that wall-clock moment here.
  */
 export function dateFieldValue(input: string, original: string | null): string | null {
+  // A box holding a year sends no instant at all (#24): the year takes the day's place, and goes
+  // in yearFieldValue's half. What the boxes show is what is saved.
+  if (input !== '' && !isDay(input)) {
+    return null;
+  }
+
   if (input === journalDateInput(original)) {
     return original;
   }
 
   return input === '' ? null : input;
+}
+
+/**
+ * What to send for a date field's year: the year a box holds in Year mode, and nothing for a day,
+ * which is {@link dateFieldValue}'s, or for an empty box. A year has nothing hidden in it to lose,
+ * as an instant's time of day is, so an untouched year goes back as it came by being the number it
+ * is. Only sent once `parseYear` has taken it, which the form asks before it writes.
+ */
+export function yearFieldValue(input: string): number | null {
+  return input === '' || isDay(input) ? null : Number(input);
+}
+
+/**
+ * Whether a date box holds a day, which a date input reports whole as `YYYY-MM-DD` or not at all.
+ * Anything else in the box is a year, or the start of one being typed.
+ */
+export function isDay(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/**
+ * What the finish says when it is before the start, on every board and for a day as much as a
+ * year: round three's pick at the #24 workshop, replacing *Completed cannot be earlier than
+ * started.*, which said *Completed* even on a film. The server's `LogEntryRules.OrderRule` says the
+ * same words.
+ */
+export const ORDER_RULE = 'Cannot be earlier than Started.';
+
+/**
+ * Whether the finish is before the start, across the two kinds a date can be.
+ *
+ * Two days as days: both are `YYYY-MM-DD`, so comparing the text compares them. Anything with a
+ * year in it by the year, a day's being its first four characters — the box already holds the
+ * day here, so this asks nothing of the zone. A start in 2019 and a finish on 3 March 2019 are in
+ * order, since neither says which came first within the year. A year the box cannot read is not
+ * compared: it says what is wrong with it itself.
+ */
+export function outOfOrder(started: string, completed: string): boolean {
+  if (started === '' || completed === '') {
+    return false;
+  }
+
+  if (isDay(started) && isDay(completed)) {
+    return completed < started;
+  }
+
+  const yearOf = (value: string) =>
+    isDay(value) ? Number(value.slice(0, 4)) : parseYear(value).value;
+
+  const start = yearOf(started);
+  const finish = yearOf(completed);
+
+  return start !== null && start !== undefined && finish !== null && finish !== undefined
+    ? finish < start
+    : false;
 }
 
 /** Every value the form holds, in the shape the inputs hold it — text, as an input and a select do. */
@@ -288,9 +350,21 @@ export function passValues(entry: LogEntry): PassValues {
     hours: entry.hoursPlayed === null ? '' : String(entry.hoursPlayed),
     season: entry.seasonNumber === null ? '' : String(entry.seasonNumber),
     episode: entry.episodeNumber === null ? '' : String(entry.episodeNumber),
-    started: journalDateInput(entry.startedAt),
-    completed: journalDateInput(entry.completedAt),
+    started: dateBox(entry.startedAt, entry.startedYear),
+    completed: dateBox(entry.completedAt, entry.completedYear),
   };
+}
+
+/**
+ * What a date box holds for a pass's date: the day here for an instant, the year as written for a
+ * year it keeps (#24), or nothing. A date is one or the other, so the box's mode follows the value.
+ */
+function dateBox(instant: string | null, year: number | null): string {
+  if (instant !== null) {
+    return journalDateInput(instant);
+  }
+
+  return year === null ? '' : String(year);
 }
 
 /**

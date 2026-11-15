@@ -50,7 +50,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
-| 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Workshopped, and not built.** See its section |
+| 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first, and not yet merged**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
 
 Production runs `4be04e3`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -4283,10 +4283,11 @@ Firefox went red there too, at the same lines.
 
 ---
 
-## 24. A game you finished long ago · workshopped
+## 24. A game you finished long ago · built
 
-**Planned 8 November 2026**, at the user's request. Nothing is built, and **a workshop of its own
-comes first**, because it changes what a pass's date can be. In the user's words: *"Some type of
+**Planned 8 November 2026**, at the user's request, and **workshopped and built on 14 November
+2026**, tests first; see **Built** below. A workshop of its own came first, because it changes
+what a pass's date can be. In the user's words: *"Some type of
 way to add completed games to my board when I don't exactly remember the dates I started or
 completed it. I could remember maybe the years and hours of when I played the some of the games,
 but I don't exactly want to add random dates for them either, nor do I just want them to be added
@@ -4572,7 +4573,7 @@ and the questions were asked in two rounds of four in the page's order.
 - **A share needs nothing new.** It shows a year as the owner's pages do, and none of round
   three's words is addressed to anybody, so there is no new `Voiced` pair.
 
-**Where #24 stands, 14 November 2026: workshopped, and not built.** The build is next, tests
+**Where #24 stood after round three, 14 November 2026: workshopped, and not built.** The build was next, tests
 first, from the three lists of what the build has to get right, rounds one, two and three. The
 prototypes are the pixel reference for the built pieces: round two's under
 `frontend/workshop.local/finished-long-ago/` and round three's in its `round3/`, both gitignored,
@@ -4600,59 +4601,61 @@ e2e suite 236 of 236 in 6.4 minutes. **Each step is tests first, red before the 
 guard checked by putting its fault back.** A step is marked done when its tests are green and
 its faults have been planted. A fresh session starts at the first step not marked done.
 
-1. **The schema.** `started_year` and `completed_year`, `int`, beside the two instants on
+1. **Done.** **The schema.** `started_year` and `completed_year`, `int`, beside the two instants on
    `log_entries`. Check constraints: never a day and a year for one date (one each), a finish
    year no earlier than a start year (`ck_log_entries_timestamp_order`'s sibling), and no year
    before 1900. No upper bound in the database, which cannot ask what year it is here. One
    migration. `SchemaTests` first.
-2. **The rules on the way in.** `CreateLogEntryRequest` and `UpdateLogEntryRequest` gain both
+2. **Done.** **The rules on the way in.** `CreateLogEntryRequest` and `UpdateLogEntryRequest` gain both
    years, defaulted as the season is; `LogEntryDto` carries them. `LogEntryRules` answers 400
    before any check can be a 500: a day and a year for one date; a year outside 1900 to this year
    here (`IJournalClock.Today`, the fourth place); and the order across the two kinds, a year
    against a year by number and a day against a year through `SpanOf`, the first place, so the
    count stays four. The order message becomes *Cannot be earlier than Started.* on the server
    too, under `completedAt` or `completedYear`. `LogEntriesEndpointTests` first.
-3. **The transitions.** Every arm of `ApplyTransitionTimestamps` writes or clears a year with its
+3. **Done.** **The transitions.** Every arm of `ApplyTransitionTimestamps` writes or clears a year with its
    instant: Backlog clears all four; Playing and On Hold stamp a start only when neither kind is
    there, and clear the finish; Completed stamps a finish over a year; Dropped copies a finish
    into a missing start as the kind it is. #14's *No* takes a finish year back as it takes an
    instant. `StatusTransitionTests` first, with a Playing pass given a finish year dragged to
    Dropped among them.
-4. **The add names its finish.** `POST /api/library/{mediaId}` takes, beside the column, a
+4. **Done.** **The add names its finish.** `POST /api/library/{mediaId}` takes, beside the column, a
    finish year or that there is none, and optional hours; neither means today, as now. Only with
    Completed, and the year by step 2's rule. `AddingToBoardTests` first.
-5. **The board reads a year.** `InYear`'s Playing, Completed and either-date arms each gain a
+5. **Done.** **The board reads a year.** `InYear`'s Playing, Completed and either-date arms each gain a
    kept year compared with the year asked for by number; the board's list of years takes kept
    years; and both terminal projections give a card `lastActivityYear` and `completedYear`
    beside the two instants, a year only where its date is not a day. `LibraryOrderingTests`,
    `LibraryEndpointTests` and the share's tests first.
-6. **The Stats page reads a year.** A year's finishes take its kept ones, sorted after its dated
+6. **Done.** **The Stats page reads a year.** A year's finishes take its kept ones, sorted after its dated
    ones, and All years sorts each kept year after its year's last instant, by `SpanOf`; completion
    counts a kept start, or a kept finish where there is no start of either kind; the page's years
    take kept years; `FinishDto` carries `completedYear`. `StatsEndpointTests` first.
-7. **The spreadsheet's half on the server** is step 2's, since a pass is `LogEntryDto`.
-   `LibraryExportTests` says so.
-8. **The client's wire and the autosave.** The types gain the fields; `pick()` sends both years;
+7. **Done.** **The spreadsheet's half on the server** is step 2's, since a pass is `LogEntryDto`.
+   `LibraryExportTests` says so. **The backend suite after step 7: 1,143 of 1,143**, the 1,077
+   before and 66 new.
+8. **Done.** **The client's wire and the autosave.** The types gain the fields; `pick()` sends both years;
    a date field holds a day, a year or nothing, and an untouched year goes back as it came, as
    `dateFieldValue` sends back an untouched day. `logEntries.test.ts` and `fields.test.ts` first.
-9. **The journal's Day \| Year switch**, from round two's `DatesProto` under `ym=switch`: beside
+9. **Done** (in Vitest; its look is step 15's). **The journal's Day \| Year switch**, from round two's `DatesProto` under `ym=switch`: beside
    each label, a box in Year mode for a pass that keeps a year, the switch carrying what it can,
    the order rule as *Cannot be earlier than Started.* for a day as much as a year, the year rule
    as *A year from 1900 to 2026.*, and nothing changed while a move is on its way.
    `EntryDrawer.test.tsx` first.
-10. **A year wherever a date is shown.** The card prints *2019*, On Hold's start year as well;
+10. **Done.** **A year wherever a date is shown.** The card prints *2019*, On Hold's start year as well;
     *Did you finish it in 2019?* on a card and in the journal; an earlier pass is *Completed in
     2019* and its Delete names *the Completed pass from 2019*; a rating row says *finished in
     2019*. Each of the eleven places gets its test with a year-only date.
-11. **The Stats page's covers.** A year's kept finishes are a group after December, behind a rule
+11. **Done** (in Vitest; its layout is steps 14 and 15's). **The Stats page's covers.** A year's kept finishes are a group after December, behind a rule
     and labelled with the year, a row after December with no rule on a phone; a year with no
     days is that group alone, as a pile; All years is a row per year at every width, its covers
     the phone's `w-8`. From round three's `FinishedCoversProto`. `stats.test.ts` and
     `StatsPage.test.tsx` first.
-12. **The spreadsheet.** *Started in* and *Finished in* after *Finished* on Games and
+12. **Done.** **The spreadsheet.** *Started in* and *Finished in* after *Finished* on Games and
     Playthroughs, width 12, a number: a day's year here or a kept year as kept. A kept year leaves
     its date cell empty. `sheets.test.ts` first.
-13. **The ✓'s question**, from round three's `AddControlProto`: a panel 288px wide over the tile
+13. **Done** (in Vitest; its look is step 15's). **The ✓'s question**, from round three's
+    `AddControlProto`: a panel 288px wide over the tile
     in a portal, its right edge on the ✓'s, 8px inside the window; the question in the hobby's
     verb from `hobbies/`, *watch* on films; *In* and the year box, the last year added on this
     board this visit already in it and selected; *Hours played* where the pass has hours; *Add*,
@@ -4660,17 +4663,247 @@ its faults have been planted. A fresh session starts at the first step not marke
     year box once the panel is placed, back to the ✓ on Escape or the ×; `aria-expanded` and the
     hover fill held on the ✓; a press elsewhere closes it. `useAddToBoard` sends the finish.
     `BoardSearch.test.tsx`, `DiscoverPage.test.tsx` and the hobby files' tests first.
-14. **End to end.** The specs that pressed a ✓ answer its question now; new specs for the
+    **Built**: `HobbyDefinition.whenFinished`; `search/WhenFinished.tsx`, the panel and
+    `placePanel`; `search/lastYear.ts`, the year in memory, emptied after every test by
+    `src/test/setup.ts`; `keepTabIn`, lifted out of `useModalPanel` so the dialogs and the
+    panel share one copy. **Tests**: the new `AddControl.test.tsx` and `hobbies/adding.test.ts`,
+    four new cases in `BoardSearch.test.tsx`, and the ✓ cases in it, `DiscoverPage.test.tsx` and
+    `SearchResult.test.tsx` answering the question: 61 red before the code. Each of 24 faults
+    planted one at a time turned at least one red, among them the ✓ adding at once, an Escape
+    let past, the ✓ counted as a press elsewhere, Tab let out, a year remembered as it is typed
+    or when refused, one year for every board, the year stored, no way below, a scroll heard
+    only as it bubbles, and the finish dropped on its way to the server. **The frontend after
+    step 13: 1,528 of 1,528 in 67 files**, `tsc -b` clean.
+14. **Done.** **End to end.** The specs that pressed a ✓ answer its question now; new specs for the
     question on the strip and the wall at 1440, 1280 and 390, the switch, a year on a card,
     in the journal, on the Stats page and in the spreadsheet. The panel and the switch in Firefox
-    too.
-15. **Against the prototypes, pixel for pixel**: the panel and the switch against round two's
+    too. **Built**: the four specs the hand-over named went red against step 13 and answer the
+    question now, *most played fills a board backwards* with a year and the next tile's box
+    holding it; 17 new, seven on the strip (1440, 1280, a 400px window that scrolls the strip and
+    the page, and a phone), three on the wall (1440, 1280 and a phone), two of the switch, four on
+    the Stats page and one of the spreadsheet. `whenFinished` and `expectQuestionPlaced` in
+    `e2e/support/board.ts` hold a panel to `placePanel`'s rule from the live boxes. **The full
+    suite after step 14: 253 of 253 in 7.0 minutes**, and the question's and the switch's 14 in
+    Firefox, its two phone cases skipped there as the suite's other phone cases are. **Found**:
+    four journal specs and the films' and shows' drawer specs found a date box with a bare
+    `getByLabel`, which since step 9 also finds the switch's group, *Started as*, and for
+    *Completed* the pass's own section; they find the box by its role and exact name now.
+    **Faults planted**, one at a time: the year box focused while the panel is hidden being
+    measured turned 10 specs red, and Vitest green, since jsdom cannot see it; a scroll heard only
+    as it bubbles turned the 400px spec red. **The portal moved into the tile turned nothing
+    red**: a fixed panel is not cut off by the strip, because nothing between it and the window
+    makes a containing block. `position: fixed` is what keeps it whole, and the portal what keeps
+    it so whatever an ancestor becomes, as a card's `@container` would.
+15. **Done.** **Against the prototypes, pixel for pixel**: the panel and the switch against round two's
     and three's, and the Stats page's groups and All years against round three's, at the
-    workshop's widths.
-16. **The docs.** `data-model.md`, `board.md`, `journal.md`, `stats.md`, `export.md`,
+    workshop's widths. **26 states, and the build differs from the picked prototype by no pixel in
+    any of them**: the panel on the wall at 1440, 1280 and 390, in Shelf Dark and with an empty
+    box, on the strip at 1440 and 390, and a film's question; the switch in the 448px and 512px
+    drawers, in the modal and on a phone, holding days, a finish year, both years and the order
+    rule, and in Shelf Dark; and the Stats page's year group at 1440 and 390 and in Shelf Dark, a
+    year with no days at 1440 and 390, and All years at 1440, 1024 and 390. The clips agreed, and
+    so did where the keyboard was and what the year box had selected. By the gitignored
+    `finished-long-ago/compare-built.mjs`, with round three's server on 5189 and the app's own on
+    5190 answered from round three's stage, the prototype given its sentinels and the build the
+    API's shape. **Found**: since step 10 the shipped card prints a date through `lib/passDate`,
+    which round three's swaps of `lib/time` do not reach, so a `"Y2019"` sentinel on the board now
+    throws *Invalid time value* in the prototype too. The board's states send both apps the
+    built shape, which the panel and the switch never read; the Stats page's send the prototype
+    its sentinels, which its own covers read.
+16. **Done.** **The docs.** `data-model.md`, `board.md`, `journal.md`, `stats.md`, `export.md`,
     `games-igdb.md`, `design.md`, `api.md` and `history.md`; CLAUDE.md's schema, its settled
     decisions and **What is next**; this section's *Built*, *Tests* and *What the plan got wrong*.
-17. **All three suites green, then the PR.** Not merged and not deployed.
+    CLAUDE.md also gained a row under **What exists**, `lib/passDate.ts` in its layout, and a
+    trap under **What fails silently**: a reader of a pass's instant alone leaves a kept year out.
+    It was staged as #24's edits alone, by the gitignored `stage-claude.mjs`, which makes the
+    same edits in HEAD's text and in the working tree, so the other session's lines for #25 to
+    #29 stayed uncommitted.
+17. **Done.** **All three suites green, then the PR.** Not merged and not deployed. On the docs'
+    commit: backend 1,143 of 1,143, frontend 1,528 of 1,528 in 67 files with `tsc -b` clean, and
+    the full e2e suite 253 of 253 in 7.0 minutes. Then the `wip(#24)` commits and the hand-over's
+    were squashed into one `feat:` commit after the two docs commits, as #23's was, for the PR.
+
+**Hand-over after step 12, 14 November 2026.** A fresh session takes over at step 13.
+
+- **The branch is `finished-long-ago`**: the workshop's notes (`8c3ae98`), these steps
+  (`3d1428e`), and four `wip(#24)` commits, one a stretch of steps. **They are squashed into one
+  `feat:` commit before the PR**, after the two docs commits, as #23's `24f1a77` followed
+  `7071dad`.
+- **Green after step 12**: the backend 1,143 of 1,143, unchanged since step 7; the frontend 1,468
+  of 1,468 in 65 files; `tsc -b` clean. **The e2e suite has not run since the baseline.**
+- **Another session is planning #25 to #29 in this same checkout, uncommitted**: its rows and
+  sections in this file, and its lines under CLAUDE.md's **What is next**. They are not #24's. While
+  they stay uncommitted, commit #24's own paths, and stage this file as #24's version alone: write
+  `git show HEAD:docs/plans/games-board-next.md` with #24's edits to a scratch file, then
+  `git hash-object -w --path=docs/plans/games-board-next.md <file>` and
+  `git update-index --cacheinfo 100644,<sha>,docs/plans/games-board-next.md`. That leaves the
+  working tree as the other session left it. A `git add` of the file took their text into a
+  commit once, and was undone.
+- **Decided at the build beyond the six asked**, each following a rule already picked:
+  - The API's words for what the UI never sends: *A start is a day or a year, never both.* and *A
+    finish is a day or a year, never both.* under `StartedYear` and `CompletedYear`; on the add,
+    *Only an add to Completed names a finish.*, *Only an add to Completed takes hours.* and *A
+    finish is a year or none, never both.* The server's order rule is the form's *Cannot be earlier
+    than Started.*, and its year rule the boxes' *A year from 1900 to 2026.*
+  - The add's body is `completedYear`, `undated: true` and `hoursPlayed` beside `status`, refused
+    with any column but Completed; neither a year nor `undated` is today. On the client,
+    `addToBoard(mediaId, status, { completedYear, undated, hoursPlayed })` (`AddedFinish`).
+  - A card carries `lastActivityYear` and `completedYear` beside its two instants, each null
+    wherever its date is a day, from both projections; `FinishDto` carries `completedYear`;
+    `IJournalClock.YearsOf` has an overload taking kept years as they are.
+  - The Stats page's order files a kept year at `SpanOf(year).To`, a kept year first at a tie,
+    sorted in C# over an id order from SQL.
+  - An earlier pass's Delete names it *the Completed pass from 2019*: the year bare after *from*,
+    since round three's *in* is for a year running on from a word with none.
+  - A year's group of kept finishes is named *2024, no month* aloud, as round three's prototype
+    named it, and labelled *2024*.
+- **Step 13, worked out and not begun**, from `round3/AddControlProto.tsx` with round two's picks.
+  The ✓ opens the panel rather than adding, `aria-expanded`, its hover fill held while open. The
+  panel is a portal, fixed and `w-72`, measured from a hidden marker beside the control, since a
+  layout effect cannot read an ancestor's ref: left at `max(8, min(control.right - width,
+  innerWidth - 8 - width))`, top at `control.top - 6 - height`. Its markup and classes are the
+  prototype's: the question and a × named *Cancel*; *In* and a year box named *Year finished*;
+  *Hours played* and an *optional* box where `journal.fields.hoursPlayed`; then *Add* in the accent,
+  *or*, *Today* and *I don't remember*. The question is a new `HobbyDefinition` field: *When did you
+  finish it?*, and *When did you watch it?* on films. The last year added is per board for the
+  visit, a map in memory set by an *Add* the rule takes, already in the box and selected, and the
+  keyboard goes there once the panel is placed. Escape and the × close it and give the keyboard
+  back to the ✓, and a press elsewhere closes it. *Add* with an empty or refused year says the year
+  rule in a line under the boxes, and refused hours the journal's `HOURS_RULE`. The hours go with
+  any answer; *Today* names no finish and *I don't remember* sends `undated`. `useAddToBoard.add`
+  passes the finish on. `WallTile` hands the control `mt-auto w-full`, which the prototype moved
+  onto its wrapper by string surgery; the wrapper gets a prop of its own instead.
+- **Three questions for the user before step 13's code**, none of them in the plan: when there is
+  no room above the control, does the panel open below it; does it follow the control when the
+  page or the strip scrolls; and does it close when the keyboard leaves it, as #20's list does.
+  **Asked at step 13, and every one the recommendation**:
+
+  | choice | picked | against |
+  |---|---|---|
+  | no room above the control | **6px below it, whenever above would leave the panel less than 8px from the window's top** | held 8px from the top, over the ✓; always above, off the window |
+  | the page or the strip scrolling | **the panel follows its ✓**, placed again at every scroll and resize: a phone scrolls the page itself to lift the focused year box above its keyboard | closing, which on a phone could close it as it opens; staying where it opened |
+  | the keyboard leaving | **Tab goes round inside it**, as the share dialog's does: in a portal at the page's end, Tab past either end would walk the page from its bottom | closing as #20's list does; Tab on from the ✓ as if the panel sat beside it |
+  | when a refusal's line goes | **when its box is typed in**, the next press checking again | once the box holds what it can take; at the next press only |
+
+- **Decided at step 13, each following a rule already picked**:
+  - **No wrapper and no marker.** The panel is placed from the control's own ref, which is
+    attached by the time a press mounts the panel, a commit later. The portal adds nothing to the
+    control's box, so the Discover wall's `mt-auto w-full bg-surface` reaches the control as it
+    did, with no prop for a wrapper.
+  - **`document.documentElement.clientWidth`, where the prototype read `innerWidth`**: a panel
+    held at the right edge would otherwise sit 9px under a desktop's 17px scrollbar.
+  - **An Escape is kept in the panel.** React bubbles through a portal by its own tree, and the
+    strip clears its search at an Escape caught on its container. `BoardSearch.test.tsx` holds it.
+  - **An Enter that ends an input method's composition is not *Add***, `NoteList`'s rule.
+  - **The ✓ pressed again closes it**, as the ⋯ menu's button does; + or ▶ pressed while it is
+    open is a press elsewhere, which closes it, and then adds.
+  - **An answer gives the keyboard back to the ✓ before the add**, as Escape does; the ✓ is then
+    disabled while the add is on its way and goes with the add control, as + and ▶ always have.
+- **E2E known to change**: `discover.spec.ts`'s *most played fills a board backwards* and
+  `search.spec.ts`'s two ✓ cases answer the question now, and `stats.spec.ts`'s *piles a year at
+  most four covers across under All years* becomes a row per year, its covers 32px wide at every
+  width.
+- **The prototypes for steps 14 and 15**, from `frontend/`: round two's
+  `npx vite --config workshop.local/finished-long-ago/vite.config.mjs --port 5188`, and round
+  three's `round3/vite.config.mjs` on 5189. `measures.json` in each holds what was measured, and
+  `shots/` the picked renders.
+
+### Built
+
+**Built 14 November 2026, the day it was workshopped, tests first, in the seventeen steps under
+*Where the build stands*.** Each step was marked done once its tests were green and its faults
+planted; the faults of steps 13 and 14 are listed below as they were planted.
+
+- **Backend.** The `AddPassYears` migration, with `started_year`, `completed_year` and their four
+  checks, and the two years on `LogEntry`. `CreateLogEntryRequest`, `UpdateLogEntryRequest` and
+  `LogEntryDto` carry both, held by `LogEntryRules`: a day or a year for each date, a year from
+  1900 to this year here, and the order across the two kinds through `SpanOf`, in the boxes' and
+  the form's words. Every arm of `ApplyTransitionTimestamps` moves a year with its instant.
+  `AddToBoardRequest` takes `CompletedYear`, `Undated` and `HoursPlayed` beside the column.
+  `LibraryService.InYear`, the board's years and both terminal projections read a kept year, a
+  card carrying `lastActivityYear` and `completedYear`. `StatsService` files a kept finish in its
+  year, at `SpanOf(year).To`, and counts it in completion and the page's years, `FinishDto`
+  carrying `CompletedYear`. `IJournalClock.YearsOf` has an overload that takes kept years as
+  they are.
+- **Frontend.** The wire types, and `pick()` sending both years. `lib/passDate.ts`, a pass's date
+  printed, read and refused as a day or a year. `journal/DateField.tsx`, the Day \| Year switch,
+  and in `journal/fields.ts` `isDay`, `yearFieldValue`, `outOfOrder` and `ORDER_RULE`. A year on a
+  card, in `finishQuestion`, on an earlier pass and its Delete, and on a rating row.
+  `stats/FinishedCovers.tsx`'s group after December and All years a row a year. `export/sheets.ts`'s
+  *Started in* and *Finished in*. And the ✓'s question: `HobbyDefinition.whenFinished`,
+  `search/WhenFinished.tsx` with `placePanel`, `search/lastYear.ts`, the ✓ in `AddControl.tsx`,
+  the finish passed on by `useAddToBoard`, and `keepTabIn`, lifted out of `useModalPanel`.
+- **Measured against the picked prototypes**: see **A game finished long ago** in
+  `docs/design.md`. 26 states, and no pixel different in any of them.
+
+### Tests
+
+- **Backend, 66 new cases**, in `SchemaTests`, `LogEntriesEndpointTests`, `StatusTransitionTests`,
+  `AddingToBoardTests`, `LibraryOrderingTests`, `LibraryEndpointTests`, `SharedBoardTests`,
+  `StatsEndpointTests`, `LibraryExportTests` and `JournalClockTests`: the suite went 1,143 green at
+  step 7, the 1,077 before and these 66, and nothing on the server changed after it.
+- **Frontend, 111 new cases**, 51 in steps 8 to 12 and 60 in step 13: the suite went 1,528 green in
+  67 files, the 1,417 before and these, with `tsc -b` clean. Step 13's 61 went red before its code,
+  and each of its 24 faults, planted alone, turned at least one red:
+
+  | fault planted | red |
+  |---|---|
+  | the ✓ adding at once | 52, every case that answers or measures the question |
+  | no `aria-expanded` | *says that it asks*, the two that close it, and the four that place it, which find the control by it |
+  | the keyboard not handed back | Escape's, the ×'s, and the strip's Escape case |
+  | the panel left open after an answer | the year box's, and the four that open it again |
+  | an hours box on every board | the film's case |
+  | a game's verb on every board | the film's case |
+  | no keyboard to the year box | 5, *puts the keyboard in the year box* among them |
+  | the remembered year not selected | the two that rely on the selection |
+  | an Escape let past | *keeps an Escape in the question from clearing the search* |
+  | no press elsewhere heard | the two presses elsewhere |
+  | the ✓ counted as a press elsewhere | *closes at a second press of the ✓* |
+  | Tab let out | *keeps Tab going round inside it* |
+  | a year remembered as it is typed | the two *is never* cases |
+  | a refused year remembered | *is never a year the rule refused* |
+  | an empty year taken at Add | 3, the empty box's among them |
+  | the hours not read | the 3 refusals and *both refusals at once* |
+  | an Enter that ends a composition taken | its case |
+  | no way below | the unit's and the page's |
+  | no scroll heard, and a scroll heard only as it bubbles | *follows its ✓ when the strip or the page scrolls*, each |
+  | no resize heard | its case |
+  | one year for every board | *is this board's* |
+  | the year stored for the next visit | *lasts for the visit and no longer* |
+  | the finish dropped on its way to the server | the 3 that read the request |
+
+- **End to end, 17 new specs** and the four the hand-over named answering the question: seven on the
+  strip, three on the wall, two of the switch, four on the Stats page and one of the spreadsheet.
+  The full suite went 253 green in 7.0 minutes, the 236 before and these. The question's and the
+  switch's 14 went green in Firefox, its two phone specs skipped there. Three faults planted in
+  Chromium: the year box focused while the panel is hidden, 10 red; a scroll heard only as it
+  bubbles, the 400px spec red; and the portal moved into the tile, none red, which is below.
+
+### What the plan got wrong, or left out
+
+- **The portal is not what keeps the strip from cutting the panel off; `position: fixed` is.** Round
+  two's renders found the strip clipping whatever hung over its edge, and the portal was the answer
+  then. Moved back into the tile, the fixed panel stayed whole and no spec went red, because
+  nothing between it and the window makes a containing block. The portal stays, because a card's
+  `@container` or a transform would make one.
+- **No marker was needed.** The hand-over planned a hidden marker to measure from, since a layout
+  effect cannot read an ancestor's ref on the first render. The panel mounts on a press, a commit
+  after the control, so the control's own ref is attached by then, and with no wrapper the wall's
+  classes reach the control as they did.
+- **`innerWidth` would have put a panel under the scrollbar.** The prototype held the panel 8px
+  inside `innerWidth`, which counts a desktop's 17px scrollbar; the build reads `clientWidth`.
+- **An Escape in the panel reached the strip through the portal**, which React bubbles by its own
+  tree, and would have cleared the search. Not in the plan; held since step 13.
+- **An input method's Enter would have added**, and Japanese is written here. Not in the plan;
+  `NoteList`'s rule, held since step 13.
+- **The switch's name met the e2e suite's locators.** *Started as* is found by
+  `getByLabel('Started')`, and the finish's label names the pass's section too, so four journal
+  specs went red the first time the suite met the switch, which had not run since the baseline.
+- **Round three's harness no longer draws the board**, because step 10 moved the card's dates to
+  `lib/passDate`, which its swaps of `lib/time` do not reach, so its sentinels throw there. The
+  comparison sends the board's states the built shape, which the panel and the switch never read.
+- **`docs/api.md` had no row for `POST /api/library/{mediaId}`**, the add itself, only for the move
+  under it. It has one now.
 
 ---
 

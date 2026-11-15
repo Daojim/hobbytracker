@@ -116,6 +116,28 @@ public class LogEntry
     public DateTimeOffset? CompletedAt { get; set; }
 
     /// <summary>
+    /// The year this pass began, when that is all anybody remembers of it — and then
+    /// <see cref="StartedAt"/> is null. Never both: a start is a day or a year.
+    ///
+    /// <b>A year, kept as a year</b> (#24, 14 November 2026). Not an instant at the edge of the
+    /// year with a precision beside it, which is what a release window does: every display that
+    /// forgot the precision would print <i>Jan 1, 2019</i>, a day nobody named, and nothing would
+    /// fail. Kept as a year, a reader that forgets it shows the pass under All years alone — less
+    /// than the truth rather than something untrue.
+    ///
+    /// It belongs to no zone. A year a person remembers was never an instant, so it is compared
+    /// with the year asked for by number, and only meets the zone where it has to be put beside a
+    /// day: through <c>IJournalClock.SpanOf</c>, which is already where a year meets an instant.
+    /// </summary>
+    public int? StartedYear { get; set; }
+
+    /// <summary>
+    /// The year this pass finished, when that is all anybody remembers — and then
+    /// <see cref="CompletedAt"/> is null. Never both. See <see cref="StartedYear"/>.
+    /// </summary>
+    public int? CompletedYear { get; set; }
+
+    /// <summary>
     /// When this entry was written down. Server-stamped and deliberately not settable by a
     /// caller: it records what happened rather than what someone says happened, which is the
     /// same reasoning that keeps MediaId off the update contract.

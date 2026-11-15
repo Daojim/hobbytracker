@@ -971,6 +971,56 @@ https://claude.ai/artifact/Fc8pVFbsoZRm8uQ7dVwy7A. What a hide is and where it i
 - **The keyboard's move to Undo after a hide by the pointer draws no ring**: `:focus-visible` was
   false on it in every shot, so the card looks as rendered.
 
+### A game finished long ago
+
+**A panel over the tile when the ✓ is pressed, a Day \| Year switch beside each of the journal's
+dates, and a year printed as a year wherever a pass's date shows.** Picked at #24's workshop on 14
+November 2026, in two rounds of renders of the shipped app with prototypes swapped in, every
+choice the recommendation: round two, the two new controls,
+https://claude.ai/artifact/9KBDkZaRUgwdVvBTC7iMw2, and round three, a year wherever one shows,
+https://claude.ai/artifact/9XHpL3rd31aagu6E9ceugD. What the panel does is `docs/games-igdb.md`'s,
+under **The ✓ asks when it was finished**, and the switch's is `docs/journal.md`'s.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| Where the ✓'s question opens | **Over the tile**, a panel 288px wide above the add, its right edge on the ✓'s, held 8px inside the window | in the cover's place, which did not fit the strip's 126 × 176px cover or a 140px wall tile; a dialog in the share dialog's frame |
+| The year added last | **Already in the box, selected** | a button beside an empty box |
+| The journal's year mode | **A Day \| Year switch beside each label** | a link under each box; a select before each box, 34px past the 448px drawer with two days |
+| The panel's words | **In · Add · or · Today · I don't remember** | *Add in 2021*, which pushed *I don't remember* to a second row; Year · Add · or · Today · No date |
+| A year after a word, and on a card | ***Completed in 2019*, *finished in 2019*, and the card's year alone, *2019*** | *Completed 2019*; *in 2019* on the card too, which on a phone read *Puzzle in 2023* |
+| A year's undated finishes on the Stats page | **After December, behind a rule, labelled with the year** | before January; no rule, where *Dec* and *2024* read as one label; *No month*, two lines even at 1440 |
+| A year with no days | **The group alone, as a pile**: 199px at 1440, 105px on a phone | twelve empty months and the group, 255px and 369px |
+| All years | **A row per year at every width**, 660px | as it was, 1,755px with ten years; piles four across that wrap, 1,195px |
+| The order rule | ***Cannot be earlier than Started.***, one line at every width | *Completed cannot be earlier than started.* and *The finish cannot be earlier than the start.*, each two lines on a phone |
+
+- **The panel is `fixed z-30 w-72 rounded-lg border border-line bg-surface p-3 text-fg
+  shadow-xl`**, the card menu's panel at a width of its own: the question in `text-sm
+  font-medium` beside a `size-5` × named *Cancel*; *In* and *Hours played* in `text-xs text-muted`
+  before `h-7` boxes, the year's `w-[4.5rem]` and the hours' `w-[5.5rem]` with *optional* inside;
+  then *Add* in the accent, *or*, *Today* and *I don't remember* as `h-7` bordered buttons. 156px
+  tall over a game's tile at every width, since the panel's own width never changes; a film's,
+  with no hours box, is shorter.
+- **The ✓ holds its hover fill while the panel is open**, `aria-expanded:bg-hover
+  aria-expanded:text-accent`, so the panel is seen to be its. On Ember that is red.
+- **A refusal is a line under the boxes in the order rule's red**, `text-xs text-danger`, the
+  year's first: not rendered at the workshop, and placed by the rule the year's words were picked
+  under.
+- **The switch is `h-5` and `pointer-coarse:h-7`**, its halves 18px tall at a desk and 26px under
+  a coarse pointer, in `text-[0.6875rem]`, the chosen half `bg-hover font-medium text-fg`: the
+  date row stays the 54px it was.
+- **The year's group is `sm:border-l sm:border-line-soft sm:pl-1.5`**, the rule the renders
+  needed, and on a phone it is a row after December's with none. **All years' covers are `w-8`
+  at every width**, the phone's: given a stack's `sm:w-full`, a cover in a row is as wide as the
+  panel, and the renders measured that page 15,764px tall.
+- **Measured against the picked prototypes, with the same staged answers to both**, by the
+  gitignored `workshop.local/finished-long-ago/compare-built.mjs`, round three's server beside the
+  app's own. **In all 26 states the build differs from the prototype by no pixel**: the panel on
+  the wall at 1440, 1280 and 390, in Shelf Dark and with an empty box, on the strip at 1440 and
+  390, and a film's question; the switch in the 448px and 512px drawers, the modal and a phone,
+  with days, a finish year, both years and the order rule, and in Shelf Dark; and the Stats page's
+  year group at 1440 and 390 and in Shelf Dark, a year with no days at 1440 and 390, and All years
+  at 1440, 1024 and 390. Where the keyboard was and what the year box had selected agreed in each.
+
 ### The page's ground
 
 **The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at

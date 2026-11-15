@@ -140,6 +140,7 @@ describe('BoardSearch', () => {
 
     server.use(http.get('/api/library', () => new Promise<never>(() => {})));
     await userEvent.click(add);
+    await userEvent.click(await screen.findByRole('button', { name: 'Today' }));
 
     const tile = (await screen.findByRole('heading', { name: 'Hollow Knight' })).closest('li')!;
     await waitFor(() => expect(tile).toHaveTextContent('On your board: Completed'));
@@ -160,9 +161,84 @@ describe('BoardSearch', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: 'Add Hollow Knight to completed' }),
     );
+    await userEvent.click(await screen.findByRole('button', { name: 'Today' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Hollow Knight' }));
 
     expect(onOpen).toHaveBeenCalledExactlyOnceWith(3003);
+  });
+
+  it('asks when a title was finished, and sends nothing until it is told', async () => {
+    // #24: the ✓ is the one add whose date can be wrong, so it asks first. Today is the add it
+    // always was, naming nothing beside the column — the server stamps the finish by the drag's
+    // rule.
+    const search = searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} onOpenNote={vi.fn()} />);
+    await userEvent.type(box(), 'hollow');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add Hollow Knight to completed' }),
+    );
+
+    expect(screen.getByRole('dialog', { name: 'When did you finish it?' })).toBeInTheDocument();
+    expect(search.sent).toEqual([]);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }));
+
+    await waitFor(() => expect(search.sent).toStrictEqual([{ status: 'Completed' }]));
+  });
+
+  it('sends the year and the hours it was told with the add', async () => {
+    const search = searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} onOpenNote={vi.fn()} />);
+    await userEvent.type(box(), 'hollow');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add Hollow Knight to completed' }),
+    );
+    await userEvent.type(screen.getByRole('textbox', { name: 'Year finished' }), '2019');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Hours played' }), '40');
+    await userEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    await waitFor(() =>
+      expect(search.sent).toStrictEqual([
+        { status: 'Completed', completedYear: 2019, hoursPlayed: 40 },
+      ]),
+    );
+    const tile = (await screen.findByRole('heading', { name: 'Hollow Knight' })).closest('li')!;
+    await waitFor(() => expect(tile).toHaveTextContent('On your board: Completed'));
+  });
+
+  it("sends that there is no date at I don't remember", async () => {
+    const search = searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} onOpenNote={vi.fn()} />);
+    await userEvent.type(box(), 'hollow');
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Add Hollow Knight to completed' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: "I don't remember" }));
+
+    await waitFor(() =>
+      expect(search.sent).toStrictEqual([{ status: 'Completed', undated: true }]),
+    );
+  });
+
+  it('keeps an Escape in the question from clearing the search', async () => {
+    // The question is in a portal at the end of the page and in the strip in React's tree, so an
+    // Escape it does not keep to itself reaches the bar's, which clears the search: the box
+    // empties, the strip goes, and the keyboard is left on nothing.
+    searchServer({ results: [game({ id: 3003, title: 'Hollow Knight' })] });
+
+    renderWithProviders(<BoardSearch hobby="games" onOpen={vi.fn()} onOpenNote={vi.fn()} />);
+    await userEvent.type(box(), 'hollow');
+    const check = await screen.findByRole('button', { name: 'Add Hollow Knight to completed' });
+    await userEvent.click(check);
+    await userEvent.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(box()).toHaveValue('hollow');
+    expect(strip()).toBeInTheDocument();
+    expect(check).toHaveFocus();
   });
 
   it('opens the journal of a title that was on your board before the search', async () => {

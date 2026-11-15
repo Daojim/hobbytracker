@@ -63,6 +63,9 @@ function pick(entry: UpdateLogEntry, mediaId?: number): Record<string, unknown> 
     'hoursPlayed',
     'startedAt',
     'completedAt',
+    // A date kept as a year (#24). PUT clears what it is not sent, so the autosave sends both.
+    'startedYear',
+    'completedYear',
     'seasonNumber',
     'episodeNumber',
   ] as const) {

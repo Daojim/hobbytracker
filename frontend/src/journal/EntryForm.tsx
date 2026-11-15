@@ -8,17 +8,23 @@ import {
   type Ref,
 } from 'react';
 import { formatHours } from '../lib/hours';
+import { parseYear } from '../lib/passDate';
+import { DateField } from './DateField';
 import {
   AUTOSAVE_MS,
   HOURS_RULE,
+  ORDER_RULE,
   RATING_RULE,
   UNRATED_THUMB,
   dateFieldValue,
   hltbTiers,
+  isDay,
+  outOfOrder,
   parseHours,
   parseRating,
   passValues,
   valuesKey,
+  yearFieldValue,
 } from './fields';
 import type { HltbEstimates, PassValues } from './fields';
 import { HowLong } from './HowLong';
@@ -414,11 +420,31 @@ export function EntryForm({
       found['hoursPlayed'] = HOURS_RULE;
     }
 
-    // Both are the same YYYY-MM-DD shape here, so comparing the text compares the days. Caught
-    // before sending because the API answers this with a 400 and the reader would rather know
-    // now — though it is checked there too, before the check constraint can turn it into a 500.
-    if (started !== '' && completed !== '' && completed < started) {
-      found['completedAt'] = 'Completed cannot be earlier than started.';
+    // A box in Year mode has to hold a year that has happened (#24): four digits, from 1900 to
+    // this year here, said in the rule's words under the box. A day box holds a whole day or
+    // nothing, which the input itself sees to.
+    for (const [field, value] of [
+      ['startedAt', started],
+      ['completedAt', completed],
+    ] as const) {
+      if (value !== '' && !isDay(value)) {
+        const year = parseYear(value);
+        if (year.error !== undefined) {
+          found[field] = year.error;
+        }
+      }
+    }
+
+    // The order, across both kinds a date can be: two days as days, anything with a year in it by
+    // the year. Caught before sending because the API answers it with a 400 and the reader would
+    // rather know now — though it is checked there too, before a check constraint can turn it into
+    // a 500. Not asked of a year the box cannot read, which has said so already.
+    if (
+      found['startedAt'] === undefined &&
+      found['completedAt'] === undefined &&
+      outOfOrder(started, completed)
+    ) {
+      found['completedAt'] = ORDER_RULE;
     }
 
     // **This form is now the only place the rule lives**, for the hobbies that have it.
@@ -459,8 +485,12 @@ export function EntryForm({
       rating: parsed.value ?? null,
       platform: !fields.platform || platform === '' ? null : platform,
       hoursPlayed: fields.hoursPlayed ? (playtime.value ?? null) : null,
+      // Each date as a day or a year, never both: a box in Year mode sends its year beside no
+      // instant, and a day box sends no year. Both go every time, as every field does.
       startedAt: dateFieldValue(started, entry.startedAt),
       completedAt: dateFieldValue(completed, entry.completedAt),
+      startedYear: yearFieldValue(started),
+      completedYear: yearFieldValue(completed),
       // A hobby that has no season half sends null for it always, which is not the same as
       // "cleared": there was never a control to clear. It is the same argument that sends a
       // film's hours as null rather than as whatever the row was seeded with.
@@ -804,26 +834,27 @@ export function EntryForm({
         </div>
       )}
 
+      {/* Each a day or a year (#24), from a Day | Year switch beside its label. */}
       <div className="flex gap-3">
-        <Field id={`${ids}-started`} label="Started" message={messageFor('startedAt')}>
-          <input
-            id={`${ids}-started`}
-            type="date"
-            value={started}
-            onChange={(event) => setStarted(event.target.value)}
-            className="rounded border border-line bg-surface px-2 py-1 text-sm"
-          />
-        </Field>
+        <DateField
+          id={`${ids}-started`}
+          label="Started"
+          value={started}
+          onChange={setStarted}
+          onEdit={onEdit}
+          moving={moving}
+          message={messageFor('startedAt')}
+        />
 
-        <Field id={`${ids}-completed`} label={completedLabel} message={messageFor('completedAt')}>
-          <input
-            id={`${ids}-completed`}
-            type="date"
-            value={completed}
-            onChange={(event) => setCompleted(event.target.value)}
-            className="rounded border border-line bg-surface px-2 py-1 text-sm"
-          />
-        </Field>
+        <DateField
+          id={`${ids}-completed`}
+          label={completedLabel}
+          value={completed}
+          onChange={setCompleted}
+          onEdit={onEdit}
+          moving={moving}
+          message={messageFor('completedAt')}
+        />
       </div>
 
       {/* Where the Save button stood, and it is the only thing on this row that changed. The

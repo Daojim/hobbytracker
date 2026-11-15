@@ -322,6 +322,65 @@ reads every row of the library anyway and used to throw the column away.
   button's outline at the control's edge, leaving the keyboard two short bars; the end thirds round
   their own inner corners instead, the border's 4px less its 1px width.
 
+#### The ✓ asks when it was finished
+
+**Since #24, the ✓ asks *When did you finish it?* before anything is added**, in a panel over the
+tile: built on 14 November 2026, the day it was workshopped in three rounds, for a game finished
+long ago that somebody remembers by its year. Three answers, round one's picks. **A year**, typed
+after *In*, kept as the year it is. ***Today***, the drag's own stamp and what the ✓ did before.
+***I don't remember***, a finish with no date, which belongs to no year. Beside the year, an
+optional ***Hours played*** box where a pass keeps hours, from `PassFields.hoursPlayed`, sent with
+whichever answer is given. The question is the hobby's, `HobbyDefinition.whenFinished`, and a film
+is watched: *When did you watch it?* + and ▶ add at a press as they always did, since a title
+arriving in Backlog or Playing has no finish to be wrong about. `useAddToBoard.add` passes the
+answer on, and the server's half is **Adding straight to a column** in `docs/board.md`.
+`search/WhenFinished.tsx` is the panel; the look and its measurements are `docs/design.md`'s.
+
+- **The year added last is already in the box, and selected**, so filling a board backwards is a
+  press and an Enter a game, and typing replaces it: round two's pick over a button beside an
+  empty box. **Per board, for the visit**: a map in memory, `search/lastYear.ts`, which the strip
+  and the Discover wall share and a reload empties. Set only by an *Add* the year rule takes, so
+  a year typed and not added, a refused year, *Today* and *I don't remember* leave it as it was.
+  `src/test/setup.ts` empties it after every test, since a test is a visit.
+- **Enter in either box is *Add***, except the Enter that ends an input method's composition,
+  `NoteList`'s rule. *Add* with an empty box, or a year it cannot take, says the year rule under
+  the boxes, *A year from 1900 to 2026.*, and hours it cannot take say the journal's
+  `HOURS_RULE`. A refusal goes once its box is typed in again, the user's pick, and the next press
+  checks again. *Today* and *I don't remember* name no year, so whatever the year box holds is not
+  theirs to refuse.
+- **The keyboard goes to the year box once the panel is placed, and never before.** The panel is
+  drawn hidden to be measured, and a hidden box cannot be focused, which round two's first shots
+  showed. Focused in the same pass as the measuring, the year box stayed unfocused in a browser and
+  ten specs went red, while Vitest stayed green, since jsdom has no idea of visibility.
+- **Tab goes round inside it**, the user's pick at the build: the panel is at the end of the page,
+  where Tab past either end would walk the page from its bottom. `keepTabIn`, lifted out of
+  `useModalPanel`, is the dialogs' copy and its. **Escape and the × close it and give the keyboard
+  back to the ✓**, and so does an answer, before the ✓ goes the way + and ▶ always have. **A press
+  anywhere else closes it**, the card menu's `pointerdown`, and a year typed and not added goes
+  with it, the user's pick at the build; + or ▶ pressed meanwhile is a press elsewhere, which then
+  adds. **The ✓ pressed again closes it**, as the ⋯ menu's button does. It says it asks with
+  `aria-expanded`, and holds its hover fill while open, so the panel is seen to be its.
+- **An Escape in the panel stops there.** The panel is the strip's in React's tree though not in
+  the page's, because React bubbles through a portal by its own tree, and the strip clears its
+  search at an Escape caught on its container: let past, Escape would empty the box and drop the
+  strip. *Keeps an Escape in the question from clearing the search* in `BoardSearch.test.tsx`
+  holds it.
+- **In a portal on `<body>`, `position: fixed`, placed from the control's box** by `placePanel`:
+  above the control by 6px with its right edge on the ✓'s, held 8px inside the window, and 6px
+  below the control when above would leave less than 8px over it, the user's pick at the build.
+  **Placed again whenever anything scrolls or the window changes size**, so it follows its ✓, also
+  the user's pick: a phone scrolls the page itself to lift the focused year box above its keyboard.
+  The listener is a capture listener on the window, because a scroll does not bubble, and that is
+  how the strip's sideways scroll reaches it. The window's width is `clientWidth`, where the
+  prototype read `innerWidth`, so a panel held at the right edge never sits under a desktop's
+  scrollbar.
+- **`position: fixed` is what keeps the strip from cutting the panel off, and the portal is what
+  keeps that true.** Round two's renders found the strip clipping whatever hung over its edge,
+  and the portal was the answer then. Moved back into the tile, the fixed panel was still whole
+  and no spec went red, because nothing between it and the window makes a containing block. A
+  card's `@container` would, and so would a transform, so the portal stays, with no test of where
+  it sits in the page.
+
 ## Genres and colour
 
 Cards carry a colour bar down their left edge, from IGDB's genres. `frontend/src/hobbies/games.ts` is

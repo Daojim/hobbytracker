@@ -22,7 +22,9 @@ const item: LibraryItem = {
   entryCount: 2,
   latestRating: null,
   lastActivity: '2026-08-21T01:30:00+00:00',
+  lastActivityYear: null,
   completedAt: null,
+  completedYear: null,
   genres: [],
   primaryGenre: null,
   lengthHours: null,
@@ -140,6 +142,25 @@ describe('addToBoard', () => {
     });
     expect(seen.url).toBe('/api/library/14');
     expect(seen.body).toEqual({ status: 'Completed' });
+  });
+
+  it('names the finish the check mark was told, and the hours it took', async () => {
+    // #24: the ✓ asks when. A year is sent as the year it is, and saying nothing is today, by the
+    // drag's rule, so the body above is still what an answer of Today sends.
+    const seen = capture('post', '/api/library/14', { ...item, currentStatus: 'Completed' }, 201);
+
+    await addToBoard(14, 'Completed', { completedYear: 2019, hoursPlayed: 42.5 });
+
+    expect(seen.body).toEqual({ status: 'Completed', completedYear: 2019, hoursPlayed: 42.5 });
+  });
+
+  it('says when there is no date to name', async () => {
+    // I don't remember: a finish with no date at all, which is not today and not a year.
+    const seen = capture('post', '/api/library/14', { ...item, currentStatus: 'Completed' }, 201);
+
+    await addToBoard(14, 'Completed', { undated: true });
+
+    expect(seen.body).toEqual({ status: 'Completed', undated: true });
   });
 });
 

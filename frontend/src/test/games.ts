@@ -54,6 +54,8 @@ export interface SearchFixture {
 export function searchServer({ results = [], library = [], searchStatus }: SearchFixture = {}) {
   const searches: string[] = [];
   const added: OnBoard[] = [];
+  /** Every add's body as it was sent, for what a ✓'s answer names beside the column (#24). */
+  const sent: Record<string, unknown>[] = [];
   const onBoard = [...library];
 
   server.use(
@@ -80,7 +82,9 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
 
     http.post('/api/library/:mediaId', async ({ params, request }) => {
       const mediaId = Number(params['mediaId']);
-      const { status } = (await request.json()) as { status: LogStatus };
+      const body = (await request.json()) as { status: LogStatus } & Record<string, unknown>;
+      const { status } = body;
+      sent.push(body);
 
       if (onBoard.some((title) => title.mediaId === mediaId)) {
         return HttpResponse.json(
@@ -100,7 +104,7 @@ export function searchServer({ results = [], library = [], searchStatus }: Searc
     }),
   );
 
-  return { searches, added };
+  return { searches, added, sent };
 }
 
 export function gameDetail(overrides: Partial<GameDetail> = {}): GameDetail {
