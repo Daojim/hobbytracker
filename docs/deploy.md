@@ -351,6 +351,10 @@ serves the new build, so prove that from outside:
   `docker compose logs api --since 15m | grep "Queued"`. **After a run that queues many titles,
   read the log for 429s and failures** before calling it done, because the worker logs and
   swallows each one.
+- **The API's log is read by its levels**, `grep -cE '^api-1  \| (warn|fail|crit):'` over
+  `docker compose logs api --since 20m`, and never by a bare `grep -i crit`. The SQL the log
+  prints names `opencritic_id` since #22, so a bare one counts a critical line where there is
+  none: #24's deploy met it, and its log was 32 `info` lines and nothing else.
 
 ### When it fails
 
