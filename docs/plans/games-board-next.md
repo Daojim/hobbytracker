@@ -50,9 +50,9 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 21 | The titles behind a rating on the Stats page | S | **Shipped and deployed 7 November 2026** (PR #91), built tests first the day it was workshopped in two rounds on the user's real finishes, after the full e2e suite went 217 green. Each rated column is a button with its count in the accent and a tab under the open one, opening the finishes rated there in the panel, two across, each with its exact rating, the user's pick. Nothing opens from a row, and a share's chart is as it was. No server change. See its section |
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
-| 24 | A game you finished long ago | M | **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first, and not yet merged**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
+| 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
 
-Production runs `4be04e3`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
+Production runs `2ef7369`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -4283,10 +4283,11 @@ Firefox went red there too, at the same lines.
 
 ---
 
-## 24. A game you finished long ago · built
+## 24. A game you finished long ago · shipped
 
 **Planned 8 November 2026**, at the user's request, and **workshopped and built on 14 November
-2026**, tests first; see **Built** below. A workshop of its own came first, because it changes
+2026**, tests first, and shipped and deployed that evening (PR #99); see **Built** and **The
+deploy, and what it left** below. A workshop of its own came first, because it changes
 what a pass's date can be. In the user's words: *"Some type of
 way to add completed games to my board when I don't exactly remember the dates I started or
 completed it. I could remember maybe the years and hours of when I played the some of the games,
@@ -4904,6 +4905,37 @@ planted; the faults of steps 13 and 14 are listed below as they were planted.
   comparison sends the board's states the built shape, which the panel and the switch never read.
 - **`docs/api.md` had no row for `POST /api/library/{mediaId}`**, the add itself, only for the move
   under it. It has one now.
+
+### The deploy, and what it left
+
+- **Deployed at about 22:03 Eastern on 14 November 2026**, `4be04e3` to `2ef7369`, carrying #98's
+  docs. No new variable, and **one migration, `AddPassYears`**: two nullable columns and four
+  checks, which every existing row passes, and nothing dropped. The night's backup had run about
+  22 hours before. api and caddy were both recreated, api first, no base image moved, and the
+  deploy took 14 seconds.
+- **Proved from outside.** The bundle went `index-CiZAmd41.js` to `index-Bre0ogh1.js`, where a local
+  build said `index-YI5H7qDQ.js`, and the stylesheet `index-C2ksD7K5.css` to `index-B-A_kP2W.css`,
+  the local build's name. In the script *When did you finish it?* went 0 to 3; *When did you watch
+  it?*, *I don't remember*, *Year finished*, *Cannot be earlier than Started.*, *A year from*, *,
+  no month* and *Did you finish it in* 0 to 1; *Started in* and *Finished in* 0 to 2; and
+  `completedYear` 0 to 18, each the local build's count. A diff of the two stylesheets' selectors
+  found fourteen rules new and none gone, and seven of them were counted 0 to 1: the panel's
+  `.w-72`, its boxes' `.w-[4.5rem]` and `.w-[5.5rem]`, the ✓'s `aria-expanded:bg-hover` and
+  `aria-expanded:text-accent`, the year group's `sm:border-line-soft` and the switch's
+  `pointer-coarse:h-7`. No route is new. `/api/auth/me` answered `null` with a 200.
+- **Proved inside.** `AddPassYears` is the newest migration production has, where
+  `AddDiscoverHides` was, and the API's log named it as it applied it. In the running DLL
+  `get_CompletedYear`, `get_StartedYear`, `get_LastActivityYear`, `get_Undated` and `YearRule` went 0
+  to 1 each. A name several types share is one entry in the DLL's strings, so `get_CompletedYear`
+  counts once though seven types carry it.
+- **The restart re-armed both timers, and both ran five minutes on**: the HowLongToBeat backfill
+  queued 0 titles, and the release sweep brought 16 unreleased titles up to date. The API's log
+  had 32 `info` lines and no `warn`, `fail` or `crit` one. **A bare `grep -i crit` counts one**,
+  because the SQL the log prints names `opencritic_id`; `docs/deploy.md` says to read the levels
+  now.
+- **The user's own check**: on the live board, the ✓ on a search result asking *When did you finish
+  it?*, a game added in a year showing that year on its card, and the Day | Year switch in a
+  journal. No session here can sign in to it.
 
 ---
 

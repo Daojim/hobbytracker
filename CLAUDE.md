@@ -789,7 +789,7 @@ shuffled.
         added last; the journal's dates each take a Day | Year switch, on every board. A card
         says *2019*, the Stats page files a year's undated finishes after December, and the
         spreadsheet gains a column of years. Built 14 November 2026, the day it was workshopped,
-        tests first, not yet merged
+        tests first (PR #99, deployed)
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
