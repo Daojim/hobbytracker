@@ -82,10 +82,11 @@ public interface ILibraryService
     /// back with <see cref="AddToBoardOutcome.Added"/> and is null otherwise.
     ///
     /// A move from nowhere: the first pass is built exactly as a drag out of Completed builds a
-    /// replay, so it lands on top of its column with the dates a drag into it would have given.
+    /// replay, so it lands on top of its column with the dates a drag into it would have given —
+    /// and then, for an add to Completed, the finish the check mark's question named (#24).
     /// </summary>
     Task<(AddToBoardOutcome Outcome, LibraryItemDto? Item)> AddToBoardAsync(
-        int mediaId, LogStatus status, CancellationToken cancellationToken);
+        int mediaId, AddToBoardRequest add, CancellationToken cancellationToken);
 
     /// <summary>
     /// Takes a title off your board by deleting every pass of yours against it — what
@@ -522,10 +523,25 @@ public sealed class LibraryService(
                 row.Latest.Status,
                 row.EntryCount,
                 row.Latest.Rating,
-                row.Latest.CompletedAt ?? row.Latest.StartedAt,
+
+                // The card's date: the finish, or the start when there is none — each a day or,
+                // since #24, a year kept as a year. A date is one or the other, so the pair hands a
+                // card a day or a year and never both: the instant is null where the date is kept
+                // as a year, and the year null wherever the date is a day. ItemAsync builds the
+                // same two, and a card that ignored the year would print nothing rather than a day
+                // nobody named.
+                row.Latest.CompletedAt
+                    ?? (row.Latest.CompletedYear == null ? row.Latest.StartedAt : null),
+                row.Latest.CompletedAt != null
+                    ? null
+                    : row.Latest.CompletedYear
+                      ?? (row.Latest.StartedAt != null ? null : row.Latest.StartedYear),
+
                 // The finish on its own, for a card asking whether it happened: the line above
-                // falls back to the start, which is no finish at all.
+                // falls back to the start, which is no finish at all. A day, or a year.
                 row.Latest.CompletedAt,
+                row.Latest.CompletedYear,
+
                 // TPT downcasts, added here rather than in BoardQuery on purpose: that
                 // projection is what every Where and OrderBy on Latest is pushed through, and
                 // when one stops translating the symptom is an empty library rather than an
@@ -773,12 +789,22 @@ public sealed class LibraryService(
         // and finished nothing in would be a year the columns handle perfectly well and the
         // picker has no way to ask for.
         var activity = await rows
-            .Select(row => new { row.Latest.StartedAt, row.Latest.CompletedAt })
+            .Select(row => new
+            {
+                row.Latest.StartedAt,
+                row.Latest.CompletedAt,
+                row.Latest.StartedYear,
+                row.Latest.CompletedYear,
+            })
             .ToListAsync(cancellationToken);
 
         // The instants become years in C# rather than in SQL, by the clock's rule — see
-        // IJournalClock.YearsOf, which the Stats page's years go through as well.
-        return clock.YearsOf(activity.SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt }));
+        // IJournalClock.YearsOf, which the Stats page's years go through as well. A date kept as a
+        // year (#24) is a year already, and joins them as it is: a year only kept years are in
+        // would otherwise not be offered, and its titles would be under All years alone.
+        return clock.YearsOf(
+            activity.SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt }),
+            activity.SelectMany(pass => new[] { pass.StartedYear, pass.CompletedYear }));
     }
 
     public async Task<LibraryItemDto?> TransitionAsync(
@@ -819,8 +845,10 @@ public sealed class LibraryService(
                     //
                     // The finish goes before the column's own rule, because Dropped's leaves a
                     // finish alone and would otherwise keep the one being taken back — and
-                    // would fall back to it for a start.
+                    // would fall back to it for a start. Whichever kind it is: a finish kept as
+                    // a year never happened either (#24).
                     latest.CompletedAt = null;
+                    latest.CompletedYear = null;
                 }
 
                 latest.Status = target;
@@ -834,7 +862,7 @@ public sealed class LibraryService(
     }
 
     public async Task<(AddToBoardOutcome Outcome, LibraryItemDto? Item)> AddToBoardAsync(
-        int mediaId, LogStatus status, CancellationToken cancellationToken)
+        int mediaId, AddToBoardRequest add, CancellationToken cancellationToken)
     {
         // The catalogue is everyone's, so this is asked of nobody in particular.
         var media = await db.Media.FirstOrDefaultAsync(m => m.Id == mediaId, cancellationToken);
@@ -855,7 +883,27 @@ public sealed class LibraryService(
             return (AddToBoardOutcome.AlreadyOnBoard, null);
         }
 
-        db.LogEntries.Add(await NewPassAsync(mediaId, status, clock.Now, cancellationToken));
+        var pass = await NewPassAsync(mediaId, add.Status, clock.Now, cancellationToken);
+
+        // The finish the check mark asked about, over the one the drag's rule just stamped. Saying
+        // nothing is today, which is that stamp left alone, so every caller that never heard of
+        // the question adds exactly as it did. A year is kept as the year it is (#24), and none is
+        // the state a finish cleared by hand already has; neither makes up a day. The request has
+        // already refused all of this for any column but Completed.
+        if (add.CompletedYear is { } finishedIn)
+        {
+            pass.CompletedAt = null;
+            pass.CompletedYear = finishedIn;
+        }
+        else if (add.Undated)
+        {
+            pass.CompletedAt = null;
+        }
+
+        // The hours, as the journal would write them on the pass.
+        pass.HoursPlayed = add.HoursPlayed;
+
+        db.LogEntries.Add(pass);
         await db.SaveChangesAsync(cancellationToken);
 
         // Reaching a board is what fetches a title's metadata, whichever column it lands in:
@@ -1006,14 +1054,23 @@ public sealed class LibraryService(
             .ThenByDescending(entry => entry.Id);
     }
 
-    /// <summary>The instants a year asked for spans here, or null for every year.</summary>
-    private YearSpan? SpanOf(int? year) => year is { } chosen ? clock.SpanOf(chosen) : null;
+    /// <summary>
+    /// A year asked for, both ways a pass's date can be compared with it: the number, which a date
+    /// kept as a year is compared with as it is (#24), and the instants the year spans here, which
+    /// a day is compared with. A kept year never meets the zone, so the places it is applied stay
+    /// four.
+    /// </summary>
+    private readonly record struct YearAsked(int Number, YearSpan Span);
+
+    /// <summary>The year asked for, or null for every year.</summary>
+    private YearAsked? SpanOf(int? year) =>
+        year is { } chosen ? new YearAsked(chosen, clock.SpanOf(chosen)) : null;
 
     private static IQueryable<BoardRow> Filtered(
         IQueryable<BoardRow> query,
         string? hobby,
         LogStatus? status,
-        YearSpan? year,
+        YearAsked? year,
         LibraryPartition partition,
         DateOnly today)
     {
@@ -1034,9 +1091,9 @@ public sealed class LibraryService(
             query = ByRelease(query, status, partition, today);
         }
 
-        if (year is { } span)
+        if (year is { } asked)
         {
-            query = InYear(query, status, span);
+            query = InYear(query, status, asked);
         }
 
         return query;
@@ -1104,56 +1161,75 @@ public sealed class LibraryService(
     /// differently depending on how the connection happened to be opened — and a game finished
     /// at 8pm on New Year's Eve would count towards the following year. A title whose relevant
     /// date is null belongs to no year, and shows up only when none is asked for.
+    ///
+    /// <para>
+    /// <b>Every arm has a second half since #24: the date kept as a year.</b> A pass remembered by
+    /// the year carries it beside an empty instant, and is compared with the year asked for as a
+    /// number, with no zone involved. An arm that forgot it would show such a pass under All years
+    /// alone — less than the truth rather than something untrue, which is why a year is kept as a
+    /// year rather than as an instant at the edge of it.
+    /// </para>
     /// </summary>
     private static IQueryable<BoardRow> InYear(
-        IQueryable<BoardRow> query, LogStatus? status, YearSpan span) => status switch
+        IQueryable<BoardRow> query, LogStatus? status, YearAsked asked)
     {
-        // Exempt, rather than answering with nothing. A Backlog entry has both timestamps
-        // cleared by rule, so "my 2019 backlog" is not a question the data can answer — and the
-        // useful behaviour is not an empty well but the queue you drag out of while reading a
-        // past year.
-        LogStatus.Backlog => query,
+        var span = asked.Span;
+        var year = asked.Number;
 
-        // Exempt too, for the second half of Backlog's reason rather than the first. A title on
-        // hold does carry a start, so the data could answer "paused in 2019" — but that is not
-        // the question the column is for. It is a list you come back to, and narrowed on its
-        // start it would lose everything paused since last year the first time anything was
-        // logged in a new one, because the board opens on the latest year there is.
-        //
-        // Said out loud rather than left to the default arm below, which would answer "either
-        // date" and look almost right. yearFor in frontend/src/board/keys.ts holds the client's
-        // half of this; the two have to agree or a drag writes into a cache entry the column is
-        // not reading.
-        LogStatus.OnHold => query,
+        return status switch
+        {
+            // Exempt, rather than answering with nothing. A Backlog entry has both timestamps
+            // cleared by rule, so "my 2019 backlog" is not a question the data can answer — and
+            // the useful behaviour is not an empty well but the queue you drag out of while
+            // reading a past year.
+            LogStatus.Backlog => query,
 
-        // Begun in that year. The transition into this column clears completed_at, so a start
-        // is the only date a title here has.
-        LogStatus.InProgress => query.Where(row =>
-            row.Latest.StartedAt != null
-            && row.Latest.StartedAt >= span.From
-            && row.Latest.StartedAt < span.To),
+            // Exempt too, for the second half of Backlog's reason rather than the first. A title
+            // on hold does carry a start, so the data could answer "paused in 2019" — but that is
+            // not the question the column is for. It is a list you come back to, and narrowed on
+            // its start it would lose everything paused since last year the first time anything
+            // was logged in a new one, because the board opens on the latest year there is.
+            //
+            // Said out loud rather than left to the default arm below, which would answer "either
+            // date" and look almost right. yearFor in frontend/src/board/keys.ts holds the
+            // client's half of this; the two have to agree or a drag writes into a cache entry the
+            // column is not reading.
+            LogStatus.OnHold => query,
 
-        // Finished in that year, pointedly not begun in it. A game started in 2019 and finished
-        // in 2021 is a 2021 completion, and filing it under 2019 would make the year view
-        // disagree with the sentence a person would say about it.
-        LogStatus.Completed => query.Where(row =>
-            row.Latest.CompletedAt != null
-            && row.Latest.CompletedAt >= span.From
-            && row.Latest.CompletedAt < span.To),
+            // Begun in that year, on a day or kept as the year. The transition into this column
+            // clears the finish, so a start is the only date a title here has.
+            LogStatus.InProgress => query.Where(row =>
+                (row.Latest.StartedAt != null
+                 && row.Latest.StartedAt >= span.From
+                 && row.Latest.StartedAt < span.To)
+                || row.Latest.StartedYear == year),
 
-        // Dropped, and the whole library when no column is named: either date. Dropping leaves
-        // the timestamps alone on purpose, so an abandoned title carries a start, a completion
-        // from an earlier pass, or neither depending on where it was abandoned from. With no
-        // column named there is no one date to prefer, and "active in that year" is the only
-        // reading that does not quietly privilege one of the five.
-        _ => query.Where(row =>
-            (row.Latest.StartedAt != null
-             && row.Latest.StartedAt >= span.From
-             && row.Latest.StartedAt < span.To)
-            || (row.Latest.CompletedAt != null
-                && row.Latest.CompletedAt >= span.From
-                && row.Latest.CompletedAt < span.To)),
-    };
+            // Finished in that year, pointedly not begun in it, whichever kind each date is. A
+            // game started in 2019 and finished in 2021 is a 2021 completion, and filing it under
+            // 2019 would make the year view disagree with the sentence a person would say about
+            // it.
+            LogStatus.Completed => query.Where(row =>
+                (row.Latest.CompletedAt != null
+                 && row.Latest.CompletedAt >= span.From
+                 && row.Latest.CompletedAt < span.To)
+                || row.Latest.CompletedYear == year),
+
+            // Dropped, and the whole library when no column is named: either date, either kind.
+            // Dropping leaves the timestamps alone on purpose, so an abandoned title carries a
+            // start, a completion from an earlier pass, or neither depending on where it was
+            // abandoned from. With no column named there is no one date to prefer, and "active in
+            // that year" is the only reading that does not quietly privilege one of the five.
+            _ => query.Where(row =>
+                (row.Latest.StartedAt != null
+                 && row.Latest.StartedAt >= span.From
+                 && row.Latest.StartedAt < span.To)
+                || (row.Latest.CompletedAt != null
+                    && row.Latest.CompletedAt >= span.From
+                    && row.Latest.CompletedAt < span.To)
+                || row.Latest.StartedYear == year
+                || row.Latest.CompletedYear == year),
+        };
+    }
 
     /// <summary>
     /// The calendar's order: each title at the last day it could come out, and the titles
@@ -1263,15 +1339,30 @@ public sealed class LibraryService(
         return pass;
     }
 
+    /// <summary>
+    /// The dates a move into a column gives a pass.
+    ///
+    /// <para>
+    /// <b>Each date is a day or a year</b> (#24), and every arm that writes or clears one writes or
+    /// clears it whichever kind it is. "Only when there is no start" means no start of either
+    /// kind: a game begun in 2019 and picked up again was still begun in 2019, and a day stamped
+    /// beside the year would be two starts, which <c>ck_log_entries_start_day_or_year</c> refuses
+    /// as a 500. A stamp is always a day, because it is now.
+    /// </para>
+    /// </summary>
     private static void ApplyTransitionTimestamps(LogEntry entry, LogStatus target, DateTimeOffset now)
     {
+        var started = entry.StartedAt is not null || entry.StartedYear is not null;
+
         switch (target)
         {
             case LogStatus.Backlog:
                 // Back in the queue means not started. A leftover start date would make the
-                // year view claim the game was played.
+                // year view claim the game was played — a leftover year as much as a day.
                 entry.StartedAt = null;
                 entry.CompletedAt = null;
+                entry.StartedYear = null;
+                entry.CompletedYear = null;
 
                 // And where you were, for the same reason: a card back in the queue
                 // still reading S3 E7 is the same lie a leftover start date is. The
@@ -1283,9 +1374,14 @@ public sealed class LibraryService(
 
             case LogStatus.InProgress:
                 // Only when absent: picking a dropped game back up must keep the day you
-                // actually started it rather than resetting to today.
-                entry.StartedAt ??= now;
+                // actually started it rather than resetting to today — or the year.
+                if (!started)
+                {
+                    entry.StartedAt = now;
+                }
+
                 entry.CompletedAt = null;
+                entry.CompletedYear = null;
                 break;
 
             case LogStatus.OnHold:
@@ -1302,16 +1398,26 @@ public sealed class LibraryService(
                 // This arm has to exist. The switch has no default, so a status without one
                 // compiles and silently stamps nothing — StatusTransitionTests' on-hold cases
                 // are what say so.
-                entry.StartedAt ??= now;
+                if (!started)
+                {
+                    entry.StartedAt = now;
+                }
+
                 entry.CompletedAt = null;
+                entry.CompletedYear = null;
                 break;
 
             case LogStatus.Completed:
                 // Guards ck_log_entries_timestamp_order against a start moment in the future,
-                // which is reachable by hand through PUT and would otherwise be a 500.
-                entry.CompletedAt = entry.StartedAt is { } started && started > now
-                    ? started
+                // which is reachable by hand through PUT and would otherwise be a 500. A start
+                // year needs no guard: none is later than this year here, which now is in.
+                //
+                // Over a finish kept as a year, which a pass still being played can carry from
+                // the journal: finishing it now is the one finish anybody has just said.
+                entry.CompletedAt = entry.StartedAt is { } begun && begun > now
+                    ? begun
                     : now;
+                entry.CompletedYear = null;
                 break;
 
             case LogStatus.Dropped:
@@ -1333,9 +1439,26 @@ public sealed class LibraryService(
                 // after the finish, which ck_log_entries_timestamp_order refuses. That is a 500
                 // on a request with nothing wrong with it, which is the same trap the Completed
                 // arm above guards, facing the other way.
-                entry.StartedAt ??= entry.CompletedAt is { } finished && finished < now
-                    ? finished
-                    : now;
+                //
+                // A finish kept as a year is copied as a year (#24). Stamped today instead, a
+                // 2026 start would sit after a 2019 finish, and no check could even see it: the
+                // database compares a day with a day and a year with a year, never the two.
+                if (!started)
+                {
+                    if (entry.CompletedAt is { } finished && finished < now)
+                    {
+                        entry.StartedAt = finished;
+                    }
+                    else if (entry.CompletedYear is { } finishedIn)
+                    {
+                        entry.StartedYear = finishedIn;
+                    }
+                    else
+                    {
+                        entry.StartedAt = now;
+                    }
+                }
+
                 break;
         }
     }
@@ -1361,8 +1484,19 @@ public sealed class LibraryService(
                 row.Latest.Status,
                 row.EntryCount,
                 row.Latest.Rating,
-                row.Latest.CompletedAt ?? row.Latest.StartedAt,
+
+                // As in ListAsync, a day or a year and never both, for the reason every field
+                // here has a copy: a drag answers with the row it just wrote, and the board caches
+                // it. A_moved_card_says_its_years_as_the_column_does holds the two together.
+                row.Latest.CompletedAt
+                    ?? (row.Latest.CompletedYear == null ? row.Latest.StartedAt : null),
+                row.Latest.CompletedAt != null
+                    ? null
+                    : row.Latest.CompletedYear
+                      ?? (row.Latest.StartedAt != null ? null : row.Latest.StartedYear),
                 row.Latest.CompletedAt,
+                row.Latest.CompletedYear,
+
                 // As in ListAsync, coalesce and all. This copy has to exist and has to match:
                 // a transition answers with the row it just wrote and the board caches that, so
                 // a field populated in one projection and null in the other flickers on a drag.

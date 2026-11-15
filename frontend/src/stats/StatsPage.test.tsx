@@ -362,6 +362,88 @@ describe('StatsPage', () => {
       expect(cover('No date', 'Undated')).toBeInTheDocument();
     });
 
+    it('files a year’s finishes kept as a year in a group after December, labelled with the year', async () => {
+      // #24, round three's pick: after December rather than before January, labelled with the year
+      // rather than "No month", and last among the year's finishes as they are everywhere.
+      renderYear(
+        '2024',
+        stats({
+          finished: [
+            finish({ title: 'Red Dead Redemption 2', completedAt: '2024-01-20T17:00:00Z' }),
+            finish({ title: 'Death Stranding', completedAt: null, completedYear: 2024 }),
+            finish({ title: 'Marvel’s Spider-Man', completedAt: null, completedYear: 2024 }),
+          ],
+        }),
+      );
+
+      const panel = await section('Finished each month');
+      const named = within(panel)
+        .getAllByRole('list')
+        .filter((list) => list.hasAttribute('aria-label'))
+        .map((list) => list.getAttribute('aria-label'));
+      expect(named).toEqual([
+        'January',
+        'February',
+        'March',
+        'April',
+        'May',
+        'June',
+        'July',
+        'August',
+        'September',
+        'October',
+        'November',
+        'December',
+        '2024, no month',
+      ]);
+
+      const group = within(panel).getByRole('list', { name: '2024, no month' });
+      const covers = within(group).getAllByRole('img');
+      expect(covers).toHaveLength(2);
+      expect(covers[0]).toHaveAccessibleName('Death Stranding');
+      expect(covers[1]).toHaveAccessibleName('Marvel’s Spider-Man');
+      expect(within(panel).getByText('2024')).toBeInTheDocument();
+    });
+
+    it('shows a year with no days in it as that group alone, with no empty months', async () => {
+      // Round three's pick: the group alone, as a pile — twelve empty months beside it measured
+      // 255px at 1440 for nothing to see.
+      renderYear(
+        '2018',
+        stats({
+          finished: [
+            finish({ title: 'Hollow Knight', completedAt: null, completedYear: 2018 }),
+            finish({ title: 'God of War', completedAt: null, completedYear: 2018 }),
+          ],
+        }),
+      );
+
+      const panel = await section('Finished each month');
+      const named = within(panel)
+        .getAllByRole('list')
+        .filter((list) => list.hasAttribute('aria-label'))
+        .map((list) => list.getAttribute('aria-label'));
+      expect(named).toEqual(['2018, no month']);
+    });
+
+    it('files a finish kept as a year under its own year under All years', async () => {
+      renderYear(
+        'all',
+        stats({
+          finished: [
+            finish({ title: 'Kept', completedAt: null, completedYear: 2019 }),
+            finish({ title: 'New', completedAt: '2026-06-01T16:00:00Z' }),
+          ],
+        }),
+      );
+
+      const panel = await section('Finished each year');
+      expect(
+        within(within(panel).getByRole('list', { name: '2019' })).getByRole('img', { name: 'Kept' }),
+      ).toBeInTheDocument();
+      expect(within(panel).queryByRole('list', { name: 'No date' })).not.toBeInTheDocument();
+    });
+
     it('says when nothing was finished rather than drawing empty months', async () => {
       renderYear('2026', stats());
 
@@ -503,6 +585,29 @@ describe('StatsPage', () => {
         expect.stringContaining('finished Sep 15, 2025'),
         expect.not.stringContaining('finished'),
         expect.stringContaining('finished Mar 14, 2026'),
+      ]);
+    });
+
+    it('dates a finish kept as a year "finished in 2019" among a game’s finishes at one point', async () => {
+      // #24, round three: "in" where a day runs on from a word. In the order the server sends,
+      // which puts a kept year after every day in it and before the next year's.
+      renderYear(
+        'all',
+        stats({
+          finished: [
+            finish({ mediaId: 9002, title: 'Hollow Knight', rating: 9, completedAt: null, completedYear: 2019 }),
+            finish({ mediaId: 9002, title: 'Hollow Knight', rating: 9, completedAt: '2025-09-15T16:00:00Z' }),
+          ],
+        }),
+      );
+
+      const panel = await section('Ratings');
+      await userEvent.click(within(panel).getByRole('button', { name: '2 rated 9' }));
+
+      const rows = within(within(panel).getByRole('list', { name: '2 rated 9' })).getAllByRole('listitem');
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringContaining('finished in 2019'),
+        expect.stringContaining('finished Sep 15, 2025'),
       ]);
     });
 

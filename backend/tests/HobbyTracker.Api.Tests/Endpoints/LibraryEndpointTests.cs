@@ -351,6 +351,90 @@ public sealed class LibraryEndpointTests(PostgresFixture postgres) : DatabaseTes
     }
 
     [Fact]
+    public async Task A_card_says_a_date_kept_as_a_year_as_a_year_and_never_a_day()
+    {
+        // #24's promise on a card: a pass remembered by the year carries the year, beside no
+        // instant at all, so nothing downstream can print a day nobody named. The finish wins over
+        // the start, of whichever kind each is, as a finish day wins over a start day.
+        var keptFinish = await GivenGameAsync("Hollow Knight", externalId: "1");
+        await GivenLogEntryAsync(keptFinish, LogStatus.Completed, startedYear: 2018, completedYear: 2019);
+        var dayThenYear = await GivenGameAsync("Celeste", externalId: "2");
+        await GivenLogEntryAsync(
+            dayThenYear, LogStatus.Completed, startedAt: Eastern(2019, 3, 3), completedYear: 2019);
+        var yearThenDay = await GivenGameAsync("Hades", externalId: "3");
+        await GivenLogEntryAsync(
+            yearThenDay, LogStatus.Completed, startedYear: 2019, completedAt: Eastern(2020, 1, 5));
+
+        var cards = (await GetPageAsync("/api/library?hobby=games&status=Completed")).Items
+            .ToDictionary(item => item.Title);
+
+        cards["Hollow Knight"].LastActivity.ShouldBeNull();
+        cards["Hollow Knight"].LastActivityYear.ShouldBe(2019);
+        cards["Hollow Knight"].CompletedAt.ShouldBeNull();
+        cards["Hollow Knight"].CompletedYear.ShouldBe(2019);
+
+        cards["Celeste"].LastActivity.ShouldBeNull();
+        cards["Celeste"].LastActivityYear.ShouldBe(2019);
+
+        cards["Hades"].LastActivity.ShouldBe(Eastern(2020, 1, 5));
+        cards["Hades"].LastActivityYear.ShouldBeNull();
+        cards["Hades"].CompletedYear.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_card_with_no_finish_says_the_year_it_was_begun_in()
+    {
+        // On Hold since 2020, as round three staged Stardew Valley: the card's date is the start
+        // year where there is no finish, as it is the start day.
+        var mediaId = await GivenGameAsync("Stardew Valley");
+        await GivenLogEntryAsync(mediaId, LogStatus.OnHold, startedYear: 2020);
+
+        var card = (await GetPageAsync("/api/library?hobby=games&status=OnHold")).Items
+            .ShouldHaveSingleItem();
+
+        card.LastActivity.ShouldBeNull();
+        card.LastActivityYear.ShouldBe(2020);
+        card.CompletedYear.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_moved_card_says_its_years_as_the_column_does()
+    {
+        // The second projection again, which a move answers with and the board caches. A Playing
+        // pass the journal gave a finish year, dropped: its answer and the column it lands in have
+        // to agree about both years, or the card changes its mind on a drag.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, completedYear: 2019);
+
+        var moved = await ReadAsync<LibraryItemDto>(await Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}/status", new StatusTransitionRequest(LogStatus.Dropped),
+            Json, Ct));
+        var listed = (await GetPageAsync("/api/library?hobby=games&status=Dropped")).Items
+            .ShouldHaveSingleItem();
+
+        moved.LastActivity.ShouldBeNull();
+        moved.LastActivityYear.ShouldBe(2019);
+        moved.CompletedYear.ShouldBe(2019);
+        listed.LastActivity.ShouldBe(moved.LastActivity);
+        listed.LastActivityYear.ShouldBe(moved.LastActivityYear);
+        listed.CompletedYear.ShouldBe(moved.CompletedYear);
+    }
+
+    [Fact]
+    public async Task An_added_card_says_the_year_it_was_finished_in()
+    {
+        var mediaId = await GivenGameAsync("Hollow Knight");
+
+        var added = await ReadAsync<LibraryItemDto>(await Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}", new AddToBoardRequest(LogStatus.Completed, CompletedYear: 2019),
+            Json, Ct));
+
+        added.LastActivity.ShouldBeNull();
+        added.LastActivityYear.ShouldBe(2019);
+        added.CompletedYear.ShouldBe(2019);
+    }
+
+    [Fact]
     public async Task A_board_row_for_a_hobby_with_no_detail_table_has_no_estimate()
     {
         // Same TPT downcast as the genres, and the same reason to pin it: the LEFT JOIN behind

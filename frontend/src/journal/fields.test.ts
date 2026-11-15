@@ -1,15 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { logEntry } from '../test/passes';
 import {
   HOURS_RULE,
   OPENCRITIC_ID_RULE,
+  ORDER_RULE,
   dateFieldValue,
   hltbTiers,
   openCriticGameUrl,
+  outOfOrder,
   parseHltbId,
   parseHours,
   parseOpenCriticId,
   parseRating,
+  passValues,
   steamAppUrl,
+  yearFieldValue,
 } from './fields';
 
 describe('dateFieldValue', () => {
@@ -38,6 +43,67 @@ describe('dateFieldValue', () => {
 
   it('sets a date on a field that had none', () => {
     expect(dateFieldValue('2026-08-19', null)).toBe('2026-08-19');
+  });
+
+  it('sends no instant for a box holding a year, which takes the place of the day it had', () => {
+    // #24: a box switched from Day to Year holds the day's year, and what the box shows is what
+    // is saved — so the day goes, and the year goes in yearFieldValue's half.
+    expect(dateFieldValue('2026', instant)).toBeNull();
+    expect(dateFieldValue('2019', null)).toBeNull();
+  });
+});
+
+describe('yearFieldValue', () => {
+  it('sends a year as the number it is', () => {
+    expect(yearFieldValue('2019')).toBe(2019);
+  });
+
+  it('sends none for a day, which is dateFieldValue’s, or for nothing', () => {
+    expect(yearFieldValue('2019-03-03')).toBeNull();
+    expect(yearFieldValue('')).toBeNull();
+  });
+});
+
+describe('passValues', () => {
+  it('puts a year a pass keeps in its box as the year, and a day as the day here', () => {
+    // A date is a day or a year, so the box holds one or the other: "2019", or "2026-08-20" for
+    // 21:30 on the 20th here. The box's mode follows the value.
+    expect(
+      passValues(logEntry({ startedYear: 2018, completedYear: 2019 })),
+    ).toMatchObject({ started: '2018', completed: '2019' });
+    expect(
+      passValues(logEntry({ startedAt: '2026-08-21T01:30:00+00:00', completedYear: 2026 })),
+    ).toMatchObject({ started: '2026-08-20', completed: '2026' });
+  });
+});
+
+describe('outOfOrder', () => {
+  it('compares two days as days', () => {
+    expect(outOfOrder('2026-08-20', '2026-07-01')).toBe(true);
+    expect(outOfOrder('2026-07-01', '2026-08-20')).toBe(false);
+  });
+
+  it('compares a year with a year by number', () => {
+    expect(outOfOrder('2020', '2019')).toBe(true);
+    expect(outOfOrder('2019', '2019')).toBe(false);
+  });
+
+  it('compares a day with a year by the day’s year, which the box already holds here', () => {
+    // A start in 2019 and a finish on 3 March 2019 are in order, and so are a start on 5 May
+    // 2019 and a finish in 2019: neither says which came first within the year.
+    expect(outOfOrder('2019', '2019-03-03')).toBe(false);
+    expect(outOfOrder('2019-05-05', '2019')).toBe(false);
+    expect(outOfOrder('2020-03-01', '2019')).toBe(true);
+    expect(outOfOrder('2020', '2019-12-31')).toBe(true);
+  });
+
+  it('says nothing about a year it cannot read, which says so itself', () => {
+    expect(outOfOrder('20', '2019')).toBe(false);
+    expect(outOfOrder('2019', '')).toBe(false);
+  });
+
+  it('is said in the words the workshop picked, for a day as much as a year', () => {
+    expect(ORDER_RULE).toBe('Cannot be earlier than Started.');
   });
 });
 

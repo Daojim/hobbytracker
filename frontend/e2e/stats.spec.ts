@@ -156,33 +156,82 @@ test('opens the games rated at a point inside the Ratings panel, two across', as
   expect(third!.x, 'the third title starts the second column').toBeGreaterThan(first!.x + first!.width / 2);
 });
 
-test('piles a year at most four covers across under All years, the first at the bottom', async ({ page }) => {
-  // Every finish is shown, so a year's covers pile rather than stand one above another: 2025's
-  // 28 would make the panel 1,755px tall as a stack. A year alone has the panel's whole width, and
-  // the pile still stops at four, so it reads as a column of the chart rather than a strip.
+/**
+ * All years as a row a year, its covers 32px wide (#24): round three's pick, because a board that
+ * has been filled backwards has many years, and piled side by side ten of them made 2025's 28
+ * finishes a tower 1,755px tall. A finish kept as a year is under its year as it is.
+ */
+async function everyYear(page: Page) {
   const titles = ['Celeste', 'Hades', 'Hollow Knight', 'Outer Wilds', 'Stardew Valley'];
   for (const [index, title] of titles.entries()) {
     await seed(page.request, title, 'Completed', { completedAt: `2025-06-0${index + 1}T12:00:00` });
   }
+  await seed(page.request, 'Dead Cells', 'Completed', { completedYear: 2019 });
 
   await page.goto('/board/games/stats/all');
 
-  const covers = section(page, 'Finished each year')
-    .getByRole('list', { name: '2025' })
-    .getByRole('img');
+  const years = section(page, 'Finished each year');
+  const covers = years.getByRole('list', { name: '2025' }).getByRole('img');
   await expect(covers).toHaveCount(titles.length);
   const boxes = await Promise.all(titles.map((title, index) => boxOf(covers.nth(index), title)));
 
-  // The first four finishes make the bottom row, oldest at the left.
-  for (const [index, box] of boxes.slice(1, 4).entries()) {
-    expect(box.y, `${titles[index + 1]} shares the first row`).toBeCloseTo(boxes[0]!.y, 0);
-    expect(box.x, `${titles[index + 1]} sits right of the one before`).toBeGreaterThan(boxes[index]!.x);
+  // One row, oldest at the left, every cover 32px across.
+  for (const [index, box] of boxes.entries()) {
+    expect(box.width, `${titles[index]} is 32px wide`).toBeCloseTo(32, 0);
+    expect(box.y, `${titles[index]} shares the row`).toBeCloseTo(boxes[0]!.y, 0);
+    if (index > 0) {
+      expect(box.x, `${titles[index]} sits right of the one before`).toBeGreaterThan(boxes[index - 1]!.x);
+    }
   }
 
-  // And the fifth starts the row above, as a month's stack grows up from its first finish.
-  expect(boxes[4]!.y + boxes[4]!.height, 'Stardew Valley starts the row above').toBeLessThanOrEqual(
-    boxes[0]!.y,
-  );
+  // 2019 is a row of its own above 2025's, the oldest year first, its cover the same size.
+  const kept = await boxOf(years.getByRole('list', { name: '2019' }).getByRole('img'), 'Dead Cells');
+  expect(kept.width).toBeCloseTo(32, 0);
+  expect(kept.y + kept.height, '2019 is above 2025').toBeLessThanOrEqual(boxes[0]!.y);
+}
+
+test('lays All years out a row a year, its covers 32px wide, a kept year among them', async ({ page }) => {
+  await everyYear(page);
+});
+
+/**
+ * Hades finished on 3 March 2024 and Dead Cells finished in 2024 on no day anybody named: the
+ * year's kept finishes are a group after December (#24), round three's pick.
+ */
+async function aYearWithAKeptFinish(page: Page) {
+  await seed(page.request, 'Hades', 'Completed', { completedAt: '2024-03-03T12:00:00' });
+  await seed(page.request, 'Dead Cells', 'Completed', { completedYear: 2024 });
+  await page.goto('/board/games/stats/2024');
+}
+
+test("files a year's kept finishes after December, behind a rule and labelled with the year", async ({
+  page,
+}) => {
+  await aYearWithAKeptFinish(page);
+
+  const months = section(page, 'Finished each month');
+  const december = await boxOf(months.getByRole('list', { name: 'December' }), 'December');
+  const kept = months.getByRole('list', { name: '2024, no month' });
+  await expect(kept.getByRole('img')).toHaveCount(1);
+  await expect(months.getByRole('list', { name: 'March' }).getByRole('img')).toHaveCount(1);
+
+  // After December, at the end of the row, and set apart by a rule.
+  const group = await boxOf(kept, 'the year’s group');
+  expect(group.x, 'after December').toBeGreaterThan(december.x + december.width);
+  const rule = await kept.locator('..').evaluate((item) => getComputedStyle(item).borderLeftWidth);
+  expect(rule).toBe('1px');
+  await expect(kept.locator('..')).toContainText('2024');
+});
+
+test('shows a year with no days in it as its kept finishes alone, with no months', async ({ page }) => {
+  await seed(page.request, 'Dead Cells', 'Completed', { completedYear: 2019 });
+  await seed(page.request, 'Blasphemous', 'Completed', { completedYear: 2019 });
+  await page.goto('/board/games/stats/2019');
+
+  const months = section(page, 'Finished each month');
+  await expect(months.getByRole('list', { name: '2019, no month' }).getByRole('img')).toHaveCount(2);
+  await expect(months.getByRole('list', { name: 'January' })).toHaveCount(0);
+  await expect(months.getByRole('list', { name: 'December' })).toHaveCount(0);
 });
 
 test.describe('on a phone', () => {
@@ -210,6 +259,24 @@ test.describe('on a phone', () => {
     const second = await boxOf(months.nth(1), 'February');
     expect(second.y).toBeGreaterThan(first.y);
     expect(second.x).toBeCloseTo(first.x, 0);
+  });
+
+  test('lays All years out a row a year at this width too, its covers still 32px wide', async ({
+    page,
+  }) => {
+    await everyYear(page);
+  });
+
+  test("files a year's kept finishes as a row after December, with no rule", async ({ page }) => {
+    await aYearWithAKeptFinish(page);
+
+    const months = section(page, 'Finished each month');
+    const december = await boxOf(months.getByRole('list', { name: 'December' }), 'December');
+    const kept = months.getByRole('list', { name: '2024, no month' });
+    const group = await boxOf(kept, 'the year’s group');
+    expect(group.y, 'a row below December').toBeGreaterThan(december.y);
+    const rule = await kept.locator('..').evaluate((item) => getComputedStyle(item).borderLeftWidth);
+    expect(rule).toBe('0px');
   });
 
   test("opens a rating's games one across, inside the panel", async ({ page }) => {

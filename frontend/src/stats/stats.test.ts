@@ -5,6 +5,7 @@ import {
   byMonth,
   byYear,
   completionPercent,
+  noMonth,
   ratingCounts,
   ratingLists,
   timed,
@@ -99,6 +100,27 @@ describe('byMonth', () => {
     expect(months[1]!.map((f) => f.title)).toEqual(['Leap']);
     expect(months[2]!.map((f) => f.title)).toEqual(['Spring']);
   });
+
+  it('leaves a finish kept as a year out of every month, since it names none', () => {
+    // #24: a month made up for it would be a day nobody named, one step removed.
+    const months = byMonth([finish({ title: 'Kept', completedAt: null, completedYear: 2026 })]);
+
+    expect(months.flat()).toEqual([]);
+  });
+});
+
+describe('noMonth', () => {
+  it('is the finishes kept as a year, in the order the server sent them', () => {
+    // The page files them in a group of their own after December.
+    const kept = noMonth([
+      finish({ title: 'Dated', completedAt: '2026-05-01T16:00:00Z' }),
+      finish({ title: 'Kept one', completedAt: null, completedYear: 2026 }),
+      finish({ title: 'Undated', completedAt: null }),
+      finish({ title: 'Kept two', completedAt: null, completedYear: 2026 }),
+    ]);
+
+    expect(kept.map((f) => f.title)).toEqual(['Kept one', 'Kept two']);
+  });
 });
 
 describe('byYear', () => {
@@ -112,6 +134,22 @@ describe('byYear', () => {
     expect(years.map(({ year, finishes }) => [year, finishes.map((f) => f.title)])).toEqual([
       [2024, ['Eve']],
       [2026, ['Now']],
+      [null, ['Undated']],
+    ]);
+  });
+
+  it('files a finish kept as a year under that year, after its dated ones as the server sends them', () => {
+    // A kept year is the year it is, with no zone involved, and it is not undated.
+    const years = byYear([
+      finish({ title: 'Dated 2019', completedAt: '2019-06-01T16:00:00Z' }),
+      finish({ title: 'Kept 2019', completedAt: null, completedYear: 2019 }),
+      finish({ title: 'Dated 2024', completedAt: '2024-03-01T17:00:00Z' }),
+      finish({ title: 'Undated', completedAt: null }),
+    ]);
+
+    expect(years.map(({ year, finishes }) => [year, finishes.map((f) => f.title)])).toEqual([
+      [2019, ['Dated 2019', 'Kept 2019']],
+      [2024, ['Dated 2024']],
       [null, ['Undated']],
     ]);
   });

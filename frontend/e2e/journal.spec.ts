@@ -26,6 +26,15 @@ import {
  * the loop closes: change it in the drawer, see it on the card.
  */
 
+/**
+ * The pass's box for a date, by its role and its exact name. Since #24 a Day | Year switch sits
+ * beside each date's label, named *Started as*, which a bare `getByLabel('Started')` also finds;
+ * and the finish's label is the pass's own heading, *Completed*, which names its section too.
+ */
+const dateBox = (page: Page, label: string) =>
+  page.getByRole('dialog').getByRole('textbox', { name: label, exact: true });
+const startedBox = (page: Page) => dateBox(page, 'Started');
+
 test.beforeEach(async ({ page }) => {
   resetDatabase();
 
@@ -184,11 +193,77 @@ test('a corrected start date shows on the card', async ({ page }) => {
   await expect(card(page, 'Celeste')).toContainText('Aug 10, 2026');
 
   await openJournal(page, 'Celeste');
-  await page.getByLabel('Started').fill('2026-08-01');
+  await startedBox(page).fill('2026-08-01');
   await passSaved(page);
   await page.getByRole('button', { name: 'Close' }).click();
 
   await expect(card(page, 'Celeste')).toContainText('Aug 1, 2026');
+});
+
+/**
+ * A date kept as a year (#24): the Day | Year switch beside each date's label, round two's pick,
+ * and a card printing the year alone, round three's.
+ */
+test.describe('a date kept as a year', () => {
+  const switchOf = (page: Page, label: string) =>
+    page.getByRole('dialog').getByRole('group', { name: `${label} as` });
+
+  test('the switch keeps a finish as its year, and the card prints the year alone', async ({
+    page,
+  }) => {
+    const celeste = await seed(page.request, 'Celeste', 'Completed', {
+      completedAt: '2019-03-03T12:00:00',
+    });
+    await page.reload();
+    await expect(card(page, 'Celeste')).toContainText('Mar 3, 2019');
+
+    await openJournal(page, 'Celeste');
+    await switchOf(page, 'Completed').getByRole('button', { name: 'Year' }).click();
+
+    // The day's year, carried, and nothing invented: what the box shows is what is saved.
+    await expect(dateBox(page, 'Completed')).toHaveValue('2019');
+    await passSaved(page);
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    await expect(card(page, 'Celeste')).toContainText('2019');
+    await expect(card(page, 'Celeste')).not.toContainText('Mar 3');
+    const [pass] = await entriesFor(page.request, celeste);
+    expect(pass).toMatchObject({ completedAt: null, completedYear: 2019 });
+
+    // The journal opens on the year it keeps, in Year mode.
+    await page.reload();
+    await openJournal(page, 'Celeste');
+    await expect(dateBox(page, 'Completed')).toHaveValue('2019');
+    await expect(switchOf(page, 'Completed').getByRole('button', { name: 'Year' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  test('a year typed for a start is kept as the year, and a finish before it is refused', async ({
+    page,
+  }) => {
+    const celeste = await seed(page.request, 'Celeste', 'Completed', { completedYear: 2021 });
+    await page.reload();
+
+    await openJournal(page, 'Celeste');
+    await switchOf(page, 'Started').getByRole('button', { name: 'Year' }).click();
+    await dateBox(page, 'Started').fill('2020');
+    await passSaved(page);
+    expect((await entriesFor(page.request, celeste))[0]).toMatchObject({
+      startedAt: null,
+      startedYear: 2020,
+      completedYear: 2021,
+    });
+
+    // The order rule's words, on every board and for a year as much as a day — and nothing sent.
+    await dateBox(page, 'Completed').fill('2019');
+    await expect(page.getByRole('dialog').getByRole('alert')).toHaveText(
+      'Cannot be earlier than Started.',
+    );
+    await page.waitForTimeout(800);
+    expect((await entriesFor(page.request, celeste))[0]).toMatchObject({ completedYear: 2021 });
+  });
 });
 
 test('a finished game dragged back to the backlog stays there', async ({ page }) => {
@@ -297,7 +372,7 @@ test('the drawer catches up with a drag', async ({ page }) => {
   await page.reload();
 
   await openJournal(page, 'Celeste');
-  await expect(page.getByLabel('Started')).toHaveValue('');
+  await expect(startedBox(page)).toHaveValue('');
   await page.getByRole('button', { name: 'Close' }).click();
 
   await drag(page, card(page, 'Celeste'), column(page, 'InProgress'));
@@ -308,7 +383,7 @@ test('the drawer catches up with a drag', async ({ page }) => {
   await expect(card(page, 'Celeste')).toContainText(todayOnCard());
 
   await openJournal(page, 'Celeste');
-  await expect(page.getByLabel('Started')).toHaveValue(today());
+  await expect(startedBox(page)).toHaveValue(today());
 });
 
 test('a drag reaches the ordering you are not looking at', async ({ page }) => {
@@ -676,7 +751,7 @@ test('a move from the journal puts the card in its new column, and a reload keep
 
   // The drawer holds the moved pass: its heading, and the start the move stamped.
   await expect(page.getByRole('dialog').getByRole('button', { name: 'Column: Playing' })).toBeVisible();
-  await expect(page.getByLabel('Started')).toHaveValue(today());
+  await expect(startedBox(page)).toHaveValue(today());
   await page.getByRole('button', { name: 'Close' }).click();
 
   await expect(column(page, 'InProgress').getByText('Celeste')).toBeVisible();
@@ -698,7 +773,7 @@ test('a rating typed just before a move from the journal is kept, and so is the 
   await page.getByRole('spinbutton', { name: 'Exact rating' }).fill('8.5');
   await moveFromJournal(page, 'Backlog', 'Playing');
 
-  await expect(page.getByLabel('Started')).toHaveValue(today());
+  await expect(startedBox(page)).toHaveValue(today());
 
   // Nothing left on its way before the reload, which would abort it: the move is over, and the
   // dialog's one status says Saved. *Moving…* is a status too, so it has to go first.

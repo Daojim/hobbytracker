@@ -123,6 +123,8 @@ public sealed class LogEntryService(
             Platform = request.Platform,
             StartedAt = request.StartedAt,
             CompletedAt = request.CompletedAt,
+            StartedYear = request.StartedYear,
+            CompletedYear = request.CompletedYear,
             HoursPlayed = request.HoursPlayed,
             SeasonNumber = request.SeasonNumber,
             EpisodeNumber = request.EpisodeNumber,
@@ -175,6 +177,8 @@ public sealed class LogEntryService(
         entry.Platform = request.Platform;
         entry.StartedAt = request.StartedAt;
         entry.CompletedAt = request.CompletedAt;
+        entry.StartedYear = request.StartedYear;
+        entry.CompletedYear = request.CompletedYear;
         entry.HoursPlayed = request.HoursPlayed;
         entry.SeasonNumber = request.SeasonNumber;
         entry.EpisodeNumber = request.EpisodeNumber;

@@ -2,7 +2,7 @@ import { type SyntheticEvent, useEffect, useId, useRef } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { finishQuestion, putBackAnswer, REPLAY_ANSWER } from '../lib/finishQuestion';
-import { formatJournalDate } from '../lib/time';
+import { formatPassDate } from '../lib/passDate';
 import { isRecentRelease } from '../lib/release';
 
 import { ratingTone } from '../lib/rating';
@@ -140,7 +140,8 @@ export interface CardFaceProps {
 
 /** Everything a card shows. Shared with the drag preview, which must not be a second sortable. */
 export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardFaceProps) {
-  const lastActivity = formatJournalDate(item.lastActivity);
+  // A day, or a year kept as a year (#24) printed alone, as the calendar prints a year.
+  const lastActivity = formatPassDate(item.lastActivity, item.lastActivityYear);
   const questionId = useId();
 
   // What this hobby calls things, and what it paints its cards from. Taken off the row rather
@@ -595,7 +596,7 @@ export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardF
           }}
           className="flex basis-full flex-col gap-1.5 rounded-lg border border-line-soft bg-well p-2 text-xs"
         >
-          <p id={questionId}>{finishQuestion(item.completedAt)}</p>
+          <p id={questionId}>{finishQuestion(item.completedAt, item.completedYear)}</p>
           <div className="flex flex-wrap gap-1.5">
             <button
               id={cardAnswerId(item.mediaId)}

@@ -13,10 +13,19 @@ import { formatJournalDate } from './time';
  * The finish is an instant, so it is named in the journal zone as every instant is. Asked with no
  * day when the pass has none: a finished pass can have its finish cleared by hand, and a card's
  * own date falls back to the start, which is no stand-in for it.
+ *
+ * **A finish kept as a year is asked about in its year** (#24): *Did you finish it in 2019?*, where
+ * a day takes *on*, round three's pick. Both halves are asked for, so a caller cannot forget the
+ * year and ask a pass finished in 2019 whether it was finished at all.
  */
-export function finishQuestion(completedAt: string | null): string {
+export function finishQuestion(completedAt: string | null, completedYear: number | null): string {
   const day = formatJournalDate(completedAt);
-  return day === null ? 'Did you finish it?' : `Did you finish it on ${day}?`;
+
+  if (day !== null) {
+    return `Did you finish it on ${day}?`;
+  }
+
+  return completedYear === null ? 'Did you finish it?' : `Did you finish it in ${completedYear}?`;
 }
 
 /** It was finished, and this is another time through: a new pass, the finished one kept. */

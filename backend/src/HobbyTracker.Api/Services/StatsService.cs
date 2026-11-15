@@ -77,9 +77,7 @@ public sealed class StatsService(
     private async Task<StatsDto> StatsOfAsync(
         int ownerId, string? hobby, int? year, CancellationToken cancellationToken)
     {
-        YearSpan? span = year is { } chosen ? clock.SpanOf(chosen) : null;
-
-        var finished = await FinishedAsync(ownerId, hobby, span, cancellationToken);
+        var finished = await FinishedAsync(ownerId, hobby, year, cancellationToken);
 
         return new StatsDto(
             finished,
@@ -87,7 +85,7 @@ public sealed class StatsService(
             // The column header's rules, over the year's finishes rather than a column's titles.
             HoursTally.Of(finished.Select(finish => (finish.LengthHours, finish.HoursPlayed))),
 
-            await CompletionAsync(ownerId, hobby, span, cancellationToken),
+            await CompletionAsync(ownerId, hobby, year, cancellationToken),
 
             // Backlog belongs to no year, here as on the board.
             await library.BacklogAsync(ownerId, hobby, cancellationToken));
@@ -97,13 +95,17 @@ public sealed class StatsService(
         int ownerId, string? hobby, CancellationToken cancellationToken)
     {
         // Every pass that has left the queue, by the dates the page files it under. A pass in
-        // Backlog has no year by rule, so a date left on one by an edit offers nothing to see.
+        // Backlog has no year by rule, so a date left on one by an edit offers nothing to see — a
+        // year kept for a date as much as a day.
         var dates = await Passes(ownerId, hobby)
             .Where(entry => entry.Status != LogStatus.Backlog)
-            .Select(entry => new { entry.StartedAt, entry.CompletedAt })
+            .Select(entry => new { entry.StartedAt, entry.CompletedAt, entry.StartedYear, entry.CompletedYear })
             .ToListAsync(cancellationToken);
 
-        return clock.YearsOf(dates.SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt }));
+        // A date kept as a year (#24) is a year already, and joins the instants' years as it is.
+        return clock.YearsOf(
+            dates.SelectMany(pass => new[] { pass.StartedAt, pass.CompletedAt }),
+            dates.SelectMany(pass => new[] { pass.StartedYear, pass.CompletedYear }));
     }
 
     /// <summary>One owner's passes, of one hobby or of all of them.</summary>
@@ -121,25 +123,29 @@ public sealed class StatsService(
     /// Completed, the one with its date cleared included and sorted last.
     /// </summary>
     private async Task<IReadOnlyList<FinishDto>> FinishedAsync(
-        int ownerId, string? hobby, YearSpan? span, CancellationToken cancellationToken)
+        int ownerId, string? hobby, int? year, CancellationToken cancellationToken)
     {
         // Completed and nothing else. A dropped pass can carry a finish date — dropping leaves a
         // completion alone — and is not a game you finished.
         var finished = Passes(ownerId, hobby).Where(entry => entry.Status == LogStatus.Completed);
 
-        if (span is { } year)
+        if (year is { } number)
         {
-            // A range of instants, never EXTRACT: see IJournalClock.SpanOf.
+            // A range of instants, never EXTRACT: see IJournalClock.SpanOf. And a finish kept as a
+            // year (#24), compared with the year asked for as it is, with no zone involved.
+            var span = clock.SpanOf(number);
+
             finished = finished.Where(entry =>
-                entry.CompletedAt != null
-                && entry.CompletedAt >= year.From
-                && entry.CompletedAt < year.To);
+                (entry.CompletedAt != null
+                 && entry.CompletedAt >= span.From
+                 && entry.CompletedAt < span.To)
+                || entry.CompletedYear == number);
         }
 
-        return await finished
-            .OrderBy(entry => entry.CompletedAt == null)
-            .ThenBy(entry => entry.CompletedAt)
-            .ThenBy(entry => entry.Id)
+        var finishes = await finished
+            // By id here, so a tie in the order below goes to the pass written first, as it
+            // always has: LINQ's ordering is stable, and the rest of the order is set below.
+            .OrderBy(entry => entry.Id)
             .Select(entry => new FinishDto(
                 entry.MediaId,
 
@@ -148,6 +154,7 @@ public sealed class StatsService(
 
                 entry.Media!.CoverUrl,
                 entry.CompletedAt,
+                entry.CompletedYear,
                 entry.Rating,
                 entry.HoursPlayed,
 
@@ -168,23 +175,53 @@ public sealed class StatsService(
                         ? (decimal?)null
                         : Math.Round(((entry.Media as Anime)!.TotalRuntimeMinutes ?? 0) / 60m, 2))))
             .ToListAsync(cancellationToken);
+
+        // Oldest first, and the undated last. A finish kept as a year (#24) sits after every
+        // instant in its year here and before every instant that is not, at the end of its year
+        // as IJournalClock.SpanOf says it ends: so a year's undated finishes come after its dated
+        // ones, in this list and in every list the page makes of it, and under All years each sits
+        // with its own year. Ordered here rather than in SQL, because which year an instant is in
+        // is the zone's question, and SpanOf is already where a year meets an instant — the places
+        // the zone is applied stay four. A day exactly at that end is the next year's first
+        // instant, so a kept year goes ahead of it.
+        DateTimeOffset? FiledAt(FinishDto finish) =>
+            finish.CompletedAt ?? (finish.CompletedYear is { } kept ? clock.SpanOf(kept).To : null);
+
+        return
+        [
+            .. finishes
+                .OrderBy(finish => FiledAt(finish) is null)
+                .ThenBy(FiledAt)
+                .ThenBy(finish => finish.CompletedAt is not null),
+        ];
     }
 
     /// <summary>
     /// What became of the passes started in the year: by the pass's start, or by its finish when
-    /// it has no start, since adding a title straight to Completed stamps nothing else.
+    /// it has no start, since adding a title straight to Completed stamps nothing else. Each a day
+    /// or, since #24, a year kept as a year.
     /// </summary>
     private async Task<CompletionDto> CompletionAsync(
-        int ownerId, string? hobby, YearSpan? span, CancellationToken cancellationToken)
+        int ownerId, string? hobby, int? year, CancellationToken cancellationToken)
     {
         var started = Passes(ownerId, hobby);
 
-        if (span is { } year)
+        if (year is { } number)
         {
+            var span = clock.SpanOf(number);
+
+            // The start in the year, on a day or kept as the year; or, with no start of either
+            // kind, the finish in it, of either kind. A start kept as 2018 beside a finish on a
+            // day in 2019 is a 2018 start.
             started = started.Where(entry =>
-                (entry.StartedAt ?? entry.CompletedAt) != null
-                && (entry.StartedAt ?? entry.CompletedAt) >= year.From
-                && (entry.StartedAt ?? entry.CompletedAt) < year.To);
+                (entry.StartedAt != null && entry.StartedAt >= span.From && entry.StartedAt < span.To)
+                || entry.StartedYear == number
+                || (entry.StartedAt == null
+                    && entry.StartedYear == null
+                    && ((entry.CompletedAt != null
+                         && entry.CompletedAt >= span.From
+                         && entry.CompletedAt < span.To)
+                        || entry.CompletedYear == number)));
         }
 
         var counts = await started

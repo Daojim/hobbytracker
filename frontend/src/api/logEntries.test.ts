@@ -15,6 +15,8 @@ const entry: LogEntry = {
   platform: null,
   startedAt: '2026-08-21T01:30:00+00:00',
   completedAt: null,
+  startedYear: null,
+  completedYear: null,
   seasonNumber: null,
   episodeNumber: null,
   loggedAt: '2026-08-21T01:30:00+00:00',
@@ -121,6 +123,35 @@ describe('updateLogEntry', () => {
     await updateLogEntry(1, { status: 'Completed', hoursPlayed: 31.5 });
 
     expect(body).toEqual({ status: 'Completed', hoursPlayed: 31.5 });
+  });
+
+  it('sends both years, which pick() has to be told about by hand too', async () => {
+    // #24: a date kept as a year. PUT clears what it is not sent, so the autosave sends both every
+    // time, a cleared one as null — and a year missing from pick() would never leave the browser,
+    // so every save about a rating would wipe it.
+    let body: unknown;
+    server.use(
+      http.put('/api/log-entries/1', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json(entry);
+      }),
+    );
+
+    await updateLogEntry(1, {
+      status: 'Completed',
+      startedAt: null,
+      startedYear: null,
+      completedAt: null,
+      completedYear: 2019,
+    });
+
+    expect(body).toEqual({
+      status: 'Completed',
+      startedAt: null,
+      startedYear: null,
+      completedAt: null,
+      completedYear: 2019,
+    });
   });
 });
 

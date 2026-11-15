@@ -39,6 +39,13 @@ public interface IJournalClock
     /// pass does not have, and belongs to no year.
     /// </summary>
     IReadOnlyList<int> YearsOf(IEnumerable<DateTimeOffset?> instants);
+
+    /// <summary>
+    /// The same, with the years a pass keeps for a date nobody remembers the day of (#24) among
+    /// them, as they are. A kept year never meets the zone — it was never an instant — so it joins
+    /// the list without being converted, and the places the zone is applied stay four.
+    /// </summary>
+    IReadOnlyList<int> YearsOf(IEnumerable<DateTimeOffset?> instants, IEnumerable<int?> keptYears);
 }
 
 /// <summary>
@@ -78,11 +85,14 @@ public sealed class JournalClock : IJournalClock
     // date_part reads whatever zone the session was opened with. At the size a personal catalogue
     // reaches, reading a few hundred instants out to file them is a cheap price for the zone
     // staying explicit.
-    public IReadOnlyList<int> YearsOf(IEnumerable<DateTimeOffset?> instants) =>
+    public IReadOnlyList<int> YearsOf(IEnumerable<DateTimeOffset?> instants) => YearsOf(instants, []);
+
+    public IReadOnlyList<int> YearsOf(IEnumerable<DateTimeOffset?> instants, IEnumerable<int?> keptYears) =>
     [
         .. instants
             .Where(instant => instant is not null)
             .Select(instant => DayOf(instant!.Value).Year)
+            .Concat(keptYears.Where(year => year is not null).Select(year => year!.Value))
             .Distinct()
             .OrderByDescending(year => year),
     ];

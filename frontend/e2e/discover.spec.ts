@@ -1,7 +1,16 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, openJournal, passSaved, seed, titlesIn, todayOnCard } from './support/board';
+import {
+  card,
+  expectQuestionPlaced,
+  openJournal,
+  passSaved,
+  seed,
+  titlesIn,
+  todayOnCard,
+  whenFinished,
+} from './support/board';
 
 /**
  * The Discover page, end to end: a wall of what IGDB would show somebody who has not typed
@@ -38,6 +47,10 @@ const tile = (page: Page, title: string) =>
     .getByRole('main')
     .getByRole('listitem')
     .filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+
+/** A tile's ✓, which asks when the game was finished rather than adding it (#24). */
+const check = (page: Page, title: string) =>
+  tile(page, title).getByRole('button', { name: `Add ${title} to completed`, exact: true });
 
 /** The eye on a tile's cover that hides its title from Discover. */
 const markOf = (page: Page, title: string) =>
@@ -189,24 +202,78 @@ test('a title already on your board says so on its cover and offers nothing to p
   await expect(tile(page, 'Hollow Knight: Silksong').getByRole('button')).toHaveCount(0);
 });
 
-test('most played fills a board backwards: one press puts a game straight into Completed', async ({
+test('most played fills a board backwards: the ✓ asks the year, and the next game starts in it', async ({
   page,
 }) => {
-  // The feedback the whole of this answered: a list of games people have finished, added one
-  // at a time to Backlog and then dragged across. Now it is one press, finished today — the
-  // date a drag would have stamped — for the journal to correct if it was years ago.
+  // The feedback the whole of this answered: a list of games people have finished, added one at
+  // a time to Backlog and then dragged across. It became one press, finished today; since #24 the
+  // ✓ asks when, and its box starts at the year given last, so a sitting of one year's games is a
+  // press and an Enter each, and none of them is stamped with today.
   await page.goto('/board/games/discover/most-played');
 
-  await tile(page, 'Hollow Knight: Silksong')
-    .getByRole('button', { name: 'Add Hollow Knight: Silksong to completed' })
-    .click();
+  await check(page, 'Hollow Knight: Silksong').click();
+  const year = whenFinished(page).getByRole('textbox', { name: 'Year finished' });
+  await expect(year).toBeFocused();
+  await year.fill('2019');
+  await page.keyboard.press('Enter');
   await expect(tile(page, 'Hollow Knight: Silksong')).toContainText('On your board: Completed');
+
+  await check(page, 'Dead Cells').click();
+  await expect(year).toBeFocused();
+  await expect(year).toHaveValue('2019');
+  await page.keyboard.press('Enter');
+  await expect(tile(page, 'Dead Cells')).toContainText('On your board: Completed');
 
   await page.getByRole('link', { name: 'Back to your board' }).click();
 
   await expect(card(page, 'Hollow Knight: Silksong')).toBeVisible();
-  expect(await titlesIn(page, 'Completed')).toEqual(['Hollow Knight: Silksong']);
-  await expect(card(page, 'Hollow Knight: Silksong')).toContainText(todayOnCard());
+  expect((await titlesIn(page, 'Completed')).sort()).toEqual(['Dead Cells', 'Hollow Knight: Silksong']);
+  for (const title of ['Hollow Knight: Silksong', 'Dead Cells']) {
+    await expect(card(page, title)).toContainText('2019');
+    await expect(card(page, title)).not.toContainText(todayOnCard());
+  }
+
+  // For the visit: a reload is the next one, and its box starts empty.
+  await page.goto('/board/games/discover/most-played');
+  await page.getByRole('button', { name: 'Load more' }).click();
+  await check(page, 'Blasphemous').click();
+  await expect(year).toBeFocused();
+  await expect(year).toHaveValue('');
+});
+
+test.describe("the ✓'s question on the wall", () => {
+  // At 1280 a wall tile is at its narrowest, 140px, and the question is twice as wide.
+  for (const width of [1440, 1280]) {
+    test.describe(`at ${width}px`, () => {
+      test.use({ viewport: { width, height: 900 } });
+
+      test('asks over the tile, its right edge on the ✓, with the keyboard in its year box', async ({
+        page,
+      }) => {
+        await page.goto('/board/games/discover/most-played');
+        await check(page, 'Dead Cells').click();
+
+        await expect(whenFinished(page).getByRole('textbox', { name: 'Year finished' })).toBeFocused();
+        await expectQuestionPlaced(page, check(page, 'Dead Cells'));
+        await expect(check(page, 'Dead Cells')).toHaveAttribute('aria-expanded', 'true');
+      });
+    });
+  }
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    test.skip(({ browserName }) => browserName === 'firefox', 'Firefox has no phone to emulate.');
+
+    test('asks over the tile, inside the window', async ({ page }) => {
+      await page.goto('/board/games/discover/most-played');
+      await check(page, 'Dead Cells').tap();
+
+      await expect(whenFinished(page).getByRole('textbox', { name: 'Year finished' })).toBeFocused();
+      const { panel } = await expectQuestionPlaced(page, check(page, 'Dead Cells'));
+      expect(panel.x).toBeGreaterThanOrEqual(8);
+      expect(panel.x + panel.width).toBeLessThanOrEqual(390 - 8);
+    });
+  });
 });
 
 test('from your ratings says how it fills while nothing is finished and rated 8 or more', async ({

@@ -134,6 +134,54 @@ public sealed class StatsEndpointTests(PostgresFixture postgres) : DatabaseTestB
         (await StatsAsync(year: 2024)).Finished.ShouldHaveSingleItem().Title.ShouldBe("Dated");
     }
 
+    [Fact]
+    public async Task A_finish_kept_as_a_year_counts_in_that_year_after_its_dated_finishes()
+    {
+        // #24: a game remembered as finished in 2019 counts in 2019, and comes after 2019's dated
+        // finishes, which is where the page files it: after December. Logged first, so the order
+        // is the rule's and not the order the passes were written in.
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Kept", "1"), LogStatus.Completed, completedYear: 2019);
+        await LogAsync(
+            await GivenGameAsync("Dated", "2"), LogStatus.Completed, completedAt: Eastern(2019, 5, 5));
+        await LogAsync(
+            await GivenGameAsync("Another year", "3"), LogStatus.Completed, completedAt: Eastern(2020, 5, 5));
+
+        var finished = (await StatsAsync(year: 2019)).Finished;
+
+        finished.Select(finish => finish.Title).ShouldBe(["Dated", "Kept"]);
+        finished[1].CompletedAt.ShouldBeNull();
+        finished[1].CompletedYear.ShouldBe(2019);
+        finished[0].CompletedYear.ShouldBeNull();
+        (await StatsAsync(year: 2020)).Finished.ShouldHaveSingleItem().Title.ShouldBe("Another year");
+    }
+
+    [Fact]
+    public async Task All_years_files_a_kept_year_after_its_last_instant_here_and_the_undated_last()
+    {
+        // Oldest first across both kinds: a year sits after every instant that is in it here and
+        // before every instant that is not, which is IJournalClock.SpanOf's end of it — so 8pm on
+        // New Year's Eve 2019, 1am on 1 January 2020 in UTC, is before a finish kept as 2019. Read
+        // in UTC, the evening would come after it. And midnight on New Year's Day here is that end
+        // exactly, the next year's first instant, so it comes after the kept year: logged first,
+        // so an order that only broke the tie by id would put it ahead.
+        await LogAsync(
+            await GivenGameAsync("New Year's Day", "4"), LogStatus.Completed,
+            completedAt: Eastern(2020, 1, 1, 0, 0));
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Kept 2019", "1"), LogStatus.Completed, completedYear: 2019);
+        await LogAsync(
+            await GivenGameAsync("Undated", "2"), LogStatus.Completed);
+        await LogAsync(
+            await GivenGameAsync("March 2024", "3"), LogStatus.Completed, completedAt: Eastern(2024, 3, 1));
+        await LogAsync(
+            await GivenGameAsync("New Year's Eve", "5"), LogStatus.Completed,
+            completedAt: Eastern(2019, 12, 31, 20, 0));
+
+        (await StatsAsync(year: null)).Finished.Select(finish => finish.Title).ShouldBe(
+            ["New Year's Eve", "Kept 2019", "New Year's Day", "March 2024", "Undated"]);
+    }
+
     // ------------------------------------------------------------------ hours
 
     [Fact]
@@ -252,6 +300,26 @@ public sealed class StatsEndpointTests(PostgresFixture postgres) : DatabaseTestB
             .EnsureSuccessStatusCode();
 
         (await StatsAsync(year: 2026)).Completion.ShouldBe(new CompletionDto(1, 0, 0));
+    }
+
+    [Fact]
+    public async Task Completion_reads_a_date_kept_as_a_year_as_it_reads_a_day()
+    {
+        // Started is the start, or the finish where there is no start — each a day or a year
+        // (#24). A start kept as 2018 and a finish on a day in 2019 is a 2018 start.
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Begun in 2019", "1"), LogStatus.InProgress, startedYear: 2019);
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Finished in 2019", "2"), LogStatus.Completed, completedYear: 2019);
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Begun on a day", "3"), LogStatus.Completed,
+            startedAt: Eastern(2019, 6, 1), completedYear: 2019);
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Begun in 2018", "4"), LogStatus.Completed,
+            startedYear: 2018, completedAt: Eastern(2019, 3, 3));
+
+        (await StatsAsync(year: 2019)).Completion.ShouldBe(new CompletionDto(2, 1, 0));
+        (await StatsAsync(year: 2018)).Completion.ShouldBe(new CompletionDto(1, 0, 0));
     }
 
     [Fact]
@@ -433,6 +501,21 @@ public sealed class StatsEndpointTests(PostgresFixture postgres) : DatabaseTestB
             await GivenGameAsync("Finished", "2"), LogStatus.Completed, completedAt: Eastern(2026, 3, 1));
 
         (await YearsAsync()).ShouldBe([2026]);
+    }
+
+    [Fact]
+    public async Task The_years_include_one_only_a_kept_year_is_in_and_never_a_backlog_passs()
+    {
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Finished in 2019", "1"), LogStatus.Completed, completedYear: 2019);
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Begun in 2017", "2"), LogStatus.Dropped, startedYear: 2017);
+
+        // A year left on a Backlog pass by an edit offers nothing, as a day does.
+        await GivenLogEntryAsync(
+            await GivenGameAsync("Queued", "3"), LogStatus.Backlog, startedYear: 2015);
+
+        (await YearsAsync()).ShouldBe([2019, 2017]);
     }
 
     [Fact]

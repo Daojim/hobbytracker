@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { addToBoard, libraryStatuses, type OnBoard } from '../api/library';
+import { addToBoard, libraryStatuses, type AddedFinish, type OnBoard } from '../api/library';
 import { libraryStatusesKey } from '../board/keys';
 import { useHiddenColumns } from '../board/hiddenColumns';
 import { addColumns, columnsFor } from '../hobbies';
@@ -8,6 +8,8 @@ import type { LogStatus } from '../api/types';
 interface Add {
   mediaId: number;
   status: LogStatus;
+  /** What the ✓'s question was told (#24), and nothing from + or ▶. */
+  finish?: AddedFinish;
 }
 
 /**
@@ -35,7 +37,7 @@ export function useAddToBoard(hobby: string) {
   });
 
   const add = useMutation({
-    mutationFn: ({ mediaId, status }: Add) => addToBoard(mediaId, status),
+    mutationFn: ({ mediaId, status, finish }: Add) => addToBoard(mediaId, status, finish),
 
     // Written into the library's answer the moment the add is, rather than waiting on the
     // refetch below: otherwise the buttons stay live long enough to be pressed twice, and the
@@ -63,7 +65,8 @@ export function useAddToBoard(hobby: string) {
     columns,
     /** The column a title is in, or null when it is not on this board. */
     statusOf: (mediaId: number): LogStatus | null => onBoard.get(mediaId) ?? null,
-    add: (mediaId: number, status: LogStatus) => add.mutate({ mediaId, status }),
+    add: (mediaId: number, status: LogStatus, finish?: AddedFinish) =>
+      add.mutate({ mediaId, status, finish }),
     isAdding: (mediaId: number) => add.isPending && add.variables?.mediaId === mediaId,
     error: add.error,
   };

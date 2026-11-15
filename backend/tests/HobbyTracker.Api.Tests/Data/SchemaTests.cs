@@ -88,6 +88,186 @@ public sealed class SchemaTests(PostgresFixture postgres) : DatabaseTestBase(pos
     }
 
     [Fact]
+    public async Task A_pass_keeps_a_year_for_either_date_with_no_day_made_up()
+    {
+        // A game finished long ago, remembered by the year (#24): kept as the year it is, beside
+        // instants left empty, never as a day at the edge of it.
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                StartedYear = 2018,
+                CompletedYear = 2019,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        var stored = await WithDbAsync(db => db.LogEntries.SingleAsync(Ct));
+        stored.StartedYear.ShouldBe(2018);
+        stored.CompletedYear.ShouldBe(2019);
+        stored.StartedAt.ShouldBeNull();
+        stored.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Rejects_a_start_that_is_a_day_and_a_year_at_once()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.InProgress,
+                StartedAt = Eastern(2019, 5, 1),
+                StartedYear = 2019,
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_log_entries_start_day_or_year");
+    }
+
+    [Fact]
+    public async Task Rejects_a_finish_that_is_a_day_and_a_year_at_once()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                CompletedAt = Eastern(2019, 5, 1),
+                CompletedYear = 2019,
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_log_entries_finish_day_or_year");
+    }
+
+    [Fact]
+    public async Task Rejects_a_finish_year_before_its_start_year()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                StartedYear = 2020,
+                CompletedYear = 2019,
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_log_entries_year_order");
+    }
+
+    [Fact]
+    public async Task Accepts_a_start_and_a_finish_in_one_year()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                StartedYear = 2019,
+                CompletedYear = 2019,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.LogEntries.CountAsync(Ct))).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Leaves_a_day_against_a_year_to_the_api()
+    {
+        // A start on 1 March 2020 and a finish kept as 2019 are out of order, and the database is
+        // the wrong place to say so: which year a day is in depends on the zone, and the schema
+        // never names one. LogEntryRules refuses it as a 400, through IJournalClock.SpanOf.
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                StartedAt = Eastern(2020, 3, 1),
+                CompletedYear = 2019,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.LogEntries.CountAsync(Ct))).ShouldBe(1);
+    }
+
+    [Theory]
+    [InlineData(1899, null)]
+    [InlineData(null, 1899)]
+    [InlineData(219, null)]
+    public async Task Rejects_a_year_before_1900(int? startedYear, int? completedYear)
+    {
+        var mediaId = await GivenAGameAsync();
+
+        var exception = await Should.ThrowAsync<DbUpdateException>(WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                StartedYear = startedYear,
+                CompletedYear = completedYear,
+            });
+            await db.SaveChangesAsync(Ct);
+        }));
+
+        ShouldBeCheckViolation(exception, "ck_log_entries_years_range");
+    }
+
+    [Fact]
+    public async Task Accepts_1900_itself()
+    {
+        var mediaId = await GivenAGameAsync();
+
+        await WithDbAsync(async db =>
+        {
+            db.LogEntries.Add(new LogEntry
+            {
+                UserId = UserId,
+                MediaId = mediaId,
+                Status = LogStatus.Completed,
+                StartedYear = 1900,
+                CompletedYear = 1900,
+            });
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WithDbAsync(db => db.LogEntries.CountAsync(Ct))).ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Rejects_the_same_external_id_twice_for_one_source()
     {
         await GivenAGameAsync(externalId: "740");

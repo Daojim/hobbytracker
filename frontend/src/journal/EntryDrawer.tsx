@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { finishQuestion, putBackAnswer, REPLAY_ANSWER } from '../lib/finishQuestion';
-import { formatJournalDate } from '../lib/time';
+import { formatPassDate, passDateAfterWord } from '../lib/passDate';
 import { useModalPanel } from '../lib/useModalPanel';
 import { useOverlayHistory } from '../lib/useOverlayHistory';
 import { ColumnControl } from './ColumnControl';
@@ -591,6 +591,7 @@ export function EntryDrawer({
                 id={questionId}
                 column={columnLabel[asking]}
                 completedAt={current.completedAt}
+                completedYear={current.completedYear}
                 answer={answer}
                 onReplay={() => {
                   answered();
@@ -783,6 +784,8 @@ interface FinishQuestionProps {
   column: string;
   /** The finish being asked about, or null when the pass carries none. */
   completedAt: string | null;
+  /** The finish where it is kept as a year (#24), asked about in its year. */
+  completedYear: number | null;
   /** The first answer, which takes the keyboard when the question appears. */
   answer: React.Ref<HTMLButtonElement>;
   onReplay: () => void;
@@ -808,6 +811,7 @@ function FinishQuestion({
   id,
   column,
   completedAt,
+  completedYear,
   answer,
   onReplay,
   onPutBack,
@@ -815,7 +819,7 @@ function FinishQuestion({
 }: FinishQuestionProps) {
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-line-soft bg-well p-3 text-xs">
-      <p id={id}>{finishQuestion(completedAt)}</p>
+      <p id={id}>{finishQuestion(completedAt, completedYear)}</p>
       <div className="flex flex-wrap gap-2">
         <button
           ref={answer}
@@ -846,23 +850,36 @@ function FinishQuestion({
   );
 }
 
-/** When the pass ended, or when it started if it never did. Mirrors the card's `lastActivity`. */
-function whenOf(entry: LogEntry): string | null {
-  return formatJournalDate(entry.completedAt ?? entry.startedAt);
+/**
+ * The date a pass is known by: when it ended, or when it started if it never did, each a day or a
+ * year kept as a year (#24). Mirrors the card's date, which the server works out the same way.
+ */
+function dateOf(entry: LogEntry): { instant: string | null; year: number | null } {
+  if (entry.completedAt !== null || entry.completedYear !== null) {
+    return { instant: entry.completedAt, year: entry.completedYear };
+  }
+
+  return { instant: entry.startedAt, year: entry.startedYear };
 }
 
 /**
  * What names an earlier pass's region: "Completed Nov 2, 2024" on a game, "Watched Nov 2, 2024"
- * on a film, or just the column's name where there is no date to give.
+ * on a film, "Completed in 2019" for a finish kept as a year, or just the column's name where there
+ * is no date to give.
  */
 function headingFor(entry: LogEntry, label: ColumnLabel): string {
-  const when = whenOf(entry);
+  const { instant, year } = dateOf(entry);
+  const when = passDateAfterWord(instant, year);
   return when === null ? label[entry.status] : `${label[entry.status]} ${when}`;
 }
 
-/** A pass named for a reader who cannot see its row: "the Completed pass from Nov 2, 2024". */
+/**
+ * A pass named for a reader who cannot see its row: "the Completed pass from Nov 2, 2024", and
+ * "from 2019" for a year, since the sentence has its word already.
+ */
 function passName(entry: LogEntry, label: ColumnLabel): string {
-  const when = whenOf(entry);
+  const { instant, year } = dateOf(entry);
+  const when = formatPassDate(instant, year);
   return `the ${label[entry.status]} pass${when === null ? '' : ` from ${when}`}`;
 }
 

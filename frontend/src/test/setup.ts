@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { Blob as NodeBlob, File as NodeFile } from 'node:buffer';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 import { server } from './server';
+import { forgetYearsAdded } from '../search/lastYear';
 
 /**
  * `localStorage`, which the environment does not otherwise provide.
@@ -80,3 +81,7 @@ Object.assign(globalThis, { FormData: NodeFormData, Blob: NodeBlob, File: NodeFi
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
+
+// The year each board's ✓ last added in is kept in memory for the visit (#24), and a test is a
+// visit: one that added in 2019 would otherwise put 2019 in the next test's box.
+afterEach(() => forgetYearsAdded());

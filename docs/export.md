@@ -80,8 +80,8 @@ is the API's `developers`, which only a game has.
 
 | Sheet | Columns, in order |
 |---|---|
-| Games | Title, Status, Rating, Hours played, Platform, Started, Finished, Added, Playthroughs, Genre, All genres, Developers, Released, HLTB main story, HLTB main + extra, HLTB completionist, HLTB all play styles, HowLongToBeat, Latest note |
-| Playthroughs | Title, Playthrough, Status, Rating, Hours played, Platform, Started, Finished, Notes |
+| Games | Title, Status, Rating, Hours played, Platform, Started, Finished, Started in, Finished in, Added, Playthroughs, Genre, All genres, Developers, Released, HLTB main story, HLTB main + extra, HLTB completionist, HLTB all play styles, HowLongToBeat, Latest note |
+| Playthroughs | Title, Playthrough, Status, Rating, Hours played, Platform, Started, Finished, Started in, Finished in, Notes |
 | Notes | Title, Playthrough, Written, Pictures, Note |
 
 - **Games are in board order**: the columns as `BOARD_STATUSES` lays them out, and each column as
@@ -91,6 +91,15 @@ is the API's `developers`, which only a game has.
   pass's. *Status* is `columnLabel`, *Genre* is `resolveGenre`, and *Added* is the first pass's
   `logged_at`, the only date a Backlog row has. So a replay under way shows no rating however well
   the first run did; that run is on the next sheet.
+- **A date kept as a year has columns of its own** (#24): *Started in* and *Finished in* after
+  *Finished*, on Games and on Playthroughs, each a number, width 12 as *Hours played* is. Every
+  start and finish has its year there: a day's year here, through `journalYear`, and a kept year
+  as it was kept. **A kept year leaves its date cell empty**, so a date column holds days
+  only and sorts as one, and a year column sorts every pass by year. Round three's pick over three
+  others. The year as text in the date cell sorted after every date, so a 2016 game followed 2026,
+  and Excel drew its green *number stored as text* triangle on it at either alignment, as it does
+  on the Released column's year-only releases. A number there sorted before every date, since Excel
+  reads 2019 as a day in 1905. The workshop's renders are in `docs/plans/games-board-next.md`, #24.
 - **Released is a date cell when the precision is `Day`**, and the calendar's words otherwise
   (`Sep 2026`, `Q1 2027`, `2026`, `TBA`), right-aligned so the column reads as one. **Blank for a
   null precision.** See the traps.

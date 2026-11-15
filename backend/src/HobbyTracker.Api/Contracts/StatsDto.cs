@@ -53,8 +53,17 @@ public sealed record FinishDto(
 
     string? CoverUrl,
 
-    /// <summary>An instant. Null only for a pass marked finished with its date cleared.</summary>
+    /// <summary>
+    /// An instant. Null for a pass marked finished with its date cleared, and for one whose finish
+    /// is kept as a year, which <see cref="CompletedYear"/> then carries.
+    /// </summary>
     DateTimeOffset? CompletedAt,
+
+    /// <summary>
+    /// The year it was finished in, where that is all anybody remembers (#24). A year's finishes
+    /// kept as years come after its dated ones, and the page files them in a group after December.
+    /// </summary>
+    int? CompletedYear,
 
     decimal? Rating,
 

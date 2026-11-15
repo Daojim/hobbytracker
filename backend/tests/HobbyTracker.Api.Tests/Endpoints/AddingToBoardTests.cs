@@ -225,10 +225,140 @@ public sealed class AddingToBoardTests(PostgresFixture postgres) : DatabaseTestB
         Hltb.Searches.ShouldBeEmpty();
     }
 
+    // ------------------------------------------ the finish an add names (#24)
+
+    [Fact]
+    public async Task Adding_a_game_finished_in_a_year_keeps_the_year_and_makes_up_no_day()
+    {
+        // The check mark's question answered with a year: filed under 2019 and shown as 2019, never
+        // as a day nobody named and never as today.
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var response = await AddAsync(mediaId, new AddToBoardRequest(LogStatus.Completed, CompletedYear: 2019));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.Completed);
+        entry.CompletedYear.ShouldBe(2019);
+        entry.CompletedAt.ShouldBeNull();
+        entry.StartedAt.ShouldBeNull();
+        entry.StartedYear.ShouldBeNull();
+
+        // Made now, though finished long ago: when it went on the board is not when it was played.
+        entry.LoggedAt.ShouldBe(Now);
+    }
+
+    [Fact]
+    public async Task Adding_a_game_with_no_date_leaves_the_finish_empty()
+    {
+        // I don't remember: the state a finish cleared by hand already has, filed under All years.
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var response = await AddAsync(mediaId, new AddToBoardRequest(LogStatus.Completed, Undated: true));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.Completed);
+        entry.CompletedAt.ShouldBeNull();
+        entry.CompletedYear.ShouldBeNull();
+        entry.StartedAt.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(2019, false)]
+    [InlineData(null, true)]
+    [InlineData(null, false)]
+    public async Task Adding_a_finished_game_takes_the_hours_it_took_whatever_its_date(int? year, bool undated)
+    {
+        // The optional box beside the year. Hours are the pass's, so they go with whichever answer
+        // was given: a year, no date, or today.
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var response = await AddAsync(mediaId, new AddToBoardRequest(
+            LogStatus.Completed, CompletedYear: year, Undated: undated, HoursPlayed: 42.5m));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        (await EntriesAsync(mediaId)).ShouldHaveSingleItem().HoursPlayed.ShouldBe(42.5m);
+    }
+
+    [Theory]
+    [InlineData(LogStatus.Backlog)]
+    [InlineData(LogStatus.InProgress)]
+    public async Task Only_an_add_to_completed_names_a_finish(LogStatus status)
+    {
+        // Nothing else has a finish to name, and a pass in Playing carrying one would be a finish
+        // no column shows.
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var withYear = await AddAsync(mediaId, new AddToBoardRequest(status, CompletedYear: 2019));
+        await ShouldRefuseAsync(withYear, "CompletedYear", "Only an add to Completed names a finish.");
+
+        var undated = await AddAsync(mediaId, new AddToBoardRequest(status, Undated: true));
+        await ShouldRefuseAsync(undated, "Undated", "Only an add to Completed names a finish.");
+
+        var hours = await AddAsync(mediaId, new AddToBoardRequest(status, HoursPlayed: 10m));
+        await ShouldRefuseAsync(hours, "HoursPlayed", "Only an add to Completed takes hours.");
+
+        (await EntriesAsync(mediaId)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_finish_is_a_year_or_none_and_not_both()
+    {
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var response = await AddAsync(mediaId, new AddToBoardRequest(
+            LogStatus.Completed, CompletedYear: 2019, Undated: true));
+
+        await ShouldRefuseAsync(response, "Undated", "A finish is a year or none, never both.");
+        (await EntriesAsync(mediaId)).ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData(1899)]
+    [InlineData(2027)]
+    public async Task An_add_takes_a_year_by_the_journals_rule(int year)
+    {
+        // The rule the year boxes say, in their words: 1900 to this year here, which the stopped
+        // clock says is 2026.
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var response = await AddAsync(mediaId, new AddToBoardRequest(LogStatus.Completed, CompletedYear: year));
+
+        await ShouldRefuseAsync(response, "CompletedYear", "A year from 1900 to 2026.");
+        (await EntriesAsync(mediaId)).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task An_add_takes_hours_by_the_journals_rule()
+    {
+        var mediaId = await GivenGameAsync("Celeste");
+
+        var response = await AddAsync(mediaId, new AddToBoardRequest(LogStatus.Completed, HoursPlayed: 0m));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        (await EntriesAsync(mediaId)).ShouldBeEmpty();
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private Task<HttpResponseMessage> AddAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync($"/api/library/{mediaId}", new AddToBoardRequest(status), Json, Ct);
+
+    private Task<HttpResponseMessage> AddAsync(int mediaId, AddToBoardRequest add) =>
+        Client.PostAsJsonAsync($"/api/library/{mediaId}", add, Json, Ct);
+
+    /// <summary>A 400 naming one field, and saying exactly one thing about it.</summary>
+    private static async Task ShouldRefuseAsync(HttpResponseMessage response, string field, string message)
+    {
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        using var problem = System.Text.Json.JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(Ct));
+        var errors = problem.RootElement.GetProperty("errors");
+        errors.TryGetProperty(field, out var said).ShouldBeTrue($"expected an error for {field} in {errors}");
+        said.EnumerateArray().Select(one => one.GetString()).ShouldBe([message]);
+    }
 
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync(

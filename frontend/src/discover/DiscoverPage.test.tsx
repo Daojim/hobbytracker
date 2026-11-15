@@ -221,10 +221,10 @@ describe('DiscoverPage', () => {
     expect(discover.asked).toEqual(['new-releases', 'most-played']);
   });
 
-  it('puts a title straight into Completed, and then says so on its cover', async () => {
-    // Filling a board backwards — Most played is a list of games people have finished — one
-    // press a game rather than one press and a drag. The same request adding from search sends:
-    // the list upserted the title, so a tile already has the media id the add points at.
+  it('asks when a title was finished, puts it in Completed, and then says so on its cover', async () => {
+    // Filling a board backwards — Most played is a list of games people have finished — with the
+    // year each was finished in rather than today (#24). The same request adding from search
+    // sends: the list upserted the title, so a tile already has the media id the add points at.
     const search = searchServer();
     discoverServer({ 'new-releases': [game({ id: 7, title: 'Tunic II' })] });
 
@@ -232,8 +232,13 @@ describe('DiscoverPage', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: 'Add Tunic II to completed' }),
     );
+    expect(screen.getByRole('dialog', { name: 'When did you finish it?' })).toBeInTheDocument();
+    expect(search.sent).toEqual([]);
+
+    await userEvent.type(screen.getByRole('textbox', { name: 'Year finished' }), '2016{Enter}');
 
     await waitFor(() => expect(search.added).toEqual([{ mediaId: 7, status: 'Completed' }]));
+    expect(search.sent).toStrictEqual([{ status: 'Completed', completedYear: 2016 }]);
 
     const added = await tile('Tunic II');
     await waitFor(() => expect(added).toHaveTextContent('On your board: Completed'));

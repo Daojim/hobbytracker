@@ -290,6 +290,76 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         years.ShouldBe([2026]);
     }
 
+    // ------------------------------------------- a date kept as a year (#24)
+
+    [Fact]
+    public async Task A_finish_kept_as_a_year_is_in_that_years_completed_column_and_no_other()
+    {
+        // Filed under the year it was, and never under this one, which is what an add straight to
+        // Completed stamping today used to do. Compared with the year asked for as a number: a
+        // kept year never meets the zone.
+        var mediaId = await GivenGameAsync("Hollow Knight", "1");
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed, completedYear: 2019);
+
+        (await GetColumnAsync(LogStatus.Completed, year: 2019)).Items
+            .ShouldHaveSingleItem().Title.ShouldBe("Hollow Knight");
+        (await GetColumnAsync(LogStatus.Completed, year: 2026)).Items.ShouldBeEmpty();
+        (await GetColumnAsync(LogStatus.Completed)).Items.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task A_finish_kept_as_a_year_files_by_the_finish_and_not_the_start()
+    {
+        // Begun on a day in 2018 and finished in 2019 is a 2019 completion, whichever kind each
+        // date is: Completed's own rule, read across both.
+        var mediaId = await GivenGameAsync("Hollow Knight", "1");
+        await GivenLogEntryAsync(
+            mediaId, LogStatus.Completed, startedAt: Eastern(2018, 6, 1), completedYear: 2019);
+
+        (await GetColumnAsync(LogStatus.Completed, year: 2018)).Items.ShouldBeEmpty();
+        (await GetColumnAsync(LogStatus.Completed, year: 2019)).Items.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task A_playing_game_begun_in_a_year_is_on_that_years_board()
+    {
+        // Every pass takes a year, whatever its column, round one's pick: a Playing game begun in
+        // 2019 files under 2019.
+        var mediaId = await GivenGameAsync("Still going", "1");
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedYear: 2019);
+
+        (await GetColumnAsync(LogStatus.InProgress, year: 2019)).Items.ShouldHaveSingleItem();
+        (await GetColumnAsync(LogStatus.InProgress, year: 2026)).Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_dropped_title_answers_to_a_year_kept_for_either_date()
+    {
+        var mediaId = await GivenGameAsync("Gave up on", "1");
+        await GivenLogEntryAsync(mediaId, LogStatus.Dropped, startedYear: 2017, completedYear: 2019);
+
+        (await GetColumnAsync(LogStatus.Dropped, year: 2017)).Items.ShouldHaveSingleItem();
+        (await GetColumnAsync(LogStatus.Dropped, year: 2019)).Items.ShouldHaveSingleItem();
+        (await GetColumnAsync(LogStatus.Dropped, year: 2018)).Items.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task The_years_endpoint_offers_a_year_only_a_kept_year_is_in()
+    {
+        // A board opens on the latest year there is and offers the rest, so a year only kept years
+        // are in has to be on the list, or its titles are under All years alone.
+        await GivenCompletedAsync("Dated", "1", completedOn: Eastern(2024, 6, 1));
+        var finishedIn = await GivenGameAsync("Finished in 2019", "2");
+        await GivenLogEntryAsync(finishedIn, LogStatus.Completed, completedYear: 2019);
+        var begunIn = await GivenGameAsync("Begun in 2017", "3");
+        await GivenLogEntryAsync(begunIn, LogStatus.InProgress, startedYear: 2017);
+
+        var years = await ReadAsync<List<int>>(
+            await Client.GetAsync("/api/library/years?hobby=games", Ct));
+
+        years.ShouldBe([2024, 2019, 2017]);
+    }
+
     [Fact]
     public async Task Length_puts_the_shortest_first_and_the_unknown_last()
     {

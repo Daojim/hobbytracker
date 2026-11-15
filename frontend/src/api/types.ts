@@ -84,8 +84,16 @@ export interface Finish {
   /** The name a card leads with. */
   title: string;
   coverUrl: string | null;
-  /** An instant. Render it through `lib/time`. Null for a pass finished with its date cleared. */
+  /**
+   * An instant. Render it through `lib/time`. Null for a pass finished with its date cleared, and
+   * for one whose finish is kept as a year, which {@link completedYear} then carries.
+   */
   completedAt: string | null;
+  /**
+   * The year it was finished in, where that is all anybody remembers (#24). The server sends a
+   * year's kept finishes after its dated ones, and the page files them after December.
+   */
+  completedYear: number | null;
   rating: number | null;
   /** How long this pass took you. */
   hoursPlayed: number | null;
@@ -238,14 +246,25 @@ export interface LibraryItem {
   /** More than one means replays. */
   entryCount: number;
   latestRating: number | null;
-  /** An instant, or null. Render it through `lib/time`, never `new Date(...).getFullYear()`. */
+  /**
+   * An instant, or null. Render it through `lib/time`, never `new Date(...).getFullYear()`. Null
+   * where the date is kept as a year, which {@link lastActivityYear} then carries.
+   */
   lastActivity: string | null;
+  /**
+   * The same date where it is kept as a year (#24): the finish's, or the start's when there is no
+   * finish of either kind. Null whenever {@link lastActivity} is not, so a card is handed a day or
+   * a year and never chooses. `formatPassDate` in `lib/passDate.ts` reads the pair.
+   */
+  lastActivityYear: number | null;
   /**
    * When the current pass finished, and null when it has no finish — which a Completed pass can,
    * once its finish date is cleared by hand. Apart from `lastActivity`, which falls back to the
    * start: the question a card asks before leaving Completed names the finish itself.
    */
   completedAt: string | null;
+  /** The finish where it is kept as a year, and then `completedAt` is null. */
+  completedYear: number | null;
   /** The title's genres, from whichever source its hobby uses. Null when the hobby has none. */
   genres: string[] | null;
   /** The chosen genre, or null to use the automatic pick. See src/hobbies/. */
@@ -666,6 +685,14 @@ export interface LogEntry {
   startedAt: string | null;
   completedAt: string | null;
   /**
+   * The year a date is kept as, when that is all anybody remembers (#24) — and then its instant
+   * is null. A date is a day or a year, never both. **Never run through `lib/time.ts`**: a kept
+   * year was never an instant, and belongs to no zone. `lib/passDate.ts` reads a pass's date
+   * whichever kind it is.
+   */
+  startedYear: number | null;
+  completedYear: number | null;
+  /**
    * Where you are in a show, on the pass rather than on the title — so a rewatch begins again,
    * as a replay does. Null for the hobbies with no such idea, and an episode never travels
    * without its season: the API refuses that pair, and so does the form.
@@ -718,6 +745,9 @@ export interface CreateLogEntry {
   hoursPlayed?: number | null;
   startedAt?: string | null;
   completedAt?: string | null;
+  /** A date kept as a year (#24), beside a null instant. PUT clears one it is not sent. */
+  startedYear?: number | null;
+  completedYear?: number | null;
   seasonNumber?: number | null;
   episodeNumber?: number | null;
 }

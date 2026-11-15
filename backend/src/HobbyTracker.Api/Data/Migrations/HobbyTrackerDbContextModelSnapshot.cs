@@ -213,6 +213,10 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("completed_at");
 
+                    b.Property<int?>("CompletedYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("completed_year");
+
                     b.Property<int?>("EpisodeNumber")
                         .HasColumnType("integer")
                         .HasColumnName("episode_number");
@@ -254,6 +258,10 @@ namespace HobbyTracker.Api.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_at");
 
+                    b.Property<int?>("StartedYear")
+                        .HasColumnType("integer")
+                        .HasColumnName("started_year");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -277,13 +285,21 @@ namespace HobbyTracker.Api.Data.Migrations
                         {
                             t.HasCheckConstraint("ck_log_entries_episode_range", "episode_number IS NULL OR episode_number >= 1");
 
+                            t.HasCheckConstraint("ck_log_entries_finish_day_or_year", "completed_at IS NULL OR completed_year IS NULL");
+
                             t.HasCheckConstraint("ck_log_entries_hours_played_range", "hours_played IS NULL OR (hours_played > 0 AND hours_played <= 999.99)");
 
                             t.HasCheckConstraint("ck_log_entries_rating_range", "rating IS NULL OR (rating >= 1.0 AND rating <= 10.0)");
 
                             t.HasCheckConstraint("ck_log_entries_season_range", "season_number IS NULL OR season_number >= 0");
 
+                            t.HasCheckConstraint("ck_log_entries_start_day_or_year", "started_at IS NULL OR started_year IS NULL");
+
                             t.HasCheckConstraint("ck_log_entries_timestamp_order", "started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at");
+
+                            t.HasCheckConstraint("ck_log_entries_year_order", "started_year IS NULL OR completed_year IS NULL OR completed_year >= started_year");
+
+                            t.HasCheckConstraint("ck_log_entries_years_range", "(started_year IS NULL OR started_year >= 1900) AND (completed_year IS NULL OR completed_year >= 1900)");
                         });
                 });
 

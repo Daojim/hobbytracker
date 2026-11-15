@@ -68,7 +68,27 @@ Settled:
   The first answer takes the keyboard when the box appears, both carry the question as their
   description, and every answer hands the keyboard back to the heading. **Until #14 nothing
   corrected a Completed pass's column in place**, which is the trap under *An earlier pass's
-  fields* below.
+  fields* below. **A finish kept as a year is asked about in its year** (#24): *Did you finish it
+  in 2019?*, where a day takes *on*, round three's pick.
+- **Each date is a day or a year, from a Day \| Year switch beside its label** (#24, 14 November
+  2026), for a game somebody remembers only by the year. `journal/DateField.tsx` is both dates on
+  every board and every pass. **The switch beside the label, each box on its own** was round two's
+  pick over a link under each box and a select before it. The select ran 34px past the 448px drawer
+  whenever both boxes held a day, which is most passes. The switch sits beside the label rather
+  than at the field's far end because an error widens the field and pushed it away. It is 18px tall
+  at a desk and 26px under a coarse pointer, so the row stays the 54px it was. **The mode follows
+  the value**: a box holding a day is in Day mode and anything else is a year, so a pass that keeps
+  a year opens on it. **The switch carries what it can and invents nothing**, the user's pick at
+  the build: Day to Year keeps the day's year, Year to Day leaves the day empty, and switching back
+  while the drawer is open brings back what was there. What the boxes show is what is saved.
+- **A year's words are round three's.** A year the box cannot take, text that is not one or a year
+  either side of the range, says *A year from 1900 to 2026.*, ending at this year here, in the order
+  rule's red. The order rule says *Cannot be earlier than Started.* on every board and for a day as
+  much as a year. It replaced *Completed cannot be earlier than started.*, which said *Completed*
+  even on a film, and it stays on one line at every width. An earlier pass is headed *Completed in
+  2019* (*Watched in 2019* on a film), where a day reads *Completed Nov 2, 2024*, and its Delete
+  names *the Completed pass from 2019*, the year bare after *from*. `lib/passDate.ts` holds both
+  shapes, and the server's `LogEntryRules` says the two rules word for word.
 - **A column taken off in Settings is offered nowhere, and still named while the pass is in it.**
   The list is the board's, as every card's menu is; a pass already in a hidden column has it
   ticked, because that stays true whether or not the board draws it. Since #12 that is reachable: a
@@ -461,6 +481,22 @@ Settled:
   holds a moment; re-deriving from the day on screen would move a 21:30 start to midnight — silent
   loss on a save the user made about something else. Only an edited field is sent as a bare date
   (`dateFieldValue`).
+- **Both years are in the body too** (#24), because PUT clears whatever it is not sent, so an
+  autosave that left them out would clear a kept year on every save made about something else.
+  `pick()` in `api/logEntries.ts` lists them. A box in Year mode sends no instant
+  (`dateFieldValue` answers null for it) and `yearFieldValue` sends its number; an untouched year
+  needs no `original` to go back as it came, because a year has nothing hidden in it to lose the
+  way an instant's time of day can be.
+- **The switch is not a change event, so it says the form was touched itself.** A press raises no
+  `change`, so the form's one `onChange` never hears it, and *Saved* would go on claiming the server
+  had what is on screen: the wheel's trap. `DateField` calls `onEdit`, and checks `moving` itself,
+  since the capture-phase gate that holds the pass still during a move stops change events alone.
+- **A date box is found by its role and exact name in a spec**, since #24. The switch beside it is a
+  group named *Started as*, which a bare `getByLabel('Started')` also finds, and the finish's label
+  is the pass's own heading, *Completed*, which names its section as well. Four journal specs failed
+  as strict-mode violations the first time the e2e suite met the switch, and the films' and shows'
+  drawer specs found *Watched* the same way; `dateBox` in `journal.spec.ts` is the way to find one
+  now.
 - **The rating is validated on the input text, not the parsed number.** `8.75 * 10` is not exactly
   `87.5` in binary floating point, so counting decimal places arithmetically is a way to accept the
   one value the rule exists to reject. `parseRating` mirrors `RatingAttribute` word for word, and

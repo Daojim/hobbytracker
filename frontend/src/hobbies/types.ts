@@ -54,6 +54,16 @@ export interface HobbyDefinition {
   countPasses(count: number): string;
 
   /**
+   * What a tile's ✓ asks before a title goes straight to the finished column (#24): *When did you
+   * finish it?* The answer is a year, today, or that nobody remembers, so a game finished in 2019
+   * is not stamped with this evening.
+   *
+   * The hobby's own verb, round three's pick at the #24 workshop: a film is watched, and a game, a
+   * show and an anime are finished. A word here rather than a branch on the slug anywhere.
+   */
+  whenFinished: string;
+
+  /**
    * What one of this board's titles is called, by how many: `game`, `games`. The word alone,
    * because whoever counts decides how the number is written — the account's warning keeps
    * each number on the same line as its word.

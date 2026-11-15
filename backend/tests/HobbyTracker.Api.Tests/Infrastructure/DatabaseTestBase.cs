@@ -356,7 +356,9 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
         DateTimeOffset? startedAt = null,
         DateTimeOffset? completedAt = null,
         string? platform = null,
-        int? userId = null) => WithDbAsync(async db =>
+        int? userId = null,
+        int? startedYear = null,
+        int? completedYear = null) => WithDbAsync(async db =>
         {
             var entry = new LogEntry
             {
@@ -367,6 +369,11 @@ public abstract class DatabaseTestBase(PostgresFixture postgres) : IAsyncLifetim
                 Platform = platform,
                 StartedAt = startedAt,
                 CompletedAt = completedAt,
+
+                // A date kept as a year, for a pass remembered no better (#24). Never beside the
+                // instant for the same date, which the schema refuses.
+                StartedYear = startedYear,
+                CompletedYear = completedYear,
 
                 // Not null-able in the schema, and these rows bypass the service that would
                 // otherwise stamp it. Pinned to the stopped clock so it is deterministic.

@@ -27,6 +27,33 @@ public class LogEntryConfiguration : IEntityTypeConfiguration<LogEntry>
                 "ck_log_entries_timestamp_order",
                 "started_at IS NULL OR completed_at IS NULL OR completed_at >= started_at");
 
+            // A date is a day or a year, never both (#24). The year is for a pass remembered only
+            // by it, and sits beside the instant rather than replacing it, so a reader reads the
+            // year where the instant is empty. Both at once would leave every reader to pick one,
+            // and two readers picking differently is a card and a year view disagreeing.
+            table.HasCheckConstraint(
+                "ck_log_entries_start_day_or_year",
+                "started_at IS NULL OR started_year IS NULL");
+
+            table.HasCheckConstraint(
+                "ck_log_entries_finish_day_or_year",
+                "completed_at IS NULL OR completed_year IS NULL");
+
+            // The order rule's sibling, for the one pairing a database can compare: a year with a
+            // year. A day against a year is the API's, in LogEntryRules — which year a day is in
+            // depends on the zone, and the schema never names one.
+            table.HasCheckConstraint(
+                "ck_log_entries_year_order",
+                "started_year IS NULL OR completed_year IS NULL OR completed_year >= started_year");
+
+            // The floor, picked at the #24 build: 1900 refuses only a typo, for anybody alive. The
+            // ceiling is this year here, which a check cannot ask — it is not immutable — so it is
+            // LogEntryRules' alone, as the zone is.
+            table.HasCheckConstraint(
+                "ck_log_entries_years_range",
+                "(started_year IS NULL OR started_year >= 1900) "
+                + "AND (completed_year IS NULL OR completed_year >= 1900)");
+
             // Where you are in a title, and the two halves of it are constrained differently on
             // purpose. Season nought is TMDB's Specials and is a real season, so it is allowed;
             // there is no episode zero, so that one starts at 1. Two named constraints rather

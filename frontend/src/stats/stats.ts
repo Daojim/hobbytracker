@@ -108,14 +108,27 @@ export function byMonth(finished: Finish[]): Finish[][] {
 }
 
 /**
+ * A year's finishes kept as a year (#24), which name no month: in the order sent, which puts them
+ * after the year's dated finishes. The page files them in a group of their own after December,
+ * round three's pick, rather than in a month nobody named.
+ */
+export function noMonth(finished: Finish[]): Finish[] {
+  return finished.filter((finish) => finish.completedAt === null && finish.completedYear !== null);
+}
+
+/**
  * Every finish by the year here it was finished in, oldest year first, and the ones finished with
  * their date cleared after all of them — what the page shows under All years in place of months.
+ *
+ * A finish kept as a year (#24) is under that year as it is, with no zone involved, and after the
+ * year's dated ones, which is where the server sends it.
  */
 export function byYear(finished: Finish[]): { year: number | null; finishes: Finish[] }[] {
   const years = new Map<number | null, Finish[]>();
 
   for (const finish of finished) {
-    const year = finish.completedAt === null ? null : journalYear(finish.completedAt);
+    const year =
+      finish.completedAt !== null ? journalYear(finish.completedAt) : finish.completedYear;
     years.set(year, [...(years.get(year) ?? []), finish]);
   }
 

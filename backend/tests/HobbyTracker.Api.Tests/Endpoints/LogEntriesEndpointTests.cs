@@ -303,6 +303,249 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
     }
 
     [Fact]
+    public async Task Says_a_finish_before_its_start_in_the_journals_words()
+    {
+        // The words the form says under the finish, so a refusal that reaches it reads the same.
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null,
+            Eastern(2026, 8, 20), Eastern(2026, 7, 1), null));
+
+        await ShouldRefuseAsync(response, "CompletedAt", "Cannot be earlier than Started.");
+    }
+
+    // ------------------------------------- a year, when that is all anybody remembers
+
+    [Fact]
+    public async Task A_pass_keeps_a_year_for_a_date_nobody_remembers_the_day_of()
+    {
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, null, null,
+            StartedYear: 2018, CompletedYear: 2019));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        var created = await ReadAsync<LogEntryDto>(response);
+        created.StartedYear.ShouldBe(2018);
+        created.CompletedYear.ShouldBe(2019);
+        created.StartedAt.ShouldBeNull();
+        created.CompletedAt.ShouldBeNull();
+
+        var stored = await EntryAsync(created.Id);
+        stored.StartedYear.ShouldBe(2018);
+        stored.CompletedYear.ShouldBe(2019);
+    }
+
+    [Fact]
+    public async Task Replacing_an_entry_writes_the_years_it_is_sent_and_clears_the_ones_it_is_not()
+    {
+        // PUT replaces a pass outright, so the autosave has to send both years every time or a
+        // save about a rating would wipe them. This is the half of that the server holds.
+        var mediaId = await GivenGameAsync();
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.Completed, completedAt: Eastern(2026, 2, 1));
+
+        var kept = await Client.PutAsJsonAsync(
+            $"/api/log-entries/{entryId}",
+            new UpdateLogEntryRequest(
+                LogStatus.Completed, 8.5m, null, null, null, null,
+                StartedYear: 2018, CompletedYear: 2019),
+            Json,
+            Ct);
+
+        kept.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var updated = await ReadAsync<LogEntryDto>(kept);
+        updated.StartedYear.ShouldBe(2018);
+        updated.CompletedYear.ShouldBe(2019);
+        updated.CompletedAt.ShouldBeNull();
+
+        var cleared = await Client.PutAsync(
+            $"/api/log-entries/{entryId}",
+            new StringContent("""{"status": "Completed"}""", Encoding.UTF8, "application/json"),
+            Ct);
+
+        cleared.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var stored = await EntryAsync(entryId);
+        stored.StartedYear.ShouldBeNull();
+        stored.CompletedYear.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Rejects_a_start_that_is_a_day_and_a_year()
+    {
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.InProgress, null, null, Eastern(2019, 5, 1), null, null,
+            StartedYear: 2019));
+
+        await ShouldRefuseAsync(response, "StartedYear", "A start is a day or a year, never both.");
+    }
+
+    [Fact]
+    public async Task Rejects_a_finish_that_is_a_day_and_a_year()
+    {
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, Eastern(2019, 5, 1), null,
+            CompletedYear: 2019));
+
+        await ShouldRefuseAsync(response, "CompletedYear", "A finish is a day or a year, never both.");
+    }
+
+    [Theory]
+    [InlineData(1899, null, "StartedYear")]
+    [InlineData(null, 1899, "CompletedYear")]
+    [InlineData(219, null, "StartedYear")]
+    public async Task Rejects_a_year_before_1900_in_the_boxes_words(int? startedYear, int? completedYear, string field)
+    {
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, null, null,
+            StartedYear: startedYear, CompletedYear: completedYear));
+
+        // A 400 before the floor's check constraint can be a 500, in the words the box says.
+        await ShouldRefuseAsync(response, field, "A year from 1900 to 2026.");
+    }
+
+    [Theory]
+    [InlineData(2027, null, "StartedYear")]
+    [InlineData(null, 2027, "CompletedYear")]
+    public async Task Rejects_a_year_after_this_one(int? startedYear, int? completedYear, string field)
+    {
+        // A finish is never in the future, and neither is a start: the clock says 15 September
+        // 2026, so 2027 has not happened yet.
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, null, null,
+            StartedYear: startedYear, CompletedYear: completedYear));
+
+        await ShouldRefuseAsync(response, field, "A year from 1900 to 2026.");
+    }
+
+    [Fact]
+    public async Task This_year_is_the_one_it_is_here()
+    {
+        // 8pm on New Year's Eve here is already 1am on New Year's Day in UTC. It is still 2026
+        // here, so 2027 is still to come, and the message still says so.
+        Clock.UtcNow = Eastern(2026, 12, 31, hour: 20);
+        var mediaId = await GivenGameAsync();
+
+        var refused = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, null, null, CompletedYear: 2027));
+
+        await ShouldRefuseAsync(refused, "CompletedYear", "A year from 1900 to 2026.");
+
+        var accepted = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, null, null, CompletedYear: 2026));
+
+        accepted.StatusCode.ShouldBe(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task Rejects_a_finish_year_before_its_start_year_as_a_400()
+    {
+        // ck_log_entries_year_order would refuse it too, as a 500.
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, null, null,
+            StartedYear: 2020, CompletedYear: 2019));
+
+        await ShouldRefuseAsync(response, "CompletedYear", "Cannot be earlier than Started.");
+    }
+
+    [Fact]
+    public async Task Rejects_a_start_day_after_the_year_it_finished_in()
+    {
+        // The pairing no check constraint can hold, because which year a day is in is the zone's
+        // question. Begun in March 2020 and finished in 2019 is out of order.
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, Eastern(2020, 3, 1), null, null,
+            CompletedYear: 2019));
+
+        await ShouldRefuseAsync(response, "CompletedYear", "Cannot be earlier than Started.");
+    }
+
+    [Fact]
+    public async Task Rejects_a_finish_day_before_the_year_it_started_in()
+    {
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, Eastern(2019, 12, 31), null,
+            StartedYear: 2020));
+
+        await ShouldRefuseAsync(response, "CompletedAt", "Cannot be earlier than Started.");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_day_and_a_year_in_the_same_year_are_in_order(bool startIsTheYear)
+    {
+        // A start in 2019 and a finish on 3 March 2019 are in order, and so is a start on 5 May
+        // 2019 and a finish in 2019. Neither says which came first within the year, and neither
+        // is refused for it.
+        var mediaId = await GivenGameAsync();
+
+        var response = await PostAsync(startIsTheYear
+            ? new CreateLogEntryRequest(
+                mediaId, LogStatus.Completed, null, null, null, Eastern(2019, 3, 3), null,
+                StartedYear: 2019)
+            : new CreateLogEntryRequest(
+                mediaId, LogStatus.Completed, null, null, Eastern(2019, 5, 5), null, null,
+                CompletedYear: 2019));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+    }
+
+    [Fact]
+    public async Task A_day_is_in_the_year_it_is_here_when_set_against_a_year()
+    {
+        // 8pm on New Year's Eve 2019 here is 2020 in UTC. Against a finish kept as 2019 it is a
+        // start in 2019, so in order; read in UTC it would be refused.
+        var mediaId = await GivenGameAsync();
+
+        var inOrder = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, Eastern(2019, 12, 31, hour: 20), null, null,
+            CompletedYear: 2019));
+
+        inOrder.StatusCode.ShouldBe(HttpStatusCode.Created);
+
+        // And the other way round: a finish at that moment is a 2019 finish, before a start kept
+        // as 2020, which read in UTC would pass.
+        var outOfOrder = await PostAsync(new CreateLogEntryRequest(
+            mediaId, LogStatus.Completed, null, null, null, Eastern(2019, 12, 31, hour: 20), null,
+            StartedYear: 2020));
+
+        await ShouldRefuseAsync(outOfOrder, "CompletedAt", "Cannot be earlier than Started.");
+    }
+
+    [Fact]
+    public async Task Replacing_an_entry_checks_its_years_too()
+    {
+        var mediaId = await GivenGameAsync();
+        var entryId = await GivenLogEntryAsync(mediaId, LogStatus.Completed);
+
+        var response = await Client.PutAsJsonAsync(
+            $"/api/log-entries/{entryId}",
+            new UpdateLogEntryRequest(
+                LogStatus.Completed, null, null, null, null, null,
+                StartedYear: 2020, CompletedYear: 2019),
+            Json,
+            Ct);
+
+        await ShouldRefuseAsync(response, "CompletedYear", "Cannot be earlier than Started.");
+    }
+
+    [Fact]
     public async Task Status_travels_as_a_string_in_both_directions()
     {
         var mediaId = await GivenGameAsync();
@@ -571,6 +814,18 @@ public sealed class LogEntriesEndpointTests(PostgresFixture postgres) : Database
 
     private Task<HttpResponseMessage> PostAsync(CreateLogEntryRequest request) =>
         Client.PostAsJsonAsync("/api/log-entries", request, Json, Ct);
+
+    /// <summary>A 400 naming one field, and saying exactly one thing about it.</summary>
+    private static async Task ShouldRefuseAsync(HttpResponseMessage response, string field, string message)
+    {
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+
+        using var problem = System.Text.Json.JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(Ct));
+        var errors = problem.RootElement.GetProperty("errors");
+        errors.TryGetProperty(field, out var said).ShouldBeTrue($"expected an error for {field} in {errors}");
+        said.EnumerateArray().Select(one => one.GetString()).ShouldBe([message]);
+    }
 
     private async Task<PagedResult<LogEntryDto>> GetPageAsync(string url) =>
         await ReadAsync<PagedResult<LogEntryDto>>(await Client.GetAsync(url, Ct));

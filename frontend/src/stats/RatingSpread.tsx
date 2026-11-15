@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import type { Finish } from '../api/types';
 import { ratingFill, ratingTone } from '../lib/rating';
-import { formatJournalDate } from '../lib/time';
+import { passDateAfterWord } from '../lib/passDate';
 import type { Voice, Voiced } from '../lib/voice';
 import { ratingLists } from './stats';
 import { Nothing } from './Section';
@@ -190,7 +190,8 @@ function TitleList({ id, labelledBy, finishes }: { id: string; labelledBy: strin
     >
       {finishes.map((finish, index) => {
         const rating = finish.rating!;
-        const day = formatJournalDate(finish.completedAt);
+        // A day, or a year kept as a year (#24): "finished Sep 15, 2025", "finished in 2019".
+        const day = passDateAfterWord(finish.completedAt, finish.completedYear);
 
         return (
           <li key={`${finish.mediaId}-${index}`} className="flex break-inside-avoid items-center gap-2 rounded px-2 py-1">

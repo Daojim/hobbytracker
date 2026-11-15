@@ -99,6 +99,9 @@ describe('EntryDrawer', () => {
       hoursPlayed: null,
       startedAt: null,
       completedAt: null,
+      // #24's two years go every time too, or a save about a rating would clear a kept year.
+      startedYear: null,
+      completedYear: null,
       seasonNumber: null,
       episodeNumber: null,
     });
@@ -394,9 +397,13 @@ describe('EntryDrawer', () => {
     });
 
     open();
-    await userEvent.type(await screen.findByLabelText('Completed'), '2026-08-01');
+    await userEvent.type(await screen.findByLabelText('Completed', { selector: 'input' }), '2026-08-01');
 
-    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(/earlier than/);
+    // Round three's words, for a day as much as a year, on every board: it said "Completed" even
+    // on a film until #24.
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
+      'Cannot be earlier than Started.',
+    );
     expect(journal.saved).toHaveLength(0);
   });
 
@@ -1540,6 +1547,260 @@ describe('EntryDrawer', () => {
  * for, on the element it was asked of. Where the note lands on screen is the browser's question,
  * and `e2e/search.spec.ts` asks it.
  */
+describe('EntryDrawer, a date kept as a year', () => {
+  // #24: Started and Finished each a day or a year, picked from round two's renders as a Day | Year
+  // switch beside each label, with each box on its own.
+
+  /** The switch beside a date's label, a group named for it: `Started as`, `Completed as`. */
+  const switchOf = (label: string) => within(screen.getByRole('group', { name: `${label} as` }));
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('opens a date the pass keeps as a year in Year mode, with the year in its box', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'Completed', startedYear: 2018, completedYear: 2019 }),
+        ],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByLabelText('Completed', { selector: 'input' })).toHaveValue('2019');
+    expect(started()).toHaveValue('2018');
+    expect(switchOf('Completed').getByRole('button', { name: 'Year' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(switchOf('Completed').getByRole('button', { name: 'Day' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+  });
+
+  it('opens a day, and a date with nothing in it, in Day mode', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'InProgress', startedAt: '2026-08-21T01:30:00+00:00' }),
+        ],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByLabelText('Started')).toHaveAttribute('type', 'date');
+    expect(screen.getByLabelText('Completed', { selector: 'input' })).toHaveAttribute('type', 'date');
+    expect(switchOf('Started').getByRole('button', { name: 'Day' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
+  it('sends a year typed in Year mode as a year, beside no instant', async () => {
+    const journal = journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    open();
+    await screen.findByLabelText('Started');
+    await userEvent.click(switchOf('Started').getByRole('button', { name: 'Year' }));
+    await userEvent.type(started(), '2019');
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+    expect(journal.saved[0]?.body).toMatchObject({
+      startedAt: null,
+      startedYear: 2019,
+      completedAt: null,
+      completedYear: null,
+    });
+  });
+
+  it('carries a day to Year as the year it is here, and saves the year in its place', async () => {
+    // 9:30pm on New Year's Eve 2023 here, which is 2024 in UTC: the box holds the day here, and
+    // the year it carries is that day's. Never a day made up, and never the year in UTC.
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'InProgress', startedAt: '2024-01-01T02:30:00+00:00' }),
+        ],
+      }),
+    });
+
+    open();
+    expect(await screen.findByLabelText('Started')).toHaveValue('2023-12-31');
+    await userEvent.click(switchOf('Started').getByRole('button', { name: 'Year' }));
+
+    expect(started()).toHaveValue('2023');
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+    expect(journal.saved[0]?.body).toMatchObject({ startedAt: null, startedYear: 2023 });
+  });
+
+  it('leaves a year switched to Day empty, and brings it back when switched back', async () => {
+    // Carry what it can and invent nothing, the build's pick: a year has no day in it to give.
+    // And back where it began inside the half second, there is nothing to send.
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'Completed', completedYear: 2019 })],
+      }),
+    });
+
+    open();
+    expect(await screen.findByLabelText('Completed', { selector: 'input' })).toHaveValue('2019');
+
+    await userEvent.click(switchOf('Completed').getByRole('button', { name: 'Day' }));
+    expect(screen.getByLabelText('Completed', { selector: 'input' })).toHaveAttribute('type', 'date');
+    expect(screen.getByLabelText('Completed', { selector: 'input' })).toHaveValue('');
+
+    await userEvent.click(switchOf('Completed').getByRole('button', { name: 'Year' }));
+    expect(screen.getByLabelText('Completed', { selector: 'input' })).toHaveValue('2019');
+
+    await new Promise((resolve) => setTimeout(resolve, AUTOSAVE_MS + 200));
+    expect(journal.saved).toHaveLength(0);
+  });
+
+  it('saves a year switched to Day and left empty as no date, which is what it shows', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'Completed', completedYear: 2019 })],
+      }),
+    });
+
+    open();
+    await screen.findByLabelText('Completed', { selector: 'input' });
+    await userEvent.click(switchOf('Completed').getByRole('button', { name: 'Day' }));
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+    expect(journal.saved[0]?.body).toMatchObject({ completedAt: null, completedYear: null });
+  });
+
+  it('takes Saved away when the switch is pressed, which raises no change event', async () => {
+    // A press is not a change, so the form's onChange never hears it — and Saved would go on
+    // claiming the server has what is on screen, the wheel's trap.
+    journalServer({
+      detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }),
+    });
+
+    open();
+    await userEvent.type(await screen.findByRole('spinbutton', { name: 'Exact rating' }), '8');
+    expect(await screen.findByRole('status', {}, autosaves)).toHaveTextContent('Saved');
+
+    await userEvent.type(started(), '2026-08-01');
+    expect(await screen.findByRole('status', {}, autosaves)).toHaveTextContent('Saved');
+    await userEvent.click(switchOf('Started').getByRole('button', { name: 'Year' }));
+
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+  });
+
+  it('says a year it cannot take in the rule’s words, and sends nothing', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-15T16:00:00Z'));
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'Completed', completedYear: 2019 })],
+      }),
+    });
+
+    open();
+    const box = await screen.findByLabelText('Completed', { selector: 'input' });
+    await userEvent.clear(box);
+    await userEvent.type(box, '2027');
+
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
+      'A year from 1900 to 2026.',
+    );
+    expect(journal.saved).toHaveLength(0);
+  });
+
+  it('keeps a year box a year box while it is cleared to be typed again', async () => {
+    // Emptied, the box has nothing to say which kind it is, and flipping to a day under the
+    // keyboard would throw away the year being typed.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'Completed', completedYear: 2019 })],
+      }),
+    });
+
+    open();
+    const box = await screen.findByLabelText('Completed', { selector: 'input' });
+    await userEvent.clear(box);
+
+    expect(screen.getByLabelText('Completed', { selector: 'input' })).not.toHaveAttribute('type', 'date');
+    expect(screen.getByLabelText('Completed', { selector: 'input' })).toHaveFocus();
+  });
+
+  it('refuses a finish year before the start year, in the workshop’s words', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'Completed', startedYear: 2020, completedYear: 2021 }),
+        ],
+      }),
+    });
+
+    open();
+    const box = await screen.findByLabelText('Completed', { selector: 'input' });
+    await userEvent.clear(box);
+    await userEvent.type(box, '2019');
+
+    expect(await screen.findByRole('alert', {}, autosaves)).toHaveTextContent(
+      'Cannot be earlier than Started.',
+    );
+    expect(journal.saved).toHaveLength(0);
+  });
+
+  it('heads an earlier pass finished in a year "Completed in 2019", and names it "from 2019"', async () => {
+    // Round three: a year takes "in" where it runs on from a word, and where a word like "from"
+    // is already there, it follows it as a day does.
+    journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 9, status: 'InProgress', notes: notesOn(9, 2) }),
+          logEntry({ id: 7, status: 'Completed', rating: 8.5, completedYear: 2019 }),
+        ],
+      }),
+    });
+
+    open();
+
+    expect(await screen.findByRole('region', { name: 'Completed in 2019' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Delete the Completed pass from 2019' }),
+    ).toBeInTheDocument();
+
+    // And where the current pass's notes would go if it were deleted, named the same way.
+    await userEvent.click(screen.getByRole('button', { name: 'Delete this pass' }));
+    expect(
+      screen.getByText('Its 2 notes move to the Completed pass from 2019.'),
+    ).toBeInTheDocument();
+  });
+
+  it('takes a start on a day and a finish in that year as in order', async () => {
+    const journal = journalServer({
+      detail: gameDetail({
+        logEntries: [
+          logEntry({ id: 7, status: 'Completed', startedAt: '2019-05-05T16:00:00+00:00' }),
+        ],
+      }),
+    });
+
+    open();
+    await screen.findByLabelText('Completed', { selector: 'input' });
+    await userEvent.click(switchOf('Completed').getByRole('button', { name: 'Year' }));
+    await userEvent.type(screen.getByLabelText('Completed', { selector: 'input' }), '2019');
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1), autosaves);
+    expect(journal.saved[0]?.body).toMatchObject({
+      startedAt: '2019-05-05T16:00:00+00:00',
+      completedAt: null,
+      completedYear: 2019,
+    });
+  });
+});
+
 describe('EntryDrawer, opened at a note', () => {
   let scrolled: Element[];
 
@@ -1783,6 +2044,25 @@ describe('EntryDrawer, on a film', () => {
     };
   }
 
+  it('offers a film its dates as a day or a year too, under its own word for the finish', async () => {
+    // Every board at once, round one's pick: the dates are on log_entries, which every hobby
+    // shares, and nothing in the form asks which hobby it is in.
+    movieJournalServer({
+      detail: movieDetail({
+        logEntries: [logEntry({ id: 7, status: 'Completed', completedYear: 2014 })],
+      }),
+    });
+
+    openFilm();
+
+    expect(await screen.findByLabelText('Watched', { selector: 'input' })).toHaveValue('2014');
+    expect(
+      within(screen.getByRole('group', { name: 'Watched as' })).getByRole('button', {
+        name: 'Year',
+      }),
+    ).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('bylines the director, where a game bylines the developer', async () => {
     movieJournalServer({
       detail: movieDetail({ title: 'Arrival', directors: ['Denis Villeneuve'] }),
@@ -1898,6 +2178,8 @@ describe('EntryDrawer, on a film', () => {
       hoursPlayed: null,
       startedAt: null,
       completedAt: null,
+      startedYear: null,
+      completedYear: null,
       seasonNumber: null,
       episodeNumber: null,
     });
@@ -2038,6 +2320,8 @@ describe('EntryDrawer, on a show', () => {
       hoursPlayed: null,
       startedAt: null,
       completedAt: null,
+      startedYear: null,
+      completedYear: null,
       seasonNumber: 2,
       episodeNumber: 4,
     });
@@ -2915,6 +3199,19 @@ describe('EntryDrawer, moving the title', () => {
     expect(screen.queryByText(/Did you finish it/)).not.toBeInTheDocument();
   });
 
+  it('asks about a finish kept as a year in its year, as the card does', async () => {
+    journalServer({
+      detail: gameDetail({
+        logEntries: [logEntry({ id: 7, status: 'Completed', completedYear: 2019 })],
+      }),
+    });
+
+    openToMove();
+    await pick('Completed', 'Playing');
+
+    expect(screen.getByText('Did you finish it in 2019?')).toBeInTheDocument();
+  });
+
   it('hands the keyboard back to the heading once the move is made', async () => {
     journalServer({ detail: gameDetail({ logEntries: [logEntry({ id: 7, status: 'InProgress' })] }) });
 
@@ -3012,6 +3309,12 @@ describe('EntryDrawer, moving the title', () => {
     fireEvent.wheel(screen.getByRole('spinbutton', { name: 'Hours played' }), { deltaY: -100 });
     expect(rating()).toHaveValue(8.5);
     expect(screen.getByRole('spinbutton', { name: 'Hours played' })).toHaveValue(12);
+
+    // #24's Day | Year switch is a fourth: a press, which no change event carries.
+    fireEvent.click(
+      within(screen.getByRole('group', { name: 'Started as' })).getByRole('button', { name: 'Year' }),
+    );
+    expect(started()).toHaveAttribute('type', 'date');
 
     // Nor does the heading offer a second move, which could land before the first.
     expect(await control('On Hold')).toHaveAttribute('aria-disabled', 'true');

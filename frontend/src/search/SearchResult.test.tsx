@@ -70,16 +70,19 @@ describe('SearchResult', () => {
   });
 
   it('offers the three columns a title can arrive in, one button each', async () => {
+    // + and ▶ add at a press. The ✓ asks when the title was finished first (#24), and adds once
+    // it is answered: see AddControl.test.tsx.
     const { onAdd } = renderResult({ hit: hit({ id: 3003, title: 'Hollow Knight' }) });
 
     await userEvent.click(screen.getByRole('button', { name: 'Add Hollow Knight to backlog' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add Hollow Knight to playing' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add Hollow Knight to completed' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Today' }));
 
     expect(onAdd.mock.calls).toEqual([
       [3003, 'Backlog'],
       [3003, 'InProgress'],
-      [3003, 'Completed'],
+      [3003, 'Completed', {}],
     ]);
   });
 

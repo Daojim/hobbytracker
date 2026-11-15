@@ -291,6 +291,23 @@ public sealed class LibraryExportTests(PostgresFixture postgres) : DatabaseTestB
     // ------------------------------------------------------------------ asking
 
     [Fact]
+    public async Task A_date_kept_as_a_year_reaches_the_spreadsheet_as_a_year()
+    {
+        // The sheets' Started in and Finished in columns read these (#24), and a kept year leaves
+        // its date cell empty — so a pass has to arrive with the year beside an empty instant, and
+        // never with a day the server made up for it.
+        var mediaId = await GivenGameAsync("Hollow Knight");
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed, startedYear: 2018, completedYear: 2019);
+
+        var pass = (await ExportAsync()).ShouldHaveSingleItem().Passes.ShouldHaveSingleItem();
+
+        pass.StartedYear.ShouldBe(2018);
+        pass.CompletedYear.ShouldBe(2019);
+        pass.StartedAt.ShouldBeNull();
+        pass.CompletedAt.ShouldBeNull();
+    }
+
+    [Fact]
     public async Task An_unknown_hobby_is_refused_rather_than_answered_with_nothing()
     {
         (await Client.GetAsync("/api/library/export?hobby=knitting", Ct)).StatusCode

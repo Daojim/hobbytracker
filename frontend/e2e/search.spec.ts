@@ -1,7 +1,16 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { card, column, entriesFor, seed, today, todayOnCard } from './support/board';
+import {
+  card,
+  column,
+  entriesFor,
+  expectQuestionPlaced,
+  seed,
+  today,
+  todayOnCard,
+  whenFinished,
+} from './support/board';
 
 /**
  * The way a game gets onto the board in the first place.
@@ -22,6 +31,23 @@ const result = (page: Page, title: string) =>
     .getByRole('region', { name: 'Search results' })
     .getByRole('listitem')
     .filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+
+/** What a tile's ✓ asks before a game goes straight to Completed (#24). */
+const question = (page: Page) => whenFinished(page);
+
+/** A result's ✓, which asks rather than adds. */
+const check = (page: Page, title: string) =>
+  result(page, title).getByRole('button', { name: `Add ${title} to completed`, exact: true });
+
+const expectPlaced = (page: Page, title: string) => expectQuestionPlaced(page, check(page, title));
+
+async function boxOf(locator: Locator, what: string) {
+  const box = await locator.boundingBox();
+  if (box === null) {
+    throw new Error(`${what} is not on screen`);
+  }
+  return box;
+}
 
 test.beforeEach(async ({ page }) => {
   resetDatabase();
@@ -69,11 +95,13 @@ test('a game can go straight to Playing, started today', async ({ page }) => {
   await expect(card(page, 'Hollow Knight')).toContainText(todayOnCard());
 });
 
-test('a game can go straight to Completed, finished today with no start made up', async ({
+test('a game can go straight to Completed, finished today at Today, with no start made up', async ({
   page,
 }) => {
   await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
   await page.getByRole('button', { name: 'Add Hollow Knight to completed' }).click();
+  // The ✓ asks first (#24). Today is the add it always was: the drag's own stamp.
+  await question(page).getByRole('button', { name: 'Today' }).click();
 
   await expect(column(page, 'Completed').getByText('Hollow Knight')).toBeVisible();
   await expect(card(page, 'Hollow Knight')).toContainText(todayOnCard());
@@ -102,6 +130,7 @@ test('a game just added opens its journal from the strip, and gets the keyboard 
   // becomes a way in once the server has the pass, which is when the tile says where it went.
   await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
   await page.getByRole('button', { name: 'Add Hollow Knight to completed' }).click();
+  await question(page).getByRole('button', { name: 'Today' }).click();
   await expect(result(page, 'Hollow Knight')).toContainText('On your board: Completed');
 
   const name = result(page, 'Hollow Knight').getByRole('button', {
@@ -119,6 +148,180 @@ test('a game just added opens its journal from the strip, and gets the keyboard 
   // it was. The card with the same name is on the board behind, and is not where it goes.
   await expect(drawer).toBeHidden();
   await expect(name).toBeFocused();
+});
+
+/**
+ * The ✓'s question (#24): a game finished long ago, added with the year it was finished rather
+ * than today. What only a browser can say is where the panel is, that the strip does not cut it
+ * off, and that the keyboard reaches its year box once it is placed.
+ */
+test.describe("the ✓'s question", () => {
+  test("asks over the tile with the keyboard in its year box, and the year it is given is the card's", async ({
+    page,
+  }) => {
+    await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+    await check(page, 'Hollow Knight').click();
+
+    const asked = question(page);
+    const year = asked.getByRole('textbox', { name: 'Year finished' });
+    await expect(asked).toBeVisible();
+    await expect(year).toBeFocused();
+    await expect(check(page, 'Hollow Knight')).toHaveAttribute('aria-expanded', 'true');
+
+    // Over the tile and out of the strip, which scrolls sideways and so cuts off whatever hangs
+    // over its edge: the point at the panel's middle is the panel's, not the strip's.
+    const { panel } = await expectPlaced(page, 'Hollow Knight');
+    const over = await page.evaluate(
+      ([x, y]) => document.elementFromPoint(x!, y!)?.closest('[role="dialog"]') !== null,
+      [panel.x + panel.width / 2, panel.y + panel.height / 2],
+    );
+    expect(over, 'the question is drawn over the strip').toBe(true);
+
+    await year.fill('2019');
+    await asked.getByRole('textbox', { name: 'Hours played' }).fill('40');
+    await page.keyboard.press('Enter');
+
+    await expect(result(page, 'Hollow Knight')).toContainText('On your board: Completed');
+    await expect(question(page)).toHaveCount(0);
+
+    // The year as a card prints one, alone, and never a day nobody named: the board follows its
+    // list of years to 2019, the one year there is.
+    await expect(card(page, 'Hollow Knight')).toContainText('2019');
+    await expect(card(page, 'Hollow Knight')).not.toContainText(todayOnCard());
+
+    const entries = await page.request.get('/api/log-entries', { params: { pageSize: 100 } });
+    const { items } = (await entries.json()) as {
+      items: {
+        startedAt: string | null;
+        startedYear: number | null;
+        completedAt: string | null;
+        completedYear: number | null;
+        hoursPlayed: number | null;
+      }[];
+    };
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      startedAt: null,
+      startedYear: null,
+      completedAt: null,
+      completedYear: 2019,
+      hoursPlayed: 40,
+    });
+  });
+
+  test('starts at the year added last, selected, so Enter adds the next game in it', async ({
+    page,
+  }) => {
+    await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+    await check(page, 'Hollow Knight').click();
+    await question(page).getByRole('textbox', { name: 'Year finished' }).fill('2019');
+    await page.keyboard.press('Enter');
+    await expect(result(page, 'Hollow Knight')).toContainText('On your board: Completed');
+
+    await check(page, 'Hollow Knight: Silksong').click();
+    const year = question(page).getByRole('textbox', { name: 'Year finished' });
+    await expect(year).toBeFocused();
+    await expect(year).toHaveValue('2019');
+    expect(
+      await year.evaluate((box: HTMLInputElement) => [box.selectionStart, box.selectionEnd]),
+    ).toEqual([0, 4]);
+
+    await page.keyboard.press('Enter');
+
+    await expect(result(page, 'Hollow Knight: Silksong')).toContainText('On your board: Completed');
+    await expect(card(page, 'Hollow Knight: Silksong')).toContainText('2019');
+  });
+
+  test('Escape hands the keyboard back to the ✓, and leaves the search as it was', async ({
+    page,
+  }) => {
+    const box = page.getByRole('searchbox', { name: 'Search games' });
+    await box.fill('hollow');
+    await check(page, 'Hollow Knight').click();
+    await expect(question(page)).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    await expect(question(page)).toHaveCount(0);
+    await expect(check(page, 'Hollow Knight')).toBeFocused();
+    await expect(check(page, 'Hollow Knight')).toHaveAttribute('aria-expanded', 'false');
+    await expect(box).toHaveValue('hollow');
+  });
+
+  test('a press anywhere else closes it, and adds nothing', async ({ page }) => {
+    await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+    await check(page, 'Hollow Knight').click();
+    await expect(question(page)).toBeVisible();
+
+    // The search box is somewhere else, and pressing it changes nothing on its own.
+    await page.getByRole('searchbox', { name: 'Search games' }).click();
+
+    await expect(question(page)).toHaveCount(0);
+    await expect(check(page, 'Hollow Knight')).toBeVisible();
+  });
+
+  test.describe('at 1280px', () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test('asks over the tile, inside the window', async ({ page }) => {
+      await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+      await check(page, 'Hollow Knight: Silksong').click();
+
+      await expect(question(page).getByRole('textbox', { name: 'Year finished' })).toBeFocused();
+      await expectPlaced(page, 'Hollow Knight: Silksong');
+    });
+  });
+
+  test.describe('in a window narrower than the strip', () => {
+    // Not the phone block's emulation, so Firefox runs it too: a window this narrow lays the
+    // board out as a phone's, "hollow"'s three results overflow the strip, and the page is taller
+    // than the window by enough to take the strip's tiles up to its top.
+    test.use({ viewport: { width: 400, height: 480 } });
+
+    test('follows its ✓ as the strip and the page scroll, and goes below once above has no room', async ({
+      page,
+    }) => {
+      // The strip's second tile, Hollow Knight, whose question is not held at the window's edge:
+      // its ✓ ends about 308px in, so the panel starts 20px in.
+      await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+      const add = check(page, 'Hollow Knight').locator('..');
+      await check(page, 'Hollow Knight').click();
+      await expect(question(page).getByRole('textbox', { name: 'Year finished' })).toBeFocused();
+      const { panel: before, control } = await expectPlaced(page, 'Hollow Knight');
+      expect(before.x, 'not held at the edge').toBeGreaterThan(8);
+
+      // Sideways, as a thumb moves the strip, and less than would take it to the edge.
+      const strip = page.getByRole('region', { name: 'Search results' }).getByRole('list').first();
+      await strip.evaluate((list) => list.scrollBy(8, 0));
+      await expect.poll(async () => (await boxOf(add, 'the add')).x).toBeLessThan(control.x - 6);
+      const { panel: sideways } = await expectPlaced(page, 'Hollow Knight');
+      expect(sideways.x, 'moved with the strip').toBeLessThan(before.x - 6);
+
+      // Down the page as far as it goes, which takes the control up near the window's top and
+      // leaves no room for the question above it.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await expect.poll(async () => (await boxOf(add, 'the add')).y).toBeLessThan(6 + 156 + 8);
+
+      const { panel, control: moved } = await expectPlaced(page, 'Hollow Knight');
+      expect(panel.y, 'the question is below its ✓').toBeGreaterThan(moved.y);
+    });
+  });
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    test.skip(({ browserName }) => browserName === 'firefox', 'Firefox has no phone to emulate.');
+
+    test("asks over the strip's first tile, held 8px inside the window", async ({ page }) => {
+      // Silksong is the strip's first tile for "hollow": the most rated of the three.
+      await page.getByRole('searchbox', { name: 'Search games' }).fill('hollow');
+      await check(page, 'Hollow Knight: Silksong').tap();
+
+      await expect(question(page).getByRole('textbox', { name: 'Year finished' })).toBeFocused();
+      const { panel } = await expectPlaced(page, 'Hollow Knight: Silksong');
+      expect(panel.x).toBeCloseTo(8, 0);
+      expect(panel.x + panel.width).toBeLessThanOrEqual(390 - 8);
+    });
+  });
 });
 
 test('a search that matches nothing says so', async ({ page }) => {

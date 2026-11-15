@@ -104,13 +104,14 @@ Sign in once and spend the cookie, as below.
 | `GET /api/anime/{id}` | one anime and everything you logged against it |
 | `PUT /api/anime/{mediaId}/genre` | choose the genre that colours a card, or null for automatic |
 | `POST /api/anime/refresh` | re-fetch every MAL title on the board. One request per title |
-| `GET POST /api/log-entries` | the journal — paged, filterable by status and title |
+| `GET POST /api/log-entries` | the journal — paged, filterable by status and title. Each date is a day or, as `startedYear` and `completedYear`, a year kept as a year, never both |
 | `GET PUT DELETE /api/log-entries/{id}` | one pass. Deleting it moves its notes to the current pass, and takes them only with the title's last |
 | `POST /api/log-entries/{entryId}/notes` | write a note against a pass — an append, never an overwrite. JSON, or a form when it carries pictures |
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date, and a form rewrite names the pictures it keeps |
 | `GET /api/note-pictures/{id}`, and `thumbnail` under it | a picture in one of your notes, or the card's small copy of it. Never rewritten, so the browser keeps it |
 | `GET /api/notes/search?q=&hobby=` | your notes on one board with every word of `q` in them, in any order and any case, newest first. Fifty at most, and it says when there were more |
 | `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column, with the hours its header says over the whole column and the titles each of its counts leaves out |
+| `POST /api/library/{mediaId}` | put a title on your board in a column, dated as a drag into it would date it. An add to Completed can name its finish, `completedYear` or `undated: true`, and `hoursPlayed`. 409 if it is on your board already |
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls. `notFinished: true` puts a finish back on the pass it was made on |
 | `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
 | `PUT /api/library/order` | store one column's manual ranking |

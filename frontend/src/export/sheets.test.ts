@@ -67,6 +67,8 @@ describe('exportSheets', () => {
       'Platform',
       'Started',
       'Finished',
+      'Started in',
+      'Finished in',
       'Added',
       'Playthroughs',
       'Genre',
@@ -89,6 +91,8 @@ describe('exportSheets', () => {
       'Platform',
       'Started',
       'Finished',
+      'Started in',
+      'Finished in',
       'Notes',
     ]);
     expect(headers(notes)).toEqual(['Title', 'Playthrough', 'Written', 'Pictures', 'Note']);
@@ -338,6 +342,45 @@ describe('exportSheets', () => {
       value: new Date(Date.UTC(2026, 7, 20, 21, 30)),
       format: 'yyyy-mm-dd hh:mm',
     });
+  });
+
+  it('writes the year of every start and finish as a number, and a kept year’s date cell empty', () => {
+    // #24, round three's pick: *Started in* and *Finished in* beside the dates, on both sheets,
+    // over a kept year written as text in the date cell — which Excel marks with its green triangle
+    // and sorts after every date, so a 2016 game follows 2026 — and over a number there, which
+    // Excel reads as a day in 1905. A day's year is the one it was here; a kept year is as kept.
+    const evening = '2025-01-01T02:30:00+00:00'; // 9:30pm on New Year's Eve 2024 here
+    const { games, passes } = build([
+      title({
+        passes: [
+          logEntry({ id: 2, status: 'Completed', startedAt: evening, completedYear: 2025 }),
+          logEntry({ id: 1, status: 'Completed', startedYear: 2018, completedYear: 2019 }),
+        ],
+      }),
+    ]);
+
+    const current = row(games, 1);
+    expect(current.Started).toMatchObject({ value: day(2024, 12, 31) });
+    expect(current.Finished).toBeNull();
+    expect(current['Started in']).toMatchObject({ type: Number, value: 2024 });
+    expect(current['Finished in']).toMatchObject({ type: Number, value: 2025 });
+
+    // Oldest first, playthrough 1 the first run.
+    expect(down(passes, 'Started')).toEqual([undefined, day(2024, 12, 31)]);
+    expect(down(passes, 'Finished')).toEqual([undefined, undefined]);
+    expect(down(passes, 'Started in')).toEqual([2018, 2024]);
+    expect(down(passes, 'Finished in')).toEqual([2019, 2025]);
+  });
+
+  it('gives the two year columns room for their headers, which ran past them at 10', () => {
+    // The build's pick: 12, as Hours played, whose twelve characters fit at 12.
+    const { games, passes } = build([title()]);
+
+    for (const sheet of [games, passes]) {
+      for (const header of ['Started in', 'Finished in']) {
+        expect(sheet.columns[headers(sheet).indexOf(header)]).toEqual({ width: 12 });
+      }
+    }
   });
 
   it('numbers each title’s passes from the first, on the passes sheet and against each note', () => {

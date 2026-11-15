@@ -781,6 +781,155 @@ public sealed class StatusTransitionTests(PostgresFixture postgres) : DatabaseTe
         back.StartedAt.ShouldBeNull();
     }
 
+    // ------------------------------------------------- a date kept as a year (#24)
+
+    [Fact]
+    public async Task Moving_back_to_the_backlog_clears_a_kept_year_as_it_clears_a_day()
+    {
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Dropped, startedYear: 2018, completedYear: 2019);
+
+        await MoveAsync(mediaId, LogStatus.Backlog);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.StartedYear.ShouldBeNull();
+        entry.CompletedYear.ShouldBeNull();
+        entry.StartedAt.ShouldBeNull();
+        entry.CompletedAt.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(LogStatus.InProgress)]
+    [InlineData(LogStatus.OnHold)]
+    public async Task Picking_up_a_pass_begun_in_a_year_keeps_the_year_and_stamps_no_day(LogStatus target)
+    {
+        // Playing's rule, a start only when there is none, read across both kinds: a game begun in
+        // 2019 and picked up again was still begun in 2019. A day stamped beside the year would be
+        // two starts, which the schema refuses as a 500.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Dropped, startedYear: 2019);
+
+        (await MoveAsync(mediaId, target)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.StartedYear.ShouldBe(2019);
+        entry.StartedAt.ShouldBeNull();
+    }
+
+    [Theory]
+    [InlineData(LogStatus.InProgress)]
+    [InlineData(LogStatus.OnHold)]
+    public async Task Picking_up_a_pass_clears_a_finish_kept_as_a_year(LogStatus target)
+    {
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Dropped, startedYear: 2018, completedYear: 2019);
+
+        (await MoveAsync(mediaId, target)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.CompletedYear.ShouldBeNull();
+        entry.CompletedAt.ShouldBeNull();
+        entry.StartedYear.ShouldBe(2018);
+    }
+
+    [Fact]
+    public async Task Finishing_a_pass_stamps_today_over_a_finish_kept_as_a_year()
+    {
+        // A finish year the journal gave a pass still being played gives way to finishing it today,
+        // the one finish anybody has just said, by the drag's rule.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, startedYear: 2018, completedYear: 2019);
+
+        (await MoveAsync(mediaId, LogStatus.Completed)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.CompletedAt.ShouldBe(Now);
+        entry.CompletedYear.ShouldBeNull();
+        entry.StartedYear.ShouldBe(2018);
+    }
+
+    [Fact]
+    public async Task Dropping_a_pass_with_only_a_finish_year_starts_it_in_that_year()
+    {
+        // The Dropped arm copies a finish into a missing start, and has to copy a year as a year.
+        // Stamped today instead, a 2026 start sits after a 2019 finish: out of order, and on a drag
+        // with nothing wrong with it. The database cannot see that pairing, so nothing would refuse
+        // it either — the pass would simply be wrong.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.InProgress, completedYear: 2019);
+
+        (await MoveAsync(mediaId, LogStatus.Dropped)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.StartedYear.ShouldBe(2019);
+        entry.StartedAt.ShouldBeNull();
+        entry.CompletedYear.ShouldBe(2019);
+    }
+
+    [Fact]
+    public async Task Dropping_a_pass_begun_in_a_year_keeps_the_year()
+    {
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.OnHold, startedYear: 2019);
+
+        (await MoveAsync(mediaId, LogStatus.Dropped)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.StartedYear.ShouldBe(2019);
+        entry.StartedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_finish_kept_as_a_year_put_back_goes_as_a_day_would()
+    {
+        // #14's No: the finish never happened, so it goes whichever kind it is. Left behind, it
+        // would be a finish on a pass in Playing, which no column shows.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed, startedYear: 2018, completedYear: 2019);
+
+        (await PutBackAsync(mediaId, LogStatus.InProgress)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.Status.ShouldBe(LogStatus.InProgress);
+        entry.CompletedYear.ShouldBeNull();
+        entry.CompletedAt.ShouldBeNull();
+        entry.StartedYear.ShouldBe(2018);
+        entry.StartedAt.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task A_finish_kept_as_a_year_put_back_as_dropped_is_not_copied_into_the_start()
+    {
+        // The finish goes before Dropped's rule runs, as a day's does, or the year being taken
+        // back would become the start.
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed, completedYear: 2019);
+
+        (await PutBackAsync(mediaId, LogStatus.Dropped)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entry = (await EntriesAsync(mediaId)).ShouldHaveSingleItem();
+        entry.CompletedYear.ShouldBeNull();
+        entry.StartedYear.ShouldBeNull();
+        entry.StartedAt.ShouldBe(Now);
+    }
+
+    [Fact]
+    public async Task Replaying_a_game_finished_in_a_year_leaves_the_year_on_the_finished_pass()
+    {
+        var mediaId = await GivenGameAsync();
+        await GivenLogEntryAsync(mediaId, LogStatus.Completed, startedYear: 2018, completedYear: 2019);
+
+        (await MoveAsync(mediaId, LogStatus.InProgress)).StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        var entries = await EntriesAsync(mediaId);
+        entries.Count.ShouldBe(2);
+        entries[0].StartedYear.ShouldBe(2018);
+        entries[0].CompletedYear.ShouldBe(2019);
+        entries[1].StartedAt.ShouldBe(Now);
+        entries[1].StartedYear.ShouldBeNull();
+        entries[1].CompletedYear.ShouldBeNull();
+    }
+
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>
         Client.PostAsJsonAsync(
             $"/api/library/{mediaId}/status", new StatusTransitionRequest(status), Json, Ct);
