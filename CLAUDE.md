@@ -673,7 +673,7 @@ shuffled.
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
       notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
       two more on 3 November, one on 4 November, one on 7 November, out of #17's workshop,
-      two on 8 November, and five on 14 November:
+      two on 8 November, five on 14 November, and one on 20 November:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -801,6 +801,8 @@ shuffled.
         warning for a colour that cannot be read, and no flash on load
       - [ ] collapsing a column — an arrow beside every heading, side by side, that keeps the
         heading, the hours and the drop target, as Dropped does now
+      - [ ] the README, refreshed — after #25 to #29: shots that open bigger on GitHub, which a
+        `<picture>` there does not, a wheel larger than its 360px GIF, and the tour caught up
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.

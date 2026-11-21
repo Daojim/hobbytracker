@@ -14,7 +14,9 @@ twenty-second, a game's OpenCritic and Steam pages, came out of #17's workshop o
 A twenty-third and a twenty-fourth were asked for on 8 November 2026, the morning #17 shipped:
 hiding a game from Discover, and adding a game finished long ago without inventing its dates.
 Five more were asked for on 14 November 2026: a journal opened from the Stats page, a roomier
-picker, Settings rearranged, a theme of your own, and collapsing a column. CLAUDE.md's **What is next** points here.
+picker, Settings rearranged, a theme of your own, and collapsing a column. A thirtieth, the README
+refreshed once those five are built, was asked for on 20 November 2026. CLAUDE.md's **What is
+next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -57,6 +59,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 27 | Settings, rearranged | S–M | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
+| 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
 Production runs `2ef7369`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -5212,6 +5215,67 @@ next tallest, which is the point.
 - On a phone there is no arrow.
 - e2e: a card dragged onto a collapsed column lands there.
 - **Put the fault back:** stop rendering the section while collapsed, and the drop test goes red.
+
+---
+
+## 30. The README, refreshed · planned
+
+**Planned 20 November 2026**, at the user's request, **to be done after #25 to #29**, so its shots
+show them. In the user's words: *"one of the improvements I want would be to have better
+screenshots. Right now, there are screenshots in the readme, but you can't click on them when
+viewing it on GitHub to see a bigger image. The gif screenshot of the backlog picker is also too
+small, etc."* The *etc.* is the user's, so the workshop asks what else before it draws anything.
+
+**What is there today**, measured on 20 November 2026:
+- **Nine shots, each a `<picture>`** with a dark `<source>` and a light `<img>`, so a reader's
+  colour scheme picks Shelf Dark or Shelf Light (`bd3885d`, 1 November). **None opens bigger, and
+  the `<picture>` is why.** GitHub's Markdown API links a Markdown image or a bare `<img>` to its
+  file, but the README the repo page renders (`GET /repos/Daojim/hobbytracker/readme`, asked for as HTML) has
+  each `<picture>` inside a `<themed-picture>` with no link.
+- **Wrapping one in a link is not the fix it looks.** Asked to render `<a><picture>…</picture></a>`,
+  GitHub's Markdown API moved the `<img>` out of the `<picture>` into a link of its own, which
+  leaves the dark `<source>` nothing to choose for. **And the API is not the repo page**: asked
+  for a bare `<picture>`, the API linked its `<img>` where the repo page does not. Believe a form
+  only on a pushed branch's own page, in Firefox and Chrome.
+- **The wheel is a GIF 360px wide and 601 tall**, shown at `width="300"` in a table cell beside its
+  words, and 1.8 MB, which is most of the 3.0 MB of pictures a reader in light mode downloads.
+- **Five shots are shown small**: search, the calendar, Discover and anime two to a row at
+  `width="390"`, and the phones at 800. The board, the journal and Stats fill the column. Every
+  WebP but the calendar's is 1,760px wide, so the pixels are there for a bigger view.
+- **The shots are older than seven features**: #17's *From your ratings* tab, #19's arrow, #20's
+  counts that open a list, #21's list behind a rating, #22's OpenCritic and Steam rows, #23's
+  eye and #24's year. #17's and #21's builds edited the words, and nothing has touched the
+  pictures since they were made. #25 to #29 add more, and **#26 changes the very panel the GIF shows**, which
+  is why this waits.
+- **The words are behind too.** *How it's built* names IGDB, TMDB, MyAnimeList and
+  HowLongToBeat, and not OpenCritic, Steam or Wikidata (#22), and the *Also* line has neither
+  hiding from Discover (#23) nor a game finished long ago (#24).
+- **The harness is still here**, in `frontend/workshop.local/readme/`, gitignored and so in this
+  checkout alone: the seed, the shots and the recording, against a `hobbytracker_readme`
+  database. How it was run is in the auto-memory note on workshops, under 1 November.
+
+### Decide at pickup
+
+- **What else the *etc.* covers.** Asked first, in words, before anything is drawn.
+- **How a shot opens bigger.** Render each on a pushed branch: two plain images per shot with
+  GitHub's `#gh-light-mode-only` and `#gh-dark-mode-only` fragments, which the API links like any
+  image, if the repo page still hides the other theme's; a *Full size: light · dark* line under
+  each `<picture>`; or one theme only, as plain images. Recommended: whichever keeps both themes
+  and opens the one the reader is looking at, which only the renders can say.
+- **The wheel.** Recorded larger, at 480 or 600px, as a GIF, whose weight grows with its area,
+  2.8 times today's at 600; as an animated WebP, smaller at one size, if GitHub shows it; or as a
+  video, which GitHub may play only from an upload of its own rather than a file in the repo.
+  Measure each before offering it. And whether it keeps its table cell or takes the column.
+- **Which shots are retaken, and whether the tour gains any**, shown as the whole list, as the
+  1 November round two showed its thirteen candidates.
+
+### Things to get right
+
+- **Never production**: the demo account on a database of its own, as `docs/shots/` has always
+  been made (CLAUDE.md, **The map**).
+- **A shot is a download**: say what each costs a reader, the wheel above all.
+- **Check the README as the repo page renders it** before calling it done, on the branch, since
+  the API and the page differed on 20 November.
 
 ---
 
