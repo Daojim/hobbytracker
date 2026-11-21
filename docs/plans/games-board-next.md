@@ -54,14 +54,14 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
 | 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
-| 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Built 20 November 2026**, the day it was picked up and workshopped, tests first, on branch `journal-from-stats`. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
+| 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Shipped and deployed 20 November 2026** (PR #101), built tests first the day it was picked up and workshopped. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. A render of the widths first. See its section |
 | 27 | Settings, rearranged | S–M | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
-Production runs `2ef7369`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
+Production runs `ba8458b`'s code, which was `main` on 20 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -4948,7 +4948,7 @@ planted; the faults of steps 13 and 14 are listed below as they were planted.
 
 ---
 
-## 25. A journal from the Stats page · built
+## 25. A journal from the Stats page · shipped
 
 **Planned 14 November 2026**, at the user's request. Lines were read at `8c3ae98`. In the user's
 words: *"On the 'Finished Each Month' section when it's displayed a year, if I click on the cover
@@ -5164,6 +5164,27 @@ tests, which restores each file after its run. Every fault turned red exactly th
   on the board too, which is what fixed the 30 seconds.
 - **Where a move lands with no board on screen**, which the plan did not ask, and **which columns
   the heading offers**, which it did not say: the board's, less any taken off in Settings.
+
+### Deployed
+
+**At about 21:46 Eastern on 20 November 2026**, merged as PR #101 and deployed by the runbook in
+`docs/deploy.md`, `e2570ab` to `ba8458b`. No migration, no variable and no route, and nothing in
+the backend; **the API was recreated all the same, API first**, because the .NET base images had
+moved upstream, its layers pulled again and its `apt-get` step run again.
+
+- **The bundle** went `index-Bre0ogh1.js` to `index-Cn1vjcVW.js`, where a local build said
+  `index-C-rQQr5z.js`. **The stylesheet** went `index-B-A_kP2W.css` to `index-FmHVnJQO.css`, the
+  local build's name.
+- **Four script strings each 0 then 1**, by `grep -F`: `stats-cover-`, `-row-`, the cover's class
+  string and the row's.
+- **The three new rules** found by diffing the two stylesheets' selectors, each 0 then 1:
+  `.hover\:outline-2:hover`, `.hover\:outline-offset-2:hover` and `.hover\:outline-accent:hover`.
+  None went, and the served stylesheet's selectors are now the local build's exactly.
+- **`/api/auth/me` answered `null` (200)** before and after. The API's log, read by its levels,
+  had no warn, fail or crit line among 11 `info`, and said *No migrations were applied*.
+- **Both timers ran five minutes on**, as a restart re-arms them: *Queued 0 titles for
+  HowLongToBeat.* and *Release refresh brought 15 not-yet-released titles up to date.*, waited for
+  in the foreground with an until-loop over the API's log, and still no warn, fail or crit line.
 
 ---
 
