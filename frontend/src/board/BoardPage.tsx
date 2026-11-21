@@ -9,7 +9,7 @@ import { AppHeader } from '../shell/AppHeader';
 import { BoardSearch } from '../search/BoardSearch';
 import { noteResultId } from '../search/NoteResults';
 import { resultTitleId } from '../search/SearchResult';
-import type { FoundNote } from '../journal/NoteList';
+import { useJournal } from '../journal/useJournal';
 import { CARD_CLASS, CardFace, cardAnswerId, cardTitleId } from './Card';
 import { Column, columnQuery, leftOutCountId } from './Column';
 import { ColumnSwitcher } from './ColumnSwitcher';
@@ -85,17 +85,10 @@ function Board({ hobby }: { hobby: Hobby }) {
   // Which column a phone is showing. Kept while the window is wide, so turning a phone sideways
   // and back returns to the column you were reading.
   const [shown, setShown] = useState<LogStatus>('Backlog');
-  // Which title's journal is open, if any. One at a time: the drawer covers the board.
-  //
-  // It lives in a history entry rather than in state, which is what makes a phone's Back
-  // close the drawer instead of leaving the board — the press it used to get was the board's.
-  // Closing is that same press, so nothing is left behind for the next one to find. See
-  // useOverlayHistory, which holds the three ways that goes quietly wrong.
-  const {
-    openFor: journalFor,
-    open: openJournal,
-    close: closeJournal,
-  } = useOverlayHistory('journal');
+  // Which title's journal is open, if any, and the way in and out of it. One at a time: the
+  // drawer covers the board. Shared with the Stats page since #25; see useJournal.
+  const journal = useJournal();
+  const journalFor = journal.openFor;
   // Which card is asking to be removed, if any. Held here rather than in the card because a
   // refetch remounts cards — the same fact that makes focus go back to the drawer's opener by
   // id rather than by a stored element — and a confirm that closes itself when a background
@@ -105,23 +98,6 @@ function Board({ hobby }: { hobby: Hobby }) {
   // falls out of that, which is what you want anyway: two open menus on one board is two
   // questions nobody asked.
   const [menuFor, setMenuFor] = useState<number | null>(null);
-
-  // What it was opened from, by the id of that element, so the keyboard can be handed back to it
-  // on the way out. An id rather than a media id, because there are three doors and one title
-  // can be behind two of them at once: a card, and a search result naming the same game.
-  const openedFrom = useRef<string | null>(null);
-  // Whether it was opened by a card's "How long for me?", so the question starts open. State
-  // rather than part of the history entry: Back is about whether the drawer is open, and nothing
-  // about which door it came through needs surviving a reload. Set on every opening, so a
-  // question asked from the menu is never still open for the next title opened by its name.
-  const [askHowLong, setAskHowLong] = useState(false);
-  // The note a search found, when the drawer was opened from one, so the journal opens at it.
-  // State for `askHowLong`'s reason, and set on every opening for the same one: a note found
-  // once is never marked in the next journal opened by another door.
-  const [atNote, setAtNote] = useState<FoundNote | null>(null);
-  // Whether it was opened from Completed's list of the titles without your hours, so Hours
-  // played has the keyboard. The same again: state, and said on every opening.
-  const [atHours, setAtHours] = useState(false);
 
   // Whether "What should I play next?" is open: a history entry, as the journal is, so a phone's
   // Back closes it. A pick's name opens the journal on top of it, as a second entry, and Back from
@@ -171,19 +147,8 @@ function Board({ hobby }: { hobby: Hobby }) {
   const drawn = sideBySide ? columns : [showing];
   const switching = !sideBySide && columns.length > 1;
 
-  // Focus goes back to what the drawer was opened from — by id, not by a stored element.
-  // Refetches remount a card while the drawer is open, so a reference kept from then would
-  // point at a node no longer in the document.
-  useEffect(() => {
-    if (journalFor !== null || openedFrom.current === null) {
-      return;
-    }
-
-    document.getElementById(openedFrom.current)?.focus();
-    openedFrom.current = null;
-  }, [journalFor]);
-
-  // And when the picker closes, back to the button that opened it, by id for the same reason.
+  // When the picker closes, back to the button that opened it, by id, as the journal's opener is
+  // found and for its reason: see useJournal.
   const wasPicking = useRef(false);
   useEffect(() => {
     if (picking) {
@@ -207,24 +172,10 @@ function Board({ hobby }: { hobby: Hobby }) {
     }
   }, [leavingFor, leavingTo]);
 
-  // Every way into the drawer: a card, a calendar row, a search result's name, a note a search
-  // found, a pick's name in "What should I play next?", or a title in the list under one of a
-  // column header's counts. Each names the element the keyboard goes back to.
-  function openJournalFrom(
-    returnTo: string,
-    mediaId: number,
-    {
-      askHowLong: asking = false,
-      note = null,
-      atHours: hours = false,
-    }: { askHowLong?: boolean; note?: FoundNote | null; atHours?: boolean } = {},
-  ) {
-    openedFrom.current = returnTo;
-    setAskHowLong(asking);
-    setAtNote(note);
-    setAtHours(hours);
-    openJournal(mediaId);
-  }
+  // Every way into the drawer on the board: a card, a calendar row, a search result's name, a note
+  // a search found, a pick's name in "What should I play next?", or a title in the list under one
+  // of a column header's counts. Each names the element the keyboard goes back to.
+  const openJournalFrom = journal.openFrom;
 
   return (
     // 16px on a phone. 24 there, with the column's own 12 inside it, put the cards 36px in from
@@ -427,10 +378,8 @@ function Board({ hobby }: { hobby: Hobby }) {
         <EntryDrawer
           hobby={hobby}
           mediaId={journalFor}
-          onClose={closeJournal}
-          askHowLong={askHowLong}
-          atNote={atNote}
-          atHours={atHours}
+          onClose={journal.close}
+          {...journal.opening}
           // The board's own list and the board's own move, so the pass's heading offers what a
           // card's menu offers and moves the card the way the menu does.
           columns={columns}

@@ -229,4 +229,12 @@
       spreadsheet has a column of years beside each date. Nineteen choices in three rounds of
       renders, every one the recommendation, and the built pieces match the picked renders to the
       pixel
+- [x] A journal from the Stats page. On your Stats page a finish opens its game's journal over
+      the page: every cover in a year's months, and every row in a rating's list, which until now
+      opened nothing. It is the board's drawer, whole, so a finish put back leaves its month while
+      the drawer is still open, a rating changed moves its game along the chart, and a move lands
+      last in its new column, where the board's own journal puts it. A cover rings in the accent
+      under the pointer and a row's name is in the accent, both picked from renders of the user's
+      own finishes. Reading the code first found the page could show its old numbers for 30
+      seconds after a change on the board, and every write that can change a finish now clears them
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

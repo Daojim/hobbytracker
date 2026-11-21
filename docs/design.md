@@ -561,6 +561,33 @@ page is private: https://claude.ai/artifact/4kAxfVy3n4hBMvgx61xge2. What it does
   `workshop.local/ratings/compare-built.mjs`, which pressed the column in both and shot them as
   PNG. After a press of the pointer no ring is drawn, `:focus-visible` false on the column.
 
+**A finish's journal, since 20 November 2026.** On your page a cover and a row in a rating's list
+open that game's journal (#25). Picked from renders of the shipped Stats page with only the covers
+and the list swapped for prototypes, on the user's 61 finishes, in Shelf Light and Shelf Dark at
+1440 and 390, and the list on Ember. The workshop page is private:
+https://claude.ai/artifact/CLSZypukga5zeFXmvpaniZ. All three picks were the recommendation. What it
+does is `docs/stats.md`'s, under **The journal from the page**.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| How a cover says it opens | **A ring in the accent under the pointer**, `hover:outline-2 hover:outline-offset-2 hover:outline-accent`, the same ring `focus-visible` draws, which is the page's own: its chart rows wear it | the pointer alone; a lift of 2px with `shadow-lg`, which would be the first thing in the app to move under the pointer, and whose shadow barely showed on Shelf Dark |
+| A row in a rating's list | **The whole row a button, its name `text-accent`**, with #20's `hover:bg-hover` | #20's row with its name in the page's ink, which says nothing until hovered; the name alone a button, #12's, identical at rest and a smaller target |
+| A cover on a phone | **Today's, 32×45px**: October 2026's seven on one line, the panel 475px | 40×56px, closer to Android's 48dp target: October on two lines, the panel 602px |
+
+- **A cover's button is `block cursor-pointer rounded`**, since Tailwind v4 no longer gives a
+  button the pointer, and takes a stack's width from `sm` (`sm:w-full`) as the cover does; under
+  All years it is the 32px cover's own width. The ring is 2px off the cover, which under All years
+  reaches the neighbours 4px away and stays clear of them.
+- **A row keeps its height**, 48px with a name on two lines and 40 with one: the button is the
+  `li`'s only child, `flex w-full items-center gap-2 rounded px-2 py-1 text-left`, the row's old
+  classes. Its keyboard ring is the browser's, as #20's rows and the rating columns above wear it.
+- **On Ember a name is `#f2545b`**, the red the counts and the tab above it already wear there.
+- **The built covers and list differ from the picked prototypes by no pixel** in 15 states: the
+  months and the 7s open at 1440 and 390, light and dark, at rest and under the pointer, the
+  keyboard on a cover and on a row, and a cover in a row under All years. From the gitignored
+  `workshop.local/journal-from-stats/compare-built.mjs`, which shoots both as PNG, after checking
+  that each state under the pointer or the keyboard differs from the same panel at rest.
+
 ### Sharing a board
 
 **A Sharing group in Settings opens a dialog, and a share is the board under a banner.** Picked at

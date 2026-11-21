@@ -2,7 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitEstimate } from './support/hltb';
-import { seed, today } from './support/board';
+import { seed, titlesIn, today } from './support/board';
 
 /**
  * The Stats page, end to end: the real API adding up passes the real board wrote, and the way to
@@ -156,6 +156,76 @@ test('opens the games rated at a point inside the Ratings panel, two across', as
   expect(third!.x, 'the third title starts the second column').toBeGreaterThan(first!.x + first!.width / 2);
 });
 
+// #25: a finish on your Stats page opens that game's journal over the page, the board's drawer
+// whole, from its cover in the months and its row in a rating's list.
+
+test("opens a game's journal from its cover, and Back closes it on the year it was opened from", async ({
+  page,
+}) => {
+  await aYear(page);
+  await page.goto(`/board/games/stats/${thisYear()}`);
+
+  // A ring in the accent under the pointer and none at rest: the user's pick from renders.
+  const cover = section(page, 'Finished each month').getByRole('button', { name: 'Celeste', exact: true });
+  expect(await cover.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('none');
+  await cover.hover();
+  expect(await cover.evaluate((element) => getComputedStyle(element).outlineStyle)).toBe('solid');
+
+  await cover.click();
+  await expect(page.getByRole('dialog', { name: 'Celeste' })).toBeVisible();
+
+  await page.goBack();
+
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/board/games/stats/${thisYear()}$`));
+  await expect(cover).toBeFocused();
+});
+
+test("opens a game's journal from its row in a rating's list, and hands the keyboard back to it", async ({
+  page,
+}) => {
+  await aYearOfRatings(page);
+  await page.goto(`/board/games/stats/${thisYear()}`);
+
+  const ratings = section(page, 'Ratings');
+  await ratings.getByRole('button', { name: '3 rated 8' }).click();
+  const row = ratings.getByRole('list', { name: '3 rated 8' }).getByRole('button', { name: /^Celeste/ });
+  await row.click();
+  await expect(page.getByRole('dialog', { name: 'Celeste' })).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(row).toBeFocused();
+});
+
+test('a finish taken back in its journal leaves its month, and lands last in Playing', async ({ page }) => {
+  await seed(page.request, 'Celeste', 'Completed', { completedAt: noon(), rating: 9 });
+  // Started this year, or the board's year would leave them out of Playing: seed writes only
+  // what it is given, and a pass in Playing with no start is in no year.
+  await seed(page.request, 'Hades', 'InProgress', { startedAt: noon() });
+  await seed(page.request, 'Hollow Knight', 'InProgress', { startedAt: noon() });
+  await page.goto(`/board/games/stats/${thisYear()}`);
+
+  const months = section(page, 'Finished each month');
+  await months.getByRole('button', { name: 'Celeste', exact: true }).click();
+  const journal = page.getByRole('dialog', { name: 'Celeste' });
+  await journal.getByRole('button', { name: 'Column: Completed' }).click();
+  await journal.getByRole('group', { name: 'Move to' }).getByRole('button', { name: 'Playing' }).click();
+  await journal.getByRole('button', { name: 'No — move it to Playing' }).click();
+  await expect(journal.getByRole('button', { name: 'Column: Playing' })).toBeVisible();
+
+  // Behind the drawer, the month has let it go, with no reload.
+  await expect(months.getByRole('button', { name: 'Celeste', exact: true })).toHaveCount(0);
+  await expect(months).toContainText(`Nothing finished in ${thisYear()} yet.`);
+
+  // And on the board it is last in Playing, where a move from the board's own journal lands.
+  await page.keyboard.press('Escape');
+  await page.getByRole('link', { name: /back to your board/i }).click();
+  await expect.poll(() => titlesIn(page, 'InProgress')).toHaveLength(3);
+  expect((await titlesIn(page, 'InProgress')).at(-1)).toBe('Celeste');
+});
+
 /**
  * All years as a row a year, its covers 32px wide (#24): round three's pick, because a board that
  * has been filled backwards has many years, and piled side by side ten of them made 2025's 28
@@ -301,5 +371,18 @@ test.describe('on a phone', () => {
       }
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  });
+
+  test("opens a game's journal from a cover pressed with a finger, at today's size", async ({ page }) => {
+    // #25: on a phone nothing says a cover opens until it is pressed, so the press is the test.
+    // Today's 32px, the user's pick from renders over 40, which wrapped a busy month.
+    await aYear(page);
+    await page.goto(`/board/games/stats/${thisYear()}`);
+
+    const cover = section(page, 'Finished each month').getByRole('button', { name: 'Celeste', exact: true });
+    expect((await boxOf(cover, 'the cover')).width).toBeCloseTo(32, 0);
+    await cover.tap();
+
+    await expect(page.getByRole('dialog', { name: 'Celeste' })).toBeVisible();
   });
 });

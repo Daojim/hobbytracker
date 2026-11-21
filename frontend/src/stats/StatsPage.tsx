@@ -7,7 +7,11 @@ import { AppHeader } from '../shell/AppHeader';
 import { YearPicker } from '../board/YearPicker';
 import { statsKey, statsYearsKey } from '../board/keys';
 import { columnHoursLines } from '../board/columnHours';
-import { hobbyDefinition, type HobbyDefinition } from '../hobbies';
+import { useHiddenColumns } from '../board/hiddenColumns';
+import { useOffBoardMoves } from '../board/useOffBoardMoves';
+import { EntryDrawer } from '../journal/EntryDrawer';
+import { useJournal, type OpenFrom } from '../journal/useJournal';
+import { columnsFor, hobbyDefinition, type HobbyDefinition } from '../hobbies';
 import { ratingTone } from '../lib/rating';
 import type { Voice, Voiced } from '../lib/voice';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby, statsPath, type Hobby } from '../shell/hobbies';
@@ -107,6 +111,16 @@ function StatsOf({ hobby, asked, definition }: StatsOfProps) {
     queryFn: () => statsYears(hobby),
   });
 
+  // A finish opens its game's journal over the page (#25): the board's drawer, whole, by the
+  // board's own way in and out of it.
+  const journal = useJournal();
+  const moves = useOffBoardMoves(hobby);
+  // The columns the board draws, which are the ones the pass's heading offers, as on the board:
+  // a column taken off in Settings is not offered here either.
+  const hidden = useHiddenColumns(hobby);
+  const columns = columnsFor(hobby).filter((column) => !hidden.has(column.status));
+  const opened = journal.openFor;
+
   const year = asked === 'all' ? undefined : asked;
 
   // No year named: the latest there is, as the board opens — and every year when nothing has one
@@ -142,7 +156,21 @@ function StatsOf({ hobby, asked, definition }: StatsOfProps) {
         />
       }
     >
-      <Year hobby={hobby} year={year} definition={definition} />
+      <Year hobby={hobby} year={year} definition={definition} onOpen={journal.openFrom} />
+
+      {opened !== null && (
+        <EntryDrawer
+          hobby={hobby}
+          mediaId={opened}
+          onClose={journal.close}
+          {...journal.opening}
+          columns={columns}
+          // The board's moves less the board: the same route and the same refreshing, the Stats
+          // page's own answers included, so a finish taken back leaves its month behind the drawer.
+          onMove={(from, to) => moves.moveAndWait(opened, from, to)}
+          onPutBack={(to) => moves.putBackAndWait(opened, to)}
+        />
+      )}
     </Frame>
   );
 }
@@ -197,7 +225,17 @@ export function Failed({ error }: { error: Error }) {
   );
 }
 
-function Year({ hobby, year, definition }: { hobby: Hobby; year: number | undefined; definition: HobbyDefinition }) {
+function Year({
+  hobby,
+  year,
+  definition,
+  onOpen,
+}: {
+  hobby: Hobby;
+  year: number | undefined;
+  definition: HobbyDefinition;
+  onOpen: OpenFrom;
+}) {
   const { data, error } = useQuery({
     queryKey: statsKey(hobby, year),
     queryFn: () => statsFor(hobby, year),
@@ -210,23 +248,29 @@ function Year({ hobby, year, definition }: { hobby: Hobby; year: number | undefi
   return data === undefined ? (
     <Loading />
   ) : (
-    <Dashboard stats={data} year={year} definition={definition} voice="own" />
+    <Dashboard stats={data} year={year} definition={definition} voice="own" onOpen={onOpen} />
   );
 }
 
-interface DashboardProps {
+/**
+ * Who the numbers are said to — the board's owner, or on a share nobody — and with it whether a
+ * finish opens its journal. **One choice, not two**: your page is handed the way in and a share's
+ * cannot be, the type says so, as #21 tied a rating's lists to the voice so that no second flag
+ * left set could hand a share them. A share shows the Stats page and never a note.
+ */
+type Spoken = { voice: 'own'; onOpen: OpenFrom } | { voice: 'shared'; onOpen?: never };
+
+type DashboardProps = Spoken & {
   stats: Stats;
   year: number | undefined;
   definition: HobbyDefinition;
-  /** Who the numbers are said to: the board's owner, or — on a share — nobody. */
-  voice: Voice;
-}
+};
 
 /**
  * The numbers themselves, from a year's stats: the tiles, then the panels. Shared with a share's
  * Stats page, which is this page whole, in its own voice.
  */
-export function Dashboard({ stats, year, definition, voice }: DashboardProps) {
+export function Dashboard({ stats, year, definition, voice, onOpen }: DashboardProps) {
   const words = definition.stats!;
   const noun = words.noun;
   const { finished, hours, completion, backlog } = stats;
@@ -295,13 +339,13 @@ export function Dashboard({ stats, year, definition, voice }: DashboardProps) {
 
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Panel label={year === undefined ? 'Finished each year' : 'Finished each month'}>
-          <FinishedCovers finished={finished} year={year} />
+          <FinishedCovers finished={finished} year={year} onOpen={onOpen} />
         </Panel>
 
         <Panel label="Ratings">
           {/* Keyed by the year, so a list open on one year closes on the next. A year fetched
               before comes from the cache and would otherwise keep this one standing. */}
-          <RatingSpread key={year ?? 'all'} finished={finished} year={year} voice={voice} />
+          <RatingSpread key={year ?? 'all'} finished={finished} year={year} voice={voice} onOpen={onOpen} />
         </Panel>
 
         {compares && (

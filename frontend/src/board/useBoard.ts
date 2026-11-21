@@ -5,14 +5,8 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { boardCollisions } from './collisions';
 import { isSegment } from './ColumnSwitcher';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
-import {
-  columnKey,
-  libraryStatusesKey,
-  mediaKey,
-  upcomingKey,
-  yearFor,
-  yearsKey,
-} from './keys';
+import { columnKey, mediaKey, yearFor } from './keys';
+import { settleMove, settleStats } from './settle';
 import { BOARD_STATUSES } from '../hobbies';
 import { useBoardSensors } from './sensors';
 import type { LibraryItem, LibraryPage, LibrarySort, LogStatus } from '../api/types';
@@ -144,56 +138,10 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // Completed's comparison would leave the comparison about one set of games and the total
     // about another until the answer arrived. The count moves at once and the hours follow it.
     //
-    // By the column *prefix*, not by `keyFor`. A column has one cache entry per sort and year,
-    // and the exact key only reaches the one on screen — look at Backlog by title, drag a card
-    // out of it in manual order, and the title ordering keeps that card for the full staleTime.
-    //
-    // And `['games', mediaId]`, which is what the drawer reads: a transition stamps started_at
-    // and can insert an entry, so leaving it cached showed the pass as it was before the drag.
-    onSettled: (_data, _error, { mediaId, from, to }) => {
-      // Stale is not enough for the views of these two columns that are not on screen.
-      // `invalidateQueries` refetches only the entry with an observer, and a stale entry is
-      // still *rendered* the moment something switches onto it — so changing a sort or a year
-      // puts the moved card back in the column it left while it also sits in the one it went
-      // to. Two cards, one media id.
-      //
-      // That is not a flicker to wait out. One media id is one dnd-kit registration: the second
-      // mount overwrites the first, and when it unmounts it deletes the entry — which by then
-      // belongs to the card still on screen. The survivor is visible, in the right column, and
-      // cannot be dragged at all until something remounts it, which in practice means reloading
-      // the page. Dropping the entries is honest as well as cheap: their ordering is the
-      // server's to decide and there is no knowing where the card would have landed in it.
-      queryClient.removeQueries({ queryKey: ['library', hobby, from], type: 'inactive' });
-      queryClient.removeQueries({ queryKey: ['library', hobby, to], type: 'inactive' });
-
-      void queryClient.invalidateQueries({ queryKey: ['library', hobby, from] });
-      void queryClient.invalidateQueries({ queryKey: ['library', hobby, to] });
-
-      // A move stamps a timestamp, and the years are derived from those — so a drag is one of
-      // the two things that can bring a new year into existence. Without this the first title
-      // finished in a new year vanishes from the board it was on and the year that would show
-      // it is not offered until a reload. The column keys above cannot cover it: 'years' is not
-      // a status, so no prefix of theirs reaches it.
-      void queryClient.invalidateQueries({ queryKey: yearsKey(hobby) });
-
-      // And the calendar, for exactly that reason again. It is the other half of the Backlog
-      // column — the entries whose title is not out yet — so moving an unreleased title out of
-      // Backlog or back into it changes what belongs on it. `'upcoming'` sits where a status
-      // sits, so the two column keys above reach it no more than they reach `'years'`.
-      void queryClient.invalidateQueries({ queryKey: upcomingKey(hobby) });
-
-      // And what the search strip says about where each title is, for the same want of a
-      // shared prefix. The strip sits above this board and names the column a title is in, so
-      // left alone it would go on naming the one a card had just been dragged out of.
-      void queryClient.invalidateQueries({ queryKey: libraryStatusesKey(hobby) });
-
-      // Returned, and the only one that is, so the move is not over until it has landed: a
-      // journal open on the title is the one reader with a form over the pass, and it holds
-      // still until it has the moved pass under it. `moveAndWait` is how it waits. A drag or the
-      // menu has no journal open — the drawer covers the board — so nothing observes the title
-      // then, and this answers at once.
-      return queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
-    },
+    // What a move refreshes is `settleMove`'s, shared with the Stats page's journal (#25), which
+    // moves a title with no board on screen. Returned, so `moveAndWait` waits for the journal's
+    // refetch: see there.
+    onSettled: (_data, _error, settled) => settleMove(queryClient, hobby, settled),
   });
 
   const reorder = useMutation({
@@ -246,10 +194,13 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     // in two columns and cannot be dragged. Re-adding into Backlog was always enough to do it;
     // adding straight into any column made it ordinary. See "A card mounted twice" in
     // docs/board.md.
+    //
+    // And the Stats page's answers, since a title taken off takes its finishes with it.
     onSettled: (_data, _error, mediaId) => {
       queryClient.removeQueries({ queryKey: ['library', hobby], type: 'inactive' });
       void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
       void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
+      void settleStats(queryClient, hobby);
     },
   });
 

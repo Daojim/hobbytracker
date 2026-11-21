@@ -177,13 +177,18 @@ export const hiddenKey = (hobby: string) => ['hidden', hobby] as const;
 /**
  * A year of one hobby on the Stats page, `undefined` for every year.
  *
- * Not under `['library', ...]` either, and nothing on the board settles it. The page is never
- * on screen while the board is, and a query mounting on a new page refetches anything stale —
- * which, at the default stale time of nought, is everything. So a move can never leave the page
- * showing the board as it was.
+ * **Not under `['library', ...]`, and every write that can change a finish settles it by name**,
+ * through `settleStats` in `board/settle.ts`: a move, a pass written in the journal, an add and a
+ * title taken off the board. Until #25 this said nothing on the board need settle it, because a
+ * page mounting refetches anything stale — "at the default stale time of nought". The app's stale
+ * time is 30 seconds, so a move made within 30 seconds of leaving the page was missing from it on
+ * the way back. And since #25 the journal opens over the page itself.
  */
 export const statsKey = (hobby: string, year: number | undefined) =>
   ['stats', hobby, { year }] as const;
+
+/** Every answer the Stats page holds for one hobby: each year's, and the years. */
+export const allStatsKey = (hobby: string) => ['stats', hobby] as const;
 
 /** The years the Stats page offers. See `statsYears` for why they are not the board's. */
 export const statsYearsKey = (hobby: string) => ['stats', hobby, 'years'] as const;

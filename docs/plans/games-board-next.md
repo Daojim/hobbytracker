@@ -54,7 +54,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
 | 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
-| 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. See its section |
+| 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Built 20 November 2026**, the day it was picked up and workshopped, tests first, on branch `journal-from-stats`. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. A render of the widths first. See its section |
 | 27 | Settings, rearranged | S–M | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
@@ -4948,7 +4948,7 @@ planted; the faults of steps 13 and 14 are listed below as they were planted.
 
 ---
 
-## 25. A journal from the Stats page · planned
+## 25. A journal from the Stats page · built
 
 **Planned 14 November 2026**, at the user's request. Lines were read at `8c3ae98`. In the user's
 words: *"On the 'Finished Each Month' section when it's displayed a year, if I click on the cover
@@ -4991,6 +4991,64 @@ changes that row, and `docs/stats.md`'s **The finishes behind a rating**, in the
 - **Never on a share.** A share shows the Stats page and never a note, so its covers and rows stay
   pictures and words, as #21 kept its chart.
 
+### Decided at pickup
+
+**Picked up on 20 November 2026**, on branch `journal-from-stats`. Round one was four questions
+in words, and **every answer was the recommendation**:
+
+- **Which titles open it: the covers and the rating rows**, as asked. Every cover in Finished each
+  month and, under All years, in Finished each year; and every row in a rating's list. Each game's
+  row in the hours chart and each title in the Backlog panel were offered too, and stay as they
+  are.
+- **Everything the drawer does on the board, moves included.** A move from Stats lands at the end
+  of its new column, as a move from the board's journal does, and **every write the drawer makes
+  refreshes the Stats page behind it**, not only a move.
+- **The title, current pass first**, as every other door opens it. Offered against: the journal
+  brought to the finish pressed, as a note a search found is. As of #21's read on 7 November none
+  of the user's 61 finishes was a replay, so the two differ for nobody yet.
+- **The stale Stats page is fixed in the same PR**: see the second finding below.
+
+**Found at pickup, by reading the code before asking:**
+
+- **The journal's own writes never reach the Stats page.** The plan named moves. A rating, a date,
+  hours, a HowLongToBeat pin and deleting a pass change the page too, and `useJournalEntry`'s
+  `refresh` settles `['library', hobby]` and the title alone.
+- **The Stats page's answer stays fresh for 30 seconds, not nought.** `statsKey`'s comment in
+  `board/keys.ts` says a page mounting refetches anything stale, *at the default stale time of
+  nought*, but `createQueryClient` sets `staleTime: 30_000`, and nothing on the board settles
+  `['stats', …]`. So a move or a rating made within 30 seconds of leaving the page is missing
+  from it when you come back, until a reload; and for the five minutes an unwatched answer is
+  kept, the old numbers are drawn first and then replaced.
+- **A move from the board's journal lands at the end of its column** only because `useBoard`'s
+  move writes the column's cached order after the transition. The server alone puts a replay at
+  the top and leaves a pass moved in place at its old place number. The Stats page has no column
+  on screen to write, so its move reads the column whole (`wholeColumn`) and writes the order with
+  the title last.
+- **A card neither lifts nor rings.** The render options above said *a lift and a ring on hover
+  and focus, as a card does*; a card's name underlines on hover, and its focus ring is the
+  browser's. **And #12 and #20 differ**: #12's name is in the accent, and #20's list is a whole row
+  with a hover fill and a plain name, its accent on the count that opened the list. Both are
+  rendered for the rating rows.
+
+### Decided from the renders
+
+**Round two, the same day**: three looks rendered on the shipped Stats page with prototypes in the
+covers' and the list's place, on the user's 61 finishes as read on 29 October, at 1440 and 390 in
+Shelf Light and Shelf Dark, and the list on Ember for the accent's cost. The page is private:
+https://claude.ai/artifact/CLSZypukga5zeFXmvpaniZ; the harness is the gitignored
+`frontend/workshop.local/journal-from-stats/`. **All three picks were the recommendation.**
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| How a cover says it opens | **An accent ring under the pointer**, `outline-2 outline-offset-2 outline-accent`: the ring the keyboard gets, which is the page's own, its chart rows' | the pointer alone; a lift of 2px with a deeper shadow, the first thing in the app to move under the pointer, whose shadow barely showed on Shelf Dark |
+| A rating row | **The whole row a button, its name in the accent**, with #20's hover fill, `hover:bg-hover` | #20's row with its name in the page's ink, which says nothing until hovered; the name alone a button in the accent, #12's, identical to the pick at rest and a smaller target |
+| A cover on a phone | **Today's, 32×45px**: October's seven on one line, the panel 475px tall | 40×56px, closer to Android's 48dp target, October on two lines and the panel 602px |
+
+- **A cover takes `cursor-pointer`**, which Tailwind v4 no longer gives a button.
+- **A row's keyboard ring is the browser's**, as #20's rows and the rating columns above wear it.
+- **Each row keeps its height**: 48px with a name on two lines and 40 with one, the same in every
+  option, so the list is the size it was.
+
 ### Things to get right
 
 - **Back closes the drawer** (`useOverlayHistory`), and leaves you on the year you were reading,
@@ -5011,6 +5069,101 @@ changes that row, and `docs/stats.md`'s **The finishes behind a rating**, in the
   count without a reload.
 - On a share, nothing under Stats is a button that opens a journal.
 - **Put the fault back:** drop the Stats refetch from the move, and the month test goes red.
+
+### Built
+
+**On 20 November 2026, tests first**, on branch `journal-from-stats`. The failing cases went in
+first and ran red, ten of them for the reasons they name: no cover and no row was a button, and
+every write on the board left the Stats page's answers where they were. The share's case was
+green from the start, as a guard should be.
+
+- **`journal/useJournal.ts`**: the way in and out of the drawer, its history entry, how it was
+  opened and the keyboard handed back by id, lifted out of `BoardPage`, which now calls it. The
+  board's own suite is what says the lift was clean.
+- **`board/settle.ts`**: `settleMove`, what a move refreshes, moved out of `useBoard` with its
+  comments, and `settleStats` beside it, which drops the Stats page's answers where nothing shows
+  them and asks again where something does. Called by the board's move through `settleMove`, its
+  remove, `useJournalEntry`'s `refresh` and `useAddToBoard`. **`allStatsKey`** in `board/keys.ts`
+  is its prefix, and `statsKey`'s comment says what is true now.
+- **`board/useOffBoardMoves.ts`**: the Stats page's journal's moves. The board's route and
+  `settleMove`, then the new column read whole (`wholeColumn`) and written with the title last.
+- **The Stats page** mounts the drawer in `StatsOf`, with the columns the board draws less any
+  taken off in Settings, and hands `journal.openFrom` down through `Year` and `Dashboard`.
+  **`Dashboard`'s props are a union on the voice**: `own` has to be handed the way in, and
+  `shared` cannot be.
+- **`FinishedCovers`**: each cover a button round its picture, by `finishCoverId(mediaId, nth)`,
+  wearing the picked ring; a share's covers stay pictures. **`RatingSpread`**: each row a button
+  with its name in the accent.
+- **The built pieces differ from the picked prototypes by no pixel** in 15 states, light and dark,
+  1440 and 390, at rest, under the pointer and under the keyboard: see **Stats** in
+  `docs/design.md`.
+
+### Tests
+
+- **`StatsPage.test.tsx`, *the journal*, seven cases**: a cover opens the journal and gets the
+  keyboard back; so does one under All years; a rating's row opens it and gets the keyboard back;
+  Back closes it on the same year with the list still open; a finish put back leaves its month and
+  its rating, sending `notFinished` and then the order with the title last; a rating changed moves
+  the game along the chart behind the drawer; and the heading offers the board's columns, less one
+  taken off in Settings.
+- **`SharedStatsPage.test.tsx`, one**: a share's covers are pictures, and nothing opens.
+- **`BoardPage.test.tsx`, *the Stats page's saved numbers*, four**: dropped by a move, a title taken
+  off, a write in the journal and an add from the strip, each read from what the cache is left
+  holding, because the test client's stale time of nought would never show the 30 seconds.
+- **One existing case changed, for a new reason**: *stays open when something else is pressed, or
+  the keyboard moves on* tabbed back to the year control, and now lands on the cover before the
+  chart, which is the nearest thing that takes the keyboard.
+- **`e2e/stats.spec.ts`, four**: a cover rings under the pointer and not at rest, opens the
+  journal, and Back closes it with the keyboard on the cover; a rating's row opens it and gets the
+  keyboard back; a finish taken back leaves its month behind the drawer and lands last in Playing;
+  and on a phone a 32px cover opens it with a press.
+- **The frontend suite went from 1,528 to 1,540, all green. The first full e2e run went 254 green
+  and 3 red**, the 253 before and the 4 new, one of them among the red:
+  - **The new finish-taken-back case, from its own setup**: `seed` writes only what it is given, so
+    the two games seeded into Playing had no start, and the board's year left them out. Seeded with
+    a start, the whole Stats spec then passed three times over, 42 of 42.
+  - **#24's *follows its ✓ as the strip and the page scroll***, 8px off where the question should
+    sit. It passed 3 of 3 alone, and nothing on its path changed.
+  - **CLAUDE.md's flaky *clicking away from the drawer closes it, and so does Escape***, which
+    failed again 1 of 3 in the re-run, **both times at its second half**: the backdrop closed the
+    drawer, and the Escape pressed straight after reopening it, with no wait for the drawer, did
+    not. The lift into `useJournal` adds no step between a press and the drawer; whether the
+    Escape simply arrives before the drawer has mounted is not proved.
+- **In Firefox**, Playwright's 153, the three desktop cases pass, the ring under the pointer and
+  the keyboard handed back included. The phone case is `isMobile`, which Firefox does not take.
+
+### Checked by putting each fault back
+
+One at a time against the finished feature, by the gitignored
+`workshop.local/journal-from-stats/faults.mjs`, #21's script pointed at the Stats, share and board
+tests, which restores each file after its run. Every fault turned red exactly the cases named.
+
+| Fault | What goes red |
+|---|---|
+| A move settles nothing on the Stats page | the board's *drops them when a card moves*, and the page's finish put back |
+| A write in the journal settles nothing on it | *drops them when the journal writes a pass*, and the page's rating changed |
+| Taking a title off settles nothing on it | *drops them when a card is taken off the board* |
+| An add settles nothing on it | *drops them when a title is added from the search strip* |
+| Its answers made stale where nothing shows them, not dropped | all four of the board's |
+| The page behind the drawer never asked again | the page's finish put back, and its rating changed |
+| A move off the board left where the server puts it | the finish put back, on the order it writes |
+| The title written first rather than last | the same |
+| Covers that open nothing on your page | five of the page's seven, and #21's keyboard case, which now tabs onto a cover |
+| Rows that open nothing | the row's case, and Back with the list open |
+| A share's covers pressable | the share's *opens no journal* |
+| The keyboard not handed back, in `useJournal` | eight: every door's on the board, the card, the search result, the header's list, the calendar and the note found, and both of the Stats page's, which is the lift out of `BoardPage` shown to be one implementation |
+| Every column offered on the Stats page | *offers the columns the board draws* |
+
+### What the plan got wrong, or left out
+
+- ***A lift and a ring on hover and focus, as a card does.*** A card does neither: its name
+  underlines on hover. Found by reading `Card.tsx` before the renders.
+- ***The rating rows have #21's name to put in the accent, as #12 and #20 do.*** #20's names are in
+  the page's ink, and its accent is on the count. Both were rendered.
+- ***A move from Stats refetches Stats.*** Every write the drawer makes does now, and every write
+  on the board too, which is what fixed the 30 seconds.
+- **Where a move lands with no board on screen**, which the plan did not ask, and **which columns
+  the heading offers**, which it did not say: the board's, less any taken off in Settings.
 
 ---
 

@@ -16,6 +16,7 @@ its own.
 | The way in | **"Stats for 2026 →" on the board's year row**, carrying the year the board is showing, or `/all` under All years. On a phone too, where the row already is |
 | The tiles | Finished · Completion · Vs HowLongToBeat · Rating, four across from 1280px |
 | The panels | Finished each month (covers) · Ratings (a column per point, **each opening the finishes rated there**) · You and HowLongToBeat (a bar per game) · Backlog (oldest first), two across from 1024px, in the board's wells |
+| A finish's journal | **Its cover and its row in a rating's list open it**, over the page: the board's drawer, whole, moves included. Not on a share. See **The journal from the page** |
 | Hobbies | **Games only**, from `HobbyDefinition.stats`. The API answers for every hobby |
 | On a share | **The owner's page, whole**, when the share shows Stats: `/share/:token/stats/:year?`, under the share's banner, in words written to nobody. See **On a share** |
 
@@ -230,7 +231,8 @@ goes by title.
   label is `text-muted`, held at 4.5:1 on every theme, and an opacity takes it under — the rule
   the hobby nav's *Soon* is written down for in `docs/design.md`.
 - **Every chart is drawn for the eye and said in full to a screen reader.** The covers are images
-  named for their titles in a list named for its month. Each bar of the comparison is a list item
+  named for their titles in a list named for its month, and on your page each is a button named
+  by its cover, since #25. Each bar of the comparison is a list item
   that says *18% quicker: 10.5 hours played against about 12.76 hours to beat*, and shows the hours
   on hover and on keyboard focus. The ratings are a button for each point that has any, *22 rated
   8*, and on a share, where nothing opens, a list of the same words. See **The finishes behind a
@@ -262,8 +264,10 @@ choices, from renders of the user's own finishes; the look is `docs/design.md`'s
   the 8.0s follow oldest first. `Array.prototype.sort` is stable, which is what keeps the second
   half of that.
 - **A row is a cover, a name and the exact rating**, `★ 8.5`, coloured and read aloud as a card's
-  is, because a point holds a 9.0 and a 9.5 alike. **It opens nothing.** The journal is the board's,
-  and opening it here would mount the drawer on a page with none of the board's moves.
+  is, because a point holds a 9.0 and a 9.5 alike. **It opened nothing until #25**, because the
+  journal was the board's, and opening it here would have mounted the drawer on a page with none
+  of the board's moves. Since 20 November 2026 the whole row is a button that opens that game's
+  journal, its name in the accent: see **The journal from the page**.
 - **The list is part of the panel, two across from `sm`**, down the first column and then the
   second. It covers nothing, so nothing pressed elsewhere closes it: shutting it on such a press,
   as #20's list over the cards shuts, would move whatever is under the pointer. **The column again,
@@ -313,6 +317,65 @@ rule, which closes only when the keyboard lands somewhere else, never fired. The
 to the year control now. **And one plant was wrong**: two across on a phone, first planted with
 `flex` beside `columns-2`, was one column everywhere, because a flex box has no columns, and
 turned the desktop case red rather than the phone's.
+
+## The journal from the page
+
+**On your page a finish opens its game's journal**: every cover in Finished each month, and under
+All years in Finished each year, and every row in a rating's list. Built on 20 November 2026 for
+#25 in `docs/plans/games-board-next.md`, which has both rounds of choices, every one the
+recommendation; the look is `docs/design.md`'s, under **Stats**. Each game's row in the hours chart
+and each title in the Backlog panel were offered too, and stay as they are.
+
+- **The drawer is the board's, whole.** The same `EntryDrawer`, opened and closed by `useJournal`,
+  which was lifted out of `BoardPage` for it, so Back closes it, the keyboard goes back to the
+  cover or row that opened it, and a reload comes back to it. The year and an open rating list are
+  as they were when it closes, because the history entry carries the same path and the page is not
+  rebuilt.
+- **It opens the title, current pass first**, as every other door does, so a game finished in 2023
+  and replayed since opens on the replay, the finish under Earlier passes. Opening at the finish
+  pressed was offered and not picked; none of the user's 61 finishes was a replay when it was.
+- **Moves included, and they land where the board's journal lands them.** The pass's heading
+  offers the columns the board draws, less any taken off in Settings, and a move goes through
+  `useOffBoardMoves`: the board's route and the board's `settleMove`, then the new column read
+  whole and its order written with the title last. Left to the server, a replay would land on top
+  of its column and a finish put back would keep the place number it had in Completed.
+- **Every write the drawer makes settles the page behind it**: a move, a rating, a date, your
+  hours, a HowLongToBeat figure, a pass deleted. The plan named moves alone; a finish's rating or
+  day is as much the page's as its column is. `useJournalEntry`'s `refresh` calls `settleStats`
+  beside the board's keys, so a rating changed moves the game between the chart's columns while
+  the drawer is still open.
+- **And every write anywhere that can change a finish settles it too**, which fixed a bug found at
+  pickup. `statsKey`'s comment said a page mounting refetches anything stale, *at the default stale
+  time of nought*, so nothing on the board need settle it. The app's stale time is 30 seconds: a
+  move or a rating made within 30 seconds of leaving the page was missing from it on the way back,
+  until a reload, and for the five minutes an unwatched answer is kept, the old numbers were drawn
+  first. `settleStats` drops the page's answers where nothing shows them and asks again where
+  something does, from a move, a title taken off, an add and a write in the journal. **The test
+  client's stale time is nought**, so no page test could see the first half of that; the board's
+  four cases read what the cache is left holding instead.
+- **Never on a share.** A share shows the Stats page and never a note, so its covers stay pictures
+  and it has no lists to open. `Dashboard` takes the way in only with the owner's voice, by its
+  type, as #21 tied the lists to the voice so that no second flag left set could hand a share
+  them.
+
+**Checked by putting each fault back**, one at a time, against the Stats, share and board tests,
+with a script that restored the file after each run. Every fault turned red exactly these:
+
+| Fault | What goes red |
+|---|---|
+| A move settles nothing on the Stats page | the board's *drops them when a card moves*, and the page's finish put back |
+| A write in the journal settles nothing on it | *drops them when the journal writes a pass*, and the page's rating changed |
+| Taking a title off settles nothing on it | *drops them when a card is taken off the board* |
+| An add settles nothing on it | *drops them when a title is added from the search strip* |
+| Its answers made stale where nothing shows them, not dropped | all four of the board's |
+| The page behind the drawer never asked again | the page's finish put back, and its rating changed |
+| A move off the board left where the server puts it | the finish put back, on the order it writes |
+| The title written first rather than last | the same |
+| Covers that open nothing on your page | five of the page's seven, and #21's keyboard case, which now tabs onto a cover |
+| Rows that open nothing | the row's case, and Back with the list open |
+| A share's covers pressable | the share's *opens no journal* |
+| The keyboard not handed back, in `useJournal` | eight: every door's on the board and both of this page's |
+| Every column offered on the Stats page | *offers the columns the board draws* |
 
 ## On a share
 

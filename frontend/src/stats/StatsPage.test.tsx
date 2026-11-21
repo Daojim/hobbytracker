@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../App';
-import { renderWithProviders } from '../test/render';
-import { NO_HOURS, boardServer } from '../test/library';
+import { BackButton, renderWithProviders } from '../test/render';
+import { NO_HOURS, boardServer, libraryItem } from '../test/library';
+import { gameDetail, journalServer, logEntry } from '../test/games';
 import { backlogTitle, finish, stats, statsServer } from '../test/stats';
 import { columnHoursLines } from '../board/columnHours';
+import { hiddenColumnsKey } from '../board/hiddenColumns';
 import { hobbyDefinition } from '../hobbies';
 import type { ColumnHours } from '../api/types';
 
@@ -555,12 +557,13 @@ describe('StatsPage', () => {
       await userEvent.click(await section('Backlog'));
       expect(within(panel).getByRole('list', { name: '1 rated 9' })).toBeInTheDocument();
 
-      // Back to the year control: Tab onward would find nothing to land on here, and focus left
-      // on nothing is no test of the keyboard leaving.
+      // Back to the nearest thing before the chart that takes the keyboard, which since #25 is
+      // the cover in Finished each month: Tab onward would find nothing to land on here, and
+      // focus left on nothing is no test of the keyboard leaving.
       await userEvent.click(within(panel).getByRole('button', { name: '1 rated 9' }));
       await userEvent.click(within(panel).getByRole('button', { name: '1 rated 9' }));
       await userEvent.tab({ shift: true });
-      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveFocus();
+      expect(within(await section('Finished each month')).getByRole('button', { name: 'Celeste' })).toHaveFocus();
       expect(within(panel).getByRole('list', { name: '1 rated 9' })).toBeInTheDocument();
     });
 
@@ -709,6 +712,166 @@ describe('StatsPage', () => {
       renderYear('2026', stats());
 
       expect(within(await section('Backlog')).getByText('Nothing waiting.')).toBeInTheDocument();
+    });
+  });
+
+  describe('the journal', () => {
+    // #25: a finish on your page opens that game's journal, the board's whole drawer.
+
+    /** Celeste, finished on an April afternoon in 2026 and rated 9. */
+    const celeste = (rating = 9) => finish({ mediaId: 3003, title: 'Celeste', rating });
+
+    /**
+     * A page whose year holds `byYear`, Celeste's journal behind it, and a Playing column of two
+     * for a move to land in. `byYear` is read at each request, so a test can say what the server
+     * answers once a write has changed it.
+     */
+    function withJournal(byYear: Record<string, ReturnType<typeof stats>>) {
+      statsServer({ years: [2026], byYear });
+      const board = boardServer({
+        columns: {
+          InProgress: [libraryItem({ mediaId: 1, title: 'Hades' }), libraryItem({ mediaId: 2, title: 'Tunic' })],
+        },
+      });
+      const journal = journalServer({
+        detail: gameDetail({
+          id: 3003,
+          title: 'Celeste',
+          logEntries: [logEntry({ id: 7, status: 'Completed', rating: 9, completedAt: '2026-04-12T16:00:00Z' })],
+        }),
+      });
+      return { board, journal };
+    }
+
+    /** The rating list for a point, opened from its column. */
+    async function openList(point: string) {
+      const ratings = await section('Ratings');
+      await userEvent.click(within(ratings).getByRole('button', { name: point }));
+      return within(ratings).getByRole('list', { name: point });
+    }
+
+    it('opens a game’s journal from its cover, and hands the keyboard back to the cover', async () => {
+      withJournal({ '2026': stats({ finished: [celeste()] }) });
+      open('/board/games/stats/2026');
+
+      const months = await section('Finished each month');
+      await userEvent.click(within(months).getByRole('button', { name: 'Celeste' }));
+      expect(await screen.findByRole('dialog', { name: 'Celeste' })).toBeInTheDocument();
+
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(within(months).getByRole('button', { name: 'Celeste' })).toHaveFocus();
+    });
+
+    it('opens a game’s journal from a cover under All years as well', async () => {
+      withJournal({ all: stats({ finished: [celeste()] }) });
+      open('/board/games/stats/all');
+
+      await userEvent.click(within(await section('Finished each year')).getByRole('button', { name: 'Celeste' }));
+
+      expect(await screen.findByRole('dialog', { name: 'Celeste' })).toBeInTheDocument();
+    });
+
+    it('opens a game’s journal from its row in a rating’s list, and hands the keyboard back to the row', async () => {
+      withJournal({ '2026': stats({ finished: [celeste()] }) });
+      open('/board/games/stats/2026');
+
+      const list = await openList('1 rated 9');
+      // The whole row, named by what it says: the game and its rating.
+      await userEvent.click(within(list).getByRole('button', { name: /^Celeste/ }));
+      expect(await screen.findByRole('dialog', { name: 'Celeste' })).toBeInTheDocument();
+
+      await userEvent.keyboard('{Escape}');
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      const ratings = await section('Ratings');
+      const row = within(within(ratings).getByRole('list', { name: '1 rated 9' })).getByRole('button', { name: /^Celeste/ });
+      expect(row).toHaveFocus();
+    });
+
+    it('closes the journal when the browser goes back, leaving the year and its open list as they were', async () => {
+      withJournal({ '2026': stats({ finished: [celeste()] }) });
+      renderWithProviders(
+        <>
+          <App />
+          <BackButton />
+        </>,
+        { route: '/board/games/stats/2026' },
+      );
+
+      const list = await openList('1 rated 9');
+      await userEvent.click(within(list).getByRole('button', { name: /^Celeste/ }));
+      await screen.findByRole('dialog', { name: 'Celeste' });
+
+      await userEvent.click(screen.getByRole('button', { name: 'go back' }));
+
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('combobox', { name: 'Year' })).toHaveValue('2026');
+      expect(within(await section('Ratings')).getByRole('list', { name: '1 rated 9' })).toBeInTheDocument();
+    });
+
+    it('takes a finish put back in its journal out of its month and its rating, and puts the game last in its column', async () => {
+      const byYear = { '2026': stats({ finished: [celeste()] }) };
+      const { board } = withJournal(byYear);
+      open('/board/games/stats/2026');
+
+      const months = await section('Finished each month');
+      await userEvent.click(within(months).getByRole('button', { name: 'Celeste' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Column: Completed' }));
+      await userEvent.click(
+        within(screen.getByRole('group', { name: 'Move to' })).getByRole('button', { name: 'Playing' }),
+      );
+
+      // What the server answers once the finish is taken back: nothing finished in 2026.
+      byYear['2026'] = stats();
+      await userEvent.click(screen.getByRole('button', { name: 'No — move it to Playing' }));
+
+      await waitFor(() =>
+        expect(within(months).queryByRole('button', { name: 'Celeste' })).not.toBeInTheDocument(),
+      );
+      expect(within(await section('Ratings')).queryByRole('button', { name: '1 rated 9' })).not.toBeInTheDocument();
+      expect(board.transitions).toEqual([{ mediaId: 3003, status: 'InProgress', notFinished: true }]);
+      // Last, where a move from the board's journal puts it: there is no column on this page for
+      // the order to be read from, so it is read whole.
+      expect(board.reorders).toEqual([{ hobby: 'games', status: 'InProgress', mediaIds: [1, 2, 3003] }]);
+    });
+
+    it('offers the columns the board draws, as the board’s journal does', async () => {
+      // A column taken off in Settings is not offered by the pass's heading on the board, so it
+      // is not offered here either: the move would land somewhere the board does not show.
+      localStorage.setItem(hiddenColumnsKey('games'), JSON.stringify(['Dropped']));
+      try {
+        withJournal({ '2026': stats({ finished: [celeste()] }) });
+        open('/board/games/stats/2026');
+
+        await userEvent.click(within(await section('Finished each month')).getByRole('button', { name: 'Celeste' }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Column: Completed' }));
+
+        const offered = within(screen.getByRole('group', { name: 'Move to' }));
+        expect(offered.getByRole('button', { name: 'Playing' })).toBeInTheDocument();
+        expect(offered.queryByRole('button', { name: 'Dropped' })).not.toBeInTheDocument();
+      } finally {
+        localStorage.clear();
+      }
+    });
+
+    it('moves a game between the chart’s columns when its rating is changed in its journal', async () => {
+      const byYear = { '2026': stats({ finished: [celeste(9)] }) };
+      const { journal } = withJournal(byYear);
+      open('/board/games/stats/2026');
+
+      await userEvent.click(within(await section('Finished each month')).getByRole('button', { name: 'Celeste' }));
+      const rating = await screen.findByRole('spinbutton', { name: 'Exact rating' });
+
+      byYear['2026'] = stats({ finished: [celeste(7)] });
+      await userEvent.clear(rating);
+      await userEvent.type(rating, '7');
+
+      await waitFor(() => expect(journal.saved).toHaveLength(1));
+      const ratings = await section('Ratings');
+      expect(await within(ratings).findByRole('button', { name: '1 rated 7' })).toBeInTheDocument();
+      expect(within(ratings).queryByRole('button', { name: '1 rated 9' })).not.toBeInTheDocument();
     });
   });
 });
