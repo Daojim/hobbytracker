@@ -809,7 +809,7 @@ shuffled.
         The journal a modal by default, and a phone's the full screen whichever is chosen. The
         renders found two bugs on main, a long calendar title widening a phone's page and the
         modal running off one, both fixed. Four picks were the user's over the recommendation
-        (built 21 November 2026, not yet merged)
+        (PR #105, deployed)
       - [ ] a theme of your own — a workshop after #27: made from one of the eight, with a
         warning for a colour that cannot be read, and no flash on load
       - [ ] collapsing a column — an arrow beside every heading, side by side, that keeps the
