@@ -83,12 +83,26 @@ describe('AppHeader', () => {
     }
   });
 
-  it('keeps exactly one settings menu, because useTheme holds its state locally', () => {
-    // Two would drift: each instance reads storage once on mount and draws its own checked dot,
-    // so the second would keep showing the old choice until something remounted it.
+  it('keeps exactly one palette and one Settings, because useTheme holds its state locally', () => {
+    // Two of either would drift: each instance reads storage once on mount and draws its own
+    // checked dot, so the second would keep showing the old choice until something remounted it.
+    // The themes left Settings for the palette at #27, so each preference has one home.
     renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
 
+    expect(screen.getAllByRole('button', { name: 'Theme' })).toHaveLength(1);
     expect(screen.getAllByRole('button', { name: 'Settings' })).toHaveLength(1);
+  });
+
+  it('puts the palette between who is signed in and Settings', async () => {
+    authServer({ id: 3, displayName: 'Jimmy Dao' });
+    renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
+
+    const signOut = await screen.findByRole('button', { name: /sign out/i });
+    const palette = screen.getByRole('button', { name: 'Theme' });
+    const settings = screen.getByRole('button', { name: 'Settings' });
+
+    expect(signOut.compareDocumentPosition(palette) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(palette.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('says who is signed in', async () => {

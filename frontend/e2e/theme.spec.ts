@@ -21,10 +21,40 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/board');
 });
 
+/** The palette in the header, which holds the themes since #27, and one of them pressed. */
 const choose = async (page: import('@playwright/test').Page, theme: string) => {
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Theme' }).click();
   await page.getByRole('radio', { name: theme }).click();
 };
+
+test('the palette’s list is reached by the keyboard, and Escape hands it back', async ({
+  page,
+}) => {
+  // What a real browser decides and jsdom only imitates: where Tab goes from the palette, and
+  // that Escape returns the keyboard to it rather than to the top of the page. Run in Firefox as
+  // well as Chromium, which is where the user reads the board.
+  const palette = page.getByRole('button', { name: 'Theme' });
+  await palette.focus();
+  await page.keyboard.press('Enter');
+  await expect(palette).toHaveAttribute('aria-expanded', 'true');
+
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('radio', { name: 'System' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'shelf-light');
+  await expect(page.getByRole('radio', { name: 'Shelf Light' })).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('radiogroup', { name: 'Theme' })).toHaveCount(0);
+  await expect(palette).toBeFocused();
+  await expect(palette).toHaveAttribute('aria-expanded', 'false');
+
+  // And a press outside closes it without taking the keyboard anywhere.
+  await palette.click();
+  await page.getByRole('heading', { level: 1 }).click();
+  await expect(page.getByRole('radiogroup', { name: 'Theme' })).toHaveCount(0);
+});
 
 test('a chosen theme is still chosen after a reload', async ({ page }) => {
   await choose(page, 'Ember');

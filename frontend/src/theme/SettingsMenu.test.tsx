@@ -41,25 +41,18 @@ describe('SettingsMenu', () => {
   it('keeps the panel shut until it is asked for', () => {
     renderWithProviders(<SettingsMenu hobby="games" />);
 
+    expect(screen.queryByRole('radiogroup', { name: 'Density' })).not.toBeInTheDocument();
+  });
+
+  it('holds no themes, which are the palette’s since #27', async () => {
+    // The themes were most of the panel's height, which is why the user asked for the workshop.
+    // They are a control of their own in the header now: theme/ThemeMenu.tsx.
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    expect(screen.getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: 'Theme' })).not.toBeInTheDocument();
-  });
-
-  it('offers every theme, and says which one is on', async () => {
-    renderWithProviders(<SettingsMenu hobby="games" />);
-    await open();
-
-    // System is the default and so the one checked before anything has been chosen.
-    expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
-    expect(screen.getByRole('radio', { name: 'Ember' })).not.toBeChecked();
-  });
-
-  it('applies and remembers a theme', async () => {
-    renderWithProviders(<SettingsMenu hobby="games" />);
-    await open();
-    await userEvent.click(screen.getByRole('radio', { name: 'Ember' }));
-
-    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('ember');
-    expect(screen.getByRole('radio', { name: 'Ember' })).toBeChecked();
+    expect(screen.queryByRole('radio', { name: 'System' })).not.toBeInTheDocument();
   });
 
   it('applies and remembers a density', async () => {
@@ -68,15 +61,6 @@ describe('SettingsMenu', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Compact' }));
 
     expect(document.documentElement.getAttribute(DENSITY_ATTRIBUTE)).toBe('compact');
-  });
-
-  it('takes the attribute back off for System, so the OS decides again', async () => {
-    renderWithProviders(<SettingsMenu hobby="games" />);
-    await open();
-    await userEvent.click(screen.getByRole('radio', { name: 'Console' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'System' }));
-
-    expect(document.documentElement.hasAttribute(THEME_ATTRIBUTE)).toBe(false);
   });
 
   it('offers the journal as a drawer or a modal, a modal until told otherwise', async () => {
@@ -98,7 +82,7 @@ describe('SettingsMenu', () => {
 
     await userEvent.keyboard('{Escape}');
 
-    expect(screen.queryByRole('radiogroup', { name: 'Theme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Density' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
   });
 
@@ -113,16 +97,16 @@ describe('SettingsMenu', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
 
-    expect(screen.queryByRole('radiogroup', { name: 'Theme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup', { name: 'Density' })).not.toBeInTheDocument();
   });
 
-  it('stays open while you are choosing, because the two settings are usually set together', async () => {
+  it('stays open while you are choosing, because the settings are usually set together', async () => {
     renderWithProviders(<SettingsMenu hobby="games" />);
     await open();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Shelf Dark' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Compact' }));
 
-    expect(screen.getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
+    expect(screen.getByRole('radiogroup', { name: 'Journal' })).toBeInTheDocument();
   });
 
   it('credits the two providers the app takes its metadata from', async () => {

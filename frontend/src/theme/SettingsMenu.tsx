@@ -8,7 +8,7 @@ import { columnsFor, hobbyDefinition } from '../hobbies';
 import { ShareDialog } from '../share/ShareDialog';
 import { SharingRow } from '../share/SharingRow';
 import type { Hobby } from '../shell/hobbies';
-import { DENSITIES, JOURNAL_VIEWS, THEMES } from './theme';
+import { DENSITIES, JOURNAL_VIEWS } from './theme';
 import { useTheme } from './useTheme';
 
 export interface SettingsMenuProps {
@@ -17,13 +17,11 @@ export interface SettingsMenuProps {
 }
 
 /**
- * The one control in the header, holding the appearance preferences, the board's columns, a
+ * Settings in the header, holding the density and the journal's box, the board's columns, a
  * read-only link to the board, the board as a spreadsheet to keep, and the way to delete your
- * account.
- *
- * One button rather than two controls side by side: the header would otherwise start collecting
- * them, and there would be nowhere obvious for the next one to go. They are usually set in the
- * same sitting, so choosing one leaves the panel open.
+ * account. The themes are the palette's beside it since #27 (`ThemeMenu.tsx`), where they were
+ * most of this panel's height. They are usually set in the same sitting, so choosing one leaves
+ * the panel open.
  *
  * Built as radio groups rather than a list of buttons because that is what they are — a closed
  * set where exactly one is current — and it is what lets a screen reader say "System, selected"
@@ -40,7 +38,7 @@ export interface SettingsMenuProps {
  * row opens a dialog instead, and the panel shuts as it does — see `share/SharingRow.tsx`.
  */
 export function SettingsMenu({ hobby }: SettingsMenuProps) {
-  const { theme, density, journalView, setTheme, setDensity, setJournalView } = useTheme();
+  const { density, journalView, setDensity, setJournalView } = useTheme();
   const hidden = useHiddenColumns(hobby);
   const [open, setOpen] = useState(false);
 
@@ -106,42 +104,6 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
 
       {open && (
         <div className="absolute right-0 z-30 mt-1 w-56 rounded-lg border border-line bg-surface p-2 shadow-xl">
-          <p id={`${ids}-theme`} className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase">
-            Theme
-          </p>
-          <div role="radiogroup" aria-labelledby={`${ids}-theme`} className="flex flex-col">
-            {THEMES.map((option) => (
-              // The hint is a description, not part of the name. Left to be read as content it
-              // joins the accessible name — "System Follows your device" — which is both a worse
-              // announcement and unmatchable by the name a person would say.
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={theme === option.value}
-                aria-labelledby={`${ids}-${option.value}-label`}
-                aria-describedby={`${ids}-${option.value}-hint`}
-                onClick={() => setTheme(option.value)}
-                className="flex items-baseline gap-2 rounded px-2 py-1 text-left text-sm hover:bg-hover"
-              >
-                <span
-                  aria-hidden="true"
-                  className={`mt-1 h-2 w-2 shrink-0 rounded-full border ${
-                    theme === option.value ? 'border-accent bg-accent' : 'border-line'
-                  }`}
-                />
-                <span id={`${ids}-${option.value}-label`} className="flex-1">
-                  {option.label}
-                </span>
-                <span id={`${ids}-${option.value}-hint`} className="text-xs text-muted">
-                  {option.hint}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <hr className="my-2 border-line-soft" />
-
           <p id={`${ids}-density`} className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase">
             Density
           </p>
