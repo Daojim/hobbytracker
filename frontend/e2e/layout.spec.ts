@@ -366,6 +366,26 @@ test.describe('on a phone, at 390px', () => {
     expect(root).toBe(ground);
   });
 
+  test('keeps the page to the screen’s width with a long title on the calendar', async ({
+    page,
+  }) => {
+    // The calendar's track is the screen less its gutters, but the section is a grid item, and a
+    // grid item's least width is its content's: the longest title it holds, which a row keeps to
+    // one line. Measured on the user's own calendar on 3 November 2026, it made the page 406px
+    // wide here, so everything on a phone could be pushed sideways by 16px.
+    await seed(page.request, 'Lanternfall: Ballad of the Ninefold Drowned Archive', 'Backlog');
+    await page.goto('/board');
+    await expect(
+      page.getByRole('region', { name: /^Coming soon/ }).getByText(/^Lanternfall/),
+    ).toBeVisible();
+
+    const [page_, screen] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      window.innerWidth,
+    ]);
+    expect(page_, 'the page is wider than the screen').toBeLessThanOrEqual(screen);
+  });
+
   test('leaves a 16px gutter at either side of the board', async ({ page }) => {
     // 24px of page padding and 12px inside the column put a phone's cards 36px in from each edge.
     await seed(page.request, 'Celeste', 'Backlog');
