@@ -16,6 +16,7 @@ import { sessionKey } from '../api/auth';
 import type { Account, ExportTitle } from '../api/types';
 import { SignInPage } from '../shell/SignInPage';
 import { OPENING_BOARD_KEY } from '../shell/openingBoard';
+import { HEADER_BOARDS_KEY } from '../shell/headerBoards';
 import { SettingsMenu } from './SettingsMenu';
 import { windowOfWidth } from '../test/media';
 import { DENSITY_ATTRIBUTE, JOURNAL_ATTRIBUTE, JOURNAL_KEY, THEME_ATTRIBUTE } from './theme';
@@ -163,6 +164,30 @@ describe('SettingsMenu', () => {
 
     expect(localStorage.getItem(OPENING_BOARD_KEY)).toBe('tv');
     expect(within(opens).getByRole('radio', { name: 'TV' })).toBeChecked();
+  });
+
+  it('offers every board for the header but the one you are on, and says why that one is not', async () => {
+    // As Columns does Backlog: left out of the list rather than offered as a box that could
+    // never be unticked, because the nav names the board you are on whatever is ticked.
+    renderWithProviders(<SettingsMenu hobby="movies" />);
+    await open();
+
+    const boards = screen.getByRole('group', { name: 'Boards in the header' });
+    const boxes = within(boards).getAllByRole('checkbox');
+    expect(boxes.map((box) => box.closest('label')?.textContent)).toEqual([
+      'Games',
+      'TV',
+      'Anime',
+      'Books',
+      'Music',
+    ]);
+    boxes.forEach((box) => expect(box).toBeChecked());
+    expect(boards).toHaveAccessibleDescription('Movies stays while you’re on it.');
+
+    await userEvent.click(within(boards).getByRole('checkbox', { name: 'Books' }));
+
+    expect(JSON.parse(localStorage.getItem(HEADER_BOARDS_KEY)!)).toEqual(['books']);
+    expect(within(boards).getByRole('checkbox', { name: 'Books' })).not.toBeChecked();
   });
 
   it('closes on Escape and hands the keyboard back to the gear', async () => {

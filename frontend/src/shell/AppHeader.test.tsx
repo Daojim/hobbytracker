@@ -1,6 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { AppHeader } from './AppHeader';
+import { setHeaderBoard } from './headerBoards';
+import { shareServer } from '../test/share';
 import { HOBBIES } from './hobbies';
 import { renderWithProviders } from '../test/render';
 import { authServer } from '../test/auth';
@@ -8,8 +11,12 @@ import { authServer } from '../test/auth';
 const nav = () => screen.getByRole('navigation', { name: 'Hobbies' });
 
 // The header asks who is signed in, and MSW refuses a request no test stated. Answered here so
-// the cases about the nav stay about the nav.
-beforeEach(() => authServer());
+// the cases about the nav stay about the nav. Settings asks after the board's share link as it
+// opens, for its Sharing row's line, so that is answered too.
+beforeEach(() => {
+  authServer();
+  shareServer();
+});
 
 /**
  * The shell had no test at all until the nav arrived, which is why this file covers the h1 and
@@ -33,6 +40,41 @@ describe('AppHeader', () => {
       'Books Soon',
       'Music Soon',
     ]);
+  });
+
+  describe('with boards taken off in Settings', () => {
+    afterEach(() => localStorage.clear());
+
+    it('names only the boards left on, in the order they are planned', () => {
+      // Boards in the header, since #27: so the nav shows the boards you use.
+      setHeaderBoard('tv', false);
+      setHeaderBoard('books', false);
+      setHeaderBoard('music', false);
+      renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
+
+      expect(within(nav()).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+        'Games',
+        'Movies',
+        'Anime',
+      ]);
+    });
+
+    it('names the board you are on, taken off or not, so a board opened by its address says where you are', () => {
+      setHeaderBoard('tv', false);
+      renderWithProviders(<AppHeader title="HobbyTracker" hobby="tv" />, { route: '/board/tv' });
+
+      expect(within(nav()).getByRole('link', { name: 'TV' })).toHaveAttribute('aria-current', 'page');
+    });
+
+    it('takes a board off the moment it is unticked in Settings', async () => {
+      renderWithProviders(<AppHeader title="HobbyTracker" hobby="games" />);
+      expect(within(nav()).getByRole('link', { name: 'Anime' })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Anime' }));
+
+      expect(within(nav()).queryByRole('link', { name: 'Anime' })).not.toBeInTheDocument();
+    });
   });
 
   it('offers a hobby that exists as a link, and says you are on it', () => {

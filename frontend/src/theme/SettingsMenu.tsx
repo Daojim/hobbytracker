@@ -14,6 +14,7 @@ import { useModalPanel } from '../lib/useModalPanel';
 import { ShareDialog } from '../share/ShareDialog';
 import { SharingRow } from '../share/SharingRow';
 import { HOBBIES, type Hobby } from '../shell/hobbies';
+import { setHeaderBoard, useHeaderBoards } from '../shell/headerBoards';
 import { setOpeningBoard, useOpeningBoard } from '../shell/openingBoard';
 import { DENSITIES, JOURNAL_VIEWS } from './theme';
 import { HEADER_ICON_BUTTON } from './ThemeMenu';
@@ -134,6 +135,7 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
   const hidden = useHiddenColumns(hobby);
   const shows = useCardShows(hobby);
   const openingBoard = useOpeningBoard();
+  const headerOff = useHeaderBoards();
 
   // Not drawn on a phone, where the journal fills the screen whichever is chosen; the stored
   // choice still applies when the same browser is wider. React's to know, as the board's
@@ -197,6 +199,21 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
                     value={openingBoard}
                     options={OPENING_BOARDS}
                     onChange={setOpeningBoard}
+                  />
+
+                  {/* Which boards the nav names: any but the one you are on, Books and Music
+                      among them. The one you are on is left out of the list rather than offered
+                      as a box that could never be unticked, as Columns does Backlog, and the line
+                      says so: the nav names it whatever is ticked. */}
+                  <Boxes
+                    name="Boards in the header"
+                    items={HOBBIES.filter((each) => each.slug !== hobby).map((each) => ({
+                      key: each.slug,
+                      label: each.label,
+                      checked: !headerOff.has(each.slug),
+                      onChange: (shown) => setHeaderBoard(each.slug, shown),
+                    }))}
+                    note={`${board} stays while you’re on it.`}
                   />
 
                 </div>
