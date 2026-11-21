@@ -7,8 +7,8 @@
 ## Design system
 
 The board wears a real design: **Shelf** — borderless cards lifting on a shadow, a warm ground,
-columns as tinted wells — in **Public Sans**, with eight themes and two densities behind one menu in
-the header.
+columns as tinted wells — in **Public Sans**, with eight themes behind a palette in the header and
+two densities in Settings beside it (#27).
 
 | | |
 |---|---|
@@ -22,7 +22,9 @@ the header.
 | Rating | **Coloured by what it says** — under 6 red, 6–8 orange, 8 and over yellow |
 | Danger | **Never colour alone** — a filled chip the accent never wears |
 | Density | Comfortable / Compact, a setting rather than a decision |
-| Journal | **Drawer or modal**, also a setting. Same dialog either way |
+| Journal | **Drawer or modal**, also a setting. Same dialog either way. **A modal by default since #27**, and **below 768px the drawer's full screen whichever is chosen**. See **Settings and the palette** |
+| Theme | **A palette in the header, opening today's list** of names and hints in a dropdown of its own, out of Settings since #27: the user's own answer, *to prepare for* #28 |
+| Settings | **A dialog behind a gear, 768 wide from 768px**: *Every board* beside this board's settings, *Your data* across the foot, each choice one line. Picked on 21 November 2026 in two rounds of renders. See **Settings and the palette** |
 | Width | The board stops widening at 2000px and puts the pixels into the cards. **16px of gutter on a phone**, 24 from 768px |
 | Columns | **One at a time on a phone, two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
 | On a phone | **A segmented switcher pinned to the top of the screen**: every column's name over its count, the current one raised. Picked on 1 October 2026 from four layouts rendered at 390px. See **On a phone** |
@@ -31,14 +33,14 @@ the header.
 | Stats | **Four tiles of numbers, then panels two across in the board's wells**: covers by month, a column per rating, a bar per game either side of its estimate, and the backlog oldest first. Picked on 2 October 2026 from eight choices rendered at 1440 and 390px. See **Stats** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
 | Settings toggles | **Real checkboxes, tinted with the accent**, where every other group there draws its own dots. Squares drawn to match were rendered first and lost: at 8px a square barely differs from a dot, and an unticked one all but vanished on the dark themes |
-| Sharing | **A Sharing group after Columns, holding one row that opens a dialog**: the address and Copy, the columns beside the rest, and *Stop sharing*, which asks first in the delete tint. Picked on 4 October 2026 in two rounds, and four of its states on the 5th. See **Sharing a board** |
+| Sharing | **A Sharing group after Columns, holding one row that opens a dialog**: the address and Copy, the columns beside the rest, and *Stop sharing*, which asks first in the delete tint. Picked on 4 October 2026 in two rounds, and four of its states on the 5th. In the board's half of the Settings dialog since #27. See **Sharing a board** |
 | A share | **A banner across the top, then the board under the owner's name** when they ticked it, which is never in the banner. Picked over the recommended heading. **A share addresses nobody**: twelve phrases written to the owner have a second form. See **Sharing a board** |
-| Your data | **A row in Settings after Columns**, and after Sharing where a board can be shared: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
+| Your data | **A row in Settings after Columns**, and after Sharing where a board can be shared: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. **Across the foot of the Settings dialog since #27**, the user's pick. See **Your data** |
 | Deleting your account | **A tinted row under it, on every board, that opens into the warning**: what it takes in each hobby's words, a word to type, and a filled button. Afterwards the sign-in card reads *Account deleted*. Picked on 4 October 2026 in two rounds. See **Deleting your account** |
 | Searching your notes | **A *Titles \| Notes* switch beside the search box**, a card per title with its cover for the notes found, **the accent at 25% behind each word found**, and a bar of the accent beside the note the journal opens at. Picked on 9 October 2026 from renders; the mark was the user's, over bold. See **Searching your notes** |
 | What should I play next? | **A dialog opened by a die and *Pick* in Backlog's header**: two rows of chips, a line saying what is in the draw, then a wheel of up to eight covers or three suggestions as rows. Picked on 25 October 2026 from renders of the real backlog. The header button was the user's, over a sentence under the search box. **Since #26 on 20 November 2026, 576 wide and centred from 768px, with a 400 wheel and each length's count on a line of its own**, every pick the recommendation. See **What should I play next?** |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
-| Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
+| Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon*. **Since #27, any but the board you're on can be taken off it in Settings**, Books and Music among them |
 | Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
 | The bar above the page | **Each theme's ground**, on Android in Chrome and in the installed app. System's follows the device's scheme. An iPhone ignores the tag |
 
@@ -98,7 +100,11 @@ wrapper.
   component to know which theme it was in.
 - **The journal's drawer/modal setting is a `@custom-variant`, not a second component.** Both are one
   dialog with one focus trap; only the box changes. Putting it on the root attribute rather than in
-  React state is what lets the menu change it without shared state.
+  React state is what lets the menu change it without shared state. **Since #27 the variant is a
+  modal unless the root says drawer**, `&:where(:root:not([data-journal='drawer']) *)`, because
+  the modal is the default and an absent attribute is what storage refusing outright leaves; and
+  **the card it draws is `md:` only**, so a phone's journal is the drawer's full screen whichever
+  is chosen.
 - **Rating tones are whole class names** — `ratingTone` in `src/lib/rating.ts` returns
   `text-rating-low` and its siblings in full, never an interpolated `text-rating-${tone}`.
 - **Light themes cannot have a yellow.** Nothing yellow enough to be called that clears 4.5:1 on
@@ -118,6 +124,14 @@ Each is invisible in development and each has a test that was checked by breakin
   applies a stored preference: `useTheme` deliberately does not, so a broken script is a failing test
   rather than a flash. `e2e/theme.spec.ts` blocks the module and asserts the attribute is stamped
   anyway; delete the script and three specs go red.
+- **The default journal is said in three places**, found by #27's renders where the plan named two:
+  `DEFAULT_JOURNAL` in `theme.ts`, the pre-paint script's fallback, and the `modal:` variant in
+  `index.css`, which decides what an absent attribute draws. Left on a drawer, the script would
+  paint one under a menu saying Modal, silently, since `useTheme` applies nothing on mount.
+  `theme.test.ts` runs the script for real in jsdom and reads the variant, and both are held to
+  `DEFAULT_JOURNAL`. **jsdom's selector engine answers false for every `:not()` inside a
+  `:where()`**, whatever the root says, so the test asks the variant as the plain descendant
+  selector it means; measured on 21 November 2026.
 - **`system` and Shelf Dark say the same thing twice**, because CSS cannot alias a media query to a
   selector. `index.css.test.ts` compares the two blocks declaration by declaration.
 - **Contrast.** `index.css.test.ts` checks `fg`, `muted`, `accent`, `rating` and `danger` against every
@@ -712,6 +726,11 @@ delete row is under **Deleting your account**.
   the last thing on the first screen, 760 to 788, and both of these are below. The other boards
   have no Sharing group and are as they were. Nothing about either row's working depends on the
   first screen: the page scrolls to them, and the warning still scrolls itself into view.
+- **Across the foot of the Settings dialog since #27**, the user's pick over under *Every board*:
+  the spreadsheet's row and the delete side by side from 768px, one under the other on a phone. The
+  measurements above are the panel's. At 1440 × 900 the whole of Settings is 698px tall, measured in
+  the build, and the workshop measured the prototype at 876 with the warning open, inside the
+  window; the warning scrolls itself into view within the dialog's own column.
 
 ### Deleting your account
 
@@ -1058,6 +1077,56 @@ under **The ✓ asks when it was finished**, and the switch's is `docs/journal.m
   year group at 1440 and 390 and in Shelf Dark, a year with no days at 1440 and 390, and All years
   at 1440, 1024 and 390. Where the keyboard was and what the year box had selected agreed in each.
 
+### Settings and the palette
+
+**The themes in a palette of their own in the header, and Settings a dialog behind a gear beside
+it.** Picked at #27's workshop on 21 November 2026 in two rounds of renders of the shipped app with
+a prototype swapped in for `SettingsMenu`, on the user's games board as read on 3 November: round
+one, https://claude.ai/artifact/JYxLGMEigPJpGcWXRgsMYG, and round two with the picks drawn together,
+https://claude.ai/artifact/RS87HBgvzQFcojLHxc3pWu. Every pick is in #27's section of
+`docs/plans/games-board-next.md`; what each setting does is the area's own file.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| Where the themes go | **A control of their own in the header, the user's answer**, to prepare for #28 | a row opening the list in the panel's place; the same row opening a dialog of swatches, the recommendation; tabs |
+| What it opens | **Today's list, names and hints, in a 224px dropdown** | the swatches |
+| The header | **A palette and a gear, the user's pick**, which keep a 390 phone's header one 32px row with *Sign out* on one line, 18px to spare | the word *Theme*, the recommendation, which wrapped *Sign out*; the theme's own name, which a phone cannot fit |
+| Settings | **A dialog, 768 wide from 768px, the user's pick** over the journal modal's 672: *Every board* beside this board's settings, *Your data* across the foot, the user's pick, and one scrolling column on a phone | tabs in the dropdown; one dropdown about 1,510px tall; a page of its own |
+| The controls | **One line each**: a choice's name and a switch, #24's Day \| Year switch made larger, on a 5rem column; boxes side by side | the panel's headings and rows, 854px at 1440 and 1,529 on a phone |
+
+- **The palette is `HEADER_ICON_BUTTON`**, Settings' old bordered button with a 16px drawing in its
+  word's place: `rounded border border-line px-2 py-1 text-xs font-medium text-muted`, 34 × 26 as the
+  prototype measured it. Its class string said `px-2` and `px-1.5` both, and `px-2` won, so the
+  build says `px-2` alone. The gear is the prototype's eight teeth round a hole, worked out once at
+  module load. Each is named in words for a voice, and in a tooltip.
+- **The palette's dropdown is the old panel's top**, `absolute right-0 z-30 mt-1 w-56 rounded-lg
+  border border-line bg-surface p-2 shadow-xl`, with its keyboard: Escape and a press outside close
+  it, and Escape hands the keyboard back to the palette.
+- **The dialog is the share dialog's frame at 768**, `max-w-md md:max-w-3xl rounded-xl border
+  border-line bg-surface p-5 shadow-xl` over the journal's scrim, `md:my-auto` in a scrolling column
+  as the picker is since #26, and 16px from the top on a phone. Its halves are headed in `text-sm
+  font-semibold`, *Every board* and the board's own name, and a group's heading is the panel's. A
+  choice is a `grid grid-cols-[5rem_minmax(0,1fr)]` row: its name in `text-sm`, then a radiogroup of
+  `h-6 rounded-sm px-1.5 text-xs` halves in a bordered `p-0.5` frame, the chosen half `bg-hover
+  font-medium text-fg`. A board's setting shows only where the board has it: the wheel where
+  `picker`, Your pace where `journal.setHltbId`, Discover's row where `discover`, Sharing where
+  `share`, the spreadsheet where `export`.
+- **The Journal switch is not drawn below 768px**, where the journal fills the screen whichever is
+  stored, through `SIDE_BY_SIDE`, the board's own breakpoint.
+- **`useModalPanel` moves the keyboard in without scrolling** since #27. With all seven settings in,
+  the dialog is taller than a phone, and focusing it scrolled its column to show as much as it
+  could, which put it at the top of the screen instead of 16px under it. Every panel opens at its
+  top, so none needed the scroll.
+- **Measured against the picked prototype, pixel for pixel**, by the gitignored
+  `workshop.local/settings-rearranged/compare-built.mjs`, the prototype's server beside the app's own
+  with the same staged answers to both. **The header, the palette's dropdown and the dialog differ by
+  no pixel** at 1440 in Shelf Light and Shelf Dark, the dialog at 1024 and 768 too, and the header
+  and the dropdown on a 390 phone: 768 × 698 at 1440, as the workshop measured it. **The phone's
+  dialog differs only by the Journal row**, which the prototype drew and the build does not: the
+  same down to that row, and with the row taken out of the prototype's page too, the same whole in
+  both themes, 358 × 1,017. Compared in halves around the row instead, 51 pixels differed by at most
+  20 levels, which was where the text fell on the screen rather than the build.
+
 ### The page's ground
 
 **The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at
@@ -1068,7 +1137,10 @@ near-black that is not the theme's. It was found in #8's renders and measured on
 75px of it under an empty games board with the panel scrolled to its end, before #8, and 269px
 with the warning open. `html` gets `var(--sunken)` too, in `index.css`'s base layer, so there is
 nowhere for the ground to stop. *Paints the theme’s ground under the whole page* in
-`layout.spec.ts` compares the root's computed colour with `main`'s, and was red first.
+`layout.spec.ts` compares the root's computed colour with `main`'s, and was red first. **Settings is a
+dialog since #27, so nothing hangs from the header past `main` now**; the root keeps the ground for
+whatever does next, and for an iPhone's bars, and the spec, renamed *on the root, not only on the
+board*, keeps its claim without the premise.
 
 ### The icon, and the bar above the page
 
@@ -1220,13 +1292,18 @@ change. Films proved it: that flag, plus a file in `src/hobbies/`, was the whole
   retired, because bookmarks, every Playwright `goto` and `signInUrl`'s `returnUrl` all name it.
   `isReadyHobby` beside it is what `BoardPage` turns a slug nobody has built into the one that
   exists with.
-- **Exactly one `SettingsMenu`, and it has to stay that way.** `useTheme` holds its state locally —
-  themes are CSS, so there is no provider — so a second menu would read storage once on mount and then
-  keep drawing the old choice. `AppHeader.test.tsx` pins it. **The Columns group is the exception
-  inside it**: it is the one setting the board has to hear, so it reads a store rather than local
-  state (`board/hiddenColumns.ts`, and **Columns taken off in Settings** in `docs/board.md`). That is
-  also why the header now takes the board's `hobby` — required, because a default is how the group
-  would quietly go missing.
+- **Exactly one palette and one Settings, and it has to stay that way.** `useTheme` holds its state
+  locally — themes are CSS, so there is no provider — so a second of either would read storage once
+  on mount and then keep drawing the old choice. The themes are the palette's since #27 and the rest
+  is Settings', so each preference has one control, and `AppHeader.test.tsx` pins one of each.
+  **The Columns group is the exception inside Settings**: it is a setting the board has to hear, so
+  it reads a store rather than local state (`board/hiddenColumns.ts`, and **Columns taken off in
+  Settings** in `docs/board.md`), as every setting #27 added does. That is also why the header takes
+  the board's `hobby` — required, because a default is how the group would quietly go missing.
+- **Boards in the header, since #27.** The nav names the boards left on in Settings, from
+  `shell/headerBoards.ts`, and **always the board you are on**, taken off or not: a board taken off
+  still opens at its address, by a bookmark or as the board that opens first, and the nav still says
+  where you are. Settings leaves that board out of its list, with a line saying so.
 
 `renderWithProviders` takes a **`route` option**, defaulting to `/board/games`. Its `MemoryRouter`
 had no `initialEntries`, so the location was always `/` and `aria-current` could not be asserted at

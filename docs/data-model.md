@@ -356,6 +356,16 @@ is `journalYear`'s, the third. The Stats page files a kept year at `SpanOf(year)
 of its year, which is how a year's undated finishes come after its dated ones in every list it
 makes.
 
+**Dates written day first add no fifth place** (#27). Settings' *Dates* turns *Oct 8, 2026* into *8
+Oct 2026*, and only the order of the day and the month changes: the formatters in `lib/time.ts` and
+`lib/release.ts` read the order as they write a day they had already put through the zone, or a
+release day that never meets it, and `App` hears the order so a date on screen changes at once. A
+month heading such as *Jan 2027* has no day to put first. **Day first is cut from `format()`'s own
+text, never rebuilt from `formatToParts()`**: the two disagree about the space before *PM*, a narrow
+one in the parts and a plain one in `format()`, which V8 swaps in for compatibility, measured in Node
+25 on 21 November 2026. Rebuilt from the parts, the two orders spaced the time of day differently,
+and `time.test.ts` caught it.
+
 *This sentence is still a tripwire. A fifth place updates it rather than quietly falsifying it.*
 
 `IJournalClock` (`Infrastructure/JournalClock.cs`) wraps `TimeProvider` plus the zone. It exists

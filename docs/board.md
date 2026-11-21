@@ -739,6 +739,28 @@ belongs on the server.
 the board's; Backlog made hideable fails four; the refusal map deleted fails one; and the calendar
 handed the unfiltered count fails `layout.spec.ts` by 141px.
 
+**The group is in the board's half of the Settings dialog since #27**, first, and #27 added four
+more settings the board hears, each a `lib/preferenceStore.ts` store per browser that its reader
+subscribes to, never read once at mount. The look is `docs/design.md`'s, under **Settings and the
+palette**.
+
+- **What a card shows** (`board/cardShows.ts`): two boxes per board, *The last note*, its words and
+  its picture together, the user's pick over a box for the picture apart, and the length in the
+  board's word, *Time to beat* or *Runtime*. Kept as what is left off, so a part added later starts
+  shown. **`CardFace` takes it as a required prop**, so none of the three places a card is drawn can
+  forget it: the board's own card and the drag preview read the store, and **a share draws every card
+  whole**, because the server never knows a browser's choice and a visitor's is about their own board.
+  `SharedBoardPage.test.tsx` holds that half.
+- **Boards in the header** (`shell/headerBoards.ts`): any of the six but the one you are on, kept as
+  what is taken off. The nav always names the board you are on, so a board taken off still opens at
+  its address and still says where you are; see **The hobby nav** in `docs/design.md`.
+- **Which board opens first** (`shell/openingBoard.ts`): `/`, `/board` and `/search` go to it through
+  `ToOpeningBoard` in `App.tsx`, the four built boards, Games until another is chosen. A board's own
+  address still opens that board, and an unbuilt board or anything else storage holds opens Games.
+- **The wheel** (`pick/wheelSpin.ts`): *Spin* or *Skip the spin*, per board where the board has a
+  picker. Skipping takes the path reduced motion already takes, so the pick is the same either way:
+  it is made before anything moves.
+
 ### A second thing that narrows a column
 
 **The Backlog column answers without the titles that are not out yet.** They are not gone: they are
