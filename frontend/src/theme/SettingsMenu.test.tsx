@@ -11,7 +11,7 @@ import { logEntry } from '../test/passes';
 import { cardShowsKey } from '../board/cardShows';
 import { hiddenColumnsKey } from '../board/hiddenColumns';
 import { paceKey, parsePace } from '../lib/pace';
-import { todayHere } from '../lib/time';
+import { DATE_ORDER_KEY, todayHere } from '../lib/time';
 import { sessionKey } from '../api/auth';
 import type { Account, ExportTitle } from '../api/types';
 import { SignInPage } from '../shell/SignInPage';
@@ -164,6 +164,26 @@ describe('SettingsMenu', () => {
 
     expect(localStorage.getItem(OPENING_BOARD_KEY)).toBe('tv');
     expect(within(opens).getByRole('radio', { name: 'TV' })).toBeChecked();
+  });
+
+  it('offers dates month first or day first, written as each would show a day', async () => {
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const dates = within(screen.getByRole('group', { name: 'Every board' })).getByRole(
+      'radiogroup',
+      { name: 'Dates' },
+    );
+    expect(within(dates).getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Oct 8, 2026',
+      '8 Oct 2026',
+    ]);
+    expect(within(dates).getByRole('radio', { name: 'Oct 8, 2026' })).toBeChecked();
+
+    await userEvent.click(within(dates).getByRole('radio', { name: '8 Oct 2026' }));
+
+    expect(localStorage.getItem(DATE_ORDER_KEY)).toBe('day');
+    expect(within(dates).getByRole('radio', { name: '8 Oct 2026' })).toBeChecked();
   });
 
   it('offers every board for the header but the one you are on, and says why that one is not', async () => {

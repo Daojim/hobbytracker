@@ -8,6 +8,7 @@ import { SharedBoardPage } from './share/SharedBoardPage';
 import { SharedStatsPage } from './share/SharedStatsPage';
 import { boardPath } from './shell/hobbies';
 import { useOpeningBoard } from './shell/openingBoard';
+import { useDateOrder } from './lib/time';
 
 /**
  * One screen per hobby, and one in front of them all. The board is the app, and the search that
@@ -30,6 +31,12 @@ function ToOpeningBoard() {
 }
 
 export function App() {
+  // Every date on screen is written in the order chosen in Settings (#27), and the formatters
+  // read it as they write. Heard here, at the top, so a choice re-renders every page under it
+  // and a date already on the board changes at once: nothing below is memoised, so the whole
+  // tree renders again, and no formatter's caller has to remember to listen.
+  useDateOrder();
+
   return (
     <Routes>
       <Route path="/" element={<ToOpeningBoard />} />

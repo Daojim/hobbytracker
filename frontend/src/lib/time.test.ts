@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { act, renderHook } from '@testing-library/react';
 import {
+  DATE_ORDER_KEY,
+  dateOrder,
   formatJournalDate,
   formatJournalDateTime,
+  setDateOrder,
+  useDateOrder,
   journalDateInput,
   journalMinute,
   journalMonth,
@@ -58,6 +63,42 @@ describe('journal time', () => {
   it('passes a missing timestamp through rather than inventing one', () => {
     expect(formatJournalDate(null)).toBeNull();
     expect(formatJournalDateTime(null)).toBeNull();
+  });
+
+  describe('with the day first, as chosen in Settings', () => {
+    // Dates as *8 Oct 2026* (#27). Only the order of the day and the month changes: the time of
+    // day is as it was, the recommendation over a 24-hour clock, and it is still this zone's day.
+    afterEach(() => localStorage.clear());
+
+    it('puts the day before the month, and keeps the zone’s day', () => {
+      setDateOrder('day');
+
+      expect(formatJournalDate(thursdayEvening)).toBe('20 Aug 2026');
+      expect(formatJournalDate('2026-01-15T04:30:00+00:00')).toBe('14 Jan 2026');
+    });
+
+    it('keeps the time of day as it was, after the day', () => {
+      setDateOrder('day');
+
+      expect(formatJournalDateTime(thursdayEvening)).toBe('20 Aug 2026, 9:30 PM');
+    });
+
+    it('is the month first until it is chosen, and on anything it cannot read', () => {
+      expect(dateOrder()).toBe('month');
+
+      localStorage.setItem(DATE_ORDER_KEY, 'backwards');
+      expect(dateOrder()).toBe('month');
+      expect(formatJournalDate(thursdayEvening)).toBe('Aug 20, 2026');
+    });
+
+    it('tells every reader at once', () => {
+      const { result } = renderHook(() => useDateOrder());
+      expect(result.current).toBe('month');
+
+      act(() => setDateOrder('day'));
+
+      expect(result.current).toBe('day');
+    });
   });
 
   it('fills a date input with the day the instant fell on here', () => {

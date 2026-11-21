@@ -142,6 +142,29 @@ describe('App', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
   });
 
+  it('writes every date on the board day first the moment Settings says so', async () => {
+    // Dates as *8 Oct 2026* (#27). The formatters read the order as they write, and the app
+    // hears it, so a card already on the board says it the new way without a reload.
+    boardServer({
+      columns: {
+        Backlog: [libraryItem({ title: 'Celeste', lastActivity: '2026-03-03T17:00:00Z' })],
+      },
+    });
+    authServer();
+    try {
+      renderWithProviders(<App />, { route: '/board/games' });
+      expect(await screen.findByText('Mar 3, 2026')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+      await userEvent.click(screen.getByRole('radio', { name: '8 Oct 2026' }));
+
+      expect(screen.getByText('3 Mar 2026')).toBeInTheDocument();
+      expect(screen.queryByText('Mar 3, 2026')).not.toBeInTheDocument();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
   describe('the board chosen to open first', () => {
     afterEach(() => localStorage.clear());
 

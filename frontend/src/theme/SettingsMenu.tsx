@@ -9,6 +9,7 @@ import { downloadSpreadsheet } from '../export/download';
 import { columnsFor, hobbyDefinition } from '../hobbies';
 import { HLTB_TIER_LABELS } from '../journal/fields';
 import { clearPace, formatPace, usePace } from '../lib/pace';
+import { DATE_ORDERS, setDateOrder, useDateOrder } from '../lib/time';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useModalPanel } from '../lib/useModalPanel';
 import { ShareDialog } from '../share/ShareDialog';
@@ -136,6 +137,7 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
   const shows = useCardShows(hobby);
   const openingBoard = useOpeningBoard();
   const headerOff = useHeaderBoards();
+  const dates = useDateOrder();
 
   // Not drawn on a phone, where the journal fills the screen whichever is chosen; the stored
   // choice still applies when the same browser is wider. React's to know, as the board's
@@ -200,6 +202,9 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
                     options={OPENING_BOARDS}
                     onChange={setOpeningBoard}
                   />
+                  {/* Each answer written as it would show a day, which says the choice better
+                      than *Month first* would. */}
+                  <Choice name="Dates" value={dates} options={DATE_ORDERS} onChange={setDateOrder} />
 
                   {/* Which boards the nav names: any but the one you are on, Books and Music
                       among them. The one you are on is left out of the list rather than offered
