@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { card, column, openJournal, seed } from './support/board';
+import { card, column, journalOpensIn, openJournal, seed } from './support/board';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitEstimate } from './support/hltb';
@@ -385,6 +385,26 @@ test.describe('on a phone, at 390px', () => {
     ]);
     expect(page_, 'the page is wider than the screen').toBeLessThanOrEqual(screen);
   });
+
+  for (const view of ['modal', 'drawer'] as const) {
+    test(`fills the screen with the journal, chosen as a ${view}`, async ({ page }) => {
+      // Whichever is chosen, since #27. The modal's box is a card 16px in from every edge, which
+      // on a phone left 308px for words against the drawer's 349, and it was wider than the
+      // screen besides: the drawer's w-full survived into it, so it ran 16px off the right edge
+      // with Delete cut off. Nobody met that while a phone opened the drawer unless Modal was
+      // pressed there, and a modal by default would have handed it to every phone.
+      await journalOpensIn(page, view);
+      await seed(page.request, 'Celeste', 'Backlog');
+      await page.goto('/board');
+      await openJournal(page, 'Celeste');
+
+      const journal = await boxOf(page.getByRole('dialog'), 'the journal');
+      expect(journal.x, 'starts at the left edge').toBeCloseTo(0, 0);
+      expect(journal.y, 'starts at the top').toBeCloseTo(0, 0);
+      expect(journal.width, 'is the screen wide').toBeCloseTo(390, 0);
+      expect(journal.height, 'is the screen tall').toBeCloseTo(844, 0);
+    });
+  }
 
   test('leaves a 16px gutter at either side of the board', async ({ page }) => {
     // 24px of page padding and 12px inside the column put a phone's cards 36px in from each edge.

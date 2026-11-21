@@ -79,15 +79,15 @@ describe('SettingsMenu', () => {
     expect(document.documentElement.hasAttribute(THEME_ATTRIBUTE)).toBe(false);
   });
 
-  it('offers the journal as a drawer or a modal', async () => {
+  it('offers the journal as a drawer or a modal, a modal until told otherwise', async () => {
     renderWithProviders(<SettingsMenu hobby="games" />);
     await open();
 
-    expect(screen.getByRole('radio', { name: 'Drawer' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Modal' })).toBeChecked();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Modal' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Drawer' }));
 
-    expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('modal');
+    expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('drawer');
   });
 
   it('closes on Escape and hands the keyboard back to the button', async () => {

@@ -5,8 +5,13 @@
  * The journal opens in a drawer or a modal, and it is the same dialog either way — same focus
  * handling, same contents, same Escape. Only where it sits changes, so it is a variant on the
  * root attribute rather than a second component or a prop threaded down through the board.
+ *
+ * A modal unless the root says drawer, since #27 made the modal the default: an absent
+ * attribute is a modal, which is what storage refusing outright leaves, because the pre-paint
+ * script then stamps nothing. theme.test.ts holds this to DEFAULT_JOURNAL in theme.ts. The box
+ * it draws is `md:` only, in EntryDrawer, so a phone's journal fills the screen either way.
  */
-@custom-variant modal (&:where([data-journal='modal'] *));
+@custom-variant modal (&:where(:root:not([data-journal='drawer']) *));
 
 /*
  * The palette, and the only place in the app that names a colour.

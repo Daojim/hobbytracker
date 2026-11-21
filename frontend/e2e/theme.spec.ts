@@ -75,20 +75,21 @@ test('the journal opens where you asked it to, and is the same dialog either way
   const viewport = page.viewportSize()!;
   const centreOf = (box: { x: number; width: number }) => box.x + box.width / 2;
 
-  await openJournal(page, 'Celeste');
-  const drawer = (await page.getByRole('dialog').boundingBox())!;
-  // Flush to the right edge, give or take a scrollbar.
-  expect(drawer.x + drawer.width).toBeGreaterThan(viewport.width - 20);
-  await page.keyboard.press('Escape');
-
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('radio', { name: 'Modal' }).click();
-  await page.keyboard.press('Escape');
-
+  // A modal until told otherwise, since #27: in the middle, off both edges.
   await openJournal(page, 'Celeste');
   const modal = (await page.getByRole('dialog').boundingBox())!;
   expect(modal.x).toBeGreaterThan(20);
   expect(Math.abs(centreOf(modal) - viewport.width / 2)).toBeLessThan(20);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('radio', { name: 'Drawer' }).click();
+  await page.keyboard.press('Escape');
+
+  await openJournal(page, 'Celeste');
+  const drawer = (await page.getByRole('dialog').boundingBox())!;
+  // Flush to the right edge, give or take a scrollbar.
+  expect(drawer.x + drawer.width).toBeGreaterThan(viewport.width - 20);
 
   // Still a dialog, and still closes the way it did.
   await page.keyboard.press('Escape');

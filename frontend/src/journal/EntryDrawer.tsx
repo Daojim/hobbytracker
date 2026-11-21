@@ -378,6 +378,10 @@ export function EntryDrawer({
         className="fixed inset-0 z-10 bg-scrim"
       />
 
+      {/* A drawer, or a card in the middle as `modal:` has it: and the card only from 768px, so
+          a phone's journal fills the screen whichever is chosen (#27). The card on a phone left
+          308px for words against the drawer's 349, and it ran 16px off the screen besides,
+          because the drawer's w-full survived into it. layout.spec.ts holds both on a phone. */}
       <aside
         ref={panel}
         role="dialog"
@@ -385,7 +389,7 @@ export function EntryDrawer({
         aria-labelledby={titleId}
         tabIndex={-1}
         {...ignoreDrops}
-        className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-xl outline-none 2xl:max-w-lg modal:inset-4 modal:m-auto modal:h-fit modal:max-h-[86vh] modal:max-w-2xl modal:rounded-xl modal:border modal:p-6 3xl:modal:max-w-3xl"
+        className="fixed inset-y-0 right-0 z-20 flex w-full max-w-md flex-col gap-4 overflow-y-auto border-l border-line bg-surface p-5 shadow-xl outline-none 2xl:max-w-lg md:modal:inset-4 md:modal:m-auto md:modal:h-fit md:modal:max-h-[86vh] md:max-3xl:modal:max-w-2xl md:modal:rounded-xl md:modal:border md:modal:p-6 3xl:modal:max-w-3xl"
       >
         <div className="flex items-start gap-3">
           {/* The title and its byline are one thing, so they are one element. They were two

@@ -155,6 +155,18 @@ export async function openJournal(page: Page, title: string): Promise<void> {
 }
 
 /**
+ * Where the journal opens, stored before every load of the page, as Settings stores it.
+ *
+ * A modal is the default since #27, so a spec about the drawer's width says so with this. A spec
+ * about the setting itself sets it where a person does, in Settings. Before the first `goto`.
+ */
+export async function journalOpensIn(page: Page, view: 'drawer' | 'modal'): Promise<void> {
+  await page.addInitScript((stored) => {
+    localStorage.setItem('hobbytracker.journal', stored);
+  }, view);
+}
+
+/**
  * The gesture itself.
  *
  * dnd-kit tracks pointer movement rather than the HTML5 drag events, so a single jump from
