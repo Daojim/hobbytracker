@@ -1,4 +1,5 @@
 import { CARD_CLASS, CardFace } from '../board/Card';
+import { EVERYTHING } from '../board/cardShows';
 import { ColumnFrame } from '../board/Column';
 import type { LibrarySort, LogStatus } from '../api/types';
 import { sharedColumnQuery } from './queries';
@@ -58,6 +59,9 @@ export function SharedColumn({
             <li key={item.mediaId} className={CARD_CLASS}>
               <CardFace
                 item={{ ...item, latestNotePreview: null, latestNotePicture: null, latestNotePictures: 0 }}
+                // Whole, whatever this browser leaves off its own board's cards (#27): the
+                // server never knows the owner's choice, and a visitor's is about their board.
+                shows={EVERYTHING}
               />
             </li>
           ))}

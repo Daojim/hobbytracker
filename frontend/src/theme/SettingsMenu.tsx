@@ -2,6 +2,7 @@ import { type ReactNode, useId, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { DeleteAccount } from '../account/DeleteAccount';
 import { useDeleteAccount } from '../account/useDeleteAccount';
+import { setCardShows, useCardShows } from '../board/cardShows';
 import { SIDE_BY_SIDE } from '../board/grid';
 import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
 import { downloadSpreadsheet } from '../export/download';
@@ -124,6 +125,7 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
   const { density, journalView, setDensity, setJournalView } = useTheme();
   const definition = hobbyDefinition(hobby);
   const hidden = useHiddenColumns(hobby);
+  const shows = useCardShows(hobby);
 
   // Not drawn on a phone, where the journal fills the screen whichever is chosen; the stored
   // choice still applies when the same browser is wider. React's to know, as the board's
@@ -210,6 +212,27 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
                       onChange: (shown) => setColumnHidden(hobby, column.status, !shown),
                     }))}
                   note="Backlog always shows, because search adds to it."
+                />
+
+                {/* What a card shows: the last note, its words and its picture together, the
+                    user's pick over a box for the picture apart; and the length, in the board's
+                    word for it. Every other part of a card says what the title is. */}
+                <Boxes
+                  name="Cards"
+                  items={[
+                    {
+                      key: 'note',
+                      label: 'The last note',
+                      checked: shows.note,
+                      onChange: (shown) => setCardShows(hobby, 'note', shown),
+                    },
+                    {
+                      key: 'length',
+                      label: definition.lengthLabel,
+                      checked: shows.length,
+                      onChange: (shown) => setCardShows(hobby, 'length', shown),
+                    },
+                  ]}
                 />
 
                 {/* Where the board has HowLongToBeat's figures, which the question answers

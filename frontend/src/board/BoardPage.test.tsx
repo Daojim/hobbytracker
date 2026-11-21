@@ -491,6 +491,27 @@ describe('BoardPage', () => {
     expect(screen.getByRole('heading', { name: 'Dropped 0' })).toBeInTheDocument();
   });
 
+  it('takes the last note off every card the moment it is unticked in Settings', async () => {
+    // What a card shows (#27), a store for the Columns group's reason: Settings and the cards
+    // are siblings, and the board has to hear the box rather than wait for a reload.
+    boardServer({
+      columns: {
+        Backlog: [
+          libraryItem({ mediaId: 3001, title: 'Celeste', latestNotePreview: 'Chapter 7 at last.' }),
+        ],
+      },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    expect(await screen.findByText('Chapter 7 at last.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'The last note' }));
+
+    expect(screen.queryByText('Chapter 7 at last.')).not.toBeInTheDocument();
+    expect(screen.getByText('Celeste')).toBeInTheDocument();
+  });
+
   it('offers no move to a column the board is not drawing', async () => {
     // Otherwise *Move to Dropped* sends the card somewhere off screen, which reads as the menu
     // losing it. The menu's moves come from the same list the board draws, so the two cannot

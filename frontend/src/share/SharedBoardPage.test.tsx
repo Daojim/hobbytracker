@@ -3,6 +3,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { SharedBoardPage } from './SharedBoardPage';
+import { setCardShows } from '../board/cardShows';
 import { setColumnHidden } from '../board/hiddenColumns';
 import { setPace } from '../lib/pace';
 import { libraryItem } from '../test/library';
@@ -138,6 +139,25 @@ describe('SharedBoardPage', () => {
       renderShare();
 
       expect(await screen.findByText('Tunic')).toBeInTheDocument();
+    });
+
+    it('draws each card whole, whatever this browser’s own board leaves off its cards', async () => {
+      // What a card shows (#27) is kept per browser, so the server never knows the owner's
+      // choice and a share cannot follow it; nor should it follow a visitor's for their own board.
+      setCardShows('games', 'length', false);
+      try {
+        sharedServer({
+          board: { parts: SHOWN },
+          columns: { Backlog: [libraryItem({ title: 'Celeste', lengthHours: 12 })] },
+          years: [2026],
+        });
+        renderShare();
+
+        expect(await screen.findByText('Celeste')).toBeInTheDocument();
+        expect(screen.getByRole('img', { name: 'About 12 hours to finish' })).toBeInTheDocument();
+      } finally {
+        localStorage.clear();
+      }
     });
 
     it('keeps what it reads under its token, and nothing in your own board’s cache', async () => {

@@ -8,6 +8,7 @@ import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { shareServer } from '../test/share';
 import { logEntry } from '../test/passes';
+import { cardShowsKey } from '../board/cardShows';
 import { hiddenColumnsKey } from '../board/hiddenColumns';
 import { paceKey, parsePace } from '../lib/pace';
 import { todayHere } from '../lib/time';
@@ -256,6 +257,31 @@ describe('SettingsMenu', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Dropped' })).toBeChecked();
     expect(JSON.parse(localStorage.getItem(hiddenColumnsKey('games'))!)).toEqual([]);
+  });
+
+  describe('what a card shows', () => {
+    it('offers the last note and the length, in the board’s words, both ticked to begin with', async () => {
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      const boxes = within(screen.getByRole('group', { name: 'Cards' })).getAllByRole('checkbox');
+      expect(boxes.map((box) => box.closest('label')?.textContent)).toEqual([
+        'The last note',
+        'Runtime',
+      ]);
+      boxes.forEach((box) => expect(box).toBeChecked());
+    });
+
+    it('leaves a part off this board’s cards when it is unticked, and no other board’s', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Time to beat' }));
+
+      expect(screen.getByRole('checkbox', { name: 'Time to beat' })).not.toBeChecked();
+      expect(JSON.parse(localStorage.getItem(cardShowsKey('games'))!)).toEqual(['length']);
+      expect(localStorage.getItem(cardShowsKey('movies'))).toBeNull();
+    });
   });
 
   describe('your pace', () => {

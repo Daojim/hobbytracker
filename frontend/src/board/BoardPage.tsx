@@ -22,6 +22,7 @@ import { YearPicker } from './YearPicker';
 import { ALL_MANUAL, wholeColumnKey, yearFor, yearsKey } from './keys';
 import { BOARD_GAP, SIDE_BY_SIDE, boardTracks } from './grid';
 import { useHiddenColumns } from './hiddenColumns';
+import { useCardShows } from './cardShows';
 import { columnsFor, hobbyDefinition } from '../hobbies';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby, statsPath } from '../shell/hobbies';
 import type { Hobby } from '../shell/hobbies';
@@ -137,6 +138,9 @@ function Board({ hobby }: { hobby: Hobby }) {
   // from it. A column left off is not rendered at all, so it asks the API for nothing and is not
   // a drop target; the titles in it stay exactly where they were.
   const hidden = useHiddenColumns(hobby);
+
+  // What a card shows, for the card a drag lifts, so it is the card it was lifted from.
+  const cardShows = useCardShows(hobby);
   const columns = columnsFor(hobby).filter((column) => !hidden.has(column.status));
 
   // What a phone shows of those: the column chosen, or Backlog once the chosen one is taken off
@@ -346,7 +350,7 @@ function Board({ hobby }: { hobby: Hobby }) {
               <DragOverlay dropAnimation={null} zIndex={40}>
                 {board.dragging !== null && (
                   <div className={`${CARD_CLASS} cursor-grabbing shadow-lg`}>
-                    <CardFace item={board.dragging} />
+                    <CardFace item={board.dragging} shows={cardShows} />
                   </div>
                 )}
               </DragOverlay>
