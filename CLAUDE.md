@@ -801,7 +801,7 @@ shuffled.
       - [x] the picker, roomier — #16's panel 576 wide and centred on a desktop, its wheel 400,
         and each length chip saying *5 games* on a line of its own above its hours. A phone
         starts it 16px from the top, because the chips' new line put it 19px off the screen.
-        All four picks were the recommendation (built 21 November 2026)
+        All four picks were the recommendation (PR #103, deployed)
       - [ ] Settings, rearranged — a workshop: the themes in a place of their own, Modal as the
         journal's default, and new settings picked from a list
       - [ ] a theme of your own — a workshop after #27: made from one of the eight, with a
