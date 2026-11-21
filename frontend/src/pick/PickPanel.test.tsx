@@ -163,6 +163,33 @@ describe('What should I play next?', () => {
     expect(within(dialog).queryByRole('button', { name: /with no estimate/ })).not.toBeInTheDocument();
   });
 
+  it('says how many games each length holds on a line of its own, and the hours under it', async () => {
+    // The user's words at #26: "'Any' has '5' right beside it… I would like it to be a new line
+    // and say '5 games' and '2 games', then the amount of hours underneath". The word is the
+    // board's own, singular for one, so a films board would say films. That each line sits under
+    // the last is CSS, which pick.spec.ts measures; here, that each is a line of its own.
+    boardServer({
+      columns: {
+        Backlog: [
+          libraryItem({ title: 'Mega Man 2', lengthHours: 2.93 }),
+          libraryItem({ title: 'Celeste', lengthHours: 12.76 }),
+          libraryItem({ title: 'Super Mario RPG', lengthHours: 13.51 }),
+        ],
+      },
+    });
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    const dialog = await openPicker();
+    const lengths = within(dialog).getByRole('radiogroup', { name: 'How long do you want to play?' });
+    const lines = (name: RegExp) =>
+      [...within(lengths).getByRole('radio', { name }).children].map((line) => line.textContent);
+
+    expect(lines(/^Any/)).toEqual(['Any', '3 games']);
+    expect(lines(/^An evening/)).toEqual(['An evening', '1 game', 'under 5 h']);
+    expect(lines(/^A weekend/)).toEqual(['A weekend', '2 games', '5–20 h']);
+    expect(lines(/^A long haul/)).toEqual(['A long haul', '0 games', '50 h or more']);
+  });
+
   it('leaves out the genres pressed, by the genre each card is painted as', async () => {
     boardServer({ columns: { Backlog: yours() } });
     renderWithProviders(<BoardPage />, BOARD_ROUTE);
