@@ -13,7 +13,8 @@ twenty-first, the titles behind a rating on the Stats page, followed on 4 Novemb
 twenty-second, a game's OpenCritic and Steam pages, came out of #17's workshop on 7 November 2026.
 A twenty-third and a twenty-fourth were asked for on 8 November 2026, the morning #17 shipped:
 hiding a game from Discover, and adding a game finished long ago without inventing its dates.
-CLAUDE.md's **What is next** points here.
+Five more were asked for on 14 November 2026: a journal opened from the Stats page, a roomier
+picker, Settings rearranged, a theme of your own, and collapsing a column. CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -51,6 +52,11 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 22 | A game's OpenCritic and Steam pages | M | **Shipped and deployed 13 November 2026** (PR #95), built tests first on the 12th, the day it was workshopped, after the full e2e suite went 231 green, the 220 before and 11 new. Two rows in the journal under HowLongToBeat's, OpenCritic's top critics, tier and share who recommend it (the user's pick) and Steam's word and share positive, each beside a link to its page, and an *OpenCritic ID* box to pin one. Measured first: Steam's review route is deprecated and its keyless replacement answered all 83 apps; OpenCritic's pages may not be read, and its API takes a key, optional here; Wikidata gives 61 of the board's 91 an OpenCritic id with no matching. The built rows match the picked renders to the pixel, and the Enter guard on the box proved to be Firefox's. `OPENCRITIC_API_KEY` went in the server's `.env` before the deploy. See its section |
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
 | 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
+| 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. See its section |
+| 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. A render of the widths first. See its section |
+| 27 | Settings, rearranged | S–M | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. See its section |
+| 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
+| 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
 
 Production runs `2ef7369`'s code, which was `main` on 14 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -4936,6 +4942,276 @@ planted; the faults of steps 13 and 14 are listed below as they were planted.
 - **The user's own check**: on the live board, the ✓ on a search result asking *When did you finish
   it?*, a game added in a year showing that year on its card, and the Day | Year switch in a
   journal. No session here can sign in to it.
+
+---
+
+## 25. A journal from the Stats page · planned
+
+**Planned 14 November 2026**, at the user's request. Lines were read at `8c3ae98`. In the user's
+words: *"On the 'Finished Each Month' section when it's displayed a year, if I click on the cover
+of a game, I want it to open up the journal"*, and the same for a row in #21's list of the games
+rated at a point.
+
+**This reverses one of #21's picks.** Round one decided *what a title in the list does: nothing*,
+and CLAUDE.md's **Settled** row *A rating's games* says *and nothing opened from a row*. The build
+changes that row, and `docs/stats.md`'s **The finishes behind a rating**, in the same PR.
+
+**What it builds on.**
+- **The covers by month are `stats/FinishedCovers.tsx`**: an `<img>` with the title as its `alt`
+  and `title`, or a lettered `role="img"` span with no cover. Neither is focusable today.
+- **#21's rows are in `stats/RatingSpread.tsx`**, inside the open column's list: a cover, a name,
+  `★ 8.5`, and a day only on a title that appears twice.
+- **Each finish already carries its media id** (`StatsDto.Finished`), so the page knows which
+  title to open with no server change.
+- **The drawer is the board's.** `EntryDrawer` is mounted by `BoardPage` alone, and it takes
+  `columns`, `onMove` and `onPutBack` from the board's mutation (`useBoard`). The pass's heading
+  moves a title through them (#13), and leaving Completed asks *Did you finish it?* (#14). The
+  Stats page has none of the three. **That is the size of this feature**: everything else is a
+  button round a cover.
+- **A finish is a pass, and the drawer opens a title**, whose current pass leads and whose earlier
+  passes sit below it. A game finished in 2023 and replayed since opens on the replay.
+
+### Decide at pickup
+
+- **What the drawer can do from Stats.** Recommended: **everything it does on the board**, moves
+  included, with the Stats page refetched afterwards, so a finish put back leaves its month. The
+  alternative is a drawer with its heading read-only on Stats, which is a second mode of the
+  drawer to keep and test, for a page reached from the board in one press.
+- **Which pass it opens at.** Recommended: the title, as everywhere else. Opening at the finish's
+  own pass would be the first journal that does not lead with the current pass.
+- **What says a cover opens something.** Today a cover says nothing under the pointer but its
+  `title` tooltip. Render: a lift and a ring on hover and focus, as a card does; the accent ring
+  alone; nothing but the pointer. The rating rows have #21's name to put in the accent, as #12
+  and #20 do for a name that opens.
+- **On a phone** the covers by month are small; whether a press there opens the drawer or the
+  covers need to grow is a render.
+- **Never on a share.** A share shows the Stats page and never a note, so its covers and rows stay
+  pictures and words, as #21 kept its chart.
+
+### Things to get right
+
+- **Back closes the drawer** (`useOverlayHistory`), and leaves you on the year you were reading,
+  with #21's list still open.
+- **The keyboard goes back to the cover or row that opened it**, as #12 learned the calendar's did
+  not.
+- **A move from Stats refetches Stats as well as the board's keys**, or a title taken out of
+  Completed stays in its month until a reload.
+- **Lifting the drawer's wiring out of `BoardPage`** is the refactor here; the board's own tests
+  are what say it still works.
+
+### Tests first
+
+- A cover in a year's months is a button named by its title, and opens that title's journal; so
+  does a row in an open rating list.
+- Back and Escape close it and the keyboard returns to what opened it.
+- Moving the title out of Completed from that journal takes it out of its month and its rating's
+  count without a reload.
+- On a share, nothing under Stats is a button that opens a journal.
+- **Put the fault back:** drop the Stats refetch from the move, and the month test goes red.
+
+---
+
+## 26. The picker, roomier · planned
+
+**Planned 14 November 2026**, at the user's request. Two adjustments to #16's panel.
+
+**One: where it sits and how wide it is.** *"I want it to be more centred on the screen. Right
+now, it's more towards the upper middle of the screen on desktop. I would also like it to bit more
+wide cause it feels kinda squished on desktop. You can scale the 'spin the wheel' as well."*
+- **Today** (`pick/PickPanel.tsx`): `items-start` with `pt-[8vh] md:pt-[10vh]`, and the panel
+  `max-w-md`, 448px. The wheel is `max-w-[300px]` (`pick/Wheel.tsx`).
+- **The panel changes height as it is used.** It is 763px after a spin on a phone and shorter
+  before one, so centring it with `items-center` would move it upwards when the result row
+  arrives, and clip its top once it is taller than the window, which is the flex-centring trap.
+  `my-auto` inside a scrolling column keeps it centred while it fits and scrolls when it does not.
+- **On a phone**, 390 × 844, the panel after a spin ends 13px above the foot already, so a phone
+  is top-anchored whatever a desktop does. The workshop renders both.
+
+**Two: what a length chip says.** *"'Any' has '5' right beside it… I would like it to be a new
+line and say '5 games' and '2 games', then the amount of hours underneath."* So a chip reads:
+
+```
+Any        A weekend
+5 games    2 games
+           5–20 h
+```
+
+- **Leave out stays as it is**, a genre and its count on one line, by the user's word.
+- **The noun is the hobby's**, from the picker's words in `hobbies/games.ts`, singular for one:
+  *1 game*. A films board would say *films*.
+- **The chips grow a line**, so the second row the renders measured at 46px gets taller, and a
+  wider panel may put all five on one row. The workshop says which.
+- `PickPanel.test.tsx` finds the chips by a name beginning with the band's label, so they keep
+  working; a case for *5 games* and *1 game* is new.
+
+### Decide at pickup
+
+- **How wide.** Render 512, 576 and 640px at 1440 and 1280, with the wheel at 300, 360 and
+  400px. Recommended: whichever puts the five length chips on one row without the wheel's covers
+  turning into thumbnails.
+- **Whether a wide panel lays out in two columns**, the filters beside the wheel, which is the
+  shortest panel at 1440 but a second layout to keep. Recommended: one column, wider, unless the
+  renders show it still reads as squished.
+- **Where it sits.** Recommended: centred from `md` while it fits, top-anchored on a phone.
+
+### Tests first
+
+- A length chip says *5 games* on a line of its own, *1 game* in the singular, and its range
+  beneath; a genre chip is unchanged.
+- **The layout is CSS alone, so it goes to Playwright**: at 1440 the panel's middle is within a
+  few pixels of the window's before and after a spin, and at 390 its top is where it was.
+
+---
+
+## 27. Settings, rearranged · planned
+
+**Planned 14 November 2026**, at the user's request, as a workshop first. In the user's words:
+*"I want to workshop the 'Settings' menu. For example, have the 'Themes' be in its own section
+instead of taking up the top part of Settings. Have the Modal option be default. Come up with new
+things to add to Settings."*
+
+**What Settings is today** (`theme/SettingsMenu.tsx`), a 224px panel under the header's button,
+top to bottom: **Theme**, nine radios with a hint each (System and the eight themes); **Density**;
+**Journal**, Drawer or Modal; **Columns**; **Sharing**; **Your data**, the spreadsheet and deleting
+your account. The themes are most of its height, which is the user's point.
+
+**Modal as the default.** `DEFAULT_JOURNAL` in `theme/theme.ts`, **and the pre-paint script in
+`index.html`**, which falls back to `drawer` on its own and would otherwise paint a drawer and
+switch to a modal after the bundle mounts. **It changes only browsers that never chose**: a
+browser that pressed Drawer at some point has `drawer` stored and keeps it. The user's own
+browser may be one of those, so after the deploy it is one press. Tests that assume a drawer by
+default need saying so.
+
+### Decide at pickup
+
+- **Where the themes go.** Render: a row in Settings, *Theme · Shelf Dark ›*, that opens the list
+  in place of the panel with a way back; the same row opening a dialog of swatches, which #28
+  would need room in anyway; a tab strip across the top, *Appearance · Board · Data*. Recommended:
+  the dialog of swatches, because a name like *Almanac* says less than its colours, and #28 makes
+  it the theme's home.
+- **The order of the rest**, once the themes leave the top.
+- **What to add.** Suggestions, each grounded in something the app already does; the workshop
+  shows the whole list and the user picks, per *Show the whole list first*. None of them nudges,
+  counts down, or asks for upkeep, per *HobbyTracker is for leisure*:
+  - **Your pace**, from "How long will it take me?" (#4), shown and cleared here. Today it is set
+    and changed only through the quiz behind a game's estimates.
+  - **Collapsed columns** (#29), if they are remembered, listed beside the Columns group.
+  - **Which board opens first.** `/board` goes to games today; the boards you use most may not be.
+  - **Boards in the header.** Turning off a hobby you never use, so the nav shows the ones you do.
+  - **Spin the wheel**: skip the spin and show the pick at once, for somebody without reduced
+    motion set on the device. #16 already shows the pick with no spin under reduced motion.
+  - **What a card shows**: the last note's line and its picture (#18), the hours, each on or off.
+  - **Dates as *Oct 8, 2026* or *8 Oct 2026***, if a day-first form is ever wanted.
+  - **Sign out**, if the badge is not where a person looks for it.
+  - **Hidden from Discover** (#23), whose list is reached only from the Discover page today.
+- **Not offered**: the time zone. It is server-configured by design (**Settled**, *Timezone*), and
+  a per-person zone would put the year a pass is in up for grabs.
+- **Per browser or per account.** Everything in Settings but Sharing and Your data is per browser
+  today, in `localStorage`. Recommended: keep it that way, unless a pick only makes sense across
+  devices.
+
+### Things to get right
+
+- **The panel's keyboard**: Escape and a press outside close it and hand the keyboard back, and
+  whatever opens from it, a dialog or a second view, follows `useModalPanel` as the share dialog
+  does.
+- **At 390px** the panel and anything it opens fit the screen.
+- **A setting that is not CSS is read from a store the board subscribes to**, as
+  `board/hiddenColumns.ts` is, never read once at mount.
+
+---
+
+## 28. A theme of your own · planned
+
+**Planned 14 November 2026**, at the user's request: *"maybe have the users to be able to create
+their own theme."* A workshop first, and **after #27**, since #27 decides where themes live.
+
+**What a theme is today.** One block of custom properties in `src/index.css`, about twenty tokens
+each (ground, surface, well, sunken, line, fg, muted, accent, the drop tint, the dropped column,
+and more), turned into utilities by `@theme inline`. **A new theme has three lists to join**
+(`docs/design.md`): `THEMES` in `theme/theme.ts`, the pre-paint script's colours in `index.html`,
+and the contrast test, which asserts every theme's pairs. The genre stripes and the rating colours
+are their own tokens and the same in every theme.
+
+### Decide at pickup
+
+- **How much a person picks.** Twenty tokens is a lot to hand somebody. Render: start from one of
+  the eight and change only **the ground, the surface and the accent**, deriving the rest; the
+  same plus the text colour; every token, as an advanced view. Recommended: the first.
+- **What happens to a pair that cannot be read.** The contrast test guards the eight; a theme made
+  in the browser has no test. Render: a warning beside the colour naming what fails, the save still
+  allowed; the save refused until it passes; the colour nudged until it passes. Recommended: the
+  warning, since it is your own screen.
+- **How many.** One theme of your own, or several by name.
+- **Kept where.** Per browser, as every appearance setting is, recommended; or per account, which
+  is a table and a route, and the first appearance setting to follow you between devices.
+- **Shared by link?** Recommended not: a share is read in the visitor's own theme today.
+
+### Things to get right
+
+- **No flash on load.** The pre-paint script has to read the custom colours from storage and
+  stamp them before the bundle loads, or a custom theme is the one that repaints after mount,
+  which is the trap **What fails silently** names for a new theme.
+- **A theme is CSS custom properties set on the root at run time**, never class names built from a
+  value: Tailwind scans source text, and an interpolated class paints nothing.
+- **Storage may refuse** (`lib/storage.ts`), and the app falls back to the theme it started from.
+- **The colour inputs** differ between Firefox and Chromium; check both, per *Jimmy uses Firefox*.
+
+---
+
+## 29. Collapsing a column · planned
+
+**Planned 14 November 2026**, at the user's request: *"Since I've completed many games recently,
+the completed column has been making scrolling down a lot more tedious. I want a quick button
+beside the column header, like an arrow, to just quickly collapse the column and not hide it like
+my option in Settings."*
+
+**What exists already.** **Dropped collapses**, side by side and by default: a *Show Dropped* /
+*Hide Dropped* button in its header (`ColumnFrame`'s `onToggleCollapse`), held in `BoardPage`'s
+`droppedOpen` and forgotten on a reload. Collapsed, the header, its count and its hours stay, the
+cards go, and **the section stays a drop target**, `min-h-24`, which `Column.tsx`'s comment says
+was a fix. So this is that, for every column, with an arrow.
+
+**Why the page is long.** Side by side, the page is as tall as its tallest column, and a column
+draws up to 100 cards (`COLUMN_PAGE_SIZE`). Collapsing Completed shortens the page only to the
+next tallest, which is the point.
+
+### Decide at pickup
+
+- **Which columns.** Recommended: every one, Backlog included, since collapsing hides nothing for
+  good and Backlog's header still holds *Pick*.
+- **Remembered or not.** Recommended: **per board and per browser**, as hidden columns are, through
+  a store beside `board/hiddenColumns.ts`; a collapse that forgets itself on a reload is a press
+  every visit. **Dropped starts collapsed**, as now, and remembers its own state after that.
+- **The arrow and the words.** An arrow before the heading, pointing down when open and right when
+  collapsed, named *Collapse Completed* / *Expand Completed* for a screen reader. Dropped's *Show
+  Dropped* words go, so every column says it one way.
+- **What a collapsed column looks like.** Render: Dropped's shape, header and hours with no
+  cards; a narrow strip with the name turned on its side, which gives the width back to the others
+  but changes `board/grid.ts`; the column with a height of its own and a scroll inside it, which
+  is not a collapse but answers the same complaint.
+- **On a phone, nothing.** One column is shown at a time under the switcher, so there is nothing
+  below it to scroll past. Recommended: the arrow side by side only, as Dropped's button is.
+
+### Things to get right
+
+- **A collapsed column is still a drop target**, measured by `boardCollisions`, and a card dropped
+  on it lands there: into Completed still asks nothing new, and out of Completed still asks *Did
+  you finish it?* (#14).
+- **A collapsed column still fetches**, because its heading counts and its hours line add up the
+  column, and #20's counts in that line still open their lists.
+- **Not to be confused with hiding.** Hidden columns are not rendered, not fetched and not a drop
+  target (**Settled**, *Hiding a column*); a collapsed one is all three.
+
+### Tests first
+
+- Every column side by side has the arrow; pressing it hides the cards and keeps the heading, its
+  count, the hours and the sort control.
+- It survives a reload, per board: collapsing Completed on games leaves Watched on films open.
+- Dropped starts collapsed with nothing stored.
+- On a phone there is no arrow.
+- e2e: a card dragged onto a collapsed column lands there.
+- **Put the fault back:** stop rendering the section while collapsed, and the drop test goes red.
 
 ---
 

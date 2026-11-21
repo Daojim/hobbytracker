@@ -672,8 +672,8 @@ shuffled.
       order, an eleventh, a bug, was added on 4 October 2026, two about the journal on
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
       notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
-      two more on 3 November, one on 4 November, one on 7 November, out of #17's workshop, and
-      two on 8 November:
+      two more on 3 November, one on 4 November, one on 7 November, out of #17's workshop,
+      two on 8 November, and five on 14 November:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -790,6 +790,17 @@ shuffled.
         says *2019*, the Stats page files a year's undated finishes after December, and the
         spreadsheet gains a column of years. Built 14 November 2026, the day it was workshopped,
         tests first (PR #99, deployed)
+      - [ ] a journal from the Stats page — a cover in a year's months and a row in a rating's
+        list open that title's journal, which reverses #21's *nothing opened from a row*. The
+        drawer's moves are the board's, so they come out of `BoardPage` first
+      - [ ] the picker, roomier — #16's panel centred and wider on a desktop with a larger wheel,
+        and a length chip saying *5 games* on a line of its own above its hours
+      - [ ] Settings, rearranged — a workshop: the themes in a place of their own, Modal as the
+        journal's default, and new settings picked from a list
+      - [ ] a theme of your own — a workshop after #27: made from one of the eight, with a
+        warning for a colour that cannot be read, and no flash on load
+      - [ ] collapsing a column — an arrow beside every heading, side by side, that keeps the
+        heading, the hours and the drop target, as Dropped does now
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
