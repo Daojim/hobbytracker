@@ -5,6 +5,7 @@ import { awaitChecked, awaitEstimate, estimate, holdChecks, todayAsChecked } fro
 import {
   card,
   column,
+  journalOpensIn,
   openJournal,
   passSaved,
   seed,
@@ -284,6 +285,11 @@ test('the arrow turns in place while it checks, and nothing else on the row move
   // is a measurement. A word in the arrow's place was wider and dropped the link under the box
   // for the length of the check, which is what the turn replaced. Held at the network, so it
   // can be looked at while it runs.
+  //
+  // In the drawer, since the modal became the default (#27). A modal centres itself, so it moves
+  // as a whole when anything in it changes height: Steam's row arriving after the first measure
+  // moved the link 12px with nothing on its row moving at all. The drawer starts at the top.
+  await journalOpensIn(page, 'drawer');
   const mediaId = await seed(page.request, 'Tunic II', 'Backlog');
   await awaitChecked(mediaId);
   await page.reload();

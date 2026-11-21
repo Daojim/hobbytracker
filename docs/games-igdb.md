@@ -1180,6 +1180,12 @@ section holds both rounds' tables, and the renders are https://claude.ai/artifac
 - **A hide outlives an add.** A game hidden and then added from a search stays off the four
   lists, which is what the card promised, and From your ratings leaves it out as a board title
   anyway. The list of hides still offers *Show again*.
+- **Settings counts them and opens their list too, since #27**: *Hidden from Discover…* under a
+  Discover heading, where the board has Discover, which reverses #23's pick of the page alone; the
+  reason then, *Your data* under a 900px fold, does not hold in a dialog. It reads the list under
+  the page's own `hiddenKey`, and *Show again* leaves it through `forgetHidden` in
+  `discover/HiddenDialog.tsx`, which both doors call, so a hide made on the page is counted in
+  Settings and a game shown again from Settings leaves the page's list.
 
 **On the page** (the look is `docs/design.md`'s, under **Hiding a game from Discover**):
 

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import { setOpeningBoard } from './shell/openingBoard';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from './App';
@@ -139,5 +140,58 @@ describe('App', () => {
     renderWithProviders(<App />, { route: '/search' });
 
     expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
+  });
+
+  it('writes every date on the board day first the moment Settings says so', async () => {
+    // Dates as *8 Oct 2026* (#27). The formatters read the order as they write, and the app
+    // hears it, so a card already on the board says it the new way without a reload.
+    boardServer({
+      columns: {
+        Backlog: [libraryItem({ title: 'Celeste', lastActivity: '2026-03-03T17:00:00Z' })],
+      },
+    });
+    authServer();
+    try {
+      renderWithProviders(<App />, { route: '/board/games' });
+      expect(await screen.findByText('Mar 3, 2026')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Settings' }));
+      await userEvent.click(screen.getByRole('radio', { name: '8 Oct 2026' }));
+
+      expect(screen.getByText('3 Mar 2026')).toBeInTheDocument();
+      expect(screen.queryByText('Mar 3, 2026')).not.toBeInTheDocument();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
+  describe('the board chosen to open first', () => {
+    afterEach(() => localStorage.clear());
+
+    // `/`, `/board` and `/search`, each of which named the games board until #27. A board's own
+    // address still opens that board, whichever is chosen.
+    for (const route of ['/', '/board', '/search']) {
+      it(`is where ${route} lands`, async () => {
+        setOpeningBoard('anime');
+        boardServer({ hobby: 'anime' });
+        authServer();
+
+        renderWithProviders(<App />, { route });
+
+        expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Anime' })).toHaveAttribute('aria-current', 'page');
+      });
+    }
+
+    it('leaves a board’s own address alone', async () => {
+      setOpeningBoard('anime');
+      boardServer({ hobby: 'movies' });
+      authServer();
+
+      renderWithProviders(<App />, { route: '/board/movies' });
+
+      expect(await screen.findByRole('heading', { level: 2, name: 'Backlog 0' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Movies' })).toHaveAttribute('aria-current', 'page');
+    });
   });
 });

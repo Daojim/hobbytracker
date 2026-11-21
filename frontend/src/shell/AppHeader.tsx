@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router';
 import { SettingsMenu } from '../theme/SettingsMenu';
+import { ThemeMenu } from '../theme/ThemeMenu';
 import { SessionBadge } from './SessionBadge';
+import { useHeaderBoards } from './headerBoards';
 import { HOBBIES, boardPath, type Hobby } from './hobbies';
 
 export interface AppHeaderProps {
@@ -34,11 +36,17 @@ export interface AppHeaderProps {
  * fading it takes it back under — silently, because index.css.test.ts checks the tokens rather
  * than what a component does to them afterwards.
  *
- * Exactly one SettingsMenu, and it has to stay that way. `useTheme` holds its state locally on
- * purpose — themes are CSS, so there is no provider — which means a second menu would read
- * storage once on mount and then keep drawing the old choice.
+ * Exactly one palette and one Settings, and it has to stay that way. `useTheme` holds its state
+ * locally on purpose — themes are CSS, so there is no provider — which means a second of either
+ * would read storage once on mount and then keep drawing the old choice. The themes are the
+ * palette's since #27 and the rest is Settings', so each preference has one control.
  */
 export function AppHeader({ title, hobby }: AppHeaderProps) {
+  // The boards taken off in Settings since #27, less the one you are on, which the nav always
+  // names: a board taken off still opens at its address, and the nav says where you are.
+  const off = useHeaderBoards();
+  const named = HOBBIES.filter((each) => each.slug === hobby || !off.has(each.slug));
+
   return (
     <header className="mb-6">
       <div className="flex items-baseline gap-4">
@@ -48,6 +56,7 @@ export function AppHeader({ title, hobby }: AppHeaderProps) {
             wraps on a narrow screen. */}
         <div className="ml-auto flex items-center gap-3 self-center">
           <SessionBadge />
+          <ThemeMenu />
           <SettingsMenu hobby={hobby} />
         </div>
       </div>
@@ -56,7 +65,7 @@ export function AppHeader({ title, hobby }: AppHeaderProps) {
         {/* Scrolls rather than wraps: six tabs and a narrow window is the one case where a
             wrapped second row would push the board down for no gain. */}
         <ul className="-mb-px flex gap-1 overflow-x-auto">
-          {HOBBIES.map((hobby) => (
+          {named.map((hobby) => (
             <li key={hobby.slug} className="shrink-0">
               {hobby.ready ? (
                 <NavLink

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { hobbyDefinition, type Genre, type LengthBand } from '../hobbies';
 import { useMediaQuery } from '../lib/useMediaQuery';
+import { useWheelSpin } from './wheelSpin';
 import { useModalPanel } from '../lib/useModalPanel';
 import { daysToFinish, describeSpan, formatPace, usePace, type Pace } from '../lib/pace';
 import {
@@ -82,7 +83,10 @@ export function PickPanel({
   const words = definition.picker!;
   const genres = definition.genres;
   const { pace } = usePace(hobby);
-  const still = useMediaQuery(REDUCED_MOTION, false);
+  // Still under reduced motion, and since #27 when Settings says to skip the spin: the same
+  // path either way, because the pick is made before anything moves.
+  const skipped = useWheelSpin(hobby) === 'still';
+  const still = useMediaQuery(REDUCED_MOTION, false) || skipped;
 
   const titleId = useId();
   const panel = useRef<HTMLElement>(null);

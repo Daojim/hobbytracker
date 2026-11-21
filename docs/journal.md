@@ -15,6 +15,12 @@ Since 9 October 2026 a note that a search of your notes found opens it as well, 
 **Searching your notes**, at the end.
 Since the same day the drawer can move a title as well: the current pass's heading is a control
 that opens on the board's columns.
+**A modal in the middle of the screen until a drawer is chosen in Settings, since #27**, the user's
+ask; it was a drawer. A browser that pressed Drawer at some point has it stored and keeps it.
+**Below 768px it is the drawer's full screen whichever is chosen**: the modal's card on a phone left
+308px for words against the drawer's 349, and ran 16px off the screen besides, because the drawer's
+`w-full` survived into it. So Settings draws no Journal switch there. `docs/design.md` has the box
+and where the default is said.
 **Loaded through `hobbyDefinition(hobby).journal.load`**, which hits the hobby's own detail route
 and maps what comes back into one `TitleDetail`; `logEntries[0]` *is* the pass the board is showing,
 because every detail endpoint shares the board's ordering.
@@ -310,6 +316,12 @@ Settled:
     the next game is one press to its answer. Your play style is kept with your pace, by the
     figure's field name (`HltbTier.key`) rather than its label, which may be reworded. A style
     this game has no figure for is asked again rather than swapped for another tier.
+  - **Settings says it, and clears it, since #27**: *2 h a day · Main story* under *Your pace*, in
+    the board's half where the board has HowLongToBeat's figures (`journal.setHltbId`), with
+    *Clear*. `clearPace` forgets both answers, the user's pick over the pace alone, so the
+    question asks both again and Backlog's line at your pace goes. Clear's button goes with the
+    pace, so the keyboard lands on the line, which says *Not set*, rather than falling out of the
+    dialog.
   - **It is offered on Backlog, Playing and On Hold only** (`hasFinishAhead`), because a Completed
     or Dropped pass has nothing left to finish. Like the estimates, it is gated on the data and
     never on the hobby's name: a film has no estimates and no Hours played to sit under.
@@ -333,7 +345,13 @@ Settled:
   so the two cannot drift. Planting Escape-does-nothing there turns both dialogs' tests red. **The
   picker wears it too since #16, and gave it `active`**: a pick's name opens this drawer over the
   picker, which stays mounted for Back and takes no keys meanwhile, or this drawer's Escape would
-  close both.
+  close both. **Settings wears it too since #27, and it moves the keyboard in without scrolling**:
+  Settings is taller than a phone, and focusing it scrolled its column to the top of the screen
+  instead of 16px under it.
+  **A spec presses a key on the journal only once it is open.** `journal.spec.ts`'s Escape after
+  reopening went 4ms after the click in a trace, before React had mounted the journal and heard
+  keys at all, and failed 5 of 32 lone runs with a modal and none of 24 with a drawer, whose box
+  lays out quicker. It waits for the dialog now, as its first half always did.
 - **The phone's Back closes it, which is why the drawer's openness is a history entry.** Android has
   one Back button and it means *out of this*; over an open drawer it took the board, which on a phone
   is the whole app. Opening pushes an entry so the press has something of its own to pop, and closing

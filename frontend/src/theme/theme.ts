@@ -67,7 +67,16 @@ export type JournalView = (typeof JOURNAL_VIEWS)[number]['value'];
 
 const DEFAULT_THEME: Theme = 'system';
 const DEFAULT_DENSITY: Density = 'comfortable';
-const DEFAULT_JOURNAL: JournalView = 'drawer';
+
+/**
+ * A modal since #27, at the user's ask; it was a drawer. Said in three places, and
+ * `theme.test.ts` holds the other two to this one: the pre-paint script in index.html, which
+ * stamps it on a load when nothing is stored, and index.css's `modal:` variant, which is what
+ * an absent attribute draws when storage refuses and the script stamps nothing.
+ *
+ * Below 768px the journal fills the screen whichever this is: the variant's box is `md:` only.
+ */
+export const DEFAULT_JOURNAL: JournalView = 'modal';
 
 const isTheme = (value: string | null): value is Theme =>
   THEMES.some((theme) => theme.value === value);

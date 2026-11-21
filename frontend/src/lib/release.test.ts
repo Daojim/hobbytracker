@@ -11,6 +11,7 @@ import {
   releaseNote,
   releaseProgress,
 } from './release';
+import { setDateOrder } from './time';
 
 /**
  * The calendar's vocabulary. Every case below is a claim about what a reader is shown, and the
@@ -131,6 +132,32 @@ describe('formatDayShort', () => {
   it('reads a day as itself rather than as an instant', () => {
     // As formatRelease must: run through the journal zone, 1 November would print as 31 October.
     expect(formatDayShort('2026-11-01', '2026-10-02')).toBe('Nov 1');
+  });
+
+  it('puts the day first when Settings says so, with the year or without', () => {
+    // Dates as *8 Oct 2026* (#27): the day and the month swap, and the comma goes with it.
+    setDateOrder('day');
+    try {
+      expect(formatDayShort('2026-10-09', '2026-10-02')).toBe('9 Oct');
+      expect(formatDayShort('2027-02-03', '2026-10-02')).toBe('3 Feb 2027');
+    } finally {
+      localStorage.clear();
+    }
+  });
+});
+
+describe('formatRelease, with the day first', () => {
+  it('turns only a day round, and leaves every vaguer window as it was', () => {
+    // Month headings such as *Jan 2027* do not change: there is no day in them to put first.
+    setDateOrder('day');
+    try {
+      expect(formatRelease('2026-09-26', 'Day')).toBe('26 Sep 2026');
+      expect(formatRelease('2027-10-01', 'Month')).toBe('Oct 2027');
+      expect(formatRelease('2026-07-01', 'Quarter')).toBe('Q3 2026');
+      expect(formatRelease('2027-01-01', 'Year')).toBe('2027');
+    } finally {
+      localStorage.clear();
+    }
   });
 });
 

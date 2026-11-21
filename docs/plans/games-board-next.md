@@ -56,7 +56,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
 | 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Shipped and deployed 20 November 2026** (PR #101), built tests first the day it was picked up and workshopped. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Shipped and deployed 21 November 2026** (PR #103), built tests first the same night: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
-| 27 | Settings, rearranged | S–M | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. See its section |
+| 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Built 21 November 2026, tests first**, a commit per step and one per addition, not yet merged: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
@@ -5322,7 +5322,7 @@ of uptime, since no base image had moved. The deploy took 12 seconds.
 
 ---
 
-## 27. Settings, rearranged · planned
+## 27. Settings, rearranged · built
 
 **Planned 14 November 2026**, at the user's request, as a workshop first. In the user's words:
 *"I want to workshop the 'Settings' menu. For example, have the 'Themes' be in its own section
@@ -5377,6 +5377,257 @@ default need saying so.
 - **At 390px** the panel and anything it opens fit the screen.
 - **A setting that is not CSS is read from a store the board subscribes to**, as
   `board/hiddenColumns.ts` is, never read once at mount.
+
+### The workshop, 21 November 2026
+
+Two rounds of renders of the shipped app on Vite alone, every `/api/` request answered in the
+browser from #24's stage (#19's read of the games board from production on 3 November, 91 titles),
+with AppHeader's `SettingsMenu` swapped for a prototype by `resolveId`. Shot at 1440 × 900 and
+390 × 844 in Shelf Light and Shelf Dark. Harness, shots and measures in the gitignored
+`frontend/workshop.local/settings-rearranged/`. Round one:
+https://claude.ai/artifact/JYxLGMEigPJpGcWXRgsMYG. Round two, with the picks drawn together at its
+top: https://claude.ai/artifact/RS87HBgvzQFcojLHxc3pWu.
+
+| Choice | Picked | Against |
+|---|---|---|
+| Where the themes go | **Out of Settings, into a control of their own in the header**, the user's own answer to the three places rendered, *"to prepare for"* #28. Temporary: #28 decides the themes' home | A, a row opening the list in place of the panel (339px); B, the same row opening a dialog of swatches, recommended; C, tabs *Appearance · Board · Data*, which open on the themes |
+| Density | **Stays in Settings**, recommended | going with the themes |
+| What the theme control opens | **Today's list**, names and hints, in a 224px dropdown of its own, recommended | B's nine swatches |
+| The header | **A palette for Theme and a gear for Settings**, the user's pick from round two over the recommended word. Two icons keep a 390 phone's header one 32px row with the title at full size and *Sign out* on one line, 18px to spare | the word *Theme*, which wraps *Sign out* on a phone unless the title drops a size (160 to 133px) and the gaps tighten 4px; the palette beside the word *Settings*, which needs the smaller title; the buttons on a row of their own under the title, 66px; the theme's name, which cannot fit a phone |
+| How Settings is laid out | **A dialog**, recommended: *Every board* beside this board's settings from 768px, *Your data* across the foot, one scrolling column on a phone | tabs in the dropdown; one long dropdown, about 1,510px with the seven additions; a page of its own |
+| The dialog's controls | **One line each**, recommended: a choice's name and a switch, #24's Day \| Year switch made larger, on a shared 5rem label column; boxes side by side. 698px at 1440, 1,059 on a phone, and 876 with the delete warning open, inside a 900px window | today's headings and rows: 854, 1,529, and 1,032 with the warning, past the window |
+| Its width | **768px from 768px**, the user's pick, columns of 351px | 672, the journal modal's, recommended |
+| Where Your data goes | **Across the foot, as round one's preview showed it**, the user's pick | under *Every board*, recommended, which balanced the columns and took 123px off |
+| The order | **1, appearance first**, recommended: in the dialog, *Every board* (Density, Journal, then the additions) before this board's | 2, this board first; 3, Columns first with Sharing beside Your data |
+| What to add | **Seven**: Your pace (recommended), What a card shows, Which board opens first, Boards in the header, Dates as *8 Oct 2026*, Skip the wheel's spin, Hidden from Discover | Collapsed columns (decide at #29), The year the board opens on, Sign out |
+| What a card shows | **Two boxes**, the last note (words and picture together) and the hours, per board, recommended | three, the picture apart |
+| Which board opens first | **The four built boards**, Games until chosen, recommended | a fifth, *the board I used last* |
+| Boards in the header | **Any but the one you're on**, all six with Books and Music, recommended; the board you're on left out of the list with a line saying so, as Columns does Backlog; a board taken off still opens at its address | only the two marked Soon |
+| Kept where | **Per browser**, recommended, as every appearance setting is | per account |
+| A phone's journal | **Full screen whichever is chosen**, recommended: below 768px the journal is the drawer's full screen; Modal is the default and the setting matters from 768px | Modal everywhere, a 358 × 726 card with 308px for words against the drawer's 349; Modal by default from 768px only, a default that depends on the width |
+| The calendar's overflow | **Fixed in this branch, its own commit, tests first**, recommended | planned separately |
+| The Journal switch on a phone | **Not drawn below 768px**, recommended: a phone fills the screen whichever is stored, and the stored choice still applies when the same browser is wider | kept with *On a phone the journal fills the screen.* under it; kept as it is |
+| A board taken off the header, opened anyway | **The nav names the board you're on, taken off or not**, recommended; the others taken off stay hidden. So opening first on a board taken off, or by its address, still shows where you are | the board that opens first cannot be taken off |
+| The time of day with day-first dates | **As today**, recommended: *5 Nov 2026, 3:30 PM*. Only the order of day and month changes, and month headings such as *Jan 2027* do not | 24-hour, *5 Nov 2026, 15:30* |
+| Your pace's Clear | **Forgets both**, recommended: how much you play and the figure you play to; the quiz asks both again and Backlog's header line goes | the pace alone |
+
+Asked last, after the picks were drawn together: the user asked for the design to be finished in
+this session and **the build handed to another**, which is why the build below has not started.
+
+**Not offered**: the time zone. **Found and not a Settings row**: a column's sort goes back to *My
+order* on every reload; if wanted, it is remembered where it is chosen, planned on its own.
+
+**Decided without asking, listed on round two's page for the user to object to.** The dialog is
+centred from 768px, as the picker is since #26, and starts 16px down on a phone, where it scrolls;
+it closes by the journal's × in its corner, Escape, and a press on the scrim. Its halves are headed
+*Every board* and the board's name, *Games*, and a board's setting shows only where the board has
+it (the wheel where `picker`, Discover's row where `discover`). The wheel's words are *Spin | Skip
+the spin*: *Show the pick at once* wrapped inside its switch at 672. Your pace reads *2 h a day ·
+Main story* with Clear, and *From How long will it take me? in a game's journal.* under it; with
+none, *Not set* and how to set one. *Hidden from Discover…* sits under a Discover heading with the
+count under it, and opens #23's dialog. Share and Hidden shut Settings as they open their own dialog
+and hand the keyboard back to the gear.
+
+### Found while rendering
+
+- **The journal as a modal runs 16px off a phone, on main.** The drawer's `w-full` survives into
+  the modal, so the box is 390 wide from 16px in, its right edge and *Delete* cut off, below any
+  width of 704px (672 and both insets). Nobody meets it, because a phone opens the drawer unless
+  Modal is pressed there; Modal as the default would have handed it to every phone. Full screen
+  below 768px whichever is chosen retires it.
+- **The release calendar is wider than a phone, on main.** Its grid track is 358px at 390, but the
+  section is a grid item whose `min-width: auto` is its longest title kept to one line by
+  `truncate` — *The Witcher 3: Wild Hunt - Songs of the Past* in the user's calendar on 3 November —
+  so it is 390 from 16px in and the page 406 wide. `min-w-0` on the section fixes it. The e2e stub's
+  titles are all short, which is why no spec saw it. Playwright's phone zooms out to fit, so every
+  phone shot measured 406 × 879 until the fix was stamped.
+- **The default journal lives in three places, not two.** The plan named `DEFAULT_JOURNAL` and the
+  pre-paint script. The third is `index.css`: `@custom-variant modal` matches only
+  `[data-journal='modal']`, so when storage refuses and the script stamps nothing, the CSS answers
+  with a drawer. And `useTheme` never applies on mount, so a script left at `drawer` would not
+  repaint after mount, as the plan said: the menu would say Modal over a drawer, silently.
+- **With the additions, the 224px panel would be about 1,510px**, against today's 1,009 and the
+  themes' 276 the user wanted gone. Hence the dialog.
+- **Hidden from Discover in Settings reverses #23's pick** of the Discover page alone; the reason
+  then, *Your data* under a 900px fold, no longer holds. Ticked knowing it.
+- **The workshop's own trap**: Tailwind's `@source` on the whole workshop folder, plus Vite's
+  watcher, rebuilt `index.css` on every `measures.json` written between shots, and once reloaded the
+  page under a click, which shut the panel and hung the next click. Point `@source` at the
+  prototypes' `*.tsx` alone and add the outputs to `server.watch.ignored`.
+
+### The build, in order
+
+Tests first in each, shown red, with each fault put back afterwards. One branch,
+`settings-rearranged`, a commit per step.
+
+**Where it stood, for the session that built it.** The branch was made from `e683b9b` and held
+nothing but this section's workshop record, uncommitted when the workshop ended; it went in as
+docs first. **Built in that session, below.** The picked look is `Round2Proto.tsx` in `frontend/workshop.local/settings-rearranged/`,
+behind `?tb=icon&sb=gear&ctl=inline&dw=768&data=foot`: the palette, the gear, the dialog and every
+class in it, the theme dropdown, and the gear drawn as eight teeth. It is the reference for values,
+and its harness (`vite.config.mjs` on :5191, `harness.mjs`, `stage.mjs`) can shoot the build beside
+it for a pixel comparison, as #24 to #26 were checked: a second Vite with no swap, the same stage.
+What the prototype does not hold, because nothing stores it yet: the seven settings' stores, and
+the Journal switch hidden below 768px. Two traps the workshop paid for: route `/api/` on the
+pathname, never a `**/api/**` glob, which 404s Vite's `/src/api/*.ts`; and point Tailwind's
+`@source` at the prototypes' files, never at a folder shots are written into.
+
+1. **The calendar's overflow**, its own commit: a stub game with a long title and a phone spec
+   holding the page to the screen's width, red, then `min-w-0` on the section.
+2. **Modal as the default, and a phone's full screen**: `DEFAULT_JOURNAL`, the pre-paint script's
+   fallback and `index.css`'s variant agreeing (an absent attribute is a modal), a theme test that
+   the script and the CSS say what `theme.ts` says, the `modal:` box from `md` only, and e2e specs
+   that assume a drawer saying so (the red run names them: `reviews.spec.ts`'s drawer cases and
+   `theme.spec.ts`'s journal case at least).
+3. **The palette and its dropdown**: today's list moved out of `SettingsMenu` into a header control
+   of its own, the keyboard as the panel's (Escape and a press outside close it and hand the keyboard
+   back). `AppHeader.test.tsx`'s *exactly one SettingsMenu* becomes one of each.
+4. **Settings as a dialog behind the gear**: the existing groups moved in, one line each, 768px,
+   `useModalPanel`'s keyboard, Sharing and Your data as they work today. Every existing Settings test
+   and e2e step that opens the panel follows it.
+5. **The seven additions**, each with its store (`lib/preferenceStore.ts`) and its reader, never
+   read once at mount: Your pace (a `clearPace` beside `setPace`), What a card shows (the Card reads
+   it), Which board opens first (`/`, `/board` and `/search` read it), Boards in the header (the nav
+   reads it), Dates (the formatters in `lib/time.ts` and `lib/release.ts` are module-level
+   `en-US`; they read the order), Skip the spin (`PickPanel` beside reduced motion), Hidden from
+   Discover (the row opens `HiddenDialog`).
+6. **The keyboard checked in Firefox as well as Chromium**: the palette's dropdown, the dialog, and
+   the dialogs it opens.
+7. **Docs**: `docs/design.md` (Settings, the header, the journal's box), `docs/board.md` (columns,
+   cards, boards in the header), `docs/journal.md`, CLAUDE.md's Settled rows that name the Settings
+   panel, `docs/history.md`, and this section.
+
+### Built, 21 November 2026
+
+The session after the workshop's, tests first in every step, each shown red before it went green, a
+commit per step and one per addition, on `settings-rearranged` from `e683b9b`:
+
+| Step | Commit | What it holds |
+|---|---|---|
+| The workshop record | `a223f24` | This section's tables, committed as docs first |
+| 1. The calendar's overflow | `f1493e6` | `min-w-0` on the section. The IGDB stub gained *Lanternfall: Ballad of the Ninefold Drowned Archive*, out in five months with no hype and no ratings, so it is on no Discover list; the phone spec measured the page 456px wide on a 390 screen before the fix |
+| 2. Modal as the default, and a phone's full screen | `d59f954` | `DEFAULT_JOURNAL`, exported, is `modal`. `theme.test.ts` runs index.html's pre-paint script for real and reads index.css's variant, now `&:where(:root:not([data-journal='drawer']) *)`. The card is `md:` only, and its 672 stops at `3xl`, where the 768 starts. Four specs that measured a drawer say so through `journalOpensIn` in `e2e/support/board.ts` |
+| 3. The palette | `2f83c27` | `theme/ThemeMenu.tsx`, the old list moved, behind a palette 34 × 26. `AppHeader.test.tsx` pins one of each |
+| 4. Settings as a dialog | `0242a6f` | The prototype's markup, class for class. The spreadsheet and the delete are held by the gear; `SharingRow` takes its own ids and lost the panel's rule. `e2e/settings.spec.ts` |
+| 5. Your pace | `64c6708` | `clearPace` in `lib/pace.ts`; the group where `journal.setHltbId` says the board has HowLongToBeat's figures |
+| 5. What a card shows | `0414efc` | `board/cardShows.ts`; `CardFace`'s required `shows` |
+| 5. Which board opens first | `7d510a8` | `shell/openingBoard.ts`; `ToOpeningBoard` in `App.tsx` for `/`, `/board` and `/search` |
+| 5. Boards in the header | `93c316e` | `shell/headerBoards.ts`; the nav always names the board you're on |
+| 5. Dates | `9c5ba1e` | `DATE_ORDERS` and the order in `lib/time.ts`, read by `formatJournalDate`, `formatJournalDateTime`, `formatDayShort` and `formatRelease`'s day; `App` subscribes |
+| 5. Skip the spin | `5200caf` | `pick/wheelSpin.ts`, per board; `PickPanel` is still under it as under reduced motion |
+| 5. Hidden from Discover | `e9dad01` | A row under a Discover heading opening #23's dialog in Settings' place; `forgetHidden`, shared with the Discover page; `useModalPanel` focusing without scrolling |
+| A spec's race | `37281e9` | `journal.spec.ts`'s Escape after reopening waits for the journal; see below |
+| 7. Docs | this commit | `docs/design.md`, `docs/board.md`, `docs/journal.md`, `docs/data-model.md`, `docs/games-igdb.md`, `docs/history.md`, CLAUDE.md and this section |
+
+**Decided at the build, for the user to object to**, none of it drawn at the workshop:
+
+- **Your pace shows only where the board has HowLongToBeat's figures** (`journal.setHltbId`), the
+  rule the workshop stated for the wheel and Discover's row. The words say *a game's journal* from
+  `titleNoun(1)`, and Clear shows while either answer is said.
+- **Clear puts the keyboard on the line**, which then says *Not set*: its button goes with the
+  pace, and the keyboard would have fallen out of the dialog onto the board.
+- **A share draws every card whole**, whatever this browser leaves off its own: the server never
+  knows the owner's choice, and a visitor's is about their own board. The drag preview follows the
+  board's cards.
+- **Skip the spin is per board**, as it sits under the board's heading where the board has a picker.
+- **The modal's 672 card stops at 1920**, where the 768 card starts, so the two never compete:
+  `md:modal:max-w-2xl` sorted after `3xl:modal:max-w-3xl` in the built stylesheet and kept the modal
+  672 at 1920. Measured at 700, 800, 1440, 1536 and 1920 after: every width from 768 is main's
+  modal, and below it the modal is the drawer's box.
+- **`useModalPanel` moves the keyboard in with `preventScroll`.** With the seven additions the dialog
+  is taller than a phone, and focusing it scrolled its column, so it started at the top of the
+  screen rather than 16px under it, as picked.
+- **Settings' tests answer the list of hides**, through `hiddenServer` in `src/test/games.ts`, and
+  `boardServer` answers it with none, as it answers the share; no request in the suite goes
+  unanswered.
+
+### Tests
+
+**The full e2e suite went 269 green** with the seven additions in, the 259 before and 10 new, after
+one blink of the e2e Vite server (`ERR_CONNECTION_REFUSED` on a reload, while scripts were being
+written into `workshop.local/`), green when run again. **Vitest went 1,601 green**, from 1,541.
+**In Playwright's Firefox**, `settings.spec.ts` whole (the dialog's keyboard, its × and scrim, both
+dialogs it opens, its place at 1440 and on a phone) and the palette's keyboard case in
+`theme.spec.ts`, 7 of 7, and `how-long.spec.ts` (Clear's keyboard) and `account.spec.ts` (the
+warning in the dialog), 6 of 6.
+
+- **The calendar**: `layout.spec.ts`'s phone page held to the screen with the long title on it.
+- **The default journal**: `theme.test.ts` runs the pre-paint script in jsdom with nothing stored,
+  an unknown value and each choice, and matches the variant against the root with no attribute,
+  `modal` and `drawer`; `layout.spec.ts` holds a phone's journal to the screen as a modal and as a
+  drawer.
+- **The palette**: `ThemeMenu.test.tsx`, seven cases, and `theme.spec.ts`'s keyboard case.
+- **The dialog**: `SettingsMenu.test.tsx`'s gear, the dialog taking the keyboard, Tab kept in,
+  Escape, × and scrim handing it back, the halves in order, no Journal switch on a phone, Share and
+  Hidden shutting Settings and handing the keyboard back; `settings.spec.ts`'s six.
+- **The seven additions**: each store's own file (`cardShows.test.ts`, `openingBoard.test.ts`,
+  `headerBoards.test.ts`, `pace.test.ts`'s Clear, `time.test.ts`'s order), each reader hearing it
+  without a reload (`BoardPage.test.tsx`'s note, `AppHeader.test.tsx`'s nav, `App.test.tsx`'s dates
+  and redirects, `PickPanel.test.tsx`'s spin), a share ignoring the card's parts, and Clear reaching
+  Backlog's line in `how-long.spec.ts`.
+- **Measured against the picked prototype**, pixel for pixel, by the gitignored
+  `workshop.local/settings-rearranged/compare-built.mjs`: the header, the palette's dropdown and the
+  dialog differ by no pixel in 12 states, and the phone's dialog by the Journal row alone; see
+  **Settings and the palette** in `docs/design.md`.
+
+### Checked by putting each fault back
+
+One at a time against the finished build, by the gitignored
+`workshop.local/settings-rearranged/faults.mjs`, #25's script with a Playwright runner beside the
+Vitest one, which restores each file after its run. **All 29 turned red exactly the cases named.**
+
+| Fault | What goes red |
+|---|---|
+| The calendar a grid item of its least width again | *keeps the page to the screen’s width with a long title on the calendar* |
+| The pre-paint script's fallback a drawer again | *is what the pre-paint script stamps when nothing is stored* |
+| The variant matching only `data-journal='modal'` again | *is what the stylesheet draws when the root says nothing* |
+| The modal's card at every width again | *fills the screen with the journal, chosen as a modal* |
+| No palette in the header | both of `AppHeader.test.tsx`'s |
+| The palette's Escape handing nothing back | its unit case, and `theme.spec.ts`'s keyboard case |
+| Settings without `useModalPanel` | four: the keyboard following it in, Tab kept in, Escape, and the delete still going when it is opened again; and `settings.spec.ts`'s keyboard case |
+| The Journal switch drawn on a phone | *draws no Journal switch on a phone* |
+| The root without the ground | *paints the theme’s ground on the root, not only on the board* |
+| Settings 672 wide | *is 768 wide, in the middle of the window* |
+| `useModalPanel` focusing with the scroll | the phone's *16px in from either edge and from the top* |
+| Clear keeping the style | the store's Clear and Settings' |
+| Clear leaving the keyboard to fall | Settings' Clear |
+| Your pace on every board | *is only where a board has HowLongToBeat’s figures* |
+| A card reading what it shows once, at mount | the board's note case, and the store's every-reader case |
+| A share's cards following this browser's | *draws each card whole* |
+| What a card shows kept as what is shown | three of the store's four |
+| `/search` to the games board whatever is chosen | *is where /search lands* |
+| The board that opens first trusting storage | *never opens a board nobody has built* |
+| The nav leaving off the board you're on | *names the board you are on, taken off or not* |
+| Settings offering the board you're on for the header | its list case |
+| `App` not hearing the order of dates | *writes every date on the board day first the moment Settings says so* |
+| Day first rebuilt from `formatToParts`' spaces | *keeps the time of day as it was* |
+| A short day ignoring the order | `formatDayShort`'s day-first case |
+| The picker not skipping the spin | *shows the pick at once when Settings says to skip the spin* |
+| Settings' Show again leaving the cache | the list's case |
+| The list of hides handing nothing back | the list's case |
+
+### What the plan got wrong, or left out
+
+- **A fourth spec assumed a drawer.** The plan named `reviews.spec.ts`'s two and `theme.spec.ts`'s
+  journal case. The red run added `hltb.spec.ts`'s turning arrow: a modal centres itself, so it
+  moved 12px as a whole when Steam's row arrived after the first measure, with nothing on the
+  arrow's row moving at all.
+- **`md:modal:` alone lost the 768 card at 1920**, as above: Tailwind sorted the `3xl:modal:` rule
+  before every `md:modal:` one.
+- **jsdom cannot match a `:not()` inside a `:where()`**, so `theme.test.ts` reads the variant as the
+  descendant selector it means; and **V8's `format()` and `formatToParts()` disagree about the space
+  before *PM***, so day-first dates cut the time of day from `format()`. Both in the area files.
+- **A modal default made a race in `journal.spec.ts` likelier.** Its click-away case pressed Escape
+  4ms after the click that reopened the journal, before React had mounted it: 5 of 32 lone runs
+  failed so with a modal and none of 24 with a drawer. It waits for the journal now; 16 of 16 since.
+  The click-away half CLAUDE.md records as intermittent is untouched.
+- **The prototype names a choice's group by an id with the choice's name in it**, and *Opens on*
+  has a space, which `aria-labelledby` reads as two ids, so that group had no name there. The build
+  gives each its own `useId`.
+- **The prototype drew Books and Music unticked under Boards in the header**, a staged look. The
+  build starts with every board named, as the nav does today, and the comparison gave the build the
+  same two taken off.
+- **#26 has no entry in `docs/history.md`**, found while writing #27's. Left for the user to say.
 
 ---
 

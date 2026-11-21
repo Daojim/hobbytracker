@@ -3,6 +3,7 @@ import { fireEvent, renderHook, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KeyboardSensor } from '@dnd-kit/core';
 import { Card, type CardLeaving, type CardMenu, type CardRemoval } from './Card';
+import { setCardShows } from './cardShows';
 import { useBoardSensors } from './sensors';
 import { columnsFor, type BoardColumn } from '../hobbies';
 import { libraryItem } from '../test/library';
@@ -377,6 +378,38 @@ describe('Card', () => {
     renderCard(libraryItem({ latestNotePreview: 'Finally beat Hornet after forty tries.' }));
 
     expect(screen.getByText('Finally beat Hornet after forty tries.')).toBeInTheDocument();
+  });
+
+  it('leaves the last note off when Settings says so, its picture with its words', () => {
+    // What a card shows, since #27: one box for the note, words and picture together, the
+    // user's pick over a box for each. Read from a store, so the board hears it at once.
+    setCardShows('games', 'note', false);
+    try {
+      const { container } = renderCard(
+        libraryItem({
+          latestNotePreview: 'The clock tower, at last.',
+          latestNotePicture: { id: 41, width: 1920, height: 1080 },
+          latestNotePictures: 2,
+        }),
+      );
+
+      expect(container.querySelector('[data-note]')).toBeNull();
+      expect(screen.queryByText('The clock tower, at last.')).not.toBeInTheDocument();
+    } finally {
+      localStorage.clear();
+    }
+  });
+
+  it('leaves the length off when Settings says so, and keeps the note', () => {
+    setCardShows('games', 'length', false);
+    try {
+      renderCard(libraryItem({ lengthHours: 42, latestNotePreview: 'Finally beat Hornet.' }));
+
+      expect(screen.queryByRole('img', { name: 'About 42 hours to finish' })).not.toBeInTheDocument();
+      expect(screen.getByText('Finally beat Hornet.')).toBeInTheDocument();
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it('says nothing at all when nothing has been written', () => {

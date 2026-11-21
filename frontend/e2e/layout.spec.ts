@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { card, column, openJournal, seed } from './support/board';
+import { card, column, journalOpensIn, openJournal, seed } from './support/board';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 import { awaitEstimate } from './support/hltb';
@@ -342,22 +342,15 @@ test.describe('on a phone, at 390px', () => {
     }
   });
 
-  test('paints the theme’s ground under the whole page, however far down Settings reaches', async ({
-    page,
-  }) => {
-    // An empty board ends where the screen does, and the Settings panel runs on below it. When
+  test('paints the theme’s ground on the root, not only on the board', async ({ page }) => {
+    // The Settings panel used to hang from the header and run on below an empty board, and when
     // only the board painted the ground, the page under the panel was the browser's own: 75px of
     // white with the panel scrolled to its end, measured on 4 October 2026, and 269px with the
-    // account's warning open.
+    // account's warning open. Settings is a dialog since #27 and nothing runs past the board now,
+    // but the root keeps the ground for whatever next does, and for an iPhone's bars, which take
+    // their colour from the page (docs/design.md).
     await page.goto('/board');
-    await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Delete my account…' }).click();
-
-    const board = await boxOf(page.locator('main'), 'the board');
-    const reach = await page.evaluate(() => document.documentElement.scrollHeight);
-    expect(reach, 'the panel reaches past the board, or this proves nothing').toBeGreaterThan(
-      board.y + board.height,
-    );
+    await expect(page.locator('main')).toBeVisible();
 
     const [root, ground] = await page.evaluate(() => [
       getComputedStyle(document.documentElement).backgroundColor,
@@ -365,6 +358,46 @@ test.describe('on a phone, at 390px', () => {
     ]);
     expect(root).toBe(ground);
   });
+
+  test('keeps the page to the screen’s width with a long title on the calendar', async ({
+    page,
+  }) => {
+    // The calendar's track is the screen less its gutters, but the section is a grid item, and a
+    // grid item's least width is its content's: the longest title it holds, which a row keeps to
+    // one line. Measured on the user's own calendar on 3 November 2026, it made the page 406px
+    // wide here, so everything on a phone could be pushed sideways by 16px.
+    await seed(page.request, 'Lanternfall: Ballad of the Ninefold Drowned Archive', 'Backlog');
+    await page.goto('/board');
+    await expect(
+      page.getByRole('region', { name: /^Coming soon/ }).getByText(/^Lanternfall/),
+    ).toBeVisible();
+
+    const [page_, screen] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      window.innerWidth,
+    ]);
+    expect(page_, 'the page is wider than the screen').toBeLessThanOrEqual(screen);
+  });
+
+  for (const view of ['modal', 'drawer'] as const) {
+    test(`fills the screen with the journal, chosen as a ${view}`, async ({ page }) => {
+      // Whichever is chosen, since #27. The modal's box is a card 16px in from every edge, which
+      // on a phone left 308px for words against the drawer's 349, and it was wider than the
+      // screen besides: the drawer's w-full survived into it, so it ran 16px off the right edge
+      // with Delete cut off. Nobody met that while a phone opened the drawer unless Modal was
+      // pressed there, and a modal by default would have handed it to every phone.
+      await journalOpensIn(page, view);
+      await seed(page.request, 'Celeste', 'Backlog');
+      await page.goto('/board');
+      await openJournal(page, 'Celeste');
+
+      const journal = await boxOf(page.getByRole('dialog'), 'the journal');
+      expect(journal.x, 'starts at the left edge').toBeCloseTo(0, 0);
+      expect(journal.y, 'starts at the top').toBeCloseTo(0, 0);
+      expect(journal.width, 'is the screen wide').toBeCloseTo(390, 0);
+      expect(journal.height, 'is the screen tall').toBeCloseTo(844, 0);
+    });
+  }
 
   test('leaves a 16px gutter at either side of the board', async ({ page }) => {
     // 24px of page padding and 12px inside the column put a phone's cards 36px in from each edge.

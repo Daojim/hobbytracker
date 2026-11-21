@@ -3,10 +3,12 @@ import { resolve } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { groundOf } from '../test/palette';
 import {
+  DEFAULT_JOURNAL,
   DENSITY_ATTRIBUTE,
   DENSITY_KEY,
   JOURNAL_ATTRIBUTE,
   JOURNAL_KEY,
+  JOURNAL_VIEWS,
   THEMES,
   THEME_ATTRIBUTE,
   THEME_KEY,
@@ -80,14 +82,87 @@ describe('theme preferences', () => {
     expect(document.documentElement.getAttribute(DENSITY_ATTRIBUTE)).toBe('comfortable');
   });
 
-  it('opens the journal in a drawer until told otherwise', () => {
-    expect(readJournalView()).toBe('drawer');
-
-    storeJournalView('modal');
+  it('opens the journal in a modal until told otherwise', () => {
+    // Since #27: the user's own ask. A browser that pressed Drawer at some point has it stored
+    // and keeps it; only a browser that never chose changes.
+    expect(DEFAULT_JOURNAL).toBe('modal');
     expect(readJournalView()).toBe('modal');
 
-    localStorage.setItem(JOURNAL_KEY, 'sidebar');
+    storeJournalView('drawer');
     expect(readJournalView()).toBe('drawer');
+
+    localStorage.setItem(JOURNAL_KEY, 'sidebar');
+    expect(readJournalView()).toBe('modal');
+  });
+
+  describe('the default journal, in the three places that say it', () => {
+    // theme.ts is one. The pre-paint script is the second: it stamps the attribute on a load, it
+    // falls back on its own when nothing is stored, and since useTheme applies nothing on mount,
+    // a script left on the old default would paint the old box under a menu saying the new one.
+    // index.css is the third: when storage refuses outright, the script stamps nothing, and the
+    // variant decides what an absent attribute is.
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+    const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8');
+
+    /** The pre-paint script, run here as a browser would run it on a load. */
+    const runPrePaint = () => {
+      const script = /<script>([\s\S]*?)<\/script>/.exec(html)?.[1];
+      expect(script, 'the pre-paint script').toBeDefined();
+      new Function(script!)();
+    };
+
+    /**
+     * Whether the stylesheet's `modal:` variant holds for an element, with the root as given.
+     *
+     * The variant is `&:where(<the root's state> *)`, which keeps a modal class's weight at
+     * nought, and it is asked here as the plain descendant selector it means: jsdom's engine
+     * answers false for every `:not()` inside a `:where()`, whatever the root says, measured on
+     * 21 November 2026, where it reads the same selector written plainly as a browser does.
+     */
+    const isModal = (journal: string | null) => {
+      const variant = /@custom-variant modal \((.*)\);/.exec(css)?.[1];
+      const ancestor = variant === undefined ? undefined : /^&:where\((.*) \*\)$/.exec(variant)?.[1];
+      expect(ancestor, 'the modal variant, as &:where(… *)').toBeDefined();
+      const selector = `${ancestor!} &`;
+
+      if (journal === null) {
+        document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
+      } else {
+        document.documentElement.setAttribute(JOURNAL_ATTRIBUTE, journal);
+      }
+
+      const probe = document.createElement('div');
+      probe.className = 'probe';
+      document.body.append(probe);
+      try {
+        return probe.matches(selector!.replace('&', '.probe'));
+      } finally {
+        probe.remove();
+      }
+    };
+
+    it('is what the pre-paint script stamps when nothing is stored, or nothing it knows', () => {
+      runPrePaint();
+      expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe(DEFAULT_JOURNAL);
+
+      localStorage.setItem(JOURNAL_KEY, 'sidebar');
+      runPrePaint();
+      expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe(DEFAULT_JOURNAL);
+    });
+
+    it('leaves a stored choice to the pre-paint script, either one', () => {
+      for (const view of JOURNAL_VIEWS) {
+        localStorage.setItem(JOURNAL_KEY, view.value);
+        runPrePaint();
+        expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe(view.value);
+      }
+    });
+
+    it('is what the stylesheet draws when the root says nothing', () => {
+      expect(isModal(null)).toBe(DEFAULT_JOURNAL === 'modal');
+      expect(isModal('modal')).toBe(true);
+      expect(isModal('drawer')).toBe(false);
+    });
   });
 
   it('stamps the journal view, which like density is always present', () => {

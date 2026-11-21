@@ -70,10 +70,12 @@
             density === 'compact' ? 'compact' : 'comfortable',
           );
 
+          // A modal unless a drawer was chosen, which is DEFAULT_JOURNAL in theme.ts, and
+          // theme.test.ts runs this script to hold the two together.
           var journal = localStorage.getItem('hobbytracker.journal');
           document.documentElement.setAttribute(
             'data-journal',
-            journal === 'modal' ? 'modal' : 'drawer',
+            journal === 'drawer' ? 'drawer' : 'modal',
           );
         } catch (error) {
           // No preference readable. The defaults in index.css are already correct.

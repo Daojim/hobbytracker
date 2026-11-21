@@ -7,14 +7,21 @@ import writeXlsxFile from 'write-excel-file/browser';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { shareServer } from '../test/share';
+import { hiddenServer } from '../test/games';
 import { logEntry } from '../test/passes';
+import { cardShowsKey } from '../board/cardShows';
 import { hiddenColumnsKey } from '../board/hiddenColumns';
-import { todayHere } from '../lib/time';
+import { paceKey, parsePace } from '../lib/pace';
+import { wheelSpinKey } from '../pick/wheelSpin';
+import { DATE_ORDER_KEY, todayHere } from '../lib/time';
 import { sessionKey } from '../api/auth';
 import type { Account, ExportTitle } from '../api/types';
 import { SignInPage } from '../shell/SignInPage';
+import { OPENING_BOARD_KEY } from '../shell/openingBoard';
+import { HEADER_BOARDS_KEY } from '../shell/headerBoards';
 import { SettingsMenu } from './SettingsMenu';
-import { DENSITY_ATTRIBUTE, JOURNAL_ATTRIBUTE, THEME_ATTRIBUTE } from './theme';
+import { windowOfWidth } from '../test/media';
+import { DENSITY_ATTRIBUTE, JOURNAL_ATTRIBUTE, JOURNAL_KEY, THEME_ATTRIBUTE } from './theme';
 
 // The writer is what the row loads when it is pressed. Here it is a spy, so a test can say what
 // it was handed and when, without a browser to save a file into.
@@ -29,6 +36,8 @@ describe('SettingsMenu', () => {
     // The panel asks after the board's share link as it opens, for its Sharing row's line. None,
     // unless a test says otherwise; share/ShareDialog.test.tsx is where sharing is tested.
     shareServer();
+    // And after the games hidden from Discover, for its Discover row's count. None unless said.
+    hiddenServer();
   });
 
   afterEach(() => {
@@ -38,28 +47,86 @@ describe('SettingsMenu', () => {
     document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
   });
 
-  it('keeps the panel shut until it is asked for', () => {
+  it('is a gear named Settings, with the dialog shut until it is asked for', () => {
     renderWithProviders(<SettingsMenu hobby="games" />);
 
+    const gear = screen.getByRole('button', { name: 'Settings' });
+    // Named in words for a voice and a tooltip, because the button itself is a drawing.
+    expect(gear).toHaveAttribute('title', 'Settings');
+    expect(gear).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('opens a dialog named Settings, which takes the keyboard', async () => {
+    // A dialog since #27, where it was a panel under the button: the seven settings it gained
+    // would have made the panel about 1,510px tall.
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const dialog = screen.getByRole('dialog', { name: 'Settings' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveFocus();
+  });
+
+  it('keeps Tab inside the dialog, from its last stop to its first', async () => {
+    // aria-modal says the page behind is inert, and a Tab that walked out onto it would make
+    // that false for anyone who reads by tabbing.
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const close = screen.getByRole('button', { name: 'Close' });
+    const last = screen.getByRole('button', { name: 'Delete my account…' });
+
+    last.focus();
+    await userEvent.tab();
+    expect(close).toHaveFocus();
+
+    await userEvent.tab({ shift: true });
+    expect(last).toHaveFocus();
+  });
+
+  it('sets Every board beside this board’s settings, headed by the board’s name', async () => {
+    renderWithProviders(<SettingsMenu hobby="movies" />);
+    await open();
+
+    const every = screen.getByRole('group', { name: 'Every board' });
+    const board = screen.getByRole('group', { name: 'Movies' });
+    const data = screen.getByRole('group', { name: 'Your data' });
+
+    expect(within(every).getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
+    expect(within(every).getByRole('radiogroup', { name: 'Journal' })).toBeInTheDocument();
+    expect(within(board).getByRole('group', { name: 'Columns' })).toBeInTheDocument();
+
+    // Appearance first, the board's own next, and what you have across the foot.
+    expect(every.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(board.compareDocumentPosition(data) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('draws no Journal switch on a phone, where the journal fills the screen either way', async () => {
+    // The stored choice still applies when the same browser is wider, so nothing is cleared.
+    windowOfWidth(390);
+    try {
+      localStorage.setItem(JOURNAL_KEY, 'drawer');
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      expect(screen.getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
+      expect(screen.queryByRole('radiogroup', { name: 'Journal' })).not.toBeInTheDocument();
+      expect(localStorage.getItem(JOURNAL_KEY)).toBe('drawer');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('holds no themes, which are the palette’s since #27', async () => {
+    // The themes were most of the panel's height, which is why the user asked for the workshop.
+    // They are a control of their own in the header now: theme/ThemeMenu.tsx.
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    expect(screen.getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
     expect(screen.queryByRole('radiogroup', { name: 'Theme' })).not.toBeInTheDocument();
-  });
-
-  it('offers every theme, and says which one is on', async () => {
-    renderWithProviders(<SettingsMenu hobby="games" />);
-    await open();
-
-    // System is the default and so the one checked before anything has been chosen.
-    expect(screen.getByRole('radio', { name: 'System' })).toBeChecked();
-    expect(screen.getByRole('radio', { name: 'Ember' })).not.toBeChecked();
-  });
-
-  it('applies and remembers a theme', async () => {
-    renderWithProviders(<SettingsMenu hobby="games" />);
-    await open();
-    await userEvent.click(screen.getByRole('radio', { name: 'Ember' }));
-
-    expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('ember');
-    expect(screen.getByRole('radio', { name: 'Ember' })).toBeChecked();
+    expect(screen.queryByRole('radio', { name: 'System' })).not.toBeInTheDocument();
   });
 
   it('applies and remembers a density', async () => {
@@ -70,27 +137,84 @@ describe('SettingsMenu', () => {
     expect(document.documentElement.getAttribute(DENSITY_ATTRIBUTE)).toBe('compact');
   });
 
-  it('takes the attribute back off for System, so the OS decides again', async () => {
-    renderWithProviders(<SettingsMenu hobby="games" />);
-    await open();
-    await userEvent.click(screen.getByRole('radio', { name: 'Console' }));
-    await userEvent.click(screen.getByRole('radio', { name: 'System' }));
-
-    expect(document.documentElement.hasAttribute(THEME_ATTRIBUTE)).toBe(false);
-  });
-
-  it('offers the journal as a drawer or a modal', async () => {
+  it('offers the journal as a drawer or a modal, a modal until told otherwise', async () => {
     renderWithProviders(<SettingsMenu hobby="games" />);
     await open();
 
-    expect(screen.getByRole('radio', { name: 'Drawer' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Modal' })).toBeChecked();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Modal' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Drawer' }));
 
-    expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('modal');
+    expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('drawer');
   });
 
-  it('closes on Escape and hands the keyboard back to the button', async () => {
+  it('offers the four built boards to open on, Games until another is chosen', async () => {
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const opens = within(screen.getByRole('group', { name: 'Every board' })).getByRole(
+      'radiogroup',
+      { name: 'Opens on' },
+    );
+    expect(within(opens).getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Games',
+      'Movies',
+      'TV',
+      'Anime',
+    ]);
+    expect(within(opens).getByRole('radio', { name: 'Games' })).toBeChecked();
+
+    await userEvent.click(within(opens).getByRole('radio', { name: 'TV' }));
+
+    expect(localStorage.getItem(OPENING_BOARD_KEY)).toBe('tv');
+    expect(within(opens).getByRole('radio', { name: 'TV' })).toBeChecked();
+  });
+
+  it('offers dates month first or day first, written as each would show a day', async () => {
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const dates = within(screen.getByRole('group', { name: 'Every board' })).getByRole(
+      'radiogroup',
+      { name: 'Dates' },
+    );
+    expect(within(dates).getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Oct 8, 2026',
+      '8 Oct 2026',
+    ]);
+    expect(within(dates).getByRole('radio', { name: 'Oct 8, 2026' })).toBeChecked();
+
+    await userEvent.click(within(dates).getByRole('radio', { name: '8 Oct 2026' }));
+
+    expect(localStorage.getItem(DATE_ORDER_KEY)).toBe('day');
+    expect(within(dates).getByRole('radio', { name: '8 Oct 2026' })).toBeChecked();
+  });
+
+  it('offers every board for the header but the one you are on, and says why that one is not', async () => {
+    // As Columns does Backlog: left out of the list rather than offered as a box that could
+    // never be unticked, because the nav names the board you are on whatever is ticked.
+    renderWithProviders(<SettingsMenu hobby="movies" />);
+    await open();
+
+    const boards = screen.getByRole('group', { name: 'Boards in the header' });
+    const boxes = within(boards).getAllByRole('checkbox');
+    expect(boxes.map((box) => box.closest('label')?.textContent)).toEqual([
+      'Games',
+      'TV',
+      'Anime',
+      'Books',
+      'Music',
+    ]);
+    boxes.forEach((box) => expect(box).toBeChecked());
+    expect(boards).toHaveAccessibleDescription('Movies stays while you’re on it.');
+
+    await userEvent.click(within(boards).getByRole('checkbox', { name: 'Books' }));
+
+    expect(JSON.parse(localStorage.getItem(HEADER_BOARDS_KEY)!)).toEqual(['books']);
+    expect(within(boards).getByRole('checkbox', { name: 'Books' })).not.toBeChecked();
+  });
+
+  it('closes on Escape and hands the keyboard back to the gear', async () => {
     // The drawer already establishes this: a control that opens something has to be where focus
     // returns to, or the next Tab starts from the top of the document.
     renderWithProviders(<SettingsMenu hobby="games" />);
@@ -98,31 +222,46 @@ describe('SettingsMenu', () => {
 
     await userEvent.keyboard('{Escape}');
 
-    expect(screen.queryByRole('radiogroup', { name: 'Theme' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
   });
 
-  it('closes when the click lands somewhere else', async () => {
-    renderWithProviders(
-      <div>
-        <SettingsMenu hobby="games" />
-        <button type="button">Elsewhere</button>
-      </div>,
-    );
+  it('closes by its ×, and by a press on the page around it, handing the keyboard back', async () => {
+    renderWithProviders(<SettingsMenu hobby="games" />);
+
     await open();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
-
-    expect(screen.queryByRole('radiogroup', { name: 'Theme' })).not.toBeInTheDocument();
+    await open();
+    await userEvent.click(screen.getByRole('presentation'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
   });
 
-  it('stays open while you are choosing, because the two settings are usually set together', async () => {
+  it('shuts as Share this board… opens its dialog, which hands the keyboard back to the gear', async () => {
+    // One dialog at a time: Share's opens in Settings' place, and closing it returns to the gear
+    // rather than to a row that went with Settings.
     renderWithProviders(<SettingsMenu hobby="games" />);
     await open();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Shelf Dark' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Share this board…' }));
+    expect(await screen.findByRole('dialog', { name: 'Share this board' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument();
 
-    expect(screen.getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
+  });
+
+  it('stays open while you are choosing, because the settings are usually set together', async () => {
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Compact' }));
+
+    expect(screen.getByRole('radiogroup', { name: 'Journal' })).toBeInTheDocument();
   });
 
   it('credits the two providers the app takes its metadata from', async () => {
@@ -190,6 +329,176 @@ describe('SettingsMenu', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Dropped' })).toBeChecked();
     expect(JSON.parse(localStorage.getItem(hiddenColumnsKey('games'))!)).toEqual([]);
+  });
+
+  describe('what a card shows', () => {
+    it('offers the last note and the length, in the board’s words, both ticked to begin with', async () => {
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      const boxes = within(screen.getByRole('group', { name: 'Cards' })).getAllByRole('checkbox');
+      expect(boxes.map((box) => box.closest('label')?.textContent)).toEqual([
+        'The last note',
+        'Runtime',
+      ]);
+      boxes.forEach((box) => expect(box).toBeChecked());
+    });
+
+    it('leaves a part off this board’s cards when it is unticked, and no other board’s', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      await userEvent.click(screen.getByRole('checkbox', { name: 'Time to beat' }));
+
+      expect(screen.getByRole('checkbox', { name: 'Time to beat' })).not.toBeChecked();
+      expect(JSON.parse(localStorage.getItem(cardShowsKey('games'))!)).toEqual(['length']);
+      expect(localStorage.getItem(cardShowsKey('movies'))).toBeNull();
+    });
+  });
+
+  describe('the games hidden from Discover', () => {
+    const DEAD_CELLS = { mediaId: 3019, title: 'Dead Cells', coverUrl: null };
+    const GRIS = { mediaId: 3027, title: 'Gris', coverUrl: null };
+
+    it('counts them under a Discover heading, as a row that opens their list', async () => {
+      // In Settings since #27, which reverses #23's pick of the Discover page alone: the reason
+      // then, Your data under a 900px fold, does not hold in a dialog. Ticked knowing it.
+      hiddenServer([DEAD_CELLS, GRIS]);
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      const discover = within(screen.getByRole('group', { name: 'Games' })).getByRole('group', {
+        name: 'Discover',
+      });
+      const row = within(discover).getByRole('button', { name: 'Hidden from Discover…' });
+      await waitFor(() =>
+        expect(row).toHaveAccessibleDescription('2 games, on no list until shown again.'),
+      );
+    });
+
+    it('says Nothing hidden when nothing is', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      const row = screen.getByRole('button', { name: 'Hidden from Discover…' });
+      await waitFor(() => expect(row).toHaveAccessibleDescription('Nothing hidden.'));
+    });
+
+    it('shuts as their list opens, takes one back, and hands the keyboard back to the gear', async () => {
+      const { shown } = hiddenServer([DEAD_CELLS, GRIS]);
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Hidden from Discover…' }));
+      const list = await screen.findByRole('dialog', { name: 'Hidden from Discover' });
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument();
+      expect(within(list).getByText('Gris')).toBeInTheDocument();
+
+      await userEvent.click(within(list).getByRole('button', { name: 'Show Gris on Discover again' }));
+      await waitFor(() => expect(within(list).queryByText('Gris')).not.toBeInTheDocument());
+      expect(shown).toEqual([3027]);
+
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
+
+      // And the count followed it, without asking again.
+      await open();
+      expect(screen.getByRole('button', { name: 'Hidden from Discover…' })).toHaveAccessibleDescription(
+        '1 game, on no list until shown again.',
+      );
+    });
+
+    it('is only on a board with Discover', async () => {
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      expect(screen.queryByRole('button', { name: 'Hidden from Discover…' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('the wheel', () => {
+    it('spins until told to skip the spin, on this board alone', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      const wheel = within(screen.getByRole('group', { name: 'Games' })).getByRole('radiogroup', {
+        name: 'The wheel',
+      });
+      expect(within(wheel).getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+        'Spin',
+        'Skip the spin',
+      ]);
+      expect(within(wheel).getByRole('radio', { name: 'Spin' })).toBeChecked();
+
+      await userEvent.click(within(wheel).getByRole('radio', { name: 'Skip the spin' }));
+
+      expect(localStorage.getItem(wheelSpinKey('games'))).toBe('still');
+      expect(within(wheel).getByRole('radio', { name: 'Skip the spin' })).toBeChecked();
+    });
+
+    it('is only where the board has a wheel', async () => {
+      // HobbyDefinition.picker, the board's say: Backlog's Pick is games' alone for now.
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      expect(screen.queryByRole('radiogroup', { name: 'The wheel' })).not.toBeInTheDocument();
+    });
+  });
+
+  describe('your pace', () => {
+    const pace = () => screen.getByRole('group', { name: 'Your pace' });
+
+    it('says how much you play and how you play, from the question in a game’s journal', async () => {
+      localStorage.setItem(
+        paceKey('games'),
+        JSON.stringify({ hours: 2, per: 'day', style: 'hltbMainStoryHours' }),
+      );
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      expect(within(pace()).getByText('2 h a day · Main story')).toBeInTheDocument();
+      expect(
+        within(pace()).getByText('From How long will it take me? in a game’s journal.'),
+      ).toBeInTheDocument();
+      expect(within(pace()).getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+    });
+
+    it('says Not set, and where one is set, when nothing has been said', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      expect(within(pace()).getByText('Not set')).toBeInTheDocument();
+      expect(
+        within(pace()).getByText('How long will it take me? in a game’s journal sets it.'),
+      ).toBeInTheDocument();
+      expect(within(pace()).queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+    });
+
+    it('forgets both answers on Clear, and keeps the keyboard in the dialog on the line', async () => {
+      // The button goes with the pace, and the keyboard with it would fall out of the dialog
+      // onto the page behind, which the next Tab would walk. It lands on what the line now says.
+      localStorage.setItem(
+        paceKey('games'),
+        JSON.stringify({ hours: 2, per: 'day', style: 'hltbMainStoryHours' }),
+      );
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      await userEvent.click(within(pace()).getByRole('button', { name: 'Clear' }));
+
+      expect(parsePace(localStorage.getItem(paceKey('games')))).toEqual({ pace: null, style: null });
+      expect(within(pace()).getByText('Not set')).toHaveFocus();
+      expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument();
+    });
+
+    it('is only where a board has HowLongToBeat’s figures, which the question answers from', async () => {
+      // The data's say, never the slug: a film has no estimates for the question to sit under.
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      expect(screen.queryByRole('group', { name: 'Your pace' })).not.toBeInTheDocument();
+    });
   });
 
   it('does not use TMDB’s logo or wordmark as a graphic', async () => {

@@ -17,6 +17,7 @@ import {
   resolveGenre,
 } from '../hobbies';
 import type { LibraryItem, LogStatus } from '../api/types';
+import { type CardShows, useCardShows } from './cardShows';
 
 /**
  * Opens a title's journal — at "How long will it take me?" when the card's menu asked that.
@@ -136,10 +137,16 @@ export interface CardFaceProps {
   menu?: CardMenu;
   /** Opens the journal for this title. Omitted by the drag preview for the same reason. */
   onOpen?: OpenJournal;
+  /**
+   * What the card shows, as ticked in Settings since #27, or everything on a share, whose
+   * server never knows a browser's choice. Required, so none of the three places a card is drawn
+   * can forget it: the board's own, the drag preview, and a share's.
+   */
+  shows: CardShows;
 }
 
 /** Everything a card shows. Shared with the drag preview, which must not be a second sortable. */
-export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardFaceProps) {
+export function CardFace({ item, onMove, removal, leaving, menu, onOpen, shows }: CardFaceProps) {
   // A day, or a year kept as a year (#24) printed alone, as the calendar prints a year.
   const lastActivity = formatPassDate(item.lastActivity, item.lastActivityYear);
   const questionId = useId();
@@ -371,7 +378,7 @@ export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardF
                 `LibraryItem.lengthHours`, so there is nothing for them to disagree over. A
                 column sorted shortest-first on a number the cards do not show reads as
                 broken. */}
-            {item.lengthHours !== null && (
+            {shows.length && item.lengthHours !== null && (
               <span role="img" aria-label={hobby.describeLength(item.lengthHours)}>
                 {hobby.formatLength(item.lengthHours)}
               </span>
@@ -423,12 +430,12 @@ export function CardFace({ item, onMove, removal, leaving, menu, onOpen }: CardF
             made when it was sent, at its own size so the words beside it never jump, and named
             for how many there are, which is what a screen reader can use of it. Held to twice as
             wide as tall, so a panorama is cropped rather than run across the card. */}
-        {item.latestNotePreview !== null && item.latestNotePicture === null && (
+        {shows.note && item.latestNotePreview !== null && item.latestNotePicture === null && (
           <p data-note="" className="mt-1 line-clamp-2 text-xs break-words text-muted">
             {item.latestNotePreview}
           </p>
         )}
-        {item.latestNotePreview !== null && item.latestNotePicture !== null && (
+        {shows.note && item.latestNotePreview !== null && item.latestNotePicture !== null && (
           <p data-note="" className="mt-1 flex items-center gap-1.5 text-xs text-muted">
             <img
               src={thumbnailUrl(item.latestNotePicture.id)}
@@ -687,6 +694,9 @@ export function Card({ item, onMove, removal, leaving, menu, onOpen, draggable }
     disabled: !draggable,
   });
 
+  // A store, so the board hears a box ticked in Settings without a reload.
+  const shows = useCardShows(item.hobby);
+
   // dnd-kit's aria-disabled says "this sortable cannot be dragged", which is true and is not
   // what the attribute means here. It is the other half of the role it stamps — see below — and
   // on a listitem it is not a valid claim at all, while both a screen reader and Playwright
@@ -726,6 +736,7 @@ export function Card({ item, onMove, removal, leaving, menu, onOpen, draggable }
         leaving={leaving}
         menu={menu}
         onOpen={onOpen}
+        shows={shows}
       />
     </li>
   );

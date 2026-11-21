@@ -237,4 +237,14 @@
       under the pointer and a row's name is in the accent, both picked from renders of the user's
       own finishes. Reading the code first found the page could show its old numbers for 30
       seconds after a change on the board, and every write that can change a finish now clears them
+- [x] Settings, rearranged. The themes left Settings for a palette in the header, the user's own
+      answer to the three places rendered for them, and Settings became a dialog behind a gear:
+      every board's settings beside this board's, and what you have across the foot, each choice
+      on one line. Seven settings came with it, five of them ones recommended against: your pace,
+      shown and cleared; what a card shows; which board opens first; which boards the header
+      names; dates day first; skipping the wheel's spin; and the games hidden from Discover. The
+      journal opens as a modal now, the user's ask, and fills a phone's screen whichever is chosen.
+      The renders found two bugs on main, a long title on the calendar widening a phone's page and
+      the modal running off one, both fixed, and the built header and dialog match the picked
+      renders to the pixel
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

@@ -1,6 +1,19 @@
 import { useEffect, useId, useRef } from 'react';
+import type { QueryClient } from '@tanstack/react-query';
+import { hiddenKey } from '../board/keys';
 import { useModalPanel } from '../lib/useModalPanel';
 import type { HiddenTitle } from '../api/types';
+
+/**
+ * A game shown again, out of the list of hides the cache holds: from this dialog on the Discover
+ * page and from Settings since #27, which open it the same way, so one function says what *Show
+ * again* leaves behind and the two cannot drift.
+ */
+export function forgetHidden(queryClient: QueryClient, hobby: string, mediaId: number): void {
+  queryClient.setQueryData<HiddenTitle[]>(hiddenKey(hobby), (was = []) =>
+    was.filter((title) => title.mediaId !== mediaId),
+  );
+}
 
 export interface HiddenDialogProps {
   /** The games you hid, the newest hide first, as the server orders them. */

@@ -152,9 +152,15 @@ export function ComingSoon({ hobby, columns, query, voice, remembers, onOpen }: 
      *
      * A row here is one line about when a title arrives, and at the board's full width the date
      * ends up a foot from the name it belongs to — which is why this is not the whole width.
+     *
+     * `min-w-0` because the section is a grid item, and a grid item is never narrower than its
+     * content unless told: here, the longest title it holds, which a row keeps to one line. Without
+     * it a long title widened the track past a phone's screen — 406px on a 390 phone, from *The
+     * Witcher 3: Wild Hunt - Songs of the Past* in the user's calendar — and the row's `truncate`
+     * never had anything to cut. `layout.spec.ts` holds a phone's page to the screen.
      */
     <div className={`mt-6 grid ${BOARD_GAP} ${boardTracks(columns)}`}>
-      <section aria-labelledby={headingId} className={calendarSpan(columns)}>
+      <section aria-labelledby={headingId} className={`min-w-0 ${calendarSpan(columns)}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
             {words.heading} <span className="text-muted">{items.length}</span>

@@ -1,7 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
-import { openJournal, seed } from './support/board';
+import { journalOpensIn, openJournal, seed } from './support/board';
 
 /**
  * A game's OpenCritic and Steam pages, end to end (#22).
@@ -211,10 +211,12 @@ test.describe('the rows at every width the journal has', () => {
     };
   }
 
+  // The two drawers say so, because a modal is the default since #27.
   test.describe('the drawer at 1440', () => {
     test.use({ viewport: { width: 1440, height: 900 } });
 
     test("OpenCritic's row takes two lines and Steam's one", async ({ page }) => {
+      await journalOpensIn(page, 'drawer');
       await journalOf(page, 'Hollow Knight');
       expect(await measure(page)).toEqual({ openCritic: 2, steam: 1 });
     });
@@ -224,6 +226,7 @@ test.describe('the rows at every width the journal has', () => {
     test.use({ viewport: { width: 1536, height: 900 } });
 
     test("OpenCritic's row still takes two lines and Steam's one", async ({ page }) => {
+      await journalOpensIn(page, 'drawer');
       await journalOf(page, 'Hollow Knight');
       expect(await measure(page)).toEqual({ openCritic: 2, steam: 1 });
     });

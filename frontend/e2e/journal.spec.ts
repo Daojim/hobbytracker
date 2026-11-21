@@ -420,7 +420,12 @@ test('clicking away from the drawer closes it, and so does Escape', async ({ pag
   await page.mouse.click(40, 400);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
+  // Open before Escape, as above. Pressed straight after the click, the key went 4ms after it, in
+  // a trace on 21 November 2026, before React had mounted the journal and heard keys at all: 5 of
+  // 32 runs of this spec alone failed so with a modal, the default since #27, and none of 24 with
+  // a drawer, whose box is quicker to lay out. Nobody presses a key that fast.
   await openJournal(page, 'Celeste');
+  await expect(page.getByRole('dialog')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });

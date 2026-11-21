@@ -21,10 +21,40 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/board');
 });
 
+/** The palette in the header, which holds the themes since #27, and one of them pressed. */
 const choose = async (page: import('@playwright/test').Page, theme: string) => {
-  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Theme' }).click();
   await page.getByRole('radio', { name: theme }).click();
 };
+
+test('the palette’s list is reached by the keyboard, and Escape hands it back', async ({
+  page,
+}) => {
+  // What a real browser decides and jsdom only imitates: where Tab goes from the palette, and
+  // that Escape returns the keyboard to it rather than to the top of the page. Run in Firefox as
+  // well as Chromium, which is where the user reads the board.
+  const palette = page.getByRole('button', { name: 'Theme' });
+  await palette.focus();
+  await page.keyboard.press('Enter');
+  await expect(palette).toHaveAttribute('aria-expanded', 'true');
+
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('radio', { name: 'System' })).toBeFocused();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'shelf-light');
+  await expect(page.getByRole('radio', { name: 'Shelf Light' })).toBeFocused();
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('radiogroup', { name: 'Theme' })).toHaveCount(0);
+  await expect(palette).toBeFocused();
+  await expect(palette).toHaveAttribute('aria-expanded', 'false');
+
+  // And a press outside closes it without taking the keyboard anywhere.
+  await palette.click();
+  await page.getByRole('heading', { level: 1 }).click();
+  await expect(page.getByRole('radiogroup', { name: 'Theme' })).toHaveCount(0);
+});
 
 test('a chosen theme is still chosen after a reload', async ({ page }) => {
   await choose(page, 'Ember');
@@ -75,20 +105,21 @@ test('the journal opens where you asked it to, and is the same dialog either way
   const viewport = page.viewportSize()!;
   const centreOf = (box: { x: number; width: number }) => box.x + box.width / 2;
 
-  await openJournal(page, 'Celeste');
-  const drawer = (await page.getByRole('dialog').boundingBox())!;
-  // Flush to the right edge, give or take a scrollbar.
-  expect(drawer.x + drawer.width).toBeGreaterThan(viewport.width - 20);
-  await page.keyboard.press('Escape');
-
-  await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('radio', { name: 'Modal' }).click();
-  await page.keyboard.press('Escape');
-
+  // A modal until told otherwise, since #27: in the middle, off both edges.
   await openJournal(page, 'Celeste');
   const modal = (await page.getByRole('dialog').boundingBox())!;
   expect(modal.x).toBeGreaterThan(20);
   expect(Math.abs(centreOf(modal) - viewport.width / 2)).toBeLessThan(20);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('radio', { name: 'Drawer' }).click();
+  await page.keyboard.press('Escape');
+
+  await openJournal(page, 'Celeste');
+  const drawer = (await page.getByRole('dialog').boundingBox())!;
+  // Flush to the right edge, give or take a scrollbar.
+  expect(drawer.x + drawer.width).toBeGreaterThan(viewport.width - 20);
 
   // Still a dialog, and still closes the way it did.
   await page.keyboard.press('Escape');

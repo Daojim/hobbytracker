@@ -212,6 +212,15 @@ const CATALOGUE = [
   { id: 3028, released: '2017-03-07', precision: 'YYYYMMDD', gameType: 0, name: 'NieR: Automata',
     platforms: ['PC', 'PlayStation 4'], developer: 'PlatinumGames', genres: ['Role-playing (RPG)'],
     steam: { store: 524220, ids: [524220] } },
+
+  // #27's: a title too long for a phone's calendar row, which keeps it to one line. The user's own
+  // calendar had *The Witcher 3: Wild Hunt - Songs of the Past* on 3 November 2026, and it made the
+  // page 406px wide on a 390 phone; every title above is short enough that no spec saw it. Out in
+  // five months, with no hype and no ratings, so it is on no Discover list, and no searched word is
+  // inside its name.
+  { id: 3029, released: inMonths(5), precision: 'YYYYMMDD', gameType: 0,
+    name: 'Lanternfall: Ballad of the Ninefold Drowned Archive', platforms: ['PC'],
+    developer: 'Nobody In Particular', genres: ['Adventure'] },
 ];
 
 /**

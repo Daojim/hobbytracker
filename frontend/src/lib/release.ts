@@ -1,5 +1,5 @@
 import type { ReleasePrecision, ReleaseStatus } from '../api/types';
-import { todayHere } from './time';
+import { monthAndDay, monthDayAndYear, todayHere } from './time';
 
 /**
  * Reading a release window — the calendar's whole vocabulary.
@@ -100,8 +100,11 @@ export function formatDayShort(day: Day, today: Day = todayHere()): string {
     return day;
   }
 
-  const short = `${MONTHS[parts.month - 1]} ${parts.date}`;
-  return now !== null && now.year === parts.year ? short : `${short}, ${parts.year}`;
+  // In the order chosen in Settings (#27): `Oct 9` or `9 Oct`, and the year after either.
+  const month = MONTHS[parts.month - 1]!;
+  return now !== null && now.year === parts.year
+    ? monthAndDay(month, parts.date)
+    : monthDayAndYear(month, parts.date, parts.year);
 }
 
 /**
@@ -129,7 +132,8 @@ export function formatRelease(day: Day | null, precision: ReleasePrecision | nul
 
   switch (precision) {
     case 'Day':
-      return `${month} ${parts.date}, ${parts.year}`;
+      // The one window with a day in it, so the one that turns round with the order chosen.
+      return monthDayAndYear(month!, parts.date, parts.year);
     case 'Month':
       return `${month} ${parts.year}`;
     case 'Quarter':
