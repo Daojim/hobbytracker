@@ -55,13 +55,13 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
 | 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
 | 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Shipped and deployed 20 November 2026** (PR #101), built tests first the day it was picked up and workshopped. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
-| 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Built tests first on 21 November 2026**: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
+| 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Shipped and deployed 21 November 2026** (PR #103), built tests first the same night: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
 | 27 | Settings, rearranged | S–M | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
-Production runs `ba8458b`'s code, which was `main` on 20 November 2026. Deploying is the runbook in
+Production runs `d8c889f`'s code, which was `main` on 21 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -5188,7 +5188,7 @@ moved upstream, its layers pulled again and its `apt-get` step run again.
 
 ---
 
-## 26. The picker, roomier · built
+## 26. The picker, roomier · shipped
 
 **Planned 14 November 2026**, at the user's request. Two adjustments to #16's panel.
 
@@ -5299,6 +5299,26 @@ Tests first, on branch `picker-roomier`, after the prototype was saved as a patc
   and its row in the table at the top. `docs/board.md` names no size or place, so it is unchanged.
 - **Not checked**: a phone in hand. The spin on Jimmy's Android phone is the first thing to try
   after the deploy, and nobody here can measure an iPhone.
+
+### Deployed
+
+**At about 01:32 Eastern on 21 November 2026**, merged as PR #103 and deployed by the runbook in
+`docs/deploy.md`, `ba8458b` to `d8c889f`, carrying #102's docs with it. Frontend and docs only: no
+migration, no variable and no route. **Caddy alone was recreated**, and the API kept its four hours
+of uptime, since no base image had moved. The deploy took 12 seconds.
+
+- **The bundle** went `index-Cn1vjcVW.js` to `index-ZChEd0eh.js`, where a local build said
+  `index-B23DdpaV.js`. **The stylesheet** went `index-FmHVnJQO.css` to `index-BFlbkVNI.css`, the
+  local build's name, and byte for byte the local build's file.
+- **Two script strings 0 then 1**, by `grep -F`: the panel's class string, ending `md:my-auto`,
+  and the wheel's, ending `md:max-w-[400px]`. The old offset, `pt-[8vh] md:pt-[10vh]`, 1 then 0.
+- **The selector diff** found four rules new and two gone: `.md\:my-auto{`,
+  `.md\:max-w-\[400px\]{` and `.max-w-xl{` 0 then 1, and `.pt-\[8vh\]{` and `.md\:pt-\[10vh\]{` 1
+  then 0. **The fourth new rule, `.my-auto`, comes from a word in `PickPanel.tsx`'s comment**:
+  Tailwind reads source text, and a variant never makes its bare class, since the old stylesheet
+  had `.md\:pt-\[10vh\]` and no `.pt-\[10vh\]`. A few harmless bytes.
+- **`/api/auth/me` answered `null` (200)** before and after, and the API's log had no line at all
+  in the 20 minutes around it.
 
 ---
 
