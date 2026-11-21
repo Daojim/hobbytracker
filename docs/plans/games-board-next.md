@@ -56,12 +56,12 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
 | 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Shipped and deployed 20 November 2026** (PR #101), built tests first the day it was picked up and workshopped. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Shipped and deployed 21 November 2026** (PR #103), built tests first the same night: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
-| 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Built 21 November 2026, tests first**, a commit per step and one per addition, not yet merged: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
+| 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Shipped and deployed 21 November 2026** (PR #105), built tests first the same day, a commit per step and one per addition: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
-Production runs `d8c889f`'s code, which was `main` on 21 November 2026. Deploying is the runbook in
+Production runs `76172b4`'s code, which was `main` on 21 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -5322,7 +5322,7 @@ of uptime, since no base image had moved. The deploy took 12 seconds.
 
 ---
 
-## 27. Settings, rearranged · built
+## 27. Settings, rearranged · shipped
 
 **Planned 14 November 2026**, at the user's request, as a workshop first. In the user's words:
 *"I want to workshop the 'Settings' menu. For example, have the 'Themes' be in its own section
@@ -5628,6 +5628,34 @@ Vitest one, which restores each file after its run. **All 29 turned red exactly 
   build starts with every board named, as the nav does today, and the comparison gave the build the
   same two taken off.
 - **#26 has no entry in `docs/history.md`**, found while writing #27's. Left for the user to say.
+
+### Deployed
+
+**At about 18:24 Eastern on 21 November 2026**, merged as PR #105 and deployed by the runbook in
+`docs/deploy.md`, `d8c889f` to `76172b4`, carrying #104's docs with it. Frontend and docs only: no
+migration, no variable and no route. **Caddy alone was recreated**, and the API kept its 21 hours
+of uptime, since no base image had moved.
+
+- **The bundle** went `index-ZChEd0eh.js` to `index-Co5mM0L7.js`, where a local build said
+  `index-C5COHLl7.js`. **The stylesheet** went `index-BFlbkVNI.css` to `index-DT1iVaz_.css`, the
+  local build's name, and byte for byte the local build's file.
+- **Thirteen script strings 0 then 1**, by `grep -F`: the five new storage keys
+  (`hobbytracker.opens-on`, `.header-boards`, `.card.`, `.wheel.`, `.dates`), *Skip the spin*,
+  *Boards in the header*, *Every board*, *Hidden from Discover…*, *Opens on*, *Not set*, a choice's
+  row class string, and `md:max-3xl:modal:max-w-2xl`. The journal's old box,
+  `shadow-xl outline-none 2xl:max-w-lg modal:inset-4`, 1 then 0.
+- **The page itself** changed too: the pre-paint script's fallback in the served `index.html`,
+  `journal === 'drawer' ? 'drawer' : 'modal'` 0 then 1 and the old `'modal' ? 'modal' : 'drawer'` 1
+  then 0.
+- **The selector diff** found 16 rules new and 11 gone: the modal variant's rules changed shape,
+  `[data-journal=drawer]` 0 then 9 and `[data-journal=modal]` 9 then 0, and the dialog's grid
+  (`.grid-cols-\[5rem_minmax\(0\,1fr\)\]{`), its 768 width (`.md\:max-w-3xl{`), its gaps, `.my-4{` and
+  the icons' `.size-4{` came in, where the panel's `.my-2{` and `.pb-0\.5{` went.
+- **`/api/auth/me` answered `null` (200)** before and after, Caddy's log had no error, and the API's
+  had no line at all in the 20 minutes around it.
+
+**A browser that pressed Drawer at some point keeps it**, so a browser that has had the journal as
+a drawer may need one press in Settings for the modal.
 
 ---
 
