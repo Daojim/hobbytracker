@@ -14,7 +14,8 @@ import { sessionKey } from '../api/auth';
 import type { Account, ExportTitle } from '../api/types';
 import { SignInPage } from '../shell/SignInPage';
 import { SettingsMenu } from './SettingsMenu';
-import { DENSITY_ATTRIBUTE, JOURNAL_ATTRIBUTE, THEME_ATTRIBUTE } from './theme';
+import { windowOfWidth } from '../test/media';
+import { DENSITY_ATTRIBUTE, JOURNAL_ATTRIBUTE, JOURNAL_KEY, THEME_ATTRIBUTE } from './theme';
 
 // The writer is what the row loads when it is pressed. Here it is a spy, so a test can say what
 // it was handed and when, without a browser to save a file into.
@@ -38,10 +39,75 @@ describe('SettingsMenu', () => {
     document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
   });
 
-  it('keeps the panel shut until it is asked for', () => {
+  it('is a gear named Settings, with the dialog shut until it is asked for', () => {
     renderWithProviders(<SettingsMenu hobby="games" />);
 
-    expect(screen.queryByRole('radiogroup', { name: 'Density' })).not.toBeInTheDocument();
+    const gear = screen.getByRole('button', { name: 'Settings' });
+    // Named in words for a voice and a tooltip, because the button itself is a drawing.
+    expect(gear).toHaveAttribute('title', 'Settings');
+    expect(gear).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('opens a dialog named Settings, which takes the keyboard', async () => {
+    // A dialog since #27, where it was a panel under the button: the seven settings it gained
+    // would have made the panel about 1,510px tall.
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const dialog = screen.getByRole('dialog', { name: 'Settings' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveFocus();
+  });
+
+  it('keeps Tab inside the dialog, from its last stop to its first', async () => {
+    // aria-modal says the page behind is inert, and a Tab that walked out onto it would make
+    // that false for anyone who reads by tabbing.
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const close = screen.getByRole('button', { name: 'Close' });
+    const last = screen.getByRole('button', { name: 'Delete my account…' });
+
+    last.focus();
+    await userEvent.tab();
+    expect(close).toHaveFocus();
+
+    await userEvent.tab({ shift: true });
+    expect(last).toHaveFocus();
+  });
+
+  it('sets Every board beside this board’s settings, headed by the board’s name', async () => {
+    renderWithProviders(<SettingsMenu hobby="movies" />);
+    await open();
+
+    const every = screen.getByRole('group', { name: 'Every board' });
+    const board = screen.getByRole('group', { name: 'Movies' });
+    const data = screen.getByRole('group', { name: 'Your data' });
+
+    expect(within(every).getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
+    expect(within(every).getByRole('radiogroup', { name: 'Journal' })).toBeInTheDocument();
+    expect(within(board).getByRole('group', { name: 'Columns' })).toBeInTheDocument();
+
+    // Appearance first, the board's own next, and what you have across the foot.
+    expect(every.compareDocumentPosition(board) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(board.compareDocumentPosition(data) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('draws no Journal switch on a phone, where the journal fills the screen either way', async () => {
+    // The stored choice still applies when the same browser is wider, so nothing is cleared.
+    windowOfWidth(390);
+    try {
+      localStorage.setItem(JOURNAL_KEY, 'drawer');
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      expect(screen.getByRole('radiogroup', { name: 'Density' })).toBeInTheDocument();
+      expect(screen.queryByRole('radiogroup', { name: 'Journal' })).not.toBeInTheDocument();
+      expect(localStorage.getItem(JOURNAL_KEY)).toBe('drawer');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('holds no themes, which are the palette’s since #27', async () => {
@@ -74,7 +140,7 @@ describe('SettingsMenu', () => {
     expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('drawer');
   });
 
-  it('closes on Escape and hands the keyboard back to the button', async () => {
+  it('closes on Escape and hands the keyboard back to the gear', async () => {
     // The drawer already establishes this: a control that opens something has to be where focus
     // returns to, or the next Tab starts from the top of the document.
     renderWithProviders(<SettingsMenu hobby="games" />);
@@ -82,22 +148,37 @@ describe('SettingsMenu', () => {
 
     await userEvent.keyboard('{Escape}');
 
-    expect(screen.queryByRole('radiogroup', { name: 'Density' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
   });
 
-  it('closes when the click lands somewhere else', async () => {
-    renderWithProviders(
-      <div>
-        <SettingsMenu hobby="games" />
-        <button type="button">Elsewhere</button>
-      </div>,
-    );
+  it('closes by its ×, and by a press on the page around it, handing the keyboard back', async () => {
+    renderWithProviders(<SettingsMenu hobby="games" />);
+
+    await open();
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
+
+    await open();
+    await userEvent.click(screen.getByRole('presentation'));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
+  });
+
+  it('shuts as Share this board… opens its dialog, which hands the keyboard back to the gear', async () => {
+    // One dialog at a time: Share's opens in Settings' place, and closing it returns to the gear
+    // rather than to a row that went with Settings.
+    renderWithProviders(<SettingsMenu hobby="games" />);
     await open();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Elsewhere' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Share this board…' }));
+    expect(await screen.findByRole('dialog', { name: 'Share this board' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument();
 
-    expect(screen.queryByRole('radiogroup', { name: 'Density' })).not.toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
   });
 
   it('stays open while you are choosing, because the settings are usually set together', async () => {

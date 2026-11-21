@@ -1,339 +1,450 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { type ReactNode, useId, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { DeleteAccount } from '../account/DeleteAccount';
 import { useDeleteAccount } from '../account/useDeleteAccount';
+import { SIDE_BY_SIDE } from '../board/grid';
 import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
 import { downloadSpreadsheet } from '../export/download';
 import { columnsFor, hobbyDefinition } from '../hobbies';
+import { useMediaQuery } from '../lib/useMediaQuery';
+import { useModalPanel } from '../lib/useModalPanel';
 import { ShareDialog } from '../share/ShareDialog';
 import { SharingRow } from '../share/SharingRow';
-import type { Hobby } from '../shell/hobbies';
+import { HOBBIES, type Hobby } from '../shell/hobbies';
 import { DENSITIES, JOURNAL_VIEWS } from './theme';
+import { HEADER_ICON_BUTTON } from './ThemeMenu';
 import { useTheme } from './useTheme';
 
 export interface SettingsMenuProps {
-  /** The board this panel sits over, whose columns the Columns group lists. */
+  /** The board this sits over, whose settings the dialog's second half holds. */
   hobby: Hobby;
 }
 
 /**
- * Settings in the header, holding the density and the journal's box, the board's columns, a
- * read-only link to the board, the board as a spreadsheet to keep, and the way to delete your
- * account. The themes are the palette's beside it since #27 (`ThemeMenu.tsx`), where they were
- * most of this panel's height. They are usually set in the same sitting, so choosing one leaves
- * the panel open.
+ * The gear in the header, and the Settings dialog behind it.
  *
- * Built as radio groups rather than a list of buttons because that is what they are — a closed
- * set where exactly one is current — and it is what lets a screen reader say "System, selected"
- * and place it within a group, instead of reading a row of unrelated buttons. Deliberately not
- * quoting the count here: it said "1 of 5" for a long time while there were seven themes, and a
- * number in a comment nothing checks is a number that goes quietly wrong.
+ * **A dialog since #27, where it was a 224px panel under a button.** The themes went to a control
+ * of their own beside this, and seven settings came in; the panel would have been about 1,510px
+ * tall with them, against the 1,009 it was and the themes' 276 the user wanted gone. So it is a
+ * dialog, 768px across from 768px (the user's pick over the journal modal's 672), with *Every
+ * board* beside this board's settings and *Your data* across the foot, and one scrolling column on
+ * a phone. Each choice is one line, its name and a switch, where the panel had a heading and rows.
  *
- * The Columns group is the exception on both counts: each column is on or off independently, so
- * they are checkboxes rather than radios; and it is the one setting that is not CSS, so it is read
- * from a store the board subscribes to as well — see `board/hiddenColumns.ts`.
+ * A gear rather than the word, the user's own addition at round two, beside the palette: two icons
+ * keep a 390 phone's header one row. Named *Settings* for a voice and in a tooltip.
  *
- * The Sharing group holds one row and none of its settings. What a link shows is a second list of
- * columns, and laid open here it would sit under the board's own and look just like it, so the
- * row opens a dialog instead, and the panel shuts as it does — see `share/SharingRow.tsx`.
+ * The spreadsheet and the delete are held up here rather than in the dialog, so shutting it while
+ * the file is being made, or while the account is being deleted, loses neither: opened again, the
+ * dialog finds each still going.
+ *
+ * The share dialog is held here for the same reason the panel held it: its row is in the dialog,
+ * which shuts as the share dialog opens, so that is the one thing open, and closing it hands the
+ * keyboard back to the gear.
  */
 export function SettingsMenu({ hobby }: SettingsMenuProps) {
-  const { density, journalView, setDensity, setJournalView } = useTheme();
-  const hidden = useHiddenColumns(hobby);
   const [open, setOpen] = useState(false);
-
-  // Up here rather than inside the panel, so closing the panel while the file is being made
-  // neither loses the file nor the state the row comes back to. The delete is held here for the
-  // same reason: a panel shut and opened again mid-delete finds it still going.
-  const exportWords = hobbyDefinition(hobby).export;
-  const spreadsheet = useMutation({ mutationFn: () => downloadSpreadsheet(hobby) });
-  const deletion = useDeleteAccount();
-
-  // The share dialog, held here because the row that opens it is in the panel and the panel shuts
-  // as it opens: the dialog is then the one thing open. Only on a board that can be shared.
-  const shareable = hobbyDefinition(hobby).share !== null;
   const [sharing, setSharing] = useState(false);
 
-  const ids = useId();
+  const spreadsheet = useSpreadsheet(hobby);
+  const deletion = useDeleteAccount();
+
   const button = useRef<HTMLButtonElement>(null);
-  const container = useRef<HTMLDivElement>(null);
-
-  // Escape closes and hands the keyboard back, which is the drawer's rule and for its reason: a
-  // control that opened something is where focus belongs when it shuts, or the next Tab starts
-  // from the top of the document.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpen(false);
-        button.current?.focus();
-      }
-    };
-
-    // The container holds the button as well as the panel, so the press that opens the menu is
-    // inside it and does not immediately close it again.
-    const onPointerDown = (event: PointerEvent) => {
-      if (!container.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-    document.addEventListener('pointerdown', onPointerDown);
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      document.removeEventListener('pointerdown', onPointerDown);
-    };
-  }, [open]);
+  const handBack = () => button.current?.focus();
 
   return (
-    <div ref={container} className="relative">
+    <>
       <button
         ref={button}
         type="button"
-        onClick={() => setOpen((was) => !was)}
-        aria-expanded={open}
-        className="rounded border border-line px-2 py-1 text-xs font-medium text-muted hover:bg-hover hover:text-fg"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-label="Settings"
+        title="Settings"
+        className={HEADER_ICON_BUTTON}
       >
-        Settings
+        <Gear />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-30 mt-1 w-56 rounded-lg border border-line bg-surface p-2 shadow-xl">
-          <p id={`${ids}-density`} className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase">
-            Density
-          </p>
-          <div role="radiogroup" aria-labelledby={`${ids}-density`} className="flex flex-col">
-            {DENSITIES.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={density === option.value}
-                onClick={() => setDensity(option.value)}
-                className="flex items-baseline gap-2 rounded px-2 py-1 text-left text-sm hover:bg-hover"
-              >
-                <span
-                  aria-hidden="true"
-                  className={`mt-1 h-2 w-2 shrink-0 rounded-full border ${
-                    density === option.value ? 'border-accent bg-accent' : 'border-line'
-                  }`}
-                />
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          <hr className="my-2 border-line-soft" />
-
-          <p
-            id={`${ids}-journal`}
-            className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
-          >
-            Journal
-          </p>
-          <div role="radiogroup" aria-labelledby={`${ids}-journal`} className="flex flex-col">
-            {JOURNAL_VIEWS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                role="radio"
-                aria-checked={journalView === option.value}
-                onClick={() => setJournalView(option.value)}
-                className="flex items-baseline gap-2 rounded px-2 py-1 text-left text-sm hover:bg-hover"
-              >
-                <span
-                  aria-hidden="true"
-                  className={`mt-1 h-2 w-2 shrink-0 rounded-full border ${
-                    journalView === option.value ? 'border-accent bg-accent' : 'border-line'
-                  }`}
-                />
-                {option.label}
-              </button>
-            ))}
-          </div>
-
-          <hr className="my-2 border-line-soft" />
-
-          {/* The board's columns, in its own words — Playing here, Watching on a films board —
-              and for this board only, because a film is seldom put on hold and a game often is.
-
-              Ticked means shown, and the group never says "hide": on the board that word already
-              means *fold*, for Dropped and for the calendar, and a third meaning up here would be
-              one too many. Taking a column off draws it nowhere, fetches nothing and offers no
-              move to it; every title in it stays where it was.
-
-              Backlog is left out rather than offered as a disabled box. A disabled control
-              claims it would work under some other condition — the nav's reason for rendering
-              unbuilt hobbies as plain text — and there is none: search adds every title there.
-              The line under the group says so in words. */}
-          <p
-            id={`${ids}-columns`}
-            className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
-          >
-            Columns
-          </p>
-          <div
-            role="group"
-            aria-labelledby={`${ids}-columns`}
-            aria-describedby={`${ids}-columns-note`}
-            className="flex flex-col"
-          >
-            {columnsFor(hobby)
-              .filter((column) => canHide(column.status))
-              .map((column) => {
-                const shown = !hidden.has(column.status);
-
-                // Real checkboxes, where every other group here draws its own dots, and that
-                // was chosen from screenshots rather than assumed. Squares drawn to match the
-                // dots were the first attempt: at this size a square barely differs from a
-                // dot, and an unticked one all but vanished on the dark themes. A tick says
-                // "each one on its own" before anything is pressed, which is the difference
-                // from the radios above — and `color-scheme`, set per theme in index.css,
-                // themes the box itself, with the accent as its fill.
-                return (
-                  <label
-                    key={column.status}
-                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-hover"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={shown}
-                      onChange={(event) =>
-                        setColumnHidden(hobby, column.status, !event.target.checked)
-                      }
-                      className="accent-accent"
-                    />
-                    {column.label}
-                  </label>
-                );
-              })}
-          </div>
-          <p id={`${ids}-columns-note`} className="px-2 pt-0.5 pb-1 text-xs text-muted">
-            Backlog always shows, because search adds to it.
-          </p>
-
-          {/* A read-only link to this board, after Columns and before Your data: one row, which
-              opens a dialog with room for the address and what the link shows. See SharingRow
-              for what it was picked over. */}
-          {shareable && (
-            <SharingRow
-              hobby={hobby}
-              ids={ids}
-              onOpen={() => {
-                setOpen(false);
-                setSharing(true);
-              }}
-            />
-          )}
-
-          {/* What you have, rather than how it looks: the board as a file you keep, and the
-              account you could delete. On every board, because an account is every board's.
-
-              The spreadsheet's row only where the board's hobby has words for one —
-              HobbyDefinition.export. A row like every other in the panel, picked from renders
-              over a bordered button and over the file's own name, which the panel's width cut to
-              "hobbytracker-games-2…".
-
-              Held still while it works by aria-disabled rather than disabled: a real browser
-              takes focus off a control the moment it is disabled, which would leave the keyboard
-              at the top of the page with the file still coming. A press meanwhile is simply not
-              acted on. The line under it says what the file holds, and becomes the alert when
-              it fails — a new element, keyed, so it is announced as it arrives.
-
-              The delete comes last and is tinted, as the card menu's Remove from board is: plain
-              rows do things, and the tinted one deletes. */}
-          <hr className="my-2 border-line-soft" />
-
-          <p
-            id={`${ids}-data`}
-            className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase"
-          >
-            Your data
-          </p>
-          <div role="group" aria-labelledby={`${ids}-data`} className="flex flex-col">
-            {exportWords !== null && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!spreadsheet.isPending) {
-                      spreadsheet.mutate();
-                    }
-                  }}
-                  aria-disabled={spreadsheet.isPending || undefined}
-                  aria-describedby={`${ids}-spreadsheet`}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-hover aria-disabled:cursor-wait aria-disabled:text-muted aria-disabled:hover:bg-transparent"
-                >
-                  <svg
-                    aria-hidden="true"
-                    focusable="false"
-                    viewBox="0 0 16 16"
-                    className="size-3.5 shrink-0"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.6"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10" />
-                  </svg>
-                  {spreadsheet.isPending ? 'Preparing…' : 'Download a spreadsheet'}
-                </button>
-                {spreadsheet.isError ? (
-                  <p
-                    key="failed"
-                    id={`${ids}-spreadsheet`}
-                    role="alert"
-                    className="px-2 pt-0.5 pb-1 text-xs text-danger"
-                  >
-                    Couldn’t make the spreadsheet. Try again.
-                  </p>
-                ) : (
-                  <p key="holds" id={`${ids}-spreadsheet`} className="px-2 pt-0.5 pb-1 text-xs text-muted">
-                    {exportWords.holds}
-                  </p>
-                )}
-              </>
-            )}
-
-            <DeleteAccount deletion={deletion} />
-          </div>
-
-          <hr className="my-2 border-line-soft" />
-
-          {/* Credits, and the one part of this panel that is a requirement rather than a
-              preference. TMDB's API terms ask for this sentence near-verbatim in an About or
-              Credits area; the app has no About section, so this panel is it.
-
-              Text rather than their logo, deliberately. The mark has its own rules about size,
-              placement and alteration, and a wordmark set as text keeps none of them by accident
-              — a sentence cannot breach them at all. IGDB is named beside it because crediting
-              one provider and not the other would read as an oversight, though only TMDB asks.
-
-              Not a `<p>` in the same class as the group headings above: those name controls, and
-              this names nobody's setting. */}
-          <p className="px-2 pt-1 pb-0.5 text-[11px] leading-snug text-muted">
-            Game data from IGDB. This product uses the TMDB API but is not endorsed or certified
-            by TMDB.
-          </p>
-        </div>
+        <SettingsDialog
+          hobby={hobby}
+          spreadsheet={spreadsheet}
+          deletion={deletion}
+          onClose={() => {
+            setOpen(false);
+            handBack();
+          }}
+          onShare={() => {
+            setOpen(false);
+            setSharing(true);
+          }}
+        />
       )}
 
-      {/* Closing hands the keyboard back here: the row it was opened from went with the panel. */}
       {sharing && (
         <ShareDialog
           hobby={hobby}
           onClose={() => {
             setSharing(false);
-            button.current?.focus();
+            handBack();
           }}
         />
       )}
+    </>
+  );
+}
+
+function useSpreadsheet(hobby: Hobby) {
+  return useMutation({ mutationFn: () => downloadSpreadsheet(hobby) });
+}
+
+interface SettingsDialogProps {
+  hobby: Hobby;
+  spreadsheet: ReturnType<typeof useSpreadsheet>;
+  deletion: ReturnType<typeof useDeleteAccount>;
+  onClose: () => void;
+  onShare: () => void;
+}
+
+/** A group's heading: the panel's, kept. */
+const HEADING = 'px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase';
+
+/** A half's heading, and Your data's. */
+const HALF = 'px-2 pb-1 text-sm font-semibold';
+
+/** A row that does something: Share this board…, Download a spreadsheet. */
+const ROW = 'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-hover';
+
+/** The line under a row or a group, saying what it holds. */
+const LINE = 'px-2 pt-0.5 pb-1 text-xs text-muted';
+
+function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: SettingsDialogProps) {
+  const { density, journalView, setDensity, setJournalView } = useTheme();
+  const definition = hobbyDefinition(hobby);
+  const hidden = useHiddenColumns(hobby);
+
+  // Not drawn on a phone, where the journal fills the screen whichever is chosen; the stored
+  // choice still applies when the same browser is wider. React's to know, as the board's
+  // columns are, so a test can say it is a phone.
+  const sideBySide = useMediaQuery(SIDE_BY_SIDE, true);
+
+  const ids = useId();
+  const panel = useRef<HTMLElement>(null);
+  useModalPanel(panel, onClose);
+
+  const board = HOBBIES.find((each) => each.slug === hobby)!.label;
+
+  return (
+    <>
+      {/* The share dialog's scrim and frame, centred from 768px as the picker's is since #26,
+          and 16px down on a phone, where it scrolls as a whole. */}
+      <div role="presentation" onClick={onClose} className="fixed inset-0 z-40 bg-scrim" />
+
+      <div className="pointer-events-none fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-4">
+        <section
+          ref={panel}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={`${ids}-title`}
+          tabIndex={-1}
+          className="pointer-events-auto w-full max-w-md rounded-xl border border-line bg-surface p-5 text-fg shadow-xl outline-none md:my-auto md:max-w-3xl"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2 id={`${ids}-title`} className="text-lg font-semibold">
+              Settings
+            </h2>
+            <button
+              type="button"
+              aria-label="Close"
+              onClick={onClose}
+              className="h-6 w-6 shrink-0 rounded text-muted hover:bg-hover hover:text-fg"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-x-6 gap-y-5 md:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-5">
+              <div role="group" aria-labelledby={`${ids}-every`} className="min-w-0">
+                <h3 id={`${ids}-every`} className={HALF}>
+                  Every board
+                </h3>
+                <div className="flex flex-col gap-1">
+                  <Choice name="Density" value={density} options={DENSITIES} onChange={setDensity} />
+                  {sideBySide && (
+                    <Choice
+                      name="Journal"
+                      value={journalView}
+                      options={JOURNAL_VIEWS}
+                      onChange={setJournalView}
+                    />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div role="group" aria-labelledby={`${ids}-board`} className="min-w-0">
+              <h3 id={`${ids}-board`} className={HALF}>
+                {board}
+              </h3>
+              <div className="flex flex-col gap-1">
+                {/* The board's columns, in its own words — Playing here, Watching on a films
+                    board — and for this board only, because a film is seldom put on hold and a
+                    game often is. Ticked means shown, and the group never says "hide": on the
+                    board that word already means *fold*. Taking a column off draws it nowhere,
+                    fetches nothing and offers no move to it; every title in it stays where it was.
+
+                    Backlog is left out rather than offered as a disabled box: a disabled control
+                    claims it would work under some other condition, and there is none, because
+                    search adds every title there. The line under the group says so. */}
+                <Boxes
+                  name="Columns"
+                  items={columnsFor(hobby)
+                    .filter((column) => canHide(column.status))
+                    .map((column) => ({
+                      key: column.status,
+                      label: column.label,
+                      checked: !hidden.has(column.status),
+                      onChange: (shown) => setColumnHidden(hobby, column.status, !shown),
+                    }))}
+                  note="Backlog always shows, because search adds to it."
+                />
+
+                {/* A read-only link to this board: one row, which opens a dialog with room for the
+                    address and what the link shows, and shuts this one as it opens. */}
+                {definition.share !== null && <SharingRow hobby={hobby} onOpen={onShare} />}
+              </div>
+            </div>
+          </div>
+
+          {/* What you have, rather than how it looks: the board as a file you keep, and the
+              account you could delete. On every board, because an account is every board's, and
+              across the foot, the user's pick over under Every board.
+
+              The spreadsheet's row only where the board's hobby has words for one. Held still
+              while it works by aria-disabled rather than disabled: a real browser takes focus off
+              a control the moment it is disabled, which would leave the keyboard nowhere with the
+              file still coming. The line under it says what the file holds, and becomes the alert
+              when it fails — a new element, keyed, so it is announced as it arrives.
+
+              The delete comes last and is tinted, as the card menu's Remove from board is: plain
+              rows do things, and the tinted one deletes. */}
+          <hr className="my-4 border-line-soft" />
+
+          <div role="group" aria-labelledby={`${ids}-data`}>
+            <h3 id={`${ids}-data`} className={HALF}>
+              Your data
+            </h3>
+            <div className="grid items-start gap-x-6 md:grid-cols-2">
+              {definition.export !== null ? (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!spreadsheet.isPending) {
+                        spreadsheet.mutate();
+                      }
+                    }}
+                    aria-disabled={spreadsheet.isPending || undefined}
+                    aria-describedby={`${ids}-spreadsheet`}
+                    className={`${ROW} aria-disabled:cursor-wait aria-disabled:text-muted aria-disabled:hover:bg-transparent`}
+                  >
+                    <DownloadGlyph />
+                    {spreadsheet.isPending ? 'Preparing…' : 'Download a spreadsheet'}
+                  </button>
+                  {spreadsheet.isError ? (
+                    <p
+                      key="failed"
+                      id={`${ids}-spreadsheet`}
+                      role="alert"
+                      className="px-2 pt-0.5 pb-1 text-xs text-danger"
+                    >
+                      Couldn’t make the spreadsheet. Try again.
+                    </p>
+                  ) : (
+                    <p key="holds" id={`${ids}-spreadsheet`} className={LINE}>
+                      {definition.export.holds}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <span />
+              )}
+
+              <div className="flex flex-col">
+                <DeleteAccount deletion={deletion} />
+              </div>
+            </div>
+          </div>
+
+          {/* Credits, and the one part of Settings that is a requirement rather than a
+              preference. TMDB's API terms ask for this sentence near-verbatim in an About or
+              Credits area; the app has no About section, so Settings is it. Text rather than
+              their logo, deliberately: the mark has its own rules about size, placement and
+              alteration, and a sentence cannot breach them. IGDB is named beside it because
+              crediting one provider and not the other would read as an oversight. */}
+          <p className="mt-4 px-2 text-[11px] leading-snug text-muted">
+            Game data from IGDB. This product uses the TMDB API but is not endorsed or certified
+            by TMDB.
+          </p>
+        </section>
+      </div>
+    </>
+  );
+}
+
+interface ChoiceProps<T extends string> {
+  name: string;
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
+}
+
+/**
+ * One setting with a few answers, on one line: its name, then the answers as a switch, #24's
+ * Day | Year switch made larger. Every name on a 5rem column, so the switches start together.
+ *
+ * Radios, as the panel's rows were: a closed set where exactly one is current, which a screen
+ * reader says as "Compact, selected, 2 of 2" in the group the name labels.
+ */
+function Choice<T extends string>({ name, value, options, onChange }: ChoiceProps<T>) {
+  const id = useId();
+
+  return (
+    <div className="grid grid-cols-[5rem_minmax(0,1fr)] items-center gap-x-3 px-2 py-1">
+      <span id={id} className="text-sm">
+        {name}
+      </span>
+      <span
+        role="radiogroup"
+        aria-labelledby={id}
+        className="inline-flex justify-self-start rounded border border-line p-0.5"
+      >
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`h-6 rounded-sm px-1.5 text-xs whitespace-nowrap ${
+              value === option.value ? 'bg-hover font-medium text-fg' : 'text-muted hover:text-fg'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+      </span>
     </div>
+  );
+}
+
+interface BoxesProps {
+  name: string;
+  items: readonly { key: string; label: string; checked: boolean; onChange: (on: boolean) => void }[];
+  note?: ReactNode;
+}
+
+/**
+ * Settings that are each on or off, side by side under a heading: real checkboxes, tinted with
+ * the accent, where the switches draw their own. Picked from screenshots for the Columns group,
+ * where squares drawn to match the dots all but vanished on the dark themes; `color-scheme`, set
+ * per theme in index.css, themes the box itself.
+ */
+function Boxes({ name, items, note }: BoxesProps) {
+  const id = useId();
+
+  return (
+    <div>
+      <p id={id} className={HEADING}>
+        {name}
+      </p>
+      <div
+        role="group"
+        aria-labelledby={id}
+        aria-describedby={note === undefined ? undefined : `${id}-note`}
+        className="flex flex-wrap gap-x-2"
+      >
+        {items.map((item) => (
+          <label
+            key={item.key}
+            className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm hover:bg-hover"
+          >
+            <input
+              type="checkbox"
+              checked={item.checked}
+              onChange={(event) => item.onChange(event.target.checked)}
+              className="accent-accent"
+            />
+            {item.label}
+          </label>
+        ))}
+      </div>
+      {note !== undefined && (
+        <p id={`${id}-note`} className={LINE}>
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * A gear of eight teeth around a hole, at the palette's size and stroke: the prototype's drawing,
+ * worked out once. Each tooth is four points, two on the rim and two at its tip.
+ */
+const GEAR = (() => {
+  const teeth = 8;
+  const step = (Math.PI * 2) / teeth;
+  const at = (radius: number, angle: number) =>
+    `${(8 + radius * Math.cos(angle)).toFixed(2)} ${(8 + radius * Math.sin(angle)).toFixed(2)}`;
+
+  const points: string[] = [];
+  for (let tooth = 0; tooth < teeth; tooth++) {
+    const angle = tooth * step - Math.PI / 2;
+    points.push(
+      at(4.9, angle - 0.34 * step),
+      at(6.6, angle - 0.18 * step),
+      at(6.6, angle + 0.18 * step),
+      at(4.9, angle + 0.34 * step),
+    );
+  }
+
+  return `M${points.join(' L')} Z`;
+})();
+
+function Gear() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 16 16"
+      className="size-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinejoin="round"
+    >
+      <path d={GEAR} />
+      <circle cx="8" cy="8" r="2.1" />
+    </svg>
+  );
+}
+
+function DownloadGlyph() {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      viewBox="0 0 16 16"
+      className="size-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10" />
+    </svg>
   );
 }

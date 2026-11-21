@@ -342,22 +342,15 @@ test.describe('on a phone, at 390px', () => {
     }
   });
 
-  test('paints the theme’s ground under the whole page, however far down Settings reaches', async ({
-    page,
-  }) => {
-    // An empty board ends where the screen does, and the Settings panel runs on below it. When
+  test('paints the theme’s ground on the root, not only on the board', async ({ page }) => {
+    // The Settings panel used to hang from the header and run on below an empty board, and when
     // only the board painted the ground, the page under the panel was the browser's own: 75px of
     // white with the panel scrolled to its end, measured on 4 October 2026, and 269px with the
-    // account's warning open.
+    // account's warning open. Settings is a dialog since #27 and nothing runs past the board now,
+    // but the root keeps the ground for whatever next does, and for an iPhone's bars, which take
+    // their colour from the page (docs/design.md).
     await page.goto('/board');
-    await page.getByRole('button', { name: 'Settings' }).click();
-    await page.getByRole('button', { name: 'Delete my account…' }).click();
-
-    const board = await boxOf(page.locator('main'), 'the board');
-    const reach = await page.evaluate(() => document.documentElement.scrollHeight);
-    expect(reach, 'the panel reaches past the board, or this proves nothing').toBeGreaterThan(
-      board.y + board.height,
-    );
+    await expect(page.locator('main')).toBeVisible();
 
     const [root, ground] = await page.evaluate(() => [
       getComputedStyle(document.documentElement).backgroundColor,

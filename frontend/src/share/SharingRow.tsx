@@ -1,11 +1,10 @@
+import { useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { shareQuery } from './queries';
 
 export interface SharingRowProps {
   hobby: string;
-  /** The panel's id stem, so the group's heading and the row's line have ids of their own. */
-  ids: string;
-  /** Opens the dialog. The panel closes as it does, so the dialog is the one thing open. */
+  /** Opens the dialog. Settings closes as it does, so the share dialog is the one thing open. */
   onOpen: () => void;
 }
 
@@ -16,17 +15,17 @@ export interface SharingRowProps {
  * Picked at the #9 workshop on 4 October 2026 over the share's boxes kept open in the panel. There
  * a second list of columns sat straight under the panel's own, and the two looked alike while one
  * changes this browser's board and the other what anybody with the link sees. A row like every
- * other in the panel, with the spreadsheet's line under it, and an ellipsis because it opens
- * something rather than doing something.
+ * other in Settings, with the spreadsheet's line under it, and an ellipsis because it opens
+ * something rather than doing something. In the board's half of the Settings dialog since #27,
+ * under Columns, with no rule above it: the dialog's groups are set apart by their headings.
  */
-export function SharingRow({ hobby, ids, onOpen }: SharingRowProps) {
-  // Asked as the panel opens, so the line can say which it is. The dialog reads the same answer.
+export function SharingRow({ hobby, onOpen }: SharingRowProps) {
+  // Asked as Settings opens, so the line can say which it is. The dialog reads the same answer.
   const { data: share } = useQuery(shareQuery(hobby));
+  const ids = useId();
 
   return (
-    <>
-      <hr className="my-2 border-line-soft" />
-
+    <div>
       <p id={`${ids}-sharing`} className="px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase">
         Sharing
       </p>
@@ -50,7 +49,7 @@ export function SharingRow({ hobby, ids, onOpen }: SharingRowProps) {
           </p>
         )}
       </div>
-    </>
+    </div>
   );
 }
 
