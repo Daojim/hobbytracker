@@ -183,20 +183,29 @@ export function PickPanel({
           panel, and a press that starts inside and ends outside selects rather than closing. */}
       <div role="presentation" hidden={covered} onClick={onClose} className="fixed inset-0 z-40 bg-scrim" />
 
-      {/* Higher on the screen than the share dialog's 12vh, which the wheel needs: the panel is
-          763px tall once a pick is under it, and on a 390 × 844 phone that ends 13px above the
-          foot of the screen. Scrolled as a whole on anything shorter. */}
+      {/* In the middle of the window from 768px, and 16px from the top on a phone: the #26
+          workshop's picks, over 10% down, which read as the upper middle. `my-auto` rather than
+          centring the column, because the panel changes height as it is used: a pick's row adds
+          122px, and a column centred with `items-center` would clip the panel's top once it was
+          taller than the window. Auto margins are nought when there is no room, so it scrolls as
+          a whole instead. Centred, its top rises 61px when a pick lands, which the workshop saw
+          recorded and chose over sitting at the top before a spin. A phone starts at the top
+          because its chips wrap onto two rows: from 8% down it ended 19px past the foot of a
+          390 × 844 screen after a spin. */}
       <div
         hidden={covered}
-        className="pointer-events-none fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-4 pt-[8vh] md:pt-[10vh]"
+        className="pointer-events-none fixed inset-0 z-40 flex items-start justify-center overflow-y-auto p-4"
       >
+        {/* 576 wide: the five lengths on one row, which 448 wrapped onto two, and room for the
+            wheel at 400. Measured 833px tall with a pick under the wheel, so it shows whole in
+            any window 865px tall or more, which is what the 448 panel needed from 10% down. */}
         <section
           ref={panel}
           role="dialog"
           aria-modal="true"
           aria-labelledby={titleId}
           tabIndex={-1}
-          className="pointer-events-auto w-full max-w-md rounded-xl border border-line bg-surface p-5 text-fg shadow-xl outline-none"
+          className="pointer-events-auto w-full max-w-xl rounded-xl border border-line bg-surface p-5 text-fg shadow-xl outline-none md:my-auto"
         >
           <div className="flex items-start justify-between gap-3">
             <h2 id={titleId} className="text-lg font-semibold">
@@ -231,13 +240,21 @@ export function PickPanel({
                   aria-label="How long do you want to play?"
                   className="mt-1.5 flex flex-wrap gap-1.5"
                 >
-                  <Band label="Any" count={all.length} on={band === null} onChoose={() => !busy && setBand(null)} />
+                  <Band
+                    label="Any"
+                    holds={titles(all.length, definition)}
+                    on={band === null}
+                    onChoose={() => !busy && setBand(null)}
+                  />
                   {words.bands.map((each) => (
                     <Band
                       key={each.label}
                       label={each.label}
                       range={each.range}
-                      count={inTheDraw(all, genres, { band: each, leftOut: new Set(), refused: new Set() }).length}
+                      holds={titles(
+                        inTheDraw(all, genres, { band: each, leftOut: new Set(), refused: new Set() }).length,
+                        definition,
+                      )}
                       on={band?.label === each.label}
                       onChoose={() => !busy && setBand(each)}
                     />
@@ -384,6 +401,11 @@ function countLine(
   return `${counted}${wheel}${leftOut}`;
 }
 
+/** How many titles a length holds, in the board's own word for them: `1 game`, `5 games`. */
+function titles(count: number, definition: HobbyDefinition): string {
+  return `${count} ${definition.titleNoun(count)}`;
+}
+
 /** The chip's name for a genre: its short one where the source's runs long. */
 function shortName(genres: readonly Genre[], genre: string): string {
   const known = genres.find((each) => each.name.toLowerCase() === genre.toLowerCase());
@@ -411,16 +433,22 @@ function atYourPace(item: LibraryItem, pace: Pace | null): string | null {
   return `${describeSpan(daysToFinish(item.lengthHours, pace))} at ${formatPace(pace)}`;
 }
 
+/**
+ * A length to play for: the band, how many titles it holds, then its hours, each a line of its
+ * own. The user's ask at #26, where the count had sat beside the label as *Any 5*. The count keeps
+ * the grey it wore there, the workshop's pick over the text's own colour, and each chip is as wide
+ * as its words, over five of one width, which broke *A few weeks* over two lines at 512.
+ */
 function Band({
   label,
   range,
-  count,
+  holds,
   on,
   onChoose,
 }: {
   label: string;
   range?: string;
-  count: number;
+  holds: string;
   on: boolean;
   onChoose: () => void;
 }) {
@@ -434,9 +462,8 @@ function Band({
         on ? 'border-fg bg-fg text-surface' : 'border-line hover:bg-hover'
       }`}
     >
-      <span className="font-medium">
-        {label} <span className={on ? '' : 'text-muted'}>{count}</span>
-      </span>
+      <span className="font-medium">{label}</span>
+      <span className={on ? '' : 'text-muted'}>{holds}</span>
       {range !== undefined && <span className={`text-[11px] ${on ? '' : 'text-muted'}`}>{range}</span>}
     </button>
   );
@@ -544,16 +571,21 @@ function Name({ item, onOpen }: { item: LibraryItem; onOpen: (mediaId: number) =
   );
 }
 
-/** The card's cover, or its first letter where there is none, as a card draws it. */
+/**
+ * The card's cover, or its first letter where there is none, as a card draws it. `data-cover`
+ * is the card's hook for the card's reason, an image with no words has no role: `pick.spec.ts`
+ * measures a full wheel's covers against this one.
+ */
 function Cover({ item, className }: { item: LibraryItem; className: string }) {
   return item.coverUrl === null ? (
     <span
       aria-hidden="true"
+      data-cover=""
       className={`flex items-center justify-center rounded bg-sunken font-semibold text-muted ${className}`}
     >
       {item.title.charAt(0)}
     </span>
   ) : (
-    <img src={item.coverUrl} alt="" className={`rounded object-cover ${className}`} />
+    <img src={item.coverUrl} alt="" data-cover="" className={`rounded object-cover ${className}`} />
   );
 }

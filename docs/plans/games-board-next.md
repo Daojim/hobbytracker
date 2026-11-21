@@ -55,7 +55,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 23 | Hide a game from Discover | S–M | **Shipped and deployed 14 November 2026** (PR #97), built tests first on the 13th, the day it was workshopped, after the full e2e suite went 236 green, the 231 before and 5 new. An eye struck through on the cover's corner, under the pointer, with the keyboard and always on a phone, hides that one IGDB entry, never its series or its versions, from all five lists and never from a search, kept per account. A plain card with Undo where the tile was for the rest of the visit; *1 hidden* on the page opening the list. Applied after the shared cache, never in its question or key, so every list now asks IGDB for twice the wall, the user's pick when the build asked. Four of the workshop's thirteen picks were the user's over the recommendation. The built page differs from the picked prototype by no pixel at 1440, 1280 and 768. See its section |
 | 24 | A game you finished long ago | M | **Shipped and deployed 14 November 2026** (PR #99), workshopped and built tests first the same day. **Planned 8 November 2026**, at the user's request: adding a finished game you remember only by its year, and perhaps its hours, without a made-up day and without it landing in this year. **Workshop begun 14 November 2026**: round one, in words, took eight choices, every one the recommendation. A year kept as a year, years only, the ✓ asking *When did you finish it?* with an optional hours box, and the journal's Started and Finished each gaining a year mode, on every board and every pass. Round two, the same day, took three looks, every one the recommendation: the question over the tile, the last year already in its box, and a Day \| Year switch beside each date's label. **Round three, the same day, took eight, every one the recommendation**: *Completed in 2019* after a word and the year alone on a card, a year's undated finishes after December behind a rule, a year with no days as that group alone, All years a row per year at every width, *Started in* and *Finished in* columns in the spreadsheet, the panel's *In · Add · or · Today · I don't remember*, *When did you watch it?* on a film alone, and *Cannot be earlier than Started.* **Built the same day, tests first**, with ten more choices asked at the build, every one the recommendation; the full e2e suite went 253 green, the 236 before and 17 new, and the built pieces differ from the picked prototypes by no pixel in 26 states. See its section |
 | 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Shipped and deployed 20 November 2026** (PR #101), built tests first the day it was picked up and workshopped. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
-| 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. A render of the widths first. See its section |
+| 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Built tests first on 21 November 2026**: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
 | 27 | Settings, rearranged | S–M | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
@@ -5188,7 +5188,7 @@ moved upstream, its layers pulled again and its `apt-get` step run again.
 
 ---
 
-## 26. The picker, roomier · planned
+## 26. The picker, roomier · built
 
 **Planned 14 November 2026**, at the user's request. Two adjustments to #16's panel.
 
@@ -5237,6 +5237,68 @@ Any        A weekend
   beneath; a genre chip is unchanged.
 - **The layout is CSS alone, so it goes to Playwright**: at 1440 the panel's middle is within a
   few pixels of the window's before and after a spin, and at 390 its top is where it was.
+
+### Decided from the renders
+
+Workshopped on 20 November 2026, the day it was picked up. The real panel behind throwaway
+switches in the address (`?pw=`, `?wh=`, `?chip=`, `?at=`), on Vite alone with every `/api/`
+request answered in the browser, over the six games #16 read from production on 25 October with
+their IGDB covers and a pace of 2 h a day, so the pick's row was at its tallest. Shot at 1440 ×
+900, 1280 × 800, 1920 × 1000 and 390 × 844, with each placement's spin recorded. The page is
+private: https://claude.ai/artifact/3ZCEk9EKA4NC9nV8k8p99d. **All four picks were the
+recommendations.**
+
+| Choice | Picked | Against |
+|---|---|---|
+| How wide, and the wheel | **576, one column, the wheel 400 from `md`**: five chips on one row with 92px to spare, covers 70px wide and 55 on a full wheel of eight, and *Suggest three*'s rows on one line each. 833px tall after a spin | 512 with a 360 wheel, the narrowest panel that holds the chips on one row; 640 with a 400 wheel, the same panel with 156px empty at the end of the chip row; **two columns at 928**, the filters beside the wheel, 532px tall before and after a spin, where *Suggest three*'s rows wrap in the wheel's 400px column with the left side empty, and below about 960px a third layout |
+| Where it sits | **Centred from `md`** while it fits, scrolling as a whole when it does not: `my-auto` in the scrolling column, as planned. When a pick lands the panel grows 122px and its top rises 61px, from 95 to 34 at 1440 × 900; *Suggest three* moves it down 81px | centred on its tallest, room for the pick's row kept under the panel until a pick takes it, so nothing moves, and the panel sits at the top of the window with 155px empty below it before a spin; where it sits today, 10% down |
+| The chip | **A: the count on a line of its own, in the `text-muted` it wore beside the label**, each chip as wide as its words: 70, 84, 84, 93 and 87px | B, five of one width filling the row, where at 512 *A few weeks* breaks over two lines; C, the count in the text's own colour, so only the hours are grey |
+| On a phone | **16px from the top**, the panel's own `p-4`, in place of `8vh`. It ends at 811 of 844 after a spin, and the wheel stays 300 | a 260 wheel on a phone, ending at 823, with covers 46px wide, smaller than the pick's 48; left at `8vh` to scroll, with *Suggest three* cut in half |
+
+**Found while rendering**, before anything was shown:
+- **The plan's phone was wrong.** It said a phone is top-anchored *whatever a desktop does* and
+  its top stays where it was. But on a phone the five chips still wrap onto two rows, each now a
+  line taller, so the panel grows 32px and **ends 19px below the foot of a 390 × 844 screen**
+  after a spin, where today's ends 13px above it. `pick.spec.ts`'s phone case would have gone red.
+  Hence the fourth question.
+- **The noun needed no new word.** The plan put it among the picker's words, but every hobby
+  already says what one of its titles is called by how many, `HobbyDefinition.titleNoun`, which
+  the account's warning reads: *game* and *games*, *film* and *films*.
+- **A wider panel is not a taller one.** Five chips on one row make it 30px shorter than today's
+  at the same wheel, so the 400 wheel's panel, 833px after a spin, **needs a window 865px tall to
+  show whole, and today's needs 866**: today's starts 10% down the window. Below that, both scroll.
+- **At 300, a full wheel's covers are 41px, smaller than the 48px cover in the pick's own row.**
+  At 360 they are 49 and at 400 55. That is what the plan's *turning into thumbnails* came to, and
+  `pick.spec.ts` holds it on a desktop. A phone keeps 300, as it was.
+- **At 512 even today's chips fit one row**, with 4px to spare. The count on its own line makes a
+  chip narrower, not wider.
+- **A `**/api/**` route glob catches Vite's own `/src/api/*.ts` modules** and 404s them, so the
+  app never boots. The shots matched on `url.pathname.startsWith('/api/')` instead.
+
+### Built, 20 and 21 November 2026
+
+Tests first, on branch `picker-roomier`, after the prototype was saved as a patch and reverted.
+- **`PickPanel.tsx`**: `max-w-xl`, `md:my-auto` in a column padded `p-4`, and `Band` in three
+  lines, its count from `titleNoun`. **`Wheel.tsx`**: `max-w-[300px] md:max-w-[400px]`. Both
+  covers wear `data-cover`, the card's hook, for the measurement below.
+- **Shown red first**: a case in `PickPanel.test.tsx` (`['Any 3']` against `['Any', '3 games']`),
+  and in `pick.spec.ts` the middle 39px off, a full wheel's cover 42px against the pick's 48, and a
+  phone's top at 68. Then 5 of 5 green, and the whole Vitest suite, 1,541 in 67 files, the 1,540
+  before and one new. **The full e2e suite went 259 green in 7.4 minutes**, the 257 before and
+  two new; the phone case was rewritten rather than added. **In Firefox**, `--browser=firefox`, the
+  desktop block and the two specs before it went 4 of 4; the phone case uses `isMobile`, which
+  Firefox lacks.
+- **Each fault put back**: 448 wide puts the chips on two rows; no `my-auto` is 78.7px off the
+  middle; 8% down on a phone is red on its top, and with that line silenced on its foot, 846.8 of
+  844; a 300 wheel is red on its covers; the chip's lines side by side wrap the row.
+- **Against the picked prototype, by pixel**: identical at 1440 after a spin once the count line
+  is written as the prototype's three text nodes (`{count} {noun}`) rather than one string, which
+  anti-aliases a few hundred pixels differently. The eight-slice wheel before a spin differs from
+  itself between two shots of the same build, which is image decoding, not code.
+- **Docs**: `docs/design.md`'s **What should I play next?**, the frame, the chips and the wheel,
+  and its row in the table at the top. `docs/board.md` names no size or place, so it is unchanged.
+- **Not checked**: a phone in hand. The spin on Jimmy's Android phone is the first thing to try
+  after the deploy, and nobody here can measure an iPhone.
 
 ---
 

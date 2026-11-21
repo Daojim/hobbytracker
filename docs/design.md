@@ -36,7 +36,7 @@ the header.
 | Your data | **A row in Settings after Columns**, and after Sharing where a board can be shared: a download glyph, *Download a spreadsheet*, and what the file holds under it. Picked on 4 October 2026 from three forms rendered in the real panel. See **Your data** |
 | Deleting your account | **A tinted row under it, on every board, that opens into the warning**: what it takes in each hobby's words, a word to type, and a filled button. Afterwards the sign-in card reads *Account deleted*. Picked on 4 October 2026 in two rounds. See **Deleting your account** |
 | Searching your notes | **A *Titles \| Notes* switch beside the search box**, a card per title with its cover for the notes found, **the accent at 25% behind each word found**, and a bar of the accent beside the note the journal opens at. Picked on 9 October 2026 from renders; the mark was the user's, over bold. See **Searching your notes** |
-| What should I play next? | **A dialog opened by a die and *Pick* in Backlog's header**: two rows of chips, a line saying what is in the draw, then a wheel of up to eight covers or three suggestions as rows. Picked on 25 October 2026 from renders of the real backlog. The header button was the user's, over a sentence under the search box. See **What should I play next?** |
+| What should I play next? | **A dialog opened by a die and *Pick* in Backlog's header**: two rows of chips, a line saying what is in the draw, then a wheel of up to eight covers or three suggestions as rows. Picked on 25 October 2026 from renders of the real backlog. The header button was the user's, over a sentence under the search box. **Since #26 on 20 November 2026, 576 wide and centred from 768px, with a 400 wheel and each length's count on a line of its own**, every pick the recommendation. See **What should I play next?** |
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon* |
 | Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
@@ -811,18 +811,28 @@ recommendations, and the way in was the user's. What it does is `docs/board.md`'
 | The bands | **Four, with *A long haul***, a second row of chips | three, on one row, which put all five estimates in one band |
 | The way in | **A die and *Pick* in Backlog's header. The user's pick** | a sentence under the search box, 0px on a desktop; a link on the year row, which broke over two lines on a phone |
 
-- **The share dialog's frame, higher on the screen.** `max-w-md`, `rounded-xl border border-line
-  bg-surface p-5 shadow-xl`, over the journal's `bg-scrim`, at `pt-[8vh]` on a phone and
-  `pt-[10vh]` from 768px where the share dialog sits at 12vh, because the wheel needs the room.
-  Measured in the built panel: 641px before a spin, 747 with a pick under the wheel that has no
-  pace line and 763 with one. On a 390 × 844 phone that ends above the foot of the screen, which
-  `pick.spec.ts` holds.
+- **The share dialog's frame, 576 wide and centred since #26.** `max-w-xl`, `rounded-xl border
+  border-line bg-surface p-5 shadow-xl`, over the journal's `bg-scrim`. **From 768px it is
+  `my-auto` in a scrolling column**, so it sits in the middle while it fits and scrolls as a whole
+  when it does not; **on a phone it is 16px from the top**. It was `max-w-md` at `pt-[8vh]` and
+  `pt-[10vh]` until 20 November 2026, when the user found it squished and in the upper middle.
+  Measured at 1440 × 900: 711px before a spin, 833 with a pick and a pace line, so its top rises
+  61px as the row arrives, which the workshop saw recorded and picked. It needs a window 865px tall
+  to show whole, and the 448 panel needed 866. On a phone the chips' extra line put it 19px past
+  the foot of a 390 × 844 screen from 8% down, so it starts at the top. `pick.spec.ts` holds the
+  middle, the one row and the phone's top. The workshop page is private:
+  https://claude.ai/artifact/3ZCEk9EKA4NC9nV8k8p99d.
 - **The lengths are radios and the genres toggles.** A length chip is `rounded-lg border px-2.5
-  py-1 text-xs`, its label and count over its range in 11px, and the one chosen is `bg-fg
-  text-surface`. A genre chip is `rounded-full`, and one left out is struck through on `bg-sunken`
+  py-1 text-xs`, **three lines since #26**: the band, how many it holds in the board's own word
+  (`titleNoun`, *1 game*, *5 games*) in `text-muted`, then its range in 11px. The user's ask, where
+  the count had sat beside the label; the grey was picked over the text's own colour, and natural
+  widths over five equal chips, which broke *A few weeks* at 512. All five fit one row at 576. The
+  one chosen is `bg-fg text-surface`. A genre chip is `rounded-full`, and one left out is struck through on `bg-sunken`
   in `text-muted`: drawn filled first, as a chosen length is, chosen and left out looked alike.
   Their counts are the whole backlog's, and the line under them says what is in the draw.
-- **The wheel is 300px across at most**, slices in `fill-well` and `fill-sunken` by turns. **The
+- **The wheel is 400px across from 768px and 300 on a phone**, since #26: at 300 a full wheel's
+  covers were 41px, smaller than the pick row's 48, and at 400 they are 55. Slices in `fill-well`
+  and `fill-sunken` by turns. **The
   build adds a `line-soft` hairline between slices that the renders did not have**: with an odd
   number of slices the first and the last share a tone, and the three-slice render drew them as
   one. The card's genre stripe is an arc six units wide on the rim, from whole class names in

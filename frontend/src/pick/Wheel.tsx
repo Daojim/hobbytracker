@@ -165,7 +165,11 @@ export function Wheel({ slices, genres, landing, landed, still, onLanded }: Whee
   };
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[300px]">
+    // 400 across from 768px, the #26 workshop's pick over 300 and 360, and 300 on a phone, as it
+    // was. A cover shrinks as slices are added, and at 300 a full wheel's were 41px, smaller than
+    // the 48px cover in the pick's own row under the wheel. At 400 they are 55, which
+    // pick.spec.ts holds. IGDB's covers are 264 × 374, so even at 400 none is stretched.
+    <div className="relative mx-auto aspect-square w-full max-w-[300px] md:max-w-[400px]">
       <svg viewBox="-160 -160 320 320" className="h-full w-full overflow-visible" aria-hidden="true">
         <defs>
           <clipPath id={`${ids}-cover`}>
@@ -211,8 +215,10 @@ export function Wheel({ slices, genres, landing, landed, still, onLanded }: Whee
                     fill="none"
                   />
                 )}
+                {/* data-cover, as a card's and the pick's own wear it: an image with no words has
+                    no role, and pick.spec.ts measures a full wheel's covers against the pick's. */}
                 {item.coverUrl === null ? (
-                  <g>
+                  <g data-cover="">
                     <rect {...coverBox} rx="4" className="fill-surface stroke-line" />
                     <text
                       x="0"
@@ -225,6 +231,7 @@ export function Wheel({ slices, genres, landing, landed, still, onLanded }: Whee
                   </g>
                 ) : (
                   <image
+                    data-cover=""
                     href={item.coverUrl}
                     {...coverBox}
                     preserveAspectRatio="xMidYMid slice"
