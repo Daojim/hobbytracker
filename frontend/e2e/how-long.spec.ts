@@ -75,6 +75,20 @@ test('answers in the drawer, and the backlog behind it hears your pace', async (
   await expect(
     column(page, 'Backlog').getByRole('img', { name: '10 days at 2 hours a day' }),
   ).toBeVisible();
+
+  // Settings says it, since #27, and its Clear forgets both answers: Backlog's line goes without
+  // a reload, and the question asks how much you play again.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  const pace = page.getByRole('group', { name: 'Your pace' });
+  await expect(pace.getByText('2 h a day · Main story')).toBeVisible();
+  await pace.getByRole('button', { name: 'Clear' }).click();
+  await expect(pace.getByText('Not set')).toBeFocused();
+  await page.keyboard.press('Escape');
+
+  await expect(column(page, 'Backlog').getByText(/a day$/)).toHaveCount(0);
+  await openJournal(page, 'Hollow Knight');
+  await dialog.getByRole('button', { name: 'How long will it take me?' }).click();
+  await expect(dialog.getByRole('button', { name: '2 h a day' })).toBeVisible();
 });
 
 test("a card's menu opens the journal at the question", async ({ page }) => {

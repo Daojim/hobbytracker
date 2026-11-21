@@ -6,6 +6,8 @@ import { SIDE_BY_SIDE } from '../board/grid';
 import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
 import { downloadSpreadsheet } from '../export/download';
 import { columnsFor, hobbyDefinition } from '../hobbies';
+import { HLTB_TIER_LABELS } from '../journal/fields';
+import { clearPace, formatPace, usePace } from '../lib/pace';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useModalPanel } from '../lib/useModalPanel';
 import { ShareDialog } from '../share/ShareDialog';
@@ -210,6 +212,10 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
                   note="Backlog always shows, because search adds to it."
                 />
 
+                {/* Where the board has HowLongToBeat's figures, which the question answers
+                    from: the data's say, never the slug. */}
+                {definition.journal.setHltbId !== null && <YourPace hobby={hobby} />}
+
                 {/* A read-only link to this board: one row, which opens a dialog with room for the
                     address and what the link shows, and shuts this one as it opens. */}
                 {definition.share !== null && <SharingRow hobby={hobby} onOpen={onShare} />}
@@ -290,6 +296,57 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
         </section>
       </div>
     </>
+  );
+}
+
+/**
+ * Your pace, from "How long will it take me?" in a game's journal (#4), shown and cleared here
+ * since #27, where it was only ever set and changed through the question. How much you play and
+ * the figure you play to, *2 h a day · Main story*, in the question's own words for each.
+ *
+ * Clear forgets both, the user's pick over the pace alone. Its button goes with the pace, and the
+ * keyboard would go with it, out of the dialog onto the page behind, where the next Tab would walk;
+ * so it lands on the line, which now says *Not set*. Programmatic, and drawn without a ring, as
+ * the sign-in card's heading is when the page puts the keyboard there.
+ */
+function YourPace({ hobby }: { hobby: Hobby }) {
+  const { pace, style } = usePace(hobby);
+  const id = useId();
+  const said = useRef<HTMLSpanElement>(null);
+
+  const noun = hobbyDefinition(hobby).titleNoun(1);
+  const tier = style !== null && style in HLTB_TIER_LABELS
+    ? HLTB_TIER_LABELS[style as keyof typeof HLTB_TIER_LABELS]
+    : null;
+
+  return (
+    <div role="group" aria-labelledby={id}>
+      <p id={id} className={HEADING}>
+        Your pace
+      </p>
+      <div className="flex items-center justify-between gap-2 px-2 py-1">
+        <span ref={said} tabIndex={-1} className="text-sm focus:outline-none">
+          {pace === null ? 'Not set' : `${formatPace(pace)}${tier === null ? '' : ` · ${tier}`}`}
+        </span>
+        {(pace !== null || style !== null) && (
+          <button
+            type="button"
+            onClick={() => {
+              clearPace(hobby);
+              said.current?.focus();
+            }}
+            className="h-6 rounded border border-line px-2 text-xs font-medium hover:bg-hover"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      <p className={LINE}>
+        {pace === null
+          ? `How long will it take me? in a ${noun}’s journal sets it.`
+          : `From How long will it take me? in a ${noun}’s journal.`}
+      </p>
+    </div>
   );
 }
 

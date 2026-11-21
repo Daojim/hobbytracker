@@ -9,6 +9,7 @@ import { server } from '../test/server';
 import { shareServer } from '../test/share';
 import { logEntry } from '../test/passes';
 import { hiddenColumnsKey } from '../board/hiddenColumns';
+import { paceKey, parsePace } from '../lib/pace';
 import { todayHere } from '../lib/time';
 import { sessionKey } from '../api/auth';
 import type { Account, ExportTitle } from '../api/types';
@@ -255,6 +256,61 @@ describe('SettingsMenu', () => {
 
     expect(screen.getByRole('checkbox', { name: 'Dropped' })).toBeChecked();
     expect(JSON.parse(localStorage.getItem(hiddenColumnsKey('games'))!)).toEqual([]);
+  });
+
+  describe('your pace', () => {
+    const pace = () => screen.getByRole('group', { name: 'Your pace' });
+
+    it('says how much you play and how you play, from the question in a game’s journal', async () => {
+      localStorage.setItem(
+        paceKey('games'),
+        JSON.stringify({ hours: 2, per: 'day', style: 'hltbMainStoryHours' }),
+      );
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      expect(within(pace()).getByText('2 h a day · Main story')).toBeInTheDocument();
+      expect(
+        within(pace()).getByText('From How long will it take me? in a game’s journal.'),
+      ).toBeInTheDocument();
+      expect(within(pace()).getByRole('button', { name: 'Clear' })).toBeInTheDocument();
+    });
+
+    it('says Not set, and where one is set, when nothing has been said', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      expect(within(pace()).getByText('Not set')).toBeInTheDocument();
+      expect(
+        within(pace()).getByText('How long will it take me? in a game’s journal sets it.'),
+      ).toBeInTheDocument();
+      expect(within(pace()).queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument();
+    });
+
+    it('forgets both answers on Clear, and keeps the keyboard in the dialog on the line', async () => {
+      // The button goes with the pace, and the keyboard with it would fall out of the dialog
+      // onto the page behind, which the next Tab would walk. It lands on what the line now says.
+      localStorage.setItem(
+        paceKey('games'),
+        JSON.stringify({ hours: 2, per: 'day', style: 'hltbMainStoryHours' }),
+      );
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      await userEvent.click(within(pace()).getByRole('button', { name: 'Clear' }));
+
+      expect(parsePace(localStorage.getItem(paceKey('games')))).toEqual({ pace: null, style: null });
+      expect(within(pace()).getByText('Not set')).toHaveFocus();
+      expect(screen.getByRole('dialog', { name: 'Settings' })).toBeInTheDocument();
+    });
+
+    it('is only where a board has HowLongToBeat’s figures, which the question answers from', async () => {
+      // The data's say, never the slug: a film has no estimates for the question to sit under.
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      expect(screen.queryByRole('group', { name: 'Your pace' })).not.toBeInTheDocument();
+    });
   });
 
   it('does not use TMDB’s logo or wordmark as a graphic', async () => {

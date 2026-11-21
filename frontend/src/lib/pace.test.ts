@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import {
+  clearPace,
   daysToFinish,
   describePace,
   describeSpan,
@@ -232,6 +233,21 @@ describe('the pace store', () => {
     act(() => setPace('games', twoADay));
 
     expect(result.current.pace).toEqual(twoADay);
+  });
+
+  it('forgets both answers on Clear, on this board alone, and tells every reader', () => {
+    // Settings' Clear, since #27: the question asks both again, and Backlog's line at your pace
+    // goes. The style is forgotten with the pace, the user's pick over the pace alone.
+    setPace('games', twoADay);
+    setPlayStyle('games', 'hltbMainStoryHours');
+    setPace('anime', twoADay);
+    const { result } = renderHook(() => usePace('games'));
+    expect(result.current.style).toBe('hltbMainStoryHours');
+
+    act(() => clearPace('games'));
+
+    expect(result.current).toEqual({ pace: null, style: null });
+    expect(renderHook(() => usePace('anime')).result.current.pace).toEqual(twoADay);
   });
 
   it('keeps the pace for this page when storage will not keep it', () => {

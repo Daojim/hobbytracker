@@ -233,3 +233,12 @@ export function setPace(hobby: string, pace: Pace): void {
 export function setPlayStyle(hobby: string, style: string): void {
   keep(hobby, { ...parsePace(store.read(paceKey(hobby))), style });
 }
+
+/**
+ * Forgets both answers on a board: Settings' Clear, since #27. The question asks how much you play
+ * and how you play again, and Backlog's line at your pace goes, because every reader hears it. The
+ * style goes with the pace, the user's pick over the pace alone.
+ */
+export function clearPace(hobby: string): void {
+  keep(hobby, NOTHING_SAID);
+}
