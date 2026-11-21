@@ -15,6 +15,7 @@ import { todayHere } from '../lib/time';
 import { sessionKey } from '../api/auth';
 import type { Account, ExportTitle } from '../api/types';
 import { SignInPage } from '../shell/SignInPage';
+import { OPENING_BOARD_KEY } from '../shell/openingBoard';
 import { SettingsMenu } from './SettingsMenu';
 import { windowOfWidth } from '../test/media';
 import { DENSITY_ATTRIBUTE, JOURNAL_ATTRIBUTE, JOURNAL_KEY, THEME_ATTRIBUTE } from './theme';
@@ -140,6 +141,28 @@ describe('SettingsMenu', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Drawer' }));
 
     expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe('drawer');
+  });
+
+  it('offers the four built boards to open on, Games until another is chosen', async () => {
+    renderWithProviders(<SettingsMenu hobby="games" />);
+    await open();
+
+    const opens = within(screen.getByRole('group', { name: 'Every board' })).getByRole(
+      'radiogroup',
+      { name: 'Opens on' },
+    );
+    expect(within(opens).getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+      'Games',
+      'Movies',
+      'TV',
+      'Anime',
+    ]);
+    expect(within(opens).getByRole('radio', { name: 'Games' })).toBeChecked();
+
+    await userEvent.click(within(opens).getByRole('radio', { name: 'TV' }));
+
+    expect(localStorage.getItem(OPENING_BOARD_KEY)).toBe('tv');
+    expect(within(opens).getByRole('radio', { name: 'TV' })).toBeChecked();
   });
 
   it('closes on Escape and hands the keyboard back to the gear', async () => {

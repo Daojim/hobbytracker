@@ -14,6 +14,7 @@ import { useModalPanel } from '../lib/useModalPanel';
 import { ShareDialog } from '../share/ShareDialog';
 import { SharingRow } from '../share/SharingRow';
 import { HOBBIES, type Hobby } from '../shell/hobbies';
+import { setOpeningBoard, useOpeningBoard } from '../shell/openingBoard';
 import { DENSITIES, JOURNAL_VIEWS } from './theme';
 import { HEADER_ICON_BUTTON } from './ThemeMenu';
 import { useTheme } from './useTheme';
@@ -109,6 +110,12 @@ interface SettingsDialogProps {
   onShare: () => void;
 }
 
+/** The boards `/` can open on: every built one, in the nav's order. */
+const OPENING_BOARDS = HOBBIES.filter((each) => each.ready).map((each) => ({
+  value: each.slug,
+  label: each.label,
+}));
+
 /** A group's heading: the panel's, kept. */
 const HEADING = 'px-2 py-1 text-xs font-semibold tracking-wide text-muted uppercase';
 
@@ -126,6 +133,7 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
   const definition = hobbyDefinition(hobby);
   const hidden = useHiddenColumns(hobby);
   const shows = useCardShows(hobby);
+  const openingBoard = useOpeningBoard();
 
   // Not drawn on a phone, where the journal fills the screen whichever is chosen; the stored
   // choice still applies when the same browser is wider. React's to know, as the board's
@@ -183,6 +191,14 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
                       onChange={setJournalView}
                     />
                   )}
+                  {/* Where `/` lands: the four built boards, Games until chosen. */}
+                  <Choice
+                    name="Opens on"
+                    value={openingBoard}
+                    options={OPENING_BOARDS}
+                    onChange={setOpeningBoard}
+                  />
+
                 </div>
               </div>
             </div>
