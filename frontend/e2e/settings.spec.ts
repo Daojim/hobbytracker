@@ -85,6 +85,39 @@ test('Share this board… opens in Settings’ place, and hands the keyboard bac
   await expect(gear(page)).toBeFocused();
 });
 
+test('Hidden from Discover… opens in Settings’ place, takes a game back, and hands the keyboard back to the gear', async ({
+  page,
+}) => {
+  // A game hidden through the API, as the Discover page's eye hides one: a search writes the
+  // catalogue row, and the hide names it.
+  const found = await page.request.get('/api/games', { params: { search: 'Dead Cells', limit: 5 } });
+  const media = ((await found.json()) as { id: number; title: string }[]).find(
+    (each) => each.title === 'Dead Cells',
+  );
+  expect(media, 'Dead Cells is in the stub catalogue').toBeDefined();
+  expect((await page.request.put(`/api/games/discover/hidden/${media!.id}`)).ok()).toBeTruthy();
+  await page.reload();
+
+  await gear(page).click();
+  await expect(settings(page).getByText('1 game, on no list until shown again.')).toBeVisible();
+  await settings(page).getByRole('button', { name: 'Hidden from Discover…' }).click();
+
+  const list = page.getByRole('dialog', { name: 'Hidden from Discover' });
+  await expect(list).toBeVisible();
+  await expect(settings(page)).toHaveCount(0);
+  await expect.poll(() => holdsTheKeyboard(list)).toBe(true);
+
+  // The row goes with its game, and the keyboard stays in the list rather than falling onto the
+  // board behind it.
+  await list.getByRole('button', { name: 'Show Dead Cells on Discover again' }).click();
+  await expect(list.getByText('Nothing hidden.')).toBeVisible();
+  await expect.poll(() => holdsTheKeyboard(list)).toBe(true);
+
+  await page.keyboard.press('Escape');
+  await expect(list).toHaveCount(0);
+  await expect(gear(page)).toBeFocused();
+});
+
 test.describe('at 1440', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 

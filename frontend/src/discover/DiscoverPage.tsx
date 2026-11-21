@@ -9,7 +9,7 @@ import { DEFAULT_HOBBY, boardPath, discoverPath, isReadyHobby } from '../shell/h
 import type { Hobby } from '../shell/hobbies';
 import type { HiddenTitle, RatedTitle } from '../api/types';
 import { EyeOff } from './EyeOff';
-import { HiddenDialog } from './HiddenDialog';
+import { HiddenDialog, forgetHidden } from './HiddenDialog';
 import { HiddenTile } from './HiddenTile';
 import { WallTile } from './WallTile';
 
@@ -176,9 +176,7 @@ function Discover({ hobby, heading, lists, list, hidden }: DiscoverProps) {
     mutationFn: ({ mediaId }: ShowAgain) => hidden.show(mediaId),
 
     onSuccess: (_nothing, { mediaId, fromTheWall }) => {
-      queryClient.setQueryData<HiddenTitle[]>(hiddenKey(hobby), (was = []) =>
-        was.filter((title) => title.mediaId !== mediaId),
-      );
+      forgetHidden(queryClient, hobby, mediaId);
 
       // From the list, the keyboard is the list's to place.
       if (fromTheWall) {

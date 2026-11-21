@@ -1,8 +1,11 @@
 import { type ReactNode, useId, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DeleteAccount } from '../account/DeleteAccount';
 import { useDeleteAccount } from '../account/useDeleteAccount';
 import { setCardShows, useCardShows } from '../board/cardShows';
+import { hiddenKey } from '../board/keys';
+import { EyeOff } from '../discover/EyeOff';
+import { HiddenDialog, forgetHidden } from '../discover/HiddenDialog';
 import { SIDE_BY_SIDE } from '../board/grid';
 import { canHide, setColumnHidden, useHiddenColumns } from '../board/hiddenColumns';
 import { downloadSpreadsheet } from '../export/download';
@@ -51,6 +54,7 @@ export interface SettingsMenuProps {
 export function SettingsMenu({ hobby }: SettingsMenuProps) {
   const [open, setOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [listingHidden, setListingHidden] = useState(false);
 
   const spreadsheet = useSpreadsheet(hobby);
   const deletion = useDeleteAccount();
@@ -85,6 +89,10 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
             setOpen(false);
             setSharing(true);
           }}
+          onHidden={() => {
+            setOpen(false);
+            setListingHidden(true);
+          }}
         />
       )}
 
@@ -93,6 +101,16 @@ export function SettingsMenu({ hobby }: SettingsMenuProps) {
           hobby={hobby}
           onClose={() => {
             setSharing(false);
+            handBack();
+          }}
+        />
+      )}
+
+      {listingHidden && (
+        <HiddenList
+          hobby={hobby}
+          onClose={() => {
+            setListingHidden(false);
             handBack();
           }}
         />
@@ -111,6 +129,7 @@ interface SettingsDialogProps {
   deletion: ReturnType<typeof useDeleteAccount>;
   onClose: () => void;
   onShare: () => void;
+  onHidden: () => void;
 }
 
 /** The boards `/` can open on: every built one, in the nav's order. */
@@ -131,7 +150,14 @@ const ROW = 'flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm 
 /** The line under a row or a group, saying what it holds. */
 const LINE = 'px-2 pt-0.5 pb-1 text-xs text-muted';
 
-function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: SettingsDialogProps) {
+function SettingsDialog({
+  hobby,
+  spreadsheet,
+  deletion,
+  onClose,
+  onShare,
+  onHidden,
+}: SettingsDialogProps) {
   const { density, journalView, setDensity, setJournalView } = useTheme();
   const definition = hobbyDefinition(hobby);
   const hidden = useHiddenColumns(hobby);
@@ -293,6 +319,10 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
                 {/* A read-only link to this board: one row, which opens a dialog with room for the
                     address and what the link shows, and shuts this one as it opens. */}
                 {definition.share !== null && <SharingRow hobby={hobby} onOpen={onShare} />}
+
+                {/* The games hidden from Discover, counted, and opening #23's list of them: where
+                    the board has Discover. */}
+                {definition.discover !== null && <HiddenRow hobby={hobby} onOpen={onHidden} />}
               </div>
             </div>
           </div>
@@ -421,6 +451,67 @@ function YourPace({ hobby }: { hobby: Hobby }) {
           : `From How long will it take me? in a ${noun}’s journal.`}
       </p>
     </div>
+  );
+}
+
+/**
+ * The games hidden from Discover (#23), under a Discover heading: a row that opens their list, and
+ * how many there are under it. In Settings since #27, which reverses #23's pick of the Discover
+ * page alone; the reason then, *Your data* under a 900px fold, does not hold in a dialog, and the
+ * user ticked it knowing that.
+ *
+ * Counted from the list the Discover page keeps, under the same key, so a hide made there is
+ * counted here and a game shown again here leaves it. Nothing until the answer is in, as the
+ * Sharing row's line waits, rather than a guess that would flip a moment later.
+ */
+function HiddenRow({ hobby, onOpen }: { hobby: Hobby; onOpen: () => void }) {
+  const definition = hobbyDefinition(hobby);
+  const { data: titles } = useQuery({
+    queryKey: hiddenKey(hobby),
+    queryFn: () => definition.discover!.hidden.list(),
+  });
+  const id = useId();
+
+  return (
+    <div role="group" aria-labelledby={id}>
+      <p id={id} className={HEADING}>
+        Discover
+      </p>
+      <button type="button" onClick={onOpen} aria-describedby={`${id}-count`} className={ROW}>
+        <EyeOff className="size-3.5" />
+        Hidden from Discover…
+      </button>
+      {titles !== undefined && (
+        <p id={`${id}-count`} className={LINE}>
+          {titles.length === 0
+            ? 'Nothing hidden.'
+            : `${titles.length} ${definition.titleNoun(titles.length)}, on no list until shown again.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * #23's list of the games hidden from Discover, opened from Settings in Settings' place, as the
+ * share dialog is: *Show again* on each, and closing it hands the keyboard back to the gear.
+ */
+function HiddenList({ hobby, onClose }: { hobby: Hobby; onClose: () => void }) {
+  const hidden = hobbyDefinition(hobby).discover!.hidden;
+  const queryClient = useQueryClient();
+  const titles = useQuery({ queryKey: hiddenKey(hobby), queryFn: () => hidden.list() });
+  const show = useMutation({
+    mutationFn: (mediaId: number) => hidden.show(mediaId),
+    onSuccess: (_nothing, mediaId) => forgetHidden(queryClient, hobby, mediaId),
+  });
+
+  return (
+    <HiddenDialog
+      titles={titles.data ?? []}
+      onShow={(mediaId) => show.mutate(mediaId)}
+      error={show.error}
+      onClose={onClose}
+    />
   );
 }
 

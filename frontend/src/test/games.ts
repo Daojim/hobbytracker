@@ -3,13 +3,35 @@ import { server } from './server';
 import { libraryItem, libraryPage } from './library';
 import { logEntry, passServer, type PassCalls, type PassFixture } from './passes';
 import type { OnBoard } from '../api/library';
-import type { Game, GameDetail, GameReviews, LogStatus } from '../api/types';
+import type { Game, GameDetail, GameReviews, HiddenTitle, LogStatus } from '../api/types';
 
 // Re-exported because a pass is a pass whichever hobby it is through, and the specs that were
 // written when games were the only hobby import them from here. See `passes.ts`.
 export { logEntry, note } from './passes';
 
 /** A game as search returns it — the catalogue's shape, not the board's. */
+/**
+ * The games hidden from Discover, newest first, and Show again taking one back: what Settings'
+ * *Hidden from Discover…* counts and opens since #27, and what Discover's own *1 hidden* does.
+ * Answers with what is left, so a count follows a game shown again.
+ */
+export function hiddenServer(titles: HiddenTitle[] = []) {
+  let hidden = titles;
+  const shown: number[] = [];
+
+  server.use(
+    http.get('/api/games/discover/hidden', () => HttpResponse.json(hidden)),
+    http.delete('/api/games/discover/hidden/:mediaId', ({ params }) => {
+      const mediaId = Number(params['mediaId']);
+      shown.push(mediaId);
+      hidden = hidden.filter((title) => title.mediaId !== mediaId);
+      return new HttpResponse(null, { status: 204 });
+    }),
+  );
+
+  return { shown };
+}
+
 export function game(overrides: Partial<Game> = {}): Game {
   return {
     id: 3003,

@@ -130,6 +130,10 @@ export function boardServer(
     // be shared. None, unless a test says otherwise with shareServer from test/share.ts.
     http.get('/api/share', () => HttpResponse.json(null)),
 
+    // The games hidden from Discover, which Settings counts on a board with Discover since #27.
+    // None, unless a test says otherwise with hiddenServer from test/games.ts.
+    http.get('/api/games/discover/hidden', () => HttpResponse.json([])),
+
     // Before the bare /api/library handler, because MSW matches in order and that one would
     // otherwise swallow this path and answer a paged envelope where the calendar expects a list.
     http.get('/api/library/upcoming', ({ request }) => {

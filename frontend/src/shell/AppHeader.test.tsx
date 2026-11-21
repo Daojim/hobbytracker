@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { AppHeader } from './AppHeader';
 import { setHeaderBoard } from './headerBoards';
 import { shareServer } from '../test/share';
+import { hiddenServer } from '../test/games';
 import { HOBBIES } from './hobbies';
 import { renderWithProviders } from '../test/render';
 import { authServer } from '../test/auth';
@@ -16,6 +17,7 @@ const nav = () => screen.getByRole('navigation', { name: 'Hobbies' });
 beforeEach(() => {
   authServer();
   shareServer();
+  hiddenServer();
 });
 
 /**

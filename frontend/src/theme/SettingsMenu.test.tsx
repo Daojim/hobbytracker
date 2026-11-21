@@ -7,6 +7,7 @@ import writeXlsxFile from 'write-excel-file/browser';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
 import { shareServer } from '../test/share';
+import { hiddenServer } from '../test/games';
 import { logEntry } from '../test/passes';
 import { cardShowsKey } from '../board/cardShows';
 import { hiddenColumnsKey } from '../board/hiddenColumns';
@@ -35,6 +36,8 @@ describe('SettingsMenu', () => {
     // The panel asks after the board's share link as it opens, for its Sharing row's line. None,
     // unless a test says otherwise; share/ShareDialog.test.tsx is where sharing is tested.
     shareServer();
+    // And after the games hidden from Discover, for its Discover row's count. None unless said.
+    hiddenServer();
   });
 
   afterEach(() => {
@@ -350,6 +353,67 @@ describe('SettingsMenu', () => {
       expect(screen.getByRole('checkbox', { name: 'Time to beat' })).not.toBeChecked();
       expect(JSON.parse(localStorage.getItem(cardShowsKey('games'))!)).toEqual(['length']);
       expect(localStorage.getItem(cardShowsKey('movies'))).toBeNull();
+    });
+  });
+
+  describe('the games hidden from Discover', () => {
+    const DEAD_CELLS = { mediaId: 3019, title: 'Dead Cells', coverUrl: null };
+    const GRIS = { mediaId: 3027, title: 'Gris', coverUrl: null };
+
+    it('counts them under a Discover heading, as a row that opens their list', async () => {
+      // In Settings since #27, which reverses #23's pick of the Discover page alone: the reason
+      // then, Your data under a 900px fold, does not hold in a dialog. Ticked knowing it.
+      hiddenServer([DEAD_CELLS, GRIS]);
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      const discover = within(screen.getByRole('group', { name: 'Games' })).getByRole('group', {
+        name: 'Discover',
+      });
+      const row = within(discover).getByRole('button', { name: 'Hidden from Discover…' });
+      await waitFor(() =>
+        expect(row).toHaveAccessibleDescription('2 games, on no list until shown again.'),
+      );
+    });
+
+    it('says Nothing hidden when nothing is', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      const row = screen.getByRole('button', { name: 'Hidden from Discover…' });
+      await waitFor(() => expect(row).toHaveAccessibleDescription('Nothing hidden.'));
+    });
+
+    it('shuts as their list opens, takes one back, and hands the keyboard back to the gear', async () => {
+      const { shown } = hiddenServer([DEAD_CELLS, GRIS]);
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Hidden from Discover…' }));
+      const list = await screen.findByRole('dialog', { name: 'Hidden from Discover' });
+      expect(screen.queryByRole('dialog', { name: 'Settings' })).not.toBeInTheDocument();
+      expect(within(list).getByText('Gris')).toBeInTheDocument();
+
+      await userEvent.click(within(list).getByRole('button', { name: 'Show Gris on Discover again' }));
+      await waitFor(() => expect(within(list).queryByText('Gris')).not.toBeInTheDocument());
+      expect(shown).toEqual([3027]);
+
+      await userEvent.keyboard('{Escape}');
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Settings' })).toHaveFocus();
+
+      // And the count followed it, without asking again.
+      await open();
+      expect(screen.getByRole('button', { name: 'Hidden from Discover…' })).toHaveAccessibleDescription(
+        '1 game, on no list until shown again.',
+      );
+    });
+
+    it('is only on a board with Discover', async () => {
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      expect(screen.queryByRole('button', { name: 'Hidden from Discover…' })).not.toBeInTheDocument();
     });
   });
 

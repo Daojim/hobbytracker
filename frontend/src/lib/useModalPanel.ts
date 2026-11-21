@@ -62,8 +62,12 @@ export function useModalPanel(
 ) {
   // The keyboard follows the panel in. Without this the focus is still on the page behind, and
   // the first Tab walks that rather than the panel that just opened.
+  //
+  // Without scrolling, since #27: a panel taller than the screen, as Settings is on a phone, is
+  // scrolled by the browser so that as much of it shows as can, which took away the 16px it
+  // was picked to start under. Every panel opens at its top, so nothing needs the scroll.
   useEffect(() => {
-    panel.current?.focus();
+    panel.current?.focus({ preventScroll: true });
   }, [panel]);
 
   useEffect(() => {
