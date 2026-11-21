@@ -797,7 +797,7 @@ shuffled.
         row*: the board's drawer whole, its way in lifted out of `BoardPage`, and a move landing
         last in its column as from the board. Every write that can change a finish settles the
         page, which fixed a Stats page that kept its old numbers 30 seconds. All seven choices
-        were the recommendation (built 20 November 2026)
+        were the recommendation (PR #101, deployed)
       - [ ] the picker, roomier — #16's panel centred and wider on a desktop with a larger wheel,
         and a length chip saying *5 games* on a line of its own above its hours
       - [ ] Settings, rearranged — a workshop: the themes in a place of their own, Modal as the
