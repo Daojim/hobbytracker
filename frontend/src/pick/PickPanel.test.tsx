@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { BoardPage } from '../board/BoardPage';
 import { setColumnHidden } from '../board/hiddenColumns';
 import { setPace } from '../lib/pace';
+import { setWheelSpin } from './wheelSpin';
 import { boardServer, libraryItem, libraryPage } from '../test/library';
 import { gameDetail, journalServer, logEntry } from '../test/games';
 import { BackButton, renderWithProviders } from '../test/render';
@@ -257,6 +258,24 @@ describe('What should I play next?', () => {
   it('shows the pick at once under reduced motion, and the same pick the spin lands on', async () => {
     // The pick is made before anything moves, so motion changes how it arrives and never which.
     stillWindow();
+    vi.spyOn(Math, 'random').mockReturnValue(0);
+    boardServer({ columns: { Backlog: yours() } });
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    const dialog = await openPicker();
+    await within(dialog).findByText('6 in the draw');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Spin' }));
+
+    expect(
+      within(dialog).getByRole('button', { name: 'Final Fantasy Resonance' }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Start playing' })).toHaveFocus();
+  });
+
+  it('shows the pick at once when Settings says to skip the spin, with motion left on', async () => {
+    // Skip the spin (#27), for somebody without reduced motion set on the device, who would
+    // rather not watch the wheel turn. The same pick, because it is made before anything moves.
+    setWheelSpin('games', 'still');
     vi.spyOn(Math, 'random').mockReturnValue(0);
     boardServer({ columns: { Backlog: yours() } });
     renderWithProviders(<BoardPage />, BOARD_ROUTE);

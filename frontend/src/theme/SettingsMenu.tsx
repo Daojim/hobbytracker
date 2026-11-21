@@ -12,6 +12,7 @@ import { clearPace, formatPace, usePace } from '../lib/pace';
 import { DATE_ORDERS, setDateOrder, useDateOrder } from '../lib/time';
 import { useMediaQuery } from '../lib/useMediaQuery';
 import { useModalPanel } from '../lib/useModalPanel';
+import { WHEEL_SPINS, setWheelSpin, useWheelSpin } from '../pick/wheelSpin';
 import { ShareDialog } from '../share/ShareDialog';
 import { SharingRow } from '../share/SharingRow';
 import { HOBBIES, type Hobby } from '../shell/hobbies';
@@ -138,6 +139,7 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
   const openingBoard = useOpeningBoard();
   const headerOff = useHeaderBoards();
   const dates = useDateOrder();
+  const wheel = useWheelSpin(hobby);
 
   // Not drawn on a phone, where the journal fills the screen whichever is chosen; the stored
   // choice still applies when the same browser is wider. React's to know, as the board's
@@ -276,6 +278,17 @@ function SettingsDialog({ hobby, spreadsheet, deletion, onClose, onShare }: Sett
                 {/* Where the board has HowLongToBeat's figures, which the question answers
                     from: the data's say, never the slug. */}
                 {definition.journal.setHltbId !== null && <YourPace hobby={hobby} />}
+
+                {/* Where the board has a wheel: Skip the spin shows the pick at once, as reduced
+                    motion does, for somebody without it set on the device. */}
+                {definition.picker !== null && (
+                  <Choice
+                    name="The wheel"
+                    value={wheel}
+                    options={WHEEL_SPINS}
+                    onChange={(spin) => setWheelSpin(hobby, spin)}
+                  />
+                )}
 
                 {/* A read-only link to this board: one row, which opens a dialog with room for the
                     address and what the link shows, and shuts this one as it opens. */}

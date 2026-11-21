@@ -11,6 +11,7 @@ import { logEntry } from '../test/passes';
 import { cardShowsKey } from '../board/cardShows';
 import { hiddenColumnsKey } from '../board/hiddenColumns';
 import { paceKey, parsePace } from '../lib/pace';
+import { wheelSpinKey } from '../pick/wheelSpin';
 import { DATE_ORDER_KEY, todayHere } from '../lib/time';
 import { sessionKey } from '../api/auth';
 import type { Account, ExportTitle } from '../api/types';
@@ -349,6 +350,35 @@ describe('SettingsMenu', () => {
       expect(screen.getByRole('checkbox', { name: 'Time to beat' })).not.toBeChecked();
       expect(JSON.parse(localStorage.getItem(cardShowsKey('games'))!)).toEqual(['length']);
       expect(localStorage.getItem(cardShowsKey('movies'))).toBeNull();
+    });
+  });
+
+  describe('the wheel', () => {
+    it('spins until told to skip the spin, on this board alone', async () => {
+      renderWithProviders(<SettingsMenu hobby="games" />);
+      await open();
+
+      const wheel = within(screen.getByRole('group', { name: 'Games' })).getByRole('radiogroup', {
+        name: 'The wheel',
+      });
+      expect(within(wheel).getAllByRole('radio').map((radio) => radio.textContent)).toEqual([
+        'Spin',
+        'Skip the spin',
+      ]);
+      expect(within(wheel).getByRole('radio', { name: 'Spin' })).toBeChecked();
+
+      await userEvent.click(within(wheel).getByRole('radio', { name: 'Skip the spin' }));
+
+      expect(localStorage.getItem(wheelSpinKey('games'))).toBe('still');
+      expect(within(wheel).getByRole('radio', { name: 'Skip the spin' })).toBeChecked();
+    });
+
+    it('is only where the board has a wheel', async () => {
+      // HobbyDefinition.picker, the board's say: Backlog's Pick is games' alone for now.
+      renderWithProviders(<SettingsMenu hobby="movies" />);
+      await open();
+
+      expect(screen.queryByRole('radiogroup', { name: 'The wheel' })).not.toBeInTheDocument();
     });
   });
 
