@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, http, HttpResponse } from 'msw';
+import type { QueryClient } from '@tanstack/react-query';
 import { BoardPage } from './BoardPage';
 import { hiddenColumnsKey } from './hiddenColumns';
+import { statsKey, statsYearsKey } from './keys';
+import { finish, stats } from '../test/stats';
 import { server } from '../test/server';
 import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
 import { AUTOSAVE_MS } from '../journal/fields';
@@ -2062,5 +2065,81 @@ describe('BoardPage, on TV', () => {
     expect(screen.getByLabelText('Season')).toBeInTheDocument();
     expect(screen.getByLabelText('Episode')).toBeInTheDocument();
     expect(screen.queryByLabelText('Hours played')).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Found at #25's pickup: the Stats page's answer is kept 30 seconds by the app's stale time, and
+ * nothing on the board told it a finish had changed. So a move, a rating or an add made within 30
+ * seconds of leaving the page was missing from it on the way back, and for the five minutes an
+ * unwatched answer is kept, the old numbers were drawn first.
+ *
+ * Each write that can change a finish now drops what the page was given, so it asks afresh. Tested
+ * on what the cache is left holding, because the test client's stale time is nought and would never
+ * show the first half of that.
+ */
+describe('BoardPage, and the Stats page’s saved numbers', () => {
+  /** A board whose client is holding the Stats page's year and its years, as a visit leaves them. */
+  async function afterAVisitToStats() {
+    const rendered = renderWithProviders(<BoardPage />, { ...BOARD_ROUTE, keepsCache: true });
+    rendered.queryClient.setQueryData(statsKey('games', 2026), stats({ finished: [finish({ title: 'Celeste' })] }));
+    rendered.queryClient.setQueryData(statsYearsKey('games'), [2026]);
+    await screen.findByRole('button', { name: 'Celeste' });
+    return rendered.queryClient;
+  }
+
+  const dropped = (queryClient: QueryClient) => () => {
+    expect(queryClient.getQueryState(statsKey('games', 2026))).toBeUndefined();
+    expect(queryClient.getQueryState(statsYearsKey('games'))).toBeUndefined();
+  };
+
+  it('drops them when a card moves', async () => {
+    boardServer();
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste', currentStatus: 'Backlog' }));
+
+    const queryClient = await afterAVisitToStats();
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Playing' }));
+
+    await waitFor(dropped(queryClient));
+  });
+
+  it('drops them when a card is taken off the board', async () => {
+    boardServer();
+    movingCard(libraryItem({ mediaId: 3001, title: 'Celeste', currentStatus: 'Completed' }));
+
+    const queryClient = await afterAVisitToStats();
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Celeste' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove from board' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Really remove?' }));
+
+    await waitFor(dropped(queryClient));
+  });
+
+  it('drops them when the journal writes a pass', async () => {
+    boardServer({ columns: { Completed: [libraryItem({ mediaId: 3001, title: 'Celeste', currentStatus: 'Completed' })] } });
+    const journal = journalServer({
+      detail: gameDetail({ id: 3001, title: 'Celeste', logEntries: [logEntry({ id: 7, status: 'Completed', rating: 9 })] }),
+    });
+
+    const queryClient = await afterAVisitToStats();
+    await userEvent.click(screen.getByRole('button', { name: 'Celeste' }));
+    const rating = await screen.findByRole('spinbutton', { name: 'Exact rating' });
+    await userEvent.clear(rating);
+    await userEvent.type(rating, '7');
+
+    await waitFor(() => expect(journal.saved).toHaveLength(1));
+    await waitFor(dropped(queryClient));
+  });
+
+  it('drops them when a title is added from the search strip', async () => {
+    searchServer({ results: [game({ id: 3002, title: 'Hollow Knight' })] });
+    boardServer({ columns: { Backlog: [libraryItem({ mediaId: 3001, title: 'Celeste' })] } });
+
+    const queryClient = await afterAVisitToStats();
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search games' }), 'hollow');
+    await userEvent.click(await screen.findByRole('button', { name: 'Add Hollow Knight to playing' }));
+
+    await waitFor(dropped(queryClient));
   });
 });

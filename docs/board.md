@@ -1134,6 +1134,15 @@ What a caller has to know:
   entry between them is a thing that goes wrong once and is very hard to see afterwards. **The
   drawer is handed its hobby by the board** rather than working it out, which it needs anyway to
   know which fields a pass of that kind has.
+- **What a move refreshes is `settleMove` in `board/settle.ts`**, since #25, when a second caller
+  needed it: `useBoard`'s move, and `useOffBoardMoves`, the Stats page's journal's, which moves a
+  title with no board on screen. The same route and the same refreshing, every key above, and
+  then the column read whole and written with the title last, which is where a move from the
+  board's own journal lands. **The Stats page's answers (`allStatsKey`) are settled by every write
+  that can change a finish** through `settleStats` beside it: a move, a title taken off, an add
+  and a write in the journal. They are dropped where nothing shows them, because the app keeps an
+  answer 30 seconds, which left a move missing from the page on the way back. See **The journal
+  from the page** in `docs/stats.md`.
 - **A share's answers are under `['shared', token, …]`, never under `['library', …]`**, the shape
   after the token being the board's. An owner who opens their own link and follows *Make your
   own* lands on their board in the same app, holding the same cache, and a share's columns leave

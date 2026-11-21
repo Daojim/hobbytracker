@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import type { Finish } from '../api/types';
+import type { OpenFrom } from '../journal/useJournal';
 import { ratingFill, ratingTone } from '../lib/rating';
 import { passDateAfterWord } from '../lib/passDate';
 import type { Voice, Voiced } from '../lib/voice';
@@ -35,7 +36,9 @@ const ratedAt = (count: number, point: number) => `${count} rated ${point}`;
  *   pressed elsewhere to go away. Shutting it on such a press, as #20's list over the cards shuts,
  *   would move whatever is under the pointer;
  * - a row is the cover, the name and the exact rating, since a point holds a 9.0 and a 9.5
- *   alike, and opens nothing: the journal is the board's.
+ *   alike. It opened nothing until #25, when it became the way into that game's journal: the
+ *   whole row a button with #20's hover fill, its name in the accent, the user's pick from renders
+ *   over #20's plain name and over the name alone.
  *
  * **On a share it is the picture it always was.** A share names no rating title by title, so the
  * columns press nothing and the counts are said to a screen reader as a list. The voice is what
@@ -45,10 +48,13 @@ export function RatingSpread({
   finished,
   year,
   voice,
+  onOpen,
 }: {
   finished: Finish[];
   year: number | undefined;
   voice: Voice;
+  /** Opens a row's journal, on your page. A share has no lists, so it has nothing to open. */
+  onOpen?: OpenFrom;
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const id = useId();
@@ -153,7 +159,12 @@ export function RatingSpread({
 
       {opens ? (
         showing !== null && (
-          <TitleList id={listId} labelledBy={columnId(showing)} finishes={lists[showing - 1]!} />
+          <TitleList
+            id={listId}
+            labelledBy={columnId(showing)}
+            finishes={lists[showing - 1]!}
+            onOpen={onOpen}
+          />
         )
       ) : (
         <ul aria-label={CHART_NAME} className="sr-only">
@@ -171,8 +182,21 @@ export function RatingSpread({
  * column and then the second, so the highest lead the left one. A list is as long as its count,
  * because every playthrough is a finish; a game finished twice at the point is two rows, and only
  * those say which finish each is, by the day, since two in one month would otherwise read alike.
+ *
+ * Each row opens its game's journal, and is the button the keyboard goes back to, by an id that
+ * counts a game's rows so a replay's two are two.
  */
-function TitleList({ id, labelledBy, finishes }: { id: string; labelledBy: string; finishes: Finish[] }) {
+function TitleList({
+  id,
+  labelledBy,
+  finishes,
+  onOpen,
+}: {
+  id: string;
+  labelledBy: string;
+  finishes: Finish[];
+  onOpen: OpenFrom | undefined;
+}) {
   const seen = new Set<number>();
   const twice = new Set<number>();
   for (const finish of finishes) {
@@ -181,6 +205,9 @@ function TitleList({ id, labelledBy, finishes }: { id: string; labelledBy: strin
     }
     seen.add(finish.mediaId);
   }
+
+  // How many of a game's rows have been drawn so far, for each row's id.
+  const drawn = new Map<number, number>();
 
   return (
     <ul
@@ -192,16 +219,19 @@ function TitleList({ id, labelledBy, finishes }: { id: string; labelledBy: strin
         const rating = finish.rating!;
         // A day, or a year kept as a year (#24): "finished Sep 15, 2025", "finished in 2019".
         const day = passDateAfterWord(finish.completedAt, finish.completedYear);
+        const nth = drawn.get(finish.mediaId) ?? 0;
+        drawn.set(finish.mediaId, nth + 1);
+        const rowId = `${id}-row-${finish.mediaId}-${nth}`;
 
-        return (
-          <li key={`${finish.mediaId}-${index}`} className="flex break-inside-avoid items-center gap-2 rounded px-2 py-1">
+        const row = (
+          <>
             {finish.coverUrl === null ? (
               <span aria-hidden="true" className="h-8 w-6 shrink-0 rounded-sm bg-hover" />
             ) : (
               <img src={finish.coverUrl} alt="" className="h-8 w-6 shrink-0 rounded-sm object-cover" />
             )}
             <span className="flex min-w-0 flex-col">
-              <span className="line-clamp-2">{finish.title}</span>
+              <span className={`line-clamp-2 ${onOpen === undefined ? '' : 'text-accent'}`}>{finish.title}</span>
               {twice.has(finish.mediaId) && (
                 <span className="text-xs text-muted">{day === null ? 'finished, no date' : `finished ${day}`}</span>
               )}
@@ -214,6 +244,23 @@ function TitleList({ id, labelledBy, finishes }: { id: string; labelledBy: strin
             >
               ★ {rating.toFixed(1)}
             </span>
+          </>
+        );
+
+        return onOpen === undefined ? (
+          <li key={`${finish.mediaId}-${index}`} className="flex break-inside-avoid items-center gap-2 rounded px-2 py-1">
+            {row}
+          </li>
+        ) : (
+          <li key={`${finish.mediaId}-${index}`} className="break-inside-avoid">
+            <button
+              type="button"
+              id={rowId}
+              onClick={() => onOpen(rowId, finish.mediaId)}
+              className="flex w-full items-center gap-2 rounded px-2 py-1 text-left hover:bg-hover"
+            >
+              {row}
+            </button>
           </li>
         );
       })}

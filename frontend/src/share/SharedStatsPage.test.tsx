@@ -138,6 +138,19 @@ describe('SharedStatsPage', () => {
     ]);
   });
 
+  it('opens no journal: a cover is a picture, as it always was', async () => {
+    // #25: on your page a cover opens that game's journal. A share shows the Stats page and never
+    // a note, so nothing on it is a way into one.
+    sharedServer({ statsYears: [2026], stats: { '2026': aYear() } });
+
+    open(`/share/${TOKEN}/stats/2026`);
+
+    const months = await section('Finished each month');
+    expect(within(months).queryAllByRole('button')).toHaveLength(0);
+    expect(within(months).getByRole('img', { name: 'Celeste' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('says what “added” means in the board’s words rather than its owner’s', async () => {
     // A twelfth phrase written to the owner, which the #9 workshop's table of eleven missed. The
     // table's own rule rewords it, picked from renders on 5 October 2026 over leaving it off.

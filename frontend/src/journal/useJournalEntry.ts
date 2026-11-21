@@ -3,6 +3,7 @@ import { ApiError } from '../api/client';
 import { deleteLogEntry, updateLogEntry } from '../api/logEntries';
 import { hobbyDefinition } from '../hobbies';
 import { mediaKey } from '../board/keys';
+import { settleStats } from '../board/settle';
 import type { UpdateLogEntry } from '../api/types';
 
 /**
@@ -25,10 +26,15 @@ export function useJournalEntry(hobby: string, mediaId: number) {
     queryFn: () => journal.load(mediaId),
   });
 
-  /** Both halves of what a write changed: the drawer in front of you, and the card behind it. */
+  /**
+   * Every half of what a write changed: the drawer in front of you, the card behind it, and the
+   * Stats page, which since #25 can be what is behind it instead. A rating, a date, your hours, a
+   * HowLongToBeat figure or a pass deleted each change what that page counts.
+   */
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
     void queryClient.invalidateQueries({ queryKey: mediaKey(hobby, mediaId) });
+    void settleStats(queryClient, hobby);
   };
 
   const save = useMutation({

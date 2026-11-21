@@ -1,7 +1,34 @@
 import type { Finish } from '../api/types';
+import type { OpenFrom } from '../journal/useJournal';
 import { todayHere } from '../lib/time';
 import { byMonth, byYear, noMonth } from './stats';
 import { Nothing } from './Section';
+
+/**
+ * A cover's id, which the keyboard goes back to when the journal it opened closes. By the game and
+ * which of its finishes this is, since a game finished twice in a year is two covers.
+ */
+export const finishCoverId = (mediaId: number, nth: number) => `stats-cover-${mediaId}-${nth}`;
+
+/** Each finish's cover id, counting a game's finishes in the order the server sent them. */
+function coverIds(finished: Finish[]): Map<Finish, string> {
+  const seen = new Map<number, number>();
+  return new Map(
+    finished.map((finish) => {
+      const nth = seen.get(finish.mediaId) ?? 0;
+      seen.set(finish.mediaId, nth + 1);
+      return [finish, finishCoverId(finish.mediaId, nth)];
+    }),
+  );
+}
+
+/**
+ * What a cover does under the pointer and the keyboard, once it opens a journal (#25): a ring in
+ * the accent, 2px off the cover, the user's pick from renders over the pointer alone and a lift.
+ * The keyboard's ring is the same one, which is the page's own: its chart rows wear it.
+ */
+const OPENS =
+  'block cursor-pointer rounded hover:outline-2 hover:outline-offset-2 hover:outline-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 const MONTHS = [
   'January',
@@ -53,14 +80,27 @@ interface Group {
  * **One list that reflows rather than two that take turns.** Across on a wide screen, a stack per
  * month with the first finish at the bottom; on a phone, a row per month with the covers in a
  * line. The same elements either way, so a screen reader and a test meet one of each.
+ *
+ * **On your page each cover opens that game's journal** (#25), under All years too. A share hands
+ * no `onOpen`, so its covers stay pictures, as a share never shows a note.
  */
-export function FinishedCovers({ finished, year }: { finished: Finish[]; year: number | undefined }) {
+export function FinishedCovers({
+  finished,
+  year,
+  onOpen,
+}: {
+  finished: Finish[];
+  year: number | undefined;
+  onOpen?: OpenFrom;
+}) {
   if (finished.length === 0) {
     return <Nothing>{year === undefined ? 'Nothing finished yet.' : `Nothing finished in ${year} yet.`}</Nothing>;
   }
 
+  const ids = coverIds(finished);
+
   if (year === undefined) {
-    return <EveryYear finished={finished} />;
+    return <EveryYear finished={finished} ids={ids} onOpen={onOpen} />;
   }
 
   return (
@@ -98,7 +138,7 @@ export function FinishedCovers({ finished, year }: { finished: Finish[]; year: n
                 key={`${finish.mediaId}-${index}`}
                 className={group.piled ? 'sm:w-10' : 'sm:w-full sm:max-w-10'}
               >
-                <Cover finish={finish} />
+                <Cover finish={finish} id={ids.get(finish)!} onOpen={onOpen} />
               </li>
             ))}
           </ul>
@@ -115,7 +155,15 @@ export function FinishedCovers({ finished, year }: { finished: Finish[]; year: n
  * width**: given a stack's `sm:w-full`, a cover in a row is as wide as the panel, and the renders
  * measured that page 15,764px tall.
  */
-function EveryYear({ finished }: { finished: Finish[] }) {
+function EveryYear({
+  finished,
+  ids,
+  onOpen,
+}: {
+  finished: Finish[];
+  ids: Map<Finish, string>;
+  onOpen: OpenFrom | undefined;
+}) {
   return (
     <ol className="mt-3 space-y-1.5">
       {byYear(finished).map(({ year, finishes }) => {
@@ -129,7 +177,13 @@ function EveryYear({ finished }: { finished: Finish[] }) {
             <ul aria-label={label} className="flex flex-wrap gap-1">
               {finishes.map((finish, index) => (
                 <li key={`${finish.mediaId}-${index}`}>
-                  <Cover finish={finish} size="aspect-[5/7] w-8 rounded" />
+                  <Cover
+                    finish={finish}
+                    id={ids.get(finish)!}
+                    onOpen={onOpen}
+                    size="aspect-[5/7] w-8 rounded"
+                    wide={false}
+                  />
                 </li>
               ))}
             </ul>
@@ -175,23 +229,58 @@ function groups(finished: Finish[], year: number): Group[] {
   return kept.length === 0 ? twelve : [...twelve, own];
 }
 
-/** A finish's cover, named for it; the card's lettered placeholder when there is none. */
-function Cover({ finish, size = 'aspect-[5/7] w-8 rounded sm:w-full' }: { finish: Finish; size?: string }) {
-  return finish.coverUrl === null ? (
-    <span
-      role="img"
-      aria-label={finish.title}
+/**
+ * A finish's cover, named for it; the card's lettered placeholder when there is none. A button
+ * round it when it opens a journal, named by the cover inside it, with the tooltip moved onto it.
+ * `wide` is whether the button takes a stack's width from `sm` up, as the cover does there.
+ */
+function Cover({
+  finish,
+  id,
+  onOpen,
+  size = 'aspect-[5/7] w-8 rounded sm:w-full',
+  wide = true,
+}: {
+  finish: Finish;
+  id: string;
+  onOpen: OpenFrom | undefined;
+  size?: string;
+  wide?: boolean;
+}) {
+  const tooltip = onOpen === undefined ? finish.title : undefined;
+
+  const face =
+    finish.coverUrl === null ? (
+      <span
+        role="img"
+        aria-label={finish.title}
+        title={tooltip}
+        className={`flex ${size} items-center justify-center bg-sunken text-xs font-semibold text-muted`}
+      >
+        {finish.title.charAt(0)}
+      </span>
+    ) : (
+      <img
+        src={finish.coverUrl}
+        alt={finish.title}
+        title={tooltip}
+        className={`${size} object-cover shadow-card`}
+      />
+    );
+
+  if (onOpen === undefined) {
+    return face;
+  }
+
+  return (
+    <button
+      type="button"
+      id={id}
       title={finish.title}
-      className={`flex ${size} items-center justify-center bg-sunken text-xs font-semibold text-muted`}
+      onClick={() => onOpen(id, finish.mediaId)}
+      className={`${OPENS} ${wide ? 'sm:w-full' : ''}`}
     >
-      {finish.title.charAt(0)}
-    </span>
-  ) : (
-    <img
-      src={finish.coverUrl}
-      alt={finish.title}
-      title={finish.title}
-      className={`${size} object-cover shadow-card`}
-    />
+      {face}
+    </button>
   );
 }

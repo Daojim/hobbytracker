@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { addToBoard, libraryStatuses, type AddedFinish, type OnBoard } from '../api/library';
 import { libraryStatusesKey } from '../board/keys';
+import { settleStats } from '../board/settle';
 import { useHiddenColumns } from '../board/hiddenColumns';
 import { addColumns, columnsFor } from '../hobbies';
 import type { LogStatus } from '../api/types';
@@ -53,9 +54,11 @@ export function useAddToBoard(hobby: string) {
 
     // Settled, not only on success. A refusal means the tile's idea of the board was stale — the
     // title went on in another tab — so the refetch is what brings it up to date. This hobby's,
-    // not every hobby's: adding a film cannot move a card on the games board.
+    // not every hobby's: adding a film cannot move a card on the games board. And the Stats
+    // page's answers, since an add straight to Completed is a finish.
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['library', hobby] });
+      void settleStats(queryClient, hobby);
     },
   });
 

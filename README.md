@@ -35,8 +35,8 @@ there is no Save button.
 
 What you finished, month by month; your hours against HowLongToBeat's, game by game; your
 ratings, each point opening the games you gave it; how much of what you started you finished;
-and how long each game has waited in the backlog. It counts every playthrough, so a year's
-numbers stay put when a game is replayed.
+and how long each game has waited in the backlog. Every game finished opens its journal from
+there. It counts every playthrough, so a year's numbers stay put when a game is replayed.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/shots/stats-dark.webp">

@@ -387,9 +387,18 @@ Settled:
   the note rather than the title, because one title can have several notes found, and since #16
   `pickTitleId` in `src/pick/PickPanel.tsx`, a pick's name, which opens the drawer over the picker. One id would not
   do, because a title on your board is very often a card and a search result at once, and two
-  elements cannot share one. `BoardPage` keeps the id of whichever was pressed. **The calendar's door lost the keyboard until 7 October 2026**: it was
+  elements cannot share one. **The calendar's door lost the keyboard until 7 October 2026**: it was
   handed back by `cardTitleId`, a title on the calendar has no card, and the keyboard was left on
   the page.
+- **Two pages open the drawer since #25: the board, and the Stats page, from a finish's cover and
+  its row in a rating's list.** The way in and out, the history entry, the id kept and the
+  keyboard handed back, is `useJournal` in `src/journal/useJournal.ts`, lifted out of `BoardPage`
+  when the second page needed it, so both do it by one implementation. The Stats page's doors are
+  `finishCoverId` in `src/stats/FinishedCovers.tsx`, by the game and which of its finishes it is,
+  and a row's id in `src/stats/RatingSpread.tsx`, counted the same way, since a replay is two of
+  each. **The drawer is the board's, whole, on both**: the columns the board draws and the moves
+  the board makes, which on the Stats page are `useOffBoardMoves`'. See **The journal from the
+  page** in `docs/stats.md`.
 - **The form re-seeds from a changed pass rather than being rebuilt on a React key, and the
   autosave is the whole reason.** It *was* keyed on the values it was seeded from — `entrySeed`,
   now gone — because `useState` reads its initial value once and a transition *edits the current
