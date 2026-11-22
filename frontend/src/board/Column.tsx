@@ -10,6 +10,7 @@ import { COLUMN_PAGE_SIZE, columnKey } from './keys';
 import { columnHoursLines, type HoursLine, type HoursPart, type LeftOutList } from './columnHours';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import { usePace, type Pace } from '../lib/pace';
+import { Chevron } from '../lib/Chevron';
 import type { Voice } from '../lib/voice';
 import type {
   ColumnHours,
@@ -107,6 +108,11 @@ export interface ColumnProps {
    * `yearFor` — and a column narrows itself by simply not asking.
    */
   year?: number;
+  /**
+   * Whether the column shows its cards, and what its arrow does (#29). Handed side by side alone:
+   * on a phone, choosing a column in the switcher is asking to see it, so a column there has no
+   * arrow and shows its cards whatever is stored.
+   */
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   /**
@@ -162,9 +168,10 @@ export function Column({
   // landed in Completed instead, which is next to it and does have one. Registering the hook
   // was never enough on its own; a droppable with no node is not a droppable.
   //
-  // The section exists collapsed or open and is `min-h-24`, so Dropped is a real target the
-  // whole time — which is the point of it, since dropping something is exactly the moment you
-  // have not got the column open.
+  // The section exists collapsed or open and is `min-h-24`, so a collapsed column is a real
+  // target the whole time — which is the point of it, since dropping something is exactly the
+  // moment you have not got the column open. Every column collapses since #29, Dropped's fold
+  // having been the only one.
   const { setNodeRef } = useDroppable({ id: droppableId(status), data: { status } });
 
   // Whether a drag would land here, which is *not* the same question as this droppable being
@@ -295,8 +302,9 @@ export interface ColumnFrameProps {
 }
 
 /**
- * Everything a column is apart from its cards: the well, the heading and its count, the hours
- * under it, the fold, the sort control, and what it says while loading or with nothing in it.
+ * Everything a column is apart from its cards: the well, the arrow that collapses it, the heading
+ * and its count, the hours under it, the sort control, and what it says while loading or with
+ * nothing in it. Collapsed, it is all of that with no cards.
  *
  * One frame for your board's columns and for a share's, so the two cannot drift: a share's
  * column is this, around faces with nothing in their hands. The cards are the caller's, because
@@ -366,6 +374,24 @@ export function ColumnFrame({
           renders on 3 November 2026 after a first list of 288px ran past its column. */}
       <div className="relative mb-3">
         <div className="flex flex-wrap items-center gap-2">
+          {/* The arrow, before the heading, picked from renders on 22 November 2026 over after
+              the count and past the sort control: here it stays on the heading's row whatever
+              wraps, at the same spot in every column. The journal heading's chevron, in a 20px
+              button with the hover fill a control there has, pointing right when collapsed.
+              Named for what a press does, as the fold's words were, so no `aria-expanded`: a
+              name and a state that both changed would say it twice. Its 28px with the gap put
+              Completed's sort control under the heading at 1440, and Playing's and On Hold's at
+              1280, which the renders showed and the pick took. */}
+          {onToggleCollapse !== undefined && (
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
+              className="inline-flex size-5 shrink-0 items-center justify-center rounded text-muted hover:bg-hover hover:text-fg"
+            >
+              <Chevron className={collapsed ? '-rotate-90' : ''} />
+            </button>
+          )}
           <h2
             id={headingId}
             className={`text-sm font-medium tracking-wide uppercase ${namedAbove ? 'sr-only' : ''}`}
@@ -384,16 +410,6 @@ export function ColumnFrame({
               named={data?.hours}
               onOpen={onOpenLeftOut}
             />
-          )}
-
-          {onToggleCollapse !== undefined && (
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              className="rounded px-1 text-xs text-muted hover:bg-hover"
-            >
-              {collapsed ? `Show ${label}` : `Hide ${label}`}
-            </button>
           )}
 
           <div className="ml-auto flex items-center gap-1">

@@ -5,6 +5,7 @@ import { delay, http, HttpResponse } from 'msw';
 import type { QueryClient } from '@tanstack/react-query';
 import { BoardPage } from './BoardPage';
 import { hiddenColumnsKey } from './hiddenColumns';
+import { collapsedColumnsKey } from './collapsedColumns';
 import { statsKey, statsYearsKey } from './keys';
 import { finish, stats } from '../test/stats';
 import { server } from '../test/server';
@@ -546,9 +547,55 @@ describe('BoardPage', () => {
     expect(await screen.findByRole('heading', { name: 'Dropped 1' })).toBeInTheDocument();
     expect(screen.queryByText('Anthem')).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show Dropped' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Expand Dropped' }));
 
     expect(await screen.findByText('Anthem')).toBeInTheDocument();
+  });
+
+  it('puts an arrow on every column side by side, Backlog too', async () => {
+    // #29: Dropped's fold, for every column. Collapsing hides nothing for good, and Backlog's
+    // header keeps Pick.
+    boardServer({});
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    for (const label of ['Backlog', 'Playing', 'On Hold', 'Completed']) {
+      expect(await screen.findByRole('button', { name: `Collapse ${label}` })).toBeInTheDocument();
+    }
+    expect(screen.getByRole('button', { name: 'Expand Dropped' })).toBeInTheDocument();
+  });
+
+  it('remembers a collapsed column for the board it was collapsed on', async () => {
+    // Per board and per browser, as the columns taken off in Settings are: a collapse that forgot
+    // itself on a reload would be a press every visit.
+    boardServer({ columns: { Completed: [libraryItem({ title: 'Celeste', currentStatus: 'Completed' })] } });
+
+    const first = renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByText('Celeste');
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse Completed' }));
+
+    expect(screen.queryByText('Celeste')).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(collapsedColumnsKey('games'))!)).toEqual([
+      'Completed',
+      'Dropped',
+    ]);
+    first.unmount();
+
+    // The next visit holds nothing but what storage kept.
+    const second = renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    expect(await screen.findByRole('button', { name: 'Expand Completed' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Completed 1' })).toBeInTheDocument();
+    expect(screen.queryByText('Celeste')).not.toBeInTheDocument();
+    second.unmount();
+
+    // And another board is its own: Watched is open on the films board.
+    boardServer({
+      hobby: 'movies',
+      columns: { Completed: [libraryItem({ title: 'Arrival', hobby: 'movies', currentStatus: 'Completed' })] },
+    });
+    renderWithProviders(<BoardPage />, { route: '/board/movies', path: '/board/:hobby' });
+    expect(await screen.findByRole('button', { name: 'Collapse Watched' })).toBeInTheDocument();
+    expect(await screen.findByText('Arrival')).toBeInTheDocument();
   });
 
   it('opens the journal for the card you asked about', async () => {
@@ -1885,7 +1932,20 @@ describe('BoardPage, on a phone', () => {
     await userEvent.click(await screen.findByRole('radio', { name: /^Dropped/ }));
 
     expect(await screen.findByText('Anthem')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Show Dropped' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) / })).not.toBeInTheDocument();
+  });
+
+  it('shows a column collapsed side by side whole, with no arrow', async () => {
+    // A collapse is a way of looking at the board side by side. On a phone, choosing a column in
+    // the switcher is asking to see it, so what is stored does not apply here.
+    localStorage.setItem(collapsedColumnsKey('games'), JSON.stringify(['Completed']));
+    boardServer({ columns: { Completed: [libraryItem({ title: 'Celeste', currentStatus: 'Completed' })] } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await userEvent.click(await screen.findByRole('radio', { name: /^Completed/ }));
+
+    expect(await screen.findByText('Celeste')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) / })).not.toBeInTheDocument();
   });
 
   it('has nothing to switch between when Backlog is the only column drawn', async () => {

@@ -22,6 +22,7 @@ import { YearPicker } from './YearPicker';
 import { ALL_MANUAL, wholeColumnKey, yearFor, yearsKey } from './keys';
 import { BOARD_GAP, SIDE_BY_SIDE, boardTracks } from './grid';
 import { useHiddenColumns } from './hiddenColumns';
+import { setColumnCollapsed, useCollapsedColumns } from './collapsedColumns';
 import { useCardShows } from './cardShows';
 import { columnsFor, hobbyDefinition } from '../hobbies';
 import { DEFAULT_HOBBY, boardPath, isReadyHobby, statsPath } from '../shell/hobbies';
@@ -78,8 +79,6 @@ function Board({ hobby }: { hobby: Hobby }) {
   // And what the reader said, which outranks all of that. `null` is "they have not said", a
   // different state from `{ year: undefined }` — that one is All years, an answer somebody gave.
   const [chosen, setChosen] = useState<{ year?: number } | null>(null);
-  // Dropped is a record, not a queue. It starts out of the way and opens when asked for.
-  const [droppedOpen, setDroppedOpen] = useState(false);
   // Every column side by side, or a phone's one at a time. Side by side where there is no media
   // query to ask, which is jsdom — every component test but the phone's gets the board as it was.
   const sideBySide = useMediaQuery(SIDE_BY_SIDE, true);
@@ -138,6 +137,10 @@ function Board({ hobby }: { hobby: Hobby }) {
   // from it. A column left off is not rendered at all, so it asks the API for nothing and is not
   // a drop target; the titles in it stay exactly where they were.
   const hidden = useHiddenColumns(hobby);
+
+  // Which columns show only their header, as each column's arrow left them (#29): remembered per
+  // board and per browser, Dropped collapsed until it is opened. Read side by side alone, below.
+  const collapsed = useCollapsedColumns(hobby);
 
   // What a card shows, for the card a drag lifts, so it is the card it was lifted from.
   const cardShows = useCardShows(hobby);
@@ -280,12 +283,14 @@ function Board({ hobby }: { hobby: Hobby }) {
                     sort={sorts[status]}
                     onSortChange={(sort) => setSorts((current) => ({ ...current, [status]: sort }))}
                     year={yearFor(status, year)}
-                    // Folded only side by side. On a phone, choosing Dropped in the switcher is
-                    // already asking to see it, and a fold would want a second tap for that.
-                    collapsed={sideBySide && status === 'Dropped' ? !droppedOpen : undefined}
+                    // Collapsed only side by side, where a long column is a page to scroll past.
+                    // On a phone, choosing a column in the switcher is already asking to see it,
+                    // and a collapse would want a second tap for that, so what is stored does
+                    // not apply there and there is no arrow.
+                    collapsed={sideBySide ? collapsed.has(status) : undefined}
                     onToggleCollapse={
-                      sideBySide && status === 'Dropped'
-                        ? () => setDroppedOpen((open) => !open)
+                      sideBySide
+                        ? () => setColumnCollapsed(hobby, status, !collapsed.has(status))
                         : undefined
                     }
                     namedAbove={switching}

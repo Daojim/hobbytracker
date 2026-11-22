@@ -187,7 +187,7 @@ test('the options menu drops a game, and dragging it out picks it back up', asyn
 
   await chooseOption(page, 'Anthem', 'Move to Dropped');
 
-  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  await page.getByRole('button', { name: 'Expand Dropped' }).click();
   await expect(column(page, 'Dropped').getByText('Anthem')).toBeVisible();
   // Dropping is not forgetting: the day you started is still the day you started.
   await expect
@@ -267,7 +267,7 @@ test('a column taken off in Settings stays off, moves nothing, and comes back wi
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('checkbox', { name: 'Dropped' }).check();
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  await page.getByRole('button', { name: 'Expand Dropped' }).click();
   await expect(column(page, 'Dropped').getByText('Anthem')).toBeVisible();
 
   // Dragged out again after the column came back. A column put back is mounted against whatever
@@ -287,7 +287,7 @@ test('a card can be dragged into Dropped while Dropped is still collapsed', asyn
   const mediaId = await seed(page.request, 'Anthem', 'InProgress', { startedAt: '2026-05-01' });
   await page.reload();
 
-  await expect(page.getByRole('button', { name: 'Show Dropped' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Expand Dropped' })).toBeVisible();
   await drag(page, card(page, 'Anthem'), column(page, 'Dropped'));
 
   await expect
@@ -314,7 +314,7 @@ test('removing a backlog game takes it off the board rather than dropping it', a
   await expect(card(page, 'Celeste')).toBeHidden();
   await expect.poll(async () => (await entriesFor(page.request, mediaId)).length).toBe(0);
 
-  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  await page.getByRole('button', { name: 'Expand Dropped' }).click();
   expect(await titlesIn(page, 'Dropped')).not.toContain('Celeste');
 });
 
@@ -347,7 +347,7 @@ test('removing a replayed title takes every pass, not one press per playthrough'
 
   // Gone from every column, in one press.
   await expect(card(page, 'Hollow Knight')).toBeHidden();
-  await page.getByRole('button', { name: 'Show Dropped' }).click();
+  await page.getByRole('button', { name: 'Expand Dropped' }).click();
   for (const status of ['Backlog', 'InProgress', 'OnHold', 'Completed', 'Dropped'] as const) {
     expect(await titlesIn(page, status)).not.toContain('Hollow Knight');
   }

@@ -253,7 +253,7 @@ describe('SharedBoardPage', () => {
       });
       renderShare();
 
-      const show = await screen.findByRole('button', { name: 'Show Dropped' });
+      const show = await screen.findByRole('button', { name: 'Expand Dropped' });
       expect(screen.queryByText('Spiritfarer')).not.toBeInTheDocument();
 
       await userEvent.click(show);
