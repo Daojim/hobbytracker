@@ -827,7 +827,7 @@ shuffled.
         leaving a column its header, hours and sort control and none of its cards, still a drop
         target; remembered per board, Dropped collapsed until opened, a share collapsing for the
         visit, and the calendar's *Hide* turned into the same arrow. Every pick was the
-        recommendation (built on `collapsing-a-column`, not yet merged)
+        recommendation (PR #109, deployed)
       - [ ] the README, refreshed — after #25 to #29: shots that open bigger on GitHub, which a
         `<picture>` there does not, a wheel larger than its 360px GIF, and the tour caught up
 
