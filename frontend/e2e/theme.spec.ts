@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openJournal, seed } from './support/board';
+import { card, openJournal, seed } from './support/board';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 
@@ -267,4 +267,145 @@ test('System leaves no attribute, so the device keeps deciding', async ({ page }
   await page.reload();
 
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.*/);
+});
+
+/**
+ * The panel that makes a theme of your own (#28): beside the board with no scrim, so the board
+ * wears each colour as it is picked, and a sheet over half a phone's screen. What only a browser
+ * can say: a card's paint following a colour typed, what a press on the board does, where the
+ * keyboard goes, and where the sheet sits.
+ */
+test.describe('making a theme of your own', () => {
+  const panel = (page: import('@playwright/test').Page) =>
+    page.getByRole('dialog', { name: 'Your own theme' });
+
+  const openPanel = async (page: import('@playwright/test').Page) => {
+    await page.getByRole('button', { name: 'Theme' }).click();
+    await page.getByRole('button', { name: 'Make your own…' }).click();
+    await expect(panel(page)).toBeVisible();
+  };
+
+  /**
+   * A colour's box. Playwright gives the swatch beside it the textbox role as well, and both are
+   * named for the colour, so the box is the one that takes text.
+   */
+  const colourBox = (page: import('@playwright/test').Page, name: string) =>
+    panel(page).getByLabel(name, { exact: true }).and(page.locator('input[type="text"]'));
+
+  const paintOf = (page: import('@playwright/test').Page, title: string) =>
+    card(page, title).evaluate((element) => getComputedStyle(element).backgroundColor);
+
+  test('the board wears each colour as it is typed, the bar above the page included', async ({
+    page,
+  }) => {
+    // Run in Firefox as well as Chromium, which is where the user reads the board.
+    await seed(page.request, 'Celeste', 'InProgress');
+    await page.reload();
+    await openPanel(page);
+
+    await colourBox(page, 'Card').fill('#2f4a4d');
+    await expect.poll(() => paintOf(page, 'Celeste')).toBe('rgb(47, 74, 77)');
+
+    await colourBox(page, 'Ground').fill('#23393b');
+    await expect.poll(() => bar(page)).toBe('#23393b');
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor))
+      .toBe('rgb(35, 57, 59)');
+
+    // Kept, it is what the next load paints, before the bundle as after it.
+    await page.getByRole('button', { name: 'Keep' }).click();
+    await page.reload();
+    await expect.poll(() => paintOf(page, 'Celeste')).toBe('rgb(47, 74, 77)');
+  });
+
+  test('a press on the board neither keeps nor cancels, and opens nothing', async ({ page }) => {
+    await seed(page.request, 'Celeste', 'InProgress');
+    await page.reload();
+    await openPanel(page);
+    await colourBox(page, 'Card').fill('#2f4a4d');
+
+    // Where the card's name is, a press would open its journal.
+    const name = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
+    const box = (await name.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await expect(panel(page)).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+    expect(await token(page, '--surface')).toBe('#2f4a4d');
+  });
+
+  test('the keyboard goes in from the list, stays in, and comes back to the palette', async ({
+    page,
+  }) => {
+    // Run in Firefox as well as Chromium.
+    const palette = page.getByRole('button', { name: 'Theme' });
+    await palette.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Make your own…' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(panel(page)).toBeFocused();
+
+    // In order: the corner's ×, Made from, then each colour's swatch and its box.
+    for (let stop = 0; stop < 6; stop += 1) {
+      await page.keyboard.press('Tab');
+    }
+    const cardBox = colourBox(page, 'Card');
+    await expect(cardBox).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('#2f4a4d');
+    expect(await token(page, '--surface')).toBe('#2f4a4d');
+
+    // Kept in: from the last stop, Keep, the next is the first, the ×.
+    await page.getByRole('button', { name: 'Keep' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Cancel' }).first()).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeFocused();
+
+    // Escape puts back what was worn, and the keyboard on the palette.
+    await page.keyboard.press('Escape');
+    await expect(panel(page)).toHaveCount(0);
+    await expect(palette).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
+
+    // And Keep, by the keyboard, keeps it.
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Make your own…' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(panel(page)).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(panel(page)).toHaveCount(0);
+    await expect(palette).toBeFocused();
+    expect(await page.evaluate(() => localStorage.getItem('hobbytracker.theme'))).toBe('mine');
+  });
+
+  test.describe('on a phone', () => {
+    test.skip(({ browserName }) => browserName === 'firefox', 'Firefox has no phone to emulate.');
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+    test('is a sheet over half the screen, with Keep in view and the board above it', async ({
+      page,
+    }) => {
+      await seed(page.request, 'Celeste', 'InProgress');
+      await page.reload();
+      await openPanel(page);
+
+      // Half of 844, as the workshop measured it: 422px.
+      const sheet = (await panel(page).boundingBox())!;
+      expect(Math.round(sheet.height)).toBe(422);
+      expect(Math.round(sheet.y + sheet.height)).toBe(844);
+      expect(sheet.x).toBe(0);
+      expect(sheet.width).toBe(390);
+
+      const keep = (await page.getByRole('button', { name: 'Keep' }).boundingBox())!;
+      expect(keep.y).toBeGreaterThanOrEqual(sheet.y);
+      expect(keep.y + keep.height).toBeLessThanOrEqual(844);
+
+      // The board's switcher is still in view over the top half.
+      const switcher = (await page.getByRole('radiogroup', { name: 'Columns' }).boundingBox())!;
+      expect(switcher.y + switcher.height).toBeLessThanOrEqual(sheet.y);
+    });
+  });
 });
