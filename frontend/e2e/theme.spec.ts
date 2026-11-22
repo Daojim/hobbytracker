@@ -292,6 +292,9 @@ test.describe('making a theme of your own', () => {
   const colourBox = (page: import('@playwright/test').Page, name: string) =>
     panel(page).getByLabel(name, { exact: true }).and(page.locator('input[type="text"]'));
 
+  const colourSwatch = (page: import('@playwright/test').Page, name: string) =>
+    panel(page).getByLabel(name, { exact: true }).and(page.locator('input[type="color"]'));
+
   const paintOf = (page: import('@playwright/test').Page, title: string) =>
     card(page, title).evaluate((element) => getComputedStyle(element).backgroundColor);
 
@@ -311,6 +314,12 @@ test.describe('making a theme of your own', () => {
     await expect
       .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor))
       .toBe('rgb(35, 57, 59)');
+
+    // And the swatch beside each box. A headless browser opens no picker, in either engine, so
+    // this is the swatch's own events: a scripted fill sends it `input` and `change`.
+    await colourSwatch(page, 'Accent').fill('#a3344f');
+    await expect.poll(() => token(page, '--accent')).toBe('#a3344f');
+    await expect(colourBox(page, 'Accent')).toHaveValue('#a3344f');
 
     // Kept, it is what the next load paints, before the bundle as after it.
     await page.getByRole('button', { name: 'Keep' }).click();
