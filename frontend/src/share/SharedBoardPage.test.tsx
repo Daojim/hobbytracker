@@ -372,9 +372,9 @@ describe('SharedBoardPage', () => {
       });
       renderShare();
 
-      await userEvent.click(await screen.findByRole('button', { name: 'Hide Coming soon' }));
+      await userEvent.click(await screen.findByRole('button', { name: 'Collapse Coming soon' }));
 
-      expect(await screen.findByRole('button', { name: 'Show Coming soon' })).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: 'Expand Coming soon' })).toBeInTheDocument();
       expect(localStorage.length).toBe(0);
     });
 

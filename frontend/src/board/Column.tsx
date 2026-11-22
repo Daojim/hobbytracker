@@ -10,8 +10,8 @@ import { COLUMN_PAGE_SIZE, columnKey } from './keys';
 import { columnHoursLines, type HoursLine, type HoursPart, type LeftOutList } from './columnHours';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import { usePace, type Pace } from '../lib/pace';
-import { Chevron } from '../lib/Chevron';
 import type { Voice } from '../lib/voice';
+import { CollapseArrow } from './CollapseArrow';
 import type {
   ColumnHours,
   LeftOutTitle,
@@ -374,23 +374,11 @@ export function ColumnFrame({
           renders on 3 November 2026 after a first list of 288px ran past its column. */}
       <div className="relative mb-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* The arrow, before the heading, picked from renders on 22 November 2026 over after
-              the count and past the sort control: here it stays on the heading's row whatever
-              wraps, at the same spot in every column. The journal heading's chevron, in a 20px
-              button with the hover fill a control there has, pointing right when collapsed.
-              Named for what a press does, as the fold's words were, so no `aria-expanded`: a
-              name and a state that both changed would say it twice. Its 28px with the gap put
-              Completed's sort control under the heading at 1440, and Playing's and On Hold's at
-              1280, which the renders showed and the pick took. */}
+          {/* Before the heading: see CollapseArrow. Its 28px with the gap put Completed's sort
+              control under the heading at 1440, and Playing's and On Hold's at 1280, which the
+              renders showed and the pick took. */}
           {onToggleCollapse !== undefined && (
-            <button
-              type="button"
-              onClick={onToggleCollapse}
-              aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
-              className="inline-flex size-5 shrink-0 items-center justify-center rounded text-muted hover:bg-hover hover:text-fg"
-            >
-              <Chevron className={collapsed ? '-rotate-90' : ''} />
-            </button>
+            <CollapseArrow collapsed={collapsed} name={label} onToggle={onToggleCollapse} />
           )}
           <h2
             id={headingId}

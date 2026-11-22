@@ -1932,7 +1932,12 @@ describe('BoardPage, on a phone', () => {
     await userEvent.click(await screen.findByRole('radio', { name: /^Dropped/ }));
 
     expect(await screen.findByText('Anthem')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) / })).not.toBeInTheDocument();
+    // In the column: the calendar under it keeps its own arrow at every width.
+    expect(
+      within(screen.getByRole('region', { name: /^Dropped/ })).queryByRole('button', {
+        name: /^(Collapse|Expand) /,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows a column collapsed side by side whole, with no arrow', async () => {
@@ -1945,7 +1950,11 @@ describe('BoardPage, on a phone', () => {
     await userEvent.click(await screen.findByRole('radio', { name: /^Completed/ }));
 
     expect(await screen.findByText('Celeste')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) / })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('region', { name: /^Completed/ })).queryByRole('button', {
+        name: /^(Collapse|Expand) /,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('has nothing to switch between when Backlog is the only column drawn', async () => {
