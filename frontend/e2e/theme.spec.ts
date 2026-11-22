@@ -172,6 +172,93 @@ test('under System the bar follows the device, light and dark', async ({ page })
   }
 });
 
+/**
+ * Forest, a theme of your own the #28 workshop made from Shelf Dark, as the bundle keeps it: the
+ * base, light or dark, and the twenty values worked out when it was kept.
+ */
+const FOREST = {
+  from: 'shelf-dark',
+  scheme: 'dark',
+  tokens: {
+    '--surface': '#1b261f',
+    '--sunken': '#111a15',
+    '--hover': '#242d25',
+    '--line': '#2c342b',
+    '--line-soft': '#222b22',
+    '--fg': '#e8f2ec',
+    '--muted': '#9ba69f',
+    '--accent': '#e3b04b',
+    '--danger': '#ff9381',
+    '--ok': '#74d194',
+    '--drop': '#2f3728',
+    '--dropped': '#696d63',
+    '--scrim': 'rgb(0 0 0 / 0.6)',
+    '--well': '#16201b',
+    '--rating-low': '#fb6f6f',
+    '--rating-mid': '#f8a850',
+    '--rating-high': '#ffd177',
+    '--danger-fg': '#2a1f1c',
+    '--card-shadow': '0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px rgb(0 0 0 / 0.38)',
+    '--card-line': 'transparent',
+  },
+};
+
+const keepForest = (page: import('@playwright/test').Page) =>
+  page.evaluate((record) => {
+    localStorage.setItem('hobbytracker.theme', 'mine');
+    localStorage.setItem('hobbytracker.theme.mine', JSON.stringify(record));
+  }, FOREST);
+
+const token = (page: import('@playwright/test').Page, name: string) =>
+  page.evaluate(
+    (property) => getComputedStyle(document.documentElement).getPropertyValue(property).trim(),
+    name,
+  );
+
+test('a theme of your own is on the page before the bundle is, the bar included', async ({
+  page,
+}) => {
+  // The pre-paint script's half, which only a cold load runs. In development the stylesheet
+  // arrives with the bundle, so with the bundle blocked what is on the page is what the script
+  // stamped: the base's attribute, and the kept values inline on the root.
+  await keepForest(page);
+  await page.route('**/src/main.tsx*', (route) => route.abort());
+  await page.reload();
+
+  await expect(page.locator('#root')).toBeEmpty();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'shelf-dark');
+  expect(await token(page, '--surface')).toBe('#1b261f');
+  expect(await token(page, '--accent')).toBe('#e3b04b');
+  expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe('dark');
+  expect(await bar(page)).toBe('#111a15');
+});
+
+test('leaving a theme of your own takes every one of its values off the page', async ({
+  page,
+}) => {
+  await keepForest(page);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'shelf-dark');
+  expect(await token(page, '--surface')).toBe('#1b261f');
+
+  await choose(page, 'Ember');
+
+  // Every value Forest left inline would outrank Ember's block, so the card would stay Forest's.
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'ember');
+  expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
+  const embers = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.setAttribute('data-theme', 'ember');
+    document.body.append(probe);
+    const surface = getComputedStyle(probe).getPropertyValue('--surface').trim();
+    probe.remove();
+    return surface;
+  });
+  expect(embers).not.toBe('');
+  expect(await token(page, '--surface')).toBe(embers);
+  await expect.poll(() => bar(page)).toBe(await ground(page));
+});
+
 test('System leaves no attribute, so the device keeps deciding', async ({ page }) => {
   await choose(page, 'Ember');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'ember');

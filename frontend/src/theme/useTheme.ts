@@ -3,6 +3,7 @@ import {
   type Density,
   type JournalView,
   type Theme,
+  type ThemeChoice,
   applyDensity,
   applyJournalView,
   applyTheme,
@@ -28,7 +29,7 @@ import {
  * script is the one thing that stamps it.
  */
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(readTheme);
+  const [theme, setThemeState] = useState<ThemeChoice>(readTheme);
   const [density, setDensityState] = useState<Density>(readDensity);
   const [journalView, setJournalViewState] = useState<JournalView>(readJournalView);
 

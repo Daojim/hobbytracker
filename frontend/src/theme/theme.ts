@@ -10,6 +10,11 @@
  * repeats them: the pre-paint script cannot import this module, and two copies of a name that
  * must agree is the failure this codebase keeps paying for. `theme.test.ts` reads index.html and
  * asserts the copies still match.
+ *
+ * Since #28 there is one theme that is not CSS alone: a theme of your own, made from one of the
+ * eight. Its base is stamped as the attribute, as the base itself would be, and its twenty values
+ * are set inline on the root over the base's block, where they outrank any selector. Everything
+ * here that applies a theme takes them off first.
  */
 
 import { readStored, writeStored } from '../lib/storage';
@@ -22,6 +27,15 @@ export const JOURNAL_ATTRIBUTE = 'data-journal';
 export const THEME_KEY = 'hobbytracker.theme';
 export const DENSITY_KEY = 'hobbytracker.density';
 export const JOURNAL_KEY = 'hobbytracker.journal';
+
+/**
+ * A theme of your own, kept beside the choice: its base, light or dark, and the twenty values
+ * worked out when it was kept. Stored as worked out, rather than as the three colours picked, so
+ * that the pre-paint script only has to copy them: it cannot work anything out before the bundle.
+ * The choice itself is `mine` under `THEME_KEY`, and choosing another theme leaves this alone, so
+ * yours is there to choose again.
+ */
+export const MINE_KEY = 'hobbytracker.theme.mine';
 
 /**
  * `system` is not a palette — it is the absence of a choice, and it stamps no attribute so the
@@ -115,6 +129,31 @@ export interface Palette {
 /** The three colours a person sets for a theme of their own: the ground, the card and the accent. */
 export type Picks = Readonly<Record<Part, string>>;
 
+/**
+ * What the palette's list can have chosen: one of `THEMES`, or a theme of your own. `THEMES`
+ * itself stays the eight and System, because the contrast test's palettes and the pre-paint
+ * test's grounds are derived from it, and a theme of your own has no block for either to find.
+ */
+export type ThemeChoice = Theme | 'mine';
+
+/** A theme of your own as it is kept and worn: what `MINE_KEY` holds, read back and checked. */
+export interface Mine {
+  readonly from: NamedTheme;
+  readonly scheme: Scheme;
+  /** The kept values that can be stamped, by token. One that cannot is left to the base's block. */
+  readonly tokens: Readonly<Record<string, string>>;
+}
+
+/**
+ * What a kept value may be called, and what it may hold: `#rrggbb`, `transparent`, or a scrim's
+ * or a shadow's `rgb(… / …)` and pixels. A value stamped inline that is not a colour paints
+ * nothing at all where it is used, so one that cannot be one is skipped and the base answers for
+ * it. The pre-paint script repeats both rules, and `theme.test.ts` runs it beside this reader on
+ * the same record to hold the two together.
+ */
+const KEPT_NAME = /^--[a-z-]+$/;
+const KEPT_VALUE = /^(#[0-9a-f]{6}|transparent|[0-9 .,/()pxrgb]+)$/;
+
 const DEFAULT_THEME: Theme = 'system';
 const DEFAULT_DENSITY: Density = 'comfortable';
 
@@ -131,6 +170,9 @@ export const DEFAULT_JOURNAL: JournalView = 'modal';
 const isTheme = (value: string | null): value is Theme =>
   THEMES.some((theme) => theme.value === value);
 
+const isNamedTheme = (value: unknown): value is NamedTheme =>
+  typeof value === 'string' && value !== 'system' && isTheme(value);
+
 const isDensity = (value: string | null): value is Density =>
   DENSITIES.some((density) => density.value === value);
 
@@ -143,9 +185,54 @@ const isJournalView = (value: string | null): value is JournalView =>
  * with a value no palette block answers — which renders as unstyled text on an unstyled ground,
  * the least diagnosable failure available.
  */
-export function readTheme(): Theme {
+export function readTheme(): ThemeChoice {
   const stored = readStored(THEME_KEY);
+  if (stored === 'mine') {
+    return readMine() === null ? DEFAULT_THEME : 'mine';
+  }
+
   return isTheme(stored) ? stored : DEFAULT_THEME;
+}
+
+/**
+ * The theme of your own kept in this browser, or null where there is none to wear: none kept, a
+ * record that is not JSON, or one made from a theme that is gone. Each kept value that cannot be
+ * stamped is skipped, and the base's block answers for it, as it does before the bundle.
+ */
+export function readMine(): Mine | null {
+  const raw = readStored(MINE_KEY);
+  if (raw === null) {
+    return null;
+  }
+
+  let record: unknown;
+  try {
+    record = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof record !== 'object' || record === null) {
+    return null;
+  }
+
+  const { from, scheme, tokens } = record as Record<string, unknown>;
+  if (!isNamedTheme(from) || typeof tokens !== 'object' || tokens === null) {
+    return null;
+  }
+
+  const kept = Object.entries(tokens).filter(
+    (entry): entry is [string, string] =>
+      KEPT_NAME.test(entry[0]) && typeof entry[1] === 'string' && KEPT_VALUE.test(entry[1]),
+  );
+  return { from, scheme: scheme === 'light' ? 'light' : 'dark', tokens: Object.fromEntries(kept) };
+}
+
+/**
+ * Keeps a theme of your own. Whether it was kept: the caller stores the choice only if it was, so
+ * that storage refusing leaves the next load on the theme this one started from.
+ */
+export function storeMine(mine: Mine): boolean {
+  return writeStored(MINE_KEY, JSON.stringify(mine));
 }
 
 export function readDensity(): Density {
@@ -153,7 +240,7 @@ export function readDensity(): Density {
   return isDensity(stored) ? stored : DEFAULT_DENSITY;
 }
 
-export function storeTheme(theme: Theme): void {
+export function storeTheme(theme: ThemeChoice): void {
   writeStored(THEME_KEY, theme);
 }
 
@@ -181,12 +268,14 @@ export function storeJournalView(view: JournalView): void {
  * because a browser takes the first that matches; System's two are never touched, so removing
  * the chosen one hands the bar back to the device. The colour is read back from index.css rather
  * than copied a third time, because by now the stylesheet is there to ask.
+ *
+ * A theme of your own worn before this takes all of its inline values off first, System included:
+ * they sit over the base's block, where they outrank any selector, so one left behind would paint
+ * over the theme chosen now, with no error.
  */
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
-  document.head.querySelectorAll('meta[name="theme-color"]:not([media])').forEach((tag) => {
-    tag.remove();
-  });
+  takeOffMine(root);
 
   if (theme === 'system') {
     root.removeAttribute(THEME_ATTRIBUTE);
@@ -197,13 +286,64 @@ export function applyTheme(theme: Theme): void {
 
   // Empty only where no stylesheet is loaded at all, which is a unit test that did not add one.
   const ground = getComputedStyle(root).getPropertyValue('--sunken').trim();
-  if (ground === '') {
-    return;
+  if (ground !== '') {
+    setBar(ground);
+  }
+}
+
+/**
+ * Wears a theme of your own: its base stamped as the attribute, so the base's block answers for
+ * anything not kept, every kept value inline over it, its `color-scheme`, and the bar above the
+ * page in its own ground. The pre-paint script does the same on a load; this does it when one is
+ * kept, chosen, or tried in the panel that makes it, which wears each change as it is made.
+ */
+export function applyMine(mine: Mine): void {
+  const root = document.documentElement;
+  takeOffMine(root);
+
+  root.setAttribute(THEME_ATTRIBUTE, mine.from);
+  for (const [name, value] of Object.entries(mine.tokens)) {
+    root.style.setProperty(name, value);
+  }
+  root.style.setProperty('color-scheme', mine.scheme);
+
+  const kept = mine.tokens['--sunken'];
+  const ground =
+    kept !== undefined && /^#[0-9a-f]{6}$/.test(kept)
+      ? kept
+      : getComputedStyle(root).getPropertyValue('--sunken').trim();
+  if (ground !== '') {
+    setBar(ground);
+  }
+}
+
+/**
+ * Takes every inline value a theme of your own set off the root, and the bar a chosen theme set.
+ * Nothing else in the app writes the root's inline style, and only custom properties and
+ * `color-scheme` are taken, so anything that did one day would be left alone.
+ */
+function takeOffMine(root: HTMLElement): void {
+  const style = root.style;
+  const names = Array.from({ length: style.length }, (_, at) => style.item(at));
+  for (const name of names) {
+    if (name.startsWith('--') || name === 'color-scheme') {
+      style.removeProperty(name);
+    }
+  }
+  if (style.length === 0) {
+    root.removeAttribute('style');
   }
 
+  document.head.querySelectorAll('meta[name="theme-color"]:not([media])').forEach((tag) => {
+    tag.remove();
+  });
+}
+
+/** A chosen theme's bar, ahead of System's two, because a browser takes the first that matches. */
+function setBar(colour: string): void {
   const bar = document.createElement('meta');
   bar.name = 'theme-color';
-  bar.content = ground;
+  bar.content = colour;
   document.head.insertBefore(bar, document.head.querySelector('meta[name="theme-color"]'));
 }
 
