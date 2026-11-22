@@ -820,7 +820,7 @@ shuffled.
         the board repaints as you pick, and a sheet over half a phone; a warning under a colour
         that cannot be read, from the seventeen pairs the contrast test holds the eight to; one
         per browser, a tenth choice in the palette's list, stamped before the bundle. Every pick
-        was the recommendation (built 21 and 22 November 2026, not yet merged)
+        was the recommendation (PR #107, deployed)
       - [ ] collapsing a column — an arrow beside every heading, side by side, that keeps the
         heading, the hours and the drop target, as Dropped does now
       - [ ] the README, refreshed — after #25 to #29: shots that open bigger on GitHub, which a
