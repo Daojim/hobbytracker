@@ -3,10 +3,24 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../test/render';
 import { ThemeMenu } from './ThemeMenu';
-import { THEMES, THEME_ATTRIBUTE, THEME_KEY } from './theme';
+import { MINE_KEY, THEMES, THEME_ATTRIBUTE, THEME_KEY, type Mine } from './theme';
 
 const open = async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Theme' }));
+};
+
+/** A theme of your own, kept: made from Shelf Dark, as far as the list is concerned. */
+const FOREST: Mine = {
+  from: 'shelf-dark',
+  scheme: 'dark',
+  tokens: { '--surface': '#1b261f', '--sunken': '#111a15', '--accent': '#e3b04b' },
+};
+
+const keepForest = (chosen: boolean) => {
+  localStorage.setItem(MINE_KEY, JSON.stringify(FOREST));
+  if (chosen) {
+    localStorage.setItem(THEME_KEY, 'mine');
+  }
 };
 
 /**
@@ -18,6 +32,7 @@ describe('ThemeMenu', () => {
   afterEach(() => {
     localStorage.clear();
     document.documentElement.removeAttribute(THEME_ATTRIBUTE);
+    document.documentElement.removeAttribute('style');
   });
 
   it('is a palette named Theme, with the list shut until it is asked for', () => {
@@ -101,5 +116,73 @@ describe('ThemeMenu', () => {
     await open();
 
     expect(screen.queryByRole('radiogroup', { name: 'Theme' })).not.toBeInTheDocument();
+  });
+
+  /**
+   * A theme of your own (#28): a tenth choice once there is one, named for the theme it was made
+   * from, and the way to make one or change it under a rule, in the accent.
+   */
+  describe('with a theme of your own', () => {
+    it('offers to make one under the nine, and no tenth until there is one', async () => {
+      renderWithProviders(<ThemeMenu />);
+      await open();
+
+      expect(screen.getAllByRole('radio')).toHaveLength(THEMES.length);
+      expect(screen.queryByRole('radio', { name: 'Your own' })).not.toBeInTheDocument();
+
+      const make = screen.getByRole('button', { name: 'Make your own…' });
+      expect(make).toHaveClass('text-accent');
+      // Under a rule, outside the radiogroup: it is a way somewhere, not a theme.
+      expect(screen.getByRole('radiogroup', { name: 'Theme' })).not.toContainElement(make);
+      expect(make.parentElement).toHaveClass('border-t', 'border-line-soft');
+    });
+
+    it('offers it as a tenth choice once there is one, named for the theme it is made from', async () => {
+      keepForest(false);
+      renderWithProviders(<ThemeMenu />);
+      await open();
+
+      const radios = screen.getAllByRole('radio');
+      expect(radios).toHaveLength(THEMES.length + 1);
+      expect(radios.at(-1)).toHaveAccessibleName('Your own');
+      expect(radios.at(-1)).toHaveAccessibleDescription('From Shelf Dark');
+      expect(radios.at(-1)).not.toBeChecked();
+      expect(screen.getByRole('button', { name: 'Edit…' })).toHaveClass('text-accent');
+      expect(screen.queryByRole('button', { name: 'Make your own…' })).not.toBeInTheDocument();
+    });
+
+    it('says it is on when it is', async () => {
+      keepForest(true);
+      renderWithProviders(<ThemeMenu />);
+      await open();
+
+      expect(screen.getByRole('radio', { name: 'Your own' })).toBeChecked();
+      expect(screen.getByRole('radio', { name: 'System' })).not.toBeChecked();
+    });
+
+    it('wears it when chosen, and remembers the choice', async () => {
+      keepForest(false);
+      renderWithProviders(<ThemeMenu />);
+      await open();
+      await userEvent.click(screen.getByRole('radio', { name: 'Your own' }));
+
+      expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('shelf-dark');
+      expect(document.documentElement.style.getPropertyValue('--surface')).toBe('#1b261f');
+      expect(localStorage.getItem(THEME_KEY)).toBe('mine');
+      expect(screen.getByRole('radio', { name: 'Your own' })).toBeChecked();
+    });
+
+    it('takes it off for another theme, and keeps it there to choose again', async () => {
+      keepForest(true);
+      renderWithProviders(<ThemeMenu />);
+      await open();
+      await userEvent.click(screen.getByRole('radio', { name: 'Ember' }));
+
+      expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('ember');
+      expect(document.documentElement.style.getPropertyValue('--surface')).toBe('');
+      expect(localStorage.getItem(MINE_KEY)).not.toBeNull();
+      expect(screen.getByRole('radio', { name: 'Your own' })).not.toBeChecked();
+      expect(screen.getByRole('button', { name: 'Edit…' })).toBeInTheDocument();
+    });
   });
 });

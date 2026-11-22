@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openJournal, seed } from './support/board';
+import { card, openJournal, seed } from './support/board';
 import { resetDatabase } from './support/database';
 import { signIn } from './support/auth';
 
@@ -172,6 +172,93 @@ test('under System the bar follows the device, light and dark', async ({ page })
   }
 });
 
+/**
+ * Forest, a theme of your own the #28 workshop made from Shelf Dark, as the bundle keeps it: the
+ * base, light or dark, and the twenty values worked out when it was kept.
+ */
+const FOREST = {
+  from: 'shelf-dark',
+  scheme: 'dark',
+  tokens: {
+    '--surface': '#1b261f',
+    '--sunken': '#111a15',
+    '--hover': '#242d25',
+    '--line': '#2c342b',
+    '--line-soft': '#222b22',
+    '--fg': '#e8f2ec',
+    '--muted': '#9ba69f',
+    '--accent': '#e3b04b',
+    '--danger': '#ff9381',
+    '--ok': '#74d194',
+    '--drop': '#2f3728',
+    '--dropped': '#696d63',
+    '--scrim': 'rgb(0 0 0 / 0.6)',
+    '--well': '#16201b',
+    '--rating-low': '#fb6f6f',
+    '--rating-mid': '#f8a850',
+    '--rating-high': '#ffd177',
+    '--danger-fg': '#2a1f1c',
+    '--card-shadow': '0 1px 2px rgb(0 0 0 / 0.45), 0 6px 16px rgb(0 0 0 / 0.38)',
+    '--card-line': 'transparent',
+  },
+};
+
+const keepForest = (page: import('@playwright/test').Page) =>
+  page.evaluate((record) => {
+    localStorage.setItem('hobbytracker.theme', 'mine');
+    localStorage.setItem('hobbytracker.theme.mine', JSON.stringify(record));
+  }, FOREST);
+
+const token = (page: import('@playwright/test').Page, name: string) =>
+  page.evaluate(
+    (property) => getComputedStyle(document.documentElement).getPropertyValue(property).trim(),
+    name,
+  );
+
+test('a theme of your own is on the page before the bundle is, the bar included', async ({
+  page,
+}) => {
+  // The pre-paint script's half, which only a cold load runs. In development the stylesheet
+  // arrives with the bundle, so with the bundle blocked what is on the page is what the script
+  // stamped: the base's attribute, and the kept values inline on the root.
+  await keepForest(page);
+  await page.route('**/src/main.tsx*', (route) => route.abort());
+  await page.reload();
+
+  await expect(page.locator('#root')).toBeEmpty();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'shelf-dark');
+  expect(await token(page, '--surface')).toBe('#1b261f');
+  expect(await token(page, '--accent')).toBe('#e3b04b');
+  expect(await page.evaluate(() => document.documentElement.style.colorScheme)).toBe('dark');
+  expect(await bar(page)).toBe('#111a15');
+});
+
+test('leaving a theme of your own takes every one of its values off the page', async ({
+  page,
+}) => {
+  await keepForest(page);
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'shelf-dark');
+  expect(await token(page, '--surface')).toBe('#1b261f');
+
+  await choose(page, 'Ember');
+
+  // Every value Forest left inline would outrank Ember's block, so the card would stay Forest's.
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'ember');
+  expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
+  const embers = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.setAttribute('data-theme', 'ember');
+    document.body.append(probe);
+    const surface = getComputedStyle(probe).getPropertyValue('--surface').trim();
+    probe.remove();
+    return surface;
+  });
+  expect(embers).not.toBe('');
+  expect(await token(page, '--surface')).toBe(embers);
+  await expect.poll(() => bar(page)).toBe(await ground(page));
+});
+
 test('System leaves no attribute, so the device keeps deciding', async ({ page }) => {
   await choose(page, 'Ember');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'ember');
@@ -180,4 +267,154 @@ test('System leaves no attribute, so the device keeps deciding', async ({ page }
   await page.reload();
 
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', /.*/);
+});
+
+/**
+ * The panel that makes a theme of your own (#28): beside the board with no scrim, so the board
+ * wears each colour as it is picked, and a sheet over half a phone's screen. What only a browser
+ * can say: a card's paint following a colour typed, what a press on the board does, where the
+ * keyboard goes, and where the sheet sits.
+ */
+test.describe('making a theme of your own', () => {
+  const panel = (page: import('@playwright/test').Page) =>
+    page.getByRole('dialog', { name: 'Your own theme' });
+
+  const openPanel = async (page: import('@playwright/test').Page) => {
+    await page.getByRole('button', { name: 'Theme' }).click();
+    await page.getByRole('button', { name: 'Make your own…' }).click();
+    await expect(panel(page)).toBeVisible();
+  };
+
+  /**
+   * A colour's box. Playwright gives the swatch beside it the textbox role as well, and both are
+   * named for the colour, so the box is the one that takes text.
+   */
+  const colourBox = (page: import('@playwright/test').Page, name: string) =>
+    panel(page).getByLabel(name, { exact: true }).and(page.locator('input[type="text"]'));
+
+  const colourSwatch = (page: import('@playwright/test').Page, name: string) =>
+    panel(page).getByLabel(name, { exact: true }).and(page.locator('input[type="color"]'));
+
+  const paintOf = (page: import('@playwright/test').Page, title: string) =>
+    card(page, title).evaluate((element) => getComputedStyle(element).backgroundColor);
+
+  test('the board wears each colour as it is typed, the bar above the page included', async ({
+    page,
+  }) => {
+    // Run in Firefox as well as Chromium, which is where the user reads the board.
+    await seed(page.request, 'Celeste', 'InProgress');
+    await page.reload();
+    await openPanel(page);
+
+    await colourBox(page, 'Card').fill('#2f4a4d');
+    await expect.poll(() => paintOf(page, 'Celeste')).toBe('rgb(47, 74, 77)');
+
+    await colourBox(page, 'Ground').fill('#23393b');
+    await expect.poll(() => bar(page)).toBe('#23393b');
+    await expect
+      .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor))
+      .toBe('rgb(35, 57, 59)');
+
+    // And the swatch beside each box. A headless browser opens no picker, in either engine, so
+    // this is the swatch's own events: a scripted fill sends it `input` and `change`.
+    await colourSwatch(page, 'Accent').fill('#a3344f');
+    await expect.poll(() => token(page, '--accent')).toBe('#a3344f');
+    await expect(colourBox(page, 'Accent')).toHaveValue('#a3344f');
+
+    // Kept, it is what the next load paints, before the bundle as after it.
+    await page.getByRole('button', { name: 'Keep' }).click();
+    await page.reload();
+    await expect.poll(() => paintOf(page, 'Celeste')).toBe('rgb(47, 74, 77)');
+  });
+
+  test('a press on the board neither keeps nor cancels, and opens nothing', async ({ page }) => {
+    await seed(page.request, 'Celeste', 'InProgress');
+    await page.reload();
+    await openPanel(page);
+    await colourBox(page, 'Card').fill('#2f4a4d');
+
+    // Where the card's name is, a press would open its journal.
+    const name = card(page, 'Celeste').getByRole('button', { name: 'Celeste', exact: true });
+    const box = (await name.boundingBox())!;
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await expect(panel(page)).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+    expect(await token(page, '--surface')).toBe('#2f4a4d');
+  });
+
+  test('the keyboard goes in from the list, stays in, and comes back to the palette', async ({
+    page,
+  }) => {
+    // Run in Firefox as well as Chromium.
+    const palette = page.getByRole('button', { name: 'Theme' });
+    await palette.focus();
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Make your own…' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(panel(page)).toBeFocused();
+
+    // In order: the corner's ×, Made from, then each colour's swatch and its box.
+    for (let stop = 0; stop < 6; stop += 1) {
+      await page.keyboard.press('Tab');
+    }
+    const cardBox = colourBox(page, 'Card');
+    await expect(cardBox).toBeFocused();
+    await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.type('#2f4a4d');
+    expect(await token(page, '--surface')).toBe('#2f4a4d');
+
+    // Kept in: from the last stop, Keep, the next is the first, the ×.
+    await page.getByRole('button', { name: 'Keep' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'Cancel' }).first()).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeFocused();
+
+    // Escape puts back what was worn, and the keyboard on the palette.
+    await page.keyboard.press('Escape');
+    await expect(panel(page)).toHaveCount(0);
+    await expect(palette).toBeFocused();
+    expect(await page.evaluate(() => document.documentElement.style.length)).toBe(0);
+
+    // And Keep, by the keyboard, keeps it.
+    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: 'Make your own…' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(panel(page)).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(page.getByRole('button', { name: 'Keep' })).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(panel(page)).toHaveCount(0);
+    await expect(palette).toBeFocused();
+    expect(await page.evaluate(() => localStorage.getItem('hobbytracker.theme'))).toBe('mine');
+  });
+
+  test.describe('on a phone', () => {
+    test.skip(({ browserName }) => browserName === 'firefox', 'Firefox has no phone to emulate.');
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+    test('is a sheet over half the screen, with Keep in view and the board above it', async ({
+      page,
+    }) => {
+      await seed(page.request, 'Celeste', 'InProgress');
+      await page.reload();
+      await openPanel(page);
+
+      // Half of 844, as the workshop measured it: 422px.
+      const sheet = (await panel(page).boundingBox())!;
+      expect(Math.round(sheet.height)).toBe(422);
+      expect(Math.round(sheet.y + sheet.height)).toBe(844);
+      expect(sheet.x).toBe(0);
+      expect(sheet.width).toBe(390);
+
+      const keep = (await page.getByRole('button', { name: 'Keep' }).boundingBox())!;
+      expect(keep.y).toBeGreaterThanOrEqual(sheet.y);
+      expect(keep.y + keep.height).toBeLessThanOrEqual(844);
+
+      // The board's switcher is still in view over the top half.
+      const switcher = (await page.getByRole('radiogroup', { name: 'Columns' }).boundingBox())!;
+      expect(switcher.y + switcher.height).toBeLessThanOrEqual(sheet.y);
+    });
+  });
 });

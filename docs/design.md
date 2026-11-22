@@ -14,7 +14,7 @@ two densities in Settings beside it (#27).
 |---|---|
 | Look | **Shelf**, chosen from a rendered mockup rather than a description |
 | Type | **Public Sans**, self-hosted through `@fontsource-variable` |
-| Themes | **Eight + System**: Shelf Light, Frost, Almanac, Dusk, Blood Red, Shelf Dark, Console, Ember |
+| Themes | **Eight + System**: Shelf Light, Frost, Almanac, Dusk, Blood Red, Shelf Dark, Console, Ember; and **one of your own** since #28, made from any of them |
 | Registers | **Three lights, two mid-tones, three darks.** Dusk and Blood Red are the mid ones — neither paper nor near-black — and Blood Red is the warm one at 0.0414 against Dusk's 0.0580 |
 | Red | **Two themes, and they are opposite constructions.** Ember is neutral charcoal wearing red as its accent; Blood Red *is* the red, and puts gold on it. Neither is forced on the other six |
 | HLTB | **One blue on every theme** — the estimates are that site's numbers. See **A fixed chip and a mid-tone theme** |
@@ -23,7 +23,8 @@ two densities in Settings beside it (#27).
 | Danger | **Never colour alone** — a filled chip the accent never wears |
 | Density | Comfortable / Compact, a setting rather than a decision |
 | Journal | **Drawer or modal**, also a setting. Same dialog either way. **A modal by default since #27**, and **below 768px the drawer's full screen whichever is chosen**. See **Settings and the palette** |
-| Theme | **A palette in the header, opening today's list** of names and hints in a dropdown of its own, out of Settings since #27: the user's own answer, *to prepare for* #28 |
+| Theme | **A palette in the header, opening today's list** of names and hints in a dropdown of its own, out of Settings since #27: the user's own answer, *to prepare for* #28. **#28 kept the list**, with your own as a tenth choice in it |
+| A theme of your own | **Three colours made from one of the eight, in a panel beside the board with no scrim**, the board repainting as you pick, a sheet over half a phone's screen, and a tinted warning under a colour that cannot be read. Picked on 21 November 2026 in two rounds, every pick the recommendation. See **A theme of your own** |
 | Settings | **A dialog behind a gear, 768 wide from 768px**: *Every board* beside this board's settings, *Your data* across the foot, each choice one line. Picked on 21 November 2026 in two rounds of renders. See **Settings and the palette** |
 | Width | The board stops widening at 2000px and puts the pixels into the cards. **16px of gutter on a phone**, 24 from 768px |
 | Columns | **One at a time on a phone, two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
@@ -112,6 +113,28 @@ wrapper.
 - **An unrecognised stored value falls back** instead of being trusted. Storage outlives the code that
   wrote it, so a theme dropped later would leave the root stamped with a value nothing answers —
   unstyled text on an unstyled ground, the least diagnosable failure available.
+- **A theme of your own is the one theme that is not CSS alone** (#28). Its base, one of the eight,
+  is stamped as the attribute, so the base's block answers for anything not kept, and its twenty
+  values are set inline on the root over that block, where an inline declaration outranks any
+  selector, with its `color-scheme`. The bundle works the values out when the theme is kept
+  (`theme/derive.ts`) and keeps them under a second key, `hobbytracker.theme.mine`, as the base's
+  slug, light or dark, and the twenty, so the pre-paint script only copies: it cannot work
+  anything out before the bundle. The choice is `mine` under the first key. **`THEMES` stays the
+  eight and System**: the contrast test's palettes and the pre-paint test's grounds are derived
+  from it, and a theme of your own has no block for either to find. No source file names its
+  colours: they are a person's, worked out at run time and kept in their browser.
+- **The twenty tokens are a list now, `TOKENS` in `theme.ts`**, in index.css's order, because a theme
+  of your own has to say all of them. `palettes.test.ts` holds every block to it, name for name and
+  in order, so **a new token has a list to join**, and the test says so.
+- **The eight's values reach the bundle as index.css's own text** (`theme/palettes.ts`, through
+  `index.css?raw`), for the derivation, which needs each base's twenty. Not a copy beside it, which
+  would be a fifth list for a new theme to join; and not read back from the page's computed
+  styles, because a production build is free to minify `rgb(0 0 0 / 0.6)` to `#0009`, and the e2e
+  suite runs on the development server, where nothing would show it. The text is about 12 KB
+  gzipped, and only the panel that makes a theme needs it, so **the panel is loaded when it is
+  first asked for**, as the spreadsheet's writer is: the production build puts the panel, the
+  colour arithmetic and the text in a chunk of their own, 18 KB gzipped, and the main bundle
+  carries none of it.
 
 ### The things that fail quietly, and what holds them
 
@@ -134,10 +157,19 @@ Each is invisible in development and each has a test that was checked by breakin
   selector it means; measured on 21 November 2026.
 - **`system` and Shelf Dark say the same thing twice**, because CSS cannot alias a media query to a
   selector. `index.css.test.ts` compares the two blocks declaration by declaration.
-- **Contrast.** `index.css.test.ts` checks `fg`, `muted`, `accent`, `rating` and `danger` against every
-  ground they sit on across all nine palette blocks, plus the chip's label against its own fill —
-  ninety-nine assertions, and a theme adds eleven of them by existing — **automatically**, since
-  `PALETTES` is derived from `THEMES` rather than kept by hand. It was not always. It exists
+- **Contrast.** `index.css.test.ts` holds all nine palette blocks to seventeen pairs: the text, the
+  quiet text, the accent, danger and the three ratings on the card; the quiet text on the well and
+  the ground; the accent on the well, the ground and the hover fill; the delete chip's label on its
+  fill; the text and the quiet text on the delete warning's tint; the text on a found word's mark;
+  and the mark off the card, which is seen rather than read and held to 1.4:1 where the rest are
+  held to 4.5. **153 assertions, and a theme adds seventeen by existing** — **automatically**,
+  since `PALETTES` is derived from `THEMES` rather than kept by hand. This said ninety-nine and
+  eleven until #28's workshop counted. **The pairs are one list since #28, `PAIRS` in
+  `theme/pairs.ts`**, each with its words, its bar and the colour it answers to, because the panel
+  that makes a theme of your own warns from the same list; the test iterates it rather than keeping
+  a copy that could fall behind the warning. `pairs.test.ts` pins the count at seventeen, since a
+  pair taken out of the list to quiet a warning would take it out of the test too and leave both
+  green. It was not always derived. It exists
   because the same mistake happened twice: `text-neutral-500` sat at
   **3.8:1** on the dark theme for the life of the board, and then `--danger-fg` was set near-white on
   every theme, which is right where the fill is a deep red and **2.07:1** where the fill is a light
@@ -192,6 +224,29 @@ Each is invisible in development and each has a test that was checked by breakin
   so. It is derived from `THEMES` now, the way `BOARD_STATUSES` is derived from `COLUMNS`. Proved by
   reintroducing the fault: with an unreadable `--muted`, the derived list gives three failures where
   the hand-written one left eighty-five tests passing.
+- **A theme of your own's values sit inline on the root, and outrank every theme's block.** So
+  choosing any theme, System included, takes every custom property and `color-scheme` off the
+  root's inline style first (`takeOffMine` in `theme.ts`, run by `applyTheme` and `applyMine`
+  alike), or one left behind would paint over the theme chosen next, with no error. Nothing else in
+  the app writes the root's inline style; **anything that ever sets a `--*` there will lose it the
+  next time a theme is chosen**. `theme.test.ts` wears a theme of your own and chooses Ember and
+  System after it, and `theme.spec.ts` does the same in a browser and finds Ember's card.
+- **The pre-paint script reads a second key, and reads it as the bundle does.** It stamps a theme of
+  your own from `hobbytracker.theme.mine` as the bundle's `readMine` keeps it, by the same two rules:
+  a record that is not JSON, or made from a theme that is gone, falls back to System; and a value
+  that is not `#rrggbb`, `transparent` or the scrim's and the shadow's own shape is skipped, so the
+  base's block answers for it, since an inline value that is not a colour paints nothing where it
+  is used. The script cannot import the rules, so `theme.test.ts` runs it for real in jsdom beside
+  `readMine` on one record with every kind of value either must refuse, and holds what the script
+  stamps to what the reader keeps; and `theme.spec.ts` blocks the bundle and finds the values and
+  the bar already on the page. **The prototype's script let any lowercase word through**,
+  `notacolour` included; the build's takes only the shapes `derive.ts` writes.
+- **Vitest hands a test an empty string for every stylesheet it imports, `?raw` included.** Its
+  `vitest:css-disable` plugin matches `.css` followed by any query, and the import is simply `''`,
+  so a test that looks for something in the text finds nothing and can pass for it. `palettes.ts`
+  refuses a block it cannot find, loudly, which is how it surfaced; `test.css.include` in
+  `vite.config.ts` names `index.css?raw` alone, so the panel's tests read the real stylesheet and
+  nothing else changes. A production build and the dev server never had the problem.
 
 ### A theme's colour lives in its ground, not its ink
 
@@ -765,7 +820,8 @@ deletes, and how, is `docs/auth.md`'s.
   `bg-danger/10` is **4.24:1 on Dusk**, under the 4.5 this app holds text to, where the panel's
   own ground gives it 5.05. So *Couldn’t delete your account. Try again.* is the spreadsheet's
   failure line, `px-2 pt-0.5 pb-1 text-xs text-danger`, under the box. The text that stays on the
-  tint is `fg` and `muted`, and muted is thin there, 4.57:1 on Dusk. `index.css.test.ts` holds
+  tint is `fg` and `muted`, and muted is thin there, 4.58:1 on Dusk (4.57 here until #28 measured
+  it again with the same arithmetic). `index.css.test.ts` holds
   both on the tint for every theme, mixing the colours in encoded sRGB as a browser composites
   them; a Dusk muted of `#b4bfcc`, which still clears the panel at 5.22, turns that case red.
 - **A number never wraps away from its word.** The first render broke *board: 36* from *games* at
@@ -1127,6 +1183,103 @@ https://claude.ai/artifact/RS87HBgvzQFcojLHxc3pWu. Every pick is in #27's sectio
   both themes, 358 × 1,017. Compared in halves around the row instead, 51 pixels differed by at most
   20 levels, which was where the text fell on the screen rather than the build.
 
+### A theme of your own
+
+**Three colours, made from one of the eight, in a panel beside the board that repaints behind it.**
+Picked at #28's workshop on 21 November 2026 in two rounds: round one in words, with every token
+shown under each option, and round two in renders of the shipped board with the palette's list and
+a panel swapped in, on the user's games board as read on 3 November, with four themes of your own
+made as a person would make them: Rose from Shelf Light and Forest from Shelf Dark, which read;
+Harbour from Dusk, whose accent cannot; and Fog from Frost, a dim card on which six pairs and ten
+stripes fail. The page: https://claude.ai/artifact/RFr2d1fQbbP22ZvYZq457t. All thirteen picks were
+the recommendation, and all are in #28's section of `docs/plans/games-board-next.md`.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| How much a person sets | **The ground, the card and the accent**, the other seventeen worked out as the theme it is made from works them out | the same and the text; every token, as an advanced view |
+| A pair that cannot be read | **A warning under the colour it answers to, and the theme can still be kept**: it is your own screen | the keep refused until it reads; the colour nudged until it reads |
+| Where it is made | **A panel beside the board with no scrim**, the journal drawer's box, so the board repaints as you pick; **a sheet over half a phone's screen**, 422px of 844 | a dialog with a sample in it; a group in Settings; a page; three quarters of a phone, with no card in view |
+| A colour's control | **The browser's swatch and a box beside it** that takes a typed or pasted colour, whatever a browser's picker does | the swatch alone; the eight's own colours for that part first |
+| Its name in the list | ***Your own · From Shelf Dark***, one 28px line with every base | *Your own · Made from …*, which wraps at 224px; *Mine*; *Custom* |
+| Besides the colours | **A strip, *Not on the board***: a delete button, the three ratings, a found word, danger's text and the delete warning | nothing |
+
+**How the other seventeen are worked out** (`theme/derive.ts`, ported from the workshop's
+`derive.mjs` operation for operation, so it makes the four rendered themes value for value):
+
+- **A colour between two others stays as far between them**, with the same small lean off the
+  line: the well between the card and the ground; hover, both lines and Dropped's grey between the
+  card or the ground and the text; the drop tint between the well and the accent.
+- **A colour there to be read keeps its hue and chroma and has its lightness solved** until it reads
+  on the new card as it read on the old: the text, when unchanged, in the ground's hue; the quiet
+  text, on the line from the text to the card; danger, ok and the three ratings; and the delete
+  chip's label on its fill. Where no lightness reaches the old contrast it goes as far as it can,
+  which is why Fog's text is black.
+- **The card decides light or dark, at a luminance of 0.179**, where black and white text read
+  alike. The scrim and the card's shadow follow it, so a dark card made from a paper theme wears
+  Shelf Dark's, and the card's outline is the base's choice: Dusk, Blood Red and Console keep one.
+- **Measured by making each of the eight from each of the other seven with its own three colours**,
+  56 themes, every token against the real one in OKLab: within a register the well and hover land
+  a median 0.5–1.3 off, both lines, the quiet text and the drop tint 1.5–2.5, and the text 4.1,
+  Almanac's brown ink carried to the papers that have none; across registers the worst reach 20–25.
+  `derive.test.ts` holds the derivation to each token's median and worst, and holds the 56 to no
+  more than two of their 952 pairs under a bar, as they leave quiet text on the ground at 4.43 in
+  Almanac made from Dusk and the accent under the pointer at 4.40 in Ember made from Shelf Light.
+
+**The markup is the prototype's, class for class** (`theme/ThemePanel.tsx`, `theme/ThemeMenu.tsx`):
+
+- **The list** keeps #27's radios and adds *Your own* as a tenth with *From* and its base's name as
+  the hint; under a `mt-1 border-t border-line-soft pt-1` rule, *Make your own…* or *Edit…* is
+  `w-full rounded px-2 py-1 pl-6 text-left text-sm text-accent hover:bg-hover`, the `pl-6` putting
+  it under the names.
+- **The panel** is `fixed inset-x-0 bottom-0 z-20 flex max-h-[50vh] flex-col gap-4 overflow-y-auto
+  rounded-t-xl border-t border-line bg-surface p-4` on a phone and the drawer's box from `md`,
+  `md:inset-y-0 md:right-0 md:max-w-md`, `2xl:max-w-lg`, over a transparent `fixed inset-0 z-10`
+  layer that takes a press on the page and does nothing with it: with no scrim, nothing would say
+  whether a press there kept or cancelled. The column switcher on a phone, at z-15, stays above it.
+- **A colour's row** is a `grid grid-cols-[4.5rem_minmax(0,1fr)]`: its name, the swatch (`h-8 w-12
+  … p-0.5`) and the box (`w-24 rounded border border-line bg-sunken px-2 py-1 font-mono text-sm`),
+  with what it paints under them in `text-xs text-muted`, and *, as Frost’s* after it while the
+  colour is the theme's own. The box is taken only once it holds a whole `#rrggbb`. A dark card's
+  swatch nearly vanishes on the card it is drawn on, which is the box's other reason.
+- **A warning** is `mt-1.5 flex gap-1.5 rounded bg-danger/10 px-2 py-1.5 text-xs text-fg` with a ⚠
+  hidden from a voice, under the colour its pairs answer to: the accent's pairs to the accent, the
+  two on the ground to the ground, the rest and the stripes to the card. *Hard to read: the accent
+  on a card (2.45:1) … Text needs 4.5:1.* and *Hard to see: … A mark needs 1.4:1.*, ratios to two
+  places; it describes both of its colour's controls to a screen reader. Its own text is one of the
+  pairs it checks, *text on the delete warning*. HowLongToBeat's chip is not checked, being one
+  colour on every theme.
+- **Keep and Cancel are pinned to the sheet's foot**, `sticky -bottom-4 -mx-4 -mb-4 mt-auto`: a
+  sticky child of a padded scroll box sits as far above the foot as the padding, so it reaches
+  down by as much, and its margins with it, `md:-bottom-5` with the drawer's `p-5`. The corner's
+  × is named Cancel, as the prototype names it, because it does what Cancel does.
+- **A stripe is named as a card prints its genre**, from the first built board that paints it:
+  *the Horror genre stripe*, *10 genre stripes, Puzzle the faintest*. The prototype named a stripe
+  by its token, which reads the same for the two its renders showed and as *Rpg* for that one.
+
+**Measured against the picked prototype, pixel for pixel**, by the gitignored
+`workshop.local/theme-of-your-own/compare-built.mjs`: the prototype's server, which swaps the
+build's `ThemeMenu` for its own, beside the app's own Vite with no swap, the same staged answers
+to both. **The list differs by no pixel in all eight states**: with no theme of your own and with
+Forest or Rose kept and chosen, in Shelf Light and Shelf Dark, at 1440 and 390. **The panel
+differs by no pixel in all fourteen**: Rose, Forest, Harbour and Fog at 1440 and the first three on
+a phone, each reached the first time (the board loaded in the theme it is made from, the three
+colours typed into the build's boxes) and by *Edit…* on a kept theme, **once each page's
+`<select>`s were laid out afresh before the shot**. Without that, the only differing pixels were
+inside selects, a pixel apart: **Chromium keeps a select's text where it was laid out**, so one laid
+out under one theme and switched to another sits a pixel off one laid out wearing it. Measured on
+both servers, the board's sort selects sat at y 295 on a page switched to Rose and 294 on one that
+loaded wearing it, the same on each server given the same history, with no computed style
+different. Worth knowing before the next comparison of a page whose theme changes under it.
+
+- **The keyboard and the live repaint held in Playwright's Firefox**, `theme.spec.ts` whole, 13
+  green and the phone's case skipped, the swatch driven as well as the box. **The open picker was
+  not measured**: headless browsers open none, in either engine, so whether Firefox on Windows
+  repaints as you drag in its picker or only on OK is still for a person's own browser to say, and
+  the box works either way. The workshop's `/workshop-probe` page is there for it.
+- **Playwright gives `<input type="color">` the textbox role**, where jsdom gives it none, so a spec
+  that asks for the textbox *Card* finds the swatch and the box both; `theme.spec.ts` finds each by
+  its label and its type.
+
 ### The page's ground
 
 **The root carries the theme's ground, not only `main`.** `main` paints `bg-sunken` and is at
@@ -1224,6 +1377,9 @@ ground, `--sunken`:
   matches. The pre-paint script writes it on a load, from its own copy of each ground, which
   `theme.test.ts` holds to `index.css`. `applyTheme` rewrites it when the theme changes, reading
   `--sunken` back from the stylesheet, which by then is there to ask.
+- **A theme of your own's bar is its own ground**, kept with it, before the bundle and after; or its
+  base's, where the kept ground is not a colour. In the panel that makes one, the bar follows the
+  ground as it is picked.
 - **The manifest's `theme_color` and `background_color` are Shelf Light's ground**: the bar
   before the page has loaded, and the splash. A manifest cannot follow a stored setting.
 

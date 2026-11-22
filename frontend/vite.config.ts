@@ -35,5 +35,10 @@ export default defineConfig({
     // Playwright's specs match Vitest's default pattern and would otherwise be collected here,
     // where there is no browser to run them in.
     exclude: ['**/node_modules/**', '**/dist/**', 'e2e/**'],
+
+    // Vitest hands a test an empty string for every stylesheet it imports, `?raw` included,
+    // unless told otherwise. The panel that makes a theme of your own reads index.css as text
+    // for the eight themes' values (src/theme/palettes.ts), so that one import keeps its text.
+    css: { include: [/\/src\/index\.css\?raw$/] },
   },
 });

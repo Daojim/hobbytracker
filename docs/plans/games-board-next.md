@@ -57,7 +57,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Shipped and deployed 20 November 2026** (PR #101), built tests first the day it was picked up and workshopped. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Shipped and deployed 21 November 2026** (PR #103), built tests first the same night: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
 | 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Shipped and deployed 21 November 2026** (PR #105), built tests first the same day, a commit per step and one per addition: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
-| 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. See its section |
+| 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Built 21 and 22 November 2026**, tests first, a commit per step, on `theme-of-your-own`: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. **Not yet merged.** See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
@@ -5659,17 +5659,20 @@ a drawer may need one press in Settings for the modal.
 
 ---
 
-## 28. A theme of your own · planned
+## 28. A theme of your own · built
 
 **Planned 14 November 2026**, at the user's request: *"maybe have the users to be able to create
 their own theme."* A workshop first, and **after #27**, since #27 decides where themes live.
 
-**What a theme is today.** One block of custom properties in `src/index.css`, about twenty tokens
-each (ground, surface, well, sunken, line, fg, muted, accent, the drop tint, the dropped column,
-and more), turned into utilities by `@theme inline`. **A new theme has three lists to join**
-(`docs/design.md`): `THEMES` in `theme/theme.ts`, the pre-paint script's colours in `index.html`,
-and the contrast test, which asserts every theme's pairs. The genre stripes and the rating colours
-are their own tokens and the same in every theme.
+**What a theme is today.** One block of custom properties in `src/index.css`, **20 tokens and
+`color-scheme`** in each of the eight (surface, sunken, hover, line, line-soft, fg, muted, accent,
+danger, ok, drop, dropped, scrim, well, rating-low, rating-mid, rating-high, danger-fg,
+card-shadow, card-line), turned into utilities by `@theme inline`. **A new theme has three lists to
+join** (`docs/design.md`): `THEMES` in `theme/theme.ts`, the pre-paint script's colours in
+`index.html`, and the contrast test, which asserts every theme's pairs. The genre stripes,
+HowLongToBeat's chip and the sign-in marks are the same in every theme. **The rating colours are
+not**, which this paragraph said they were until the workshop measured them: `rating-low`,
+`rating-mid` and `rating-high` differ in all eight, so a theme of your own needs them worked out.
 
 ### Decide at pickup
 
@@ -5694,6 +5697,334 @@ are their own tokens and the same in every theme.
   value: Tailwind scans source text, and an interpolated class paints nothing.
 - **Storage may refuse** (`lib/storage.ts`), and the app falls back to the theme it started from.
 - **The colour inputs** differ between Firefox and Chromium; check both, per *Jimmy uses Firefox*.
+- **Leaving your own theme takes every inline value off the root**, System included. The values sit
+  over the base's block, where they outrank any selector, so one left behind paints over the theme
+  chosen next, with no error.
+- **`THEMES` stays the eight and System.** The contrast test's palettes and the pre-paint test's
+  grounds are derived from it, and a theme of your own has no block for either to find.
+
+### Measured before round one, 21 November 2026
+
+Scripts and outputs in the gitignored `frontend/workshop.local/theme-of-your-own/`; `measure.mjs`
+writes `measures-round1.json`.
+
+- **20 tokens and `color-scheme` a block**, in all eight.
+- **How many follow from a ground, a card and an accent.** `derive.mjs` works out each token a
+  person does not set from the theme it is made from. A colour between two others stays as far
+  between them: the well from the card to the ground; hover, both lines and Dropped's grey from the
+  card to the text; the drop tint from the well to the accent. A colour that is read keeps its hue
+  and chroma and has its lightness solved until it reads on the new card as it read on the old: the
+  text, unset, in the ground's hue; muted, danger, ok, the three ratings; the delete chip's label on
+  its fill. The scrim and the shadow follow light or dark, and the outline is the base's. **Each of
+  the eight was made from each of the other seven with its own three colours**, 56 themes, and every
+  token measured against the real one in OKLab ΔE×100, where about 2 is the least two patches side
+  by side show. Within a register, the well and hover land a median 0.5–1.3 off (worst 3.1); both
+  lines, muted and the drop tint 1.5–2.5 (worst 6.8); danger, ok, the ratings, the chip's label and
+  Dropped's grey 1.2–4.2 (worst 16.5); and **the text 4.1, worst 12.2**, the most a matter of taste,
+  Almanac's brown ink. Every worst case is Dusk and Blood Red made from each other, or Almanac's
+  own taste carried to another paper theme: its brown ink, and its green drop tint at 3.7. Across
+  registers, a light theme made dark or the reverse, the worst reach 20–25: the text, ok, the two
+  upper ratings, the chip's label and Dropped's grey. Nothing changed gives each theme back exactly,
+  and 2 of the 952 checks the 56 make fall under a bar: muted on the ground at 4.43 when Almanac is
+  made from Dusk, and the accent under the pointer at 4.40 when Ember is made from Shelf Light.
+- **What a warning has to check.** `index.css.test.ts`'s 17 pairs a palette, 153 cases over nine
+  palettes, where `docs/design.md` still says ninety-nine and eleven: the text, the quiet text, the
+  accent, danger and the three ratings on the card; the quiet text on the well and the ground; the
+  accent on the well, the ground and the hover fill; the delete chip's label on its fill; the text
+  and the quiet text on the delete warning's tint; the text on a found word's mark; and the mark off
+  the card. Every bar is 4.5:1 but the mark's 1.4. The tightest today are Dusk's: the accent under
+  the pointer 4.58, a low rating 4.59, the quiet text on the warning 4.58. Beside them,
+  `palette.test.ts`'s floor: every genre stripe 1.48:1 off every card. **Not HowLongToBeat's chip**,
+  which the test holds only at the lightest and darkest cards, because no mid-tone can give it 3:1.
+- **Stamped before the bundle.** `prepaint-proto.js`, built for production by `vite.prepaint.mjs`
+  and loaded with the bundle blocked by `prepaint-probe.mjs`, in Chromium and Firefox. The script
+  grows from 35 lines to 66 and reads a second key, `hobbytracker.theme.mine`, 533 bytes: the base's
+  slug, light or dark, and the 20 values, worked out by the bundle when the theme is kept, so the
+  script only copies. It stamps the base's `data-theme`, so its block answers anything not kept;
+  sets each value inline on the root, where it outranks the block; sets `color-scheme`; and writes
+  the bar above the page from the kept ground. **Both engines painted the page and the bar in the
+  kept ground with no bundle.** A record that is not JSON, a base that no longer exists and storage
+  refusing each fell back to System with no error, and a value that is not a colour was skipped for
+  the base's own. Per account would not have spared the copy: the script cannot ask the server
+  before the first paint.
+
+### The workshop, 21 November 2026
+
+Round one in words with ASCII previews, every token shown under each option. Round two in renders of
+the shipped app on Vite alone: AppHeader's `ThemeMenu` swapped for `ThemeMenuProto.tsx` by
+`resolveId`, index.html's script for `prepaint-proto.js` by `transformIndexHtml`, and every `/api/`
+request answered from #27's stage, #19's read of the games board from production on 3 November, 91
+titles. Shot at 1440 × 900 and 390 × 844 in Chromium, and the controls and two whole pages in
+Playwright's Firefox, with four themes of your own: Rose from Shelf Light and Forest from Shelf
+Dark, which read; Harbour from Dusk, whose accent cannot; and Fog from Frost, where six pairs and
+ten genre stripes fail. Harness, shots and measures in `frontend/workshop.local/theme-of-your-own/`.
+The page, with the picks at its top: https://claude.ai/artifact/RFr2d1fQbbP22ZvYZq457t. **All
+thirteen picks were the recommendation.**
+
+| Choice | Picked | Against |
+|---|---|---|
+| How much a person sets | **The ground, the card and the accent, made from one of the eight**; the other 17 worked out as that theme works them out | the same and the text; every token, as an advanced view |
+| A pair that cannot be read | **A warning beside the colour, naming what fails, and the theme can still be kept**: it is your own screen | the keep refused until it reads; the colour nudged until it reads |
+| How many | **One**, beside the eight, started again from any of them | several, by name |
+| Kept where | **Per browser**, as every appearance setting is | per browser with a line to copy; per account, a table and a route, and a flash on a device that has not seen it yet |
+| Shared by link | **No**: a visitor reads a share in their own theme | the owner's colours on the share's row |
+| Where the list lives | **The palette's dropdown, your own as a tenth choice** and *Edit…* under it, which settles #27's *temporary* | the same with a swatch before each name; a dialog of swatches, #27's recommendation |
+| Where it is made | **A panel beside the board with no scrim**, the journal drawer's box, the board repainting as you pick; a sheet on a phone | a dialog with a sample in it; a group in Settings; a page of its own |
+| A colour's control | **The browser's swatch and a hex box** beside it, which takes a typed or pasted colour the same whatever a browser's picker does | the swatch alone; the eight's own colours for that part, then the swatch, which takes a phone's rows from 174px to 270 |
+| Where a warning is said | **Under the colour it answers to**, a tinted line: *Hard to read: … Text needs 4.5:1.* | one list above the buttons; a mark on the colour and the list |
+| Besides the colours | **A strip, *Not on the board***: a delete button, the three ratings, a found word, danger's text and the delete warning; 96px, 124 on a phone | nothing |
+| The phone's sheet | **Half the screen**, 422px on a 390 × 844 phone: the switcher and a card's top stay in view, and the sheet scrolls under Cancel and Keep | three quarters, up to 633px, with no card in view |
+| Its name in the list | ***Your own · From Shelf Dark***, one 28px line with every base; *Make your own…* under a rule before there is one, *Edit…* after | *Your own · Made from …*, which wraps the name, 48px; *Mine*; *Custom* |
+| Changing *Made from* | **Keeps your three colours** and works the other 17 out the new theme's way; *Start again from Dusk's colours* puts the theme's own back | starting again from that theme's colours, which a closed select arrowed through in Chrome on Windows would do at every key |
+
+**Decided without asking, listed on the page for the user to object to.** The first time, *Made
+from* is the theme you wear, or for System the one it is showing, with its three colours in the
+boxes, so nothing changes until you pick. Cancel, × and Escape put back what you wore; Keep makes
+your own the theme and hands the keyboard back to the palette. A press on the board does nothing
+while the panel is open, since with no scrim nothing says whether it would keep or cancel. The bar
+above the page follows your ground as you pick. Choosing another theme keeps yours to choose again.
+A text pair's line says *Hard to read*, and the mark's and the stripes' *Hard to see*, each with its
+own floor, ratios to two places. HowLongToBeat's chip is not checked.
+
+### Found while rendering
+
+- **The first sheet hid Keep.** At half a phone's screen the panel's content scrolled Cancel and
+  Keep below the fold, and pinned with `bottom-0` they sat 16px above the foot with the content
+  showing under them: a sticky child of a padded scroll box needs a negative `bottom` as deep as the
+  padding, `-bottom-4` and `md:-bottom-5`, with negative margins to match.
+- **`Your own` beside `Made from Shelf Dark` wraps at 224px**, the name onto two lines (48px), and
+  `Custom` wraps its hint (43). *From Shelf Dark* fits every base on one 28px line, Shelf Light the
+  longest.
+- **A dark card's swatch nearly vanishes on the panel**, because it is the card's colour drawn on
+  the card. The hex box beside it names it.
+- **Round one's preview was wrong about its own example**: it said the accent `#4a6b9e` read 2.9:1
+  on `#2b3b31` and 3.4:1 on `#1d2a23`; measured, 2.19 and 2.76. An illustrative number is measured
+  too.
+- **A live repaint costs about 4 ms.** The 21 values set on the root and a style and layout pass
+  forced, 30 times over on the 719-element board: a median of 3.5 ms in Chromium and 4 in Firefox,
+  the worst 8.3. A frame is 16.7.
+- **Headless browsers open no colour picker**, in either engine: a click focuses the input and
+  nothing opens, and a scripted fill fires `input` and `change`. The open picker can be measured
+  only in a person's own browser, so the harness's server has `/workshop-probe`, which counts the
+  `input` events a picker sends while open and posts them back. **It was offered and not run**, so
+  whether Firefox on Windows repaints the board as you drag, or only on OK, is unmeasured. The hex
+  box works either way. Closed, the swatch is 48 × 32 in both engines and draws nearly the same.
+
+### The build, in order
+
+Tests first in each, shown red, with each fault put back afterwards. One branch,
+`theme-of-your-own`, a commit per step.
+
+1. **The pairs as one list.** `index.css.test.ts`'s 17 pairs move into `src/theme/` as a list with
+   each pair's words, its bar and the colour it answers to (the accent's pairs to the accent, the
+   two on the ground to the ground, the rest to the card), and the test iterates it, so the test
+   and the warning read one list. The stripe floor beside it, which `palette.test.ts` reads.
+2. **The arithmetic and the derivation**, `src/theme/colour.ts` and `derive.ts` from
+   `colour.mjs` and `derive.mjs`: hex to OKLab and back, WCAG contrast, the lightness solve, and
+   `derive(base, picks)`. Nothing changed gives each of the eight back exactly; the card decides
+   light or dark at a luminance of 0.179, where black and white text read alike; every value is
+   `#rrggbb`, `transparent` or the scrim's and the shadow's own shape; and the 56 made themes are
+   the measure of what is worked out.
+3. **Kept, and stamped before the bundle.** `MINE_KEY` beside `THEME_KEY`, a reader that validates,
+   and `applyTheme` stamping the base, the values inline, `color-scheme` and the bar, and taking
+   every inline value off when another theme is chosen. The pre-paint script's addition as
+   `prepaint-proto.js` has it, held by `theme.test.ts` running it for real in jsdom (a kept theme, a
+   record that is not JSON, a base that is gone, a value that is not a colour, storage refusing) and
+   by `theme.spec.ts` with the bundle blocked, the bar included.
+4. **The palette's list**: *Your own · From …* as a tenth radio once there is one, and *Make your
+   own…* or *Edit…* under a rule, in the accent. `ThemeMenu.test.tsx`.
+5. **The panel**: the prototype's markup class for class, `useModalPanel`, the inert transparent
+   backdrop, *Made from* keeping the three, *Start again*, the swatch and a hex box that commits only
+   `#rrggbb`, a warning under the colour each pair answers to, the strip, Cancel, × and Escape
+   putting back what was worn (a kept theme of your own included), and Keep. Vitest for its rules;
+   e2e for the live repaint (a card's background following a hex typed), the phone's sheet (half the
+   screen, Keep in view) and the keyboard.
+6. **Firefox**: the keyboard and the live repaint with `--browser=firefox`, and the probe in the
+   user's own Firefox for the open picker.
+7. **Docs**: `docs/design.md` (a theme of your own under **How a theme works**, the inline values and
+   the second key under **The things that fail quietly**, the contrast count corrected to 153 and
+   17), CLAUDE.md's Settled and What exists rows, `docs/history.md`, and this section.
+
+### Where it stood, for the session that built it
+
+The branch `theme-of-your-own` was made from `ea3db14` and held
+nothing but this section's workshop record and its status row, **uncommitted when the workshop
+ended**; they went in as docs first. The picked look is the prototype in
+`frontend/workshop.local/theme-of-your-own/`, whose defaults are the picks: `ThemeMenuProto.tsx`
+(the list), `ThemePanelProto.tsx` (the panel and the sheet), `mine.ts` (keeping and stamping),
+`derive.mjs`, `colour.mjs` and `checks.mjs` (the arithmetic and the pairs), and
+`prepaint-proto.js` (the script). It is the reference for values, and its harness
+(`vite.config.mjs` on :5194, `harness.mjs`, `shoot.mjs`) can shoot the build beside it for a pixel
+comparison, as #24 to #27 were checked: a second Vite with no swap, the same stage. Two traps beside
+#27's: the transform that adds the prototypes as Tailwind sources must skip `index.css?raw`, which
+the prototype imports to read the palettes; and the comparison's server swaps nothing, because the
+build's own `ThemeMenu` draws the list. **The probe** runs from `frontend/` with
+`npx vite --config workshop.local/theme-of-your-own/vite.config.mjs --port 5194`, then
+http://localhost:5194/workshop-probe in Firefox; it writes `probe-<engine>-<time>.json` beside
+itself.
+
+### Built, 21 and 22 November 2026
+
+The session after the workshop's, tests first in every step, each shown red before it went green,
+a commit per step, on `theme-of-your-own` from `ea3db14`:
+
+| Step | Commit | What it holds |
+|---|---|---|
+| The workshop record | `6b9f661` | This section's tables and the status row, committed as docs first |
+| 1. The pairs as one list | `dd56cf3` | `PAIRS` in `theme/pairs.ts`: seventeen, each with its words, its bar, whether it is read or seen, and the colour it answers to. `index.css.test.ts` iterates it, 153 cases as before, and the mark is still read out of `MATCH_MARK`. `STRIPE_FLOOR` beside it, which `palette.test.ts` reads. `pairs.test.ts` pins the count |
+| 2. The arithmetic and the derivation | `a7c2e26` | `theme/colour.ts` and `theme/derive.ts`, ported operation for operation; `theme/palettes.ts`, the eight and the stripes read out of `index.css?raw`; `measure` and `faintStripes` in `pairs.ts`; `TOKENS`, `Palette` and `Picks` in `theme.ts`. `vite.config.ts` lets that one stylesheet through to Vitest, and `tsconfig.json` takes `vite/client`'s types |
+| 3. Kept, and stamped before the bundle | `2e3ecd2` | `MINE_KEY`, `readMine`, `storeMine` and `applyMine` in `theme.ts`, and `applyTheme` taking every inline value off first; the pre-paint script's addition, its value rule tightened. `theme.test.ts` runs the script beside the reader; `theme.spec.ts` blocks the bundle |
+| 4. The palette's list | `732546a` | *Your own · From …* as a tenth radio once there is one; *Make your own…* or *Edit…* under a rule, in the accent |
+| 5. The panel | `150ebd1` | `theme/ThemePanel.tsx`, loaded when first asked for; `keepMine` and `putBack` in `useTheme`; `windowOfWidth` answers the device's colour scheme |
+| 6. Firefox | `ee08563` | `theme.spec.ts` whole in Firefox; the live repaint drives the swatch as well as the box |
+| 7. Docs | this commit | `docs/design.md`, `docs/history.md`, CLAUDE.md and this section |
+
+**Decided at the build, for the user to object to**, none of it drawn at the workshop:
+
+- **The eight's values come from `index.css?raw`**, as the prototype read them, in a module only the
+  panel needs, so **the panel is loaded when it is first asked for**: the production build puts it,
+  the arithmetic and the stylesheet's text in a chunk of their own, 18 KB gzipped, and the main
+  bundle carries none of it. Read back from the page's computed styles instead, a production
+  build's minified values (`#0009` for `rgb(0 0 0 / 0.6)`) would reach a derivation the e2e suite,
+  on the development server, never sees; copied into a module, the values would be a fifth list for
+  a new theme to join.
+- **The kept record is the base, light or dark, and the twenty values**, as the measures above say;
+  the prototype kept the three picks as well, which are the twenty's own `--sunken`, `--surface`
+  and `--accent`, so they are not kept twice.
+- **The pre-paint script's value rule is tightened** to `#rrggbb`, `transparent`, or digits, spaces,
+  `.,/()` and the letters of `rgb` and `px`, which is every shape `derive.ts` writes; the
+  prototype's `[0-9a-z .,()/]+` let any lowercase word through, `notacolour` included. `readMine`
+  keeps the same rule, and `theme.test.ts` holds the two together on one record.
+- **Edit… opens on the theme you kept, whatever you are wearing.** The prototype, with a theme of
+  your own kept and Ember chosen, would have opened on Ember's colours; *Edit…* says otherwise.
+  Cancel puts Ember back.
+- **The choice is stored only if the theme was.** With storage refusing at Keep, this page wears the
+  theme for the rest of the visit and the next load is on the theme the visit started from, which
+  is what *Things to get right* asked.
+- **The panel going with neither Keep nor Cancel puts back what was worn**: Back from a board takes
+  the header with it, and a theme nobody kept would otherwise stay on the root until a reload.
+- **A stripe is named as a card prints its genre**, from the first built board that paints it:
+  *Role-playing (RPG)*, where the prototype's token-derived name would have said *Rpg*. The two the
+  renders showed, Horror and Puzzle, read the same either way.
+- **A warning describes both of its colour's controls** to a screen reader, the swatch and the box.
+- **The corner's × is named Cancel**, as the prototype names it, where the app's other dialogs name
+  theirs Close: here it does what the footer's Cancel does.
+- **On a phone the column switcher stays pressable above the transparent layer**, z-15 over z-10, as
+  in the prototype: a press there changes which column shows above the sheet, and neither keeps nor
+  cancels, which is the reason a press on the page does nothing.
+
+### Tests
+
+**The full e2e suite went 275 green**, the 269 before and 6 new, in 8.2 minutes. **Vitest went
+1,674 green**, from 1,601. **In Playwright's Firefox**, `theme.spec.ts` whole went 13 green with
+the phone's case skipped, as Firefox has no phone to emulate.
+
+- **The pairs**: `pairs.test.ts`, the seventeen each once, their bars, the colour each answers to,
+  the mark read from the class it wears, the words; and the measure of a theme against them, with
+  Harbour's and Fog's failures at the ratios the renders printed, and the stripes faintest first.
+- **The arithmetic and the derivation**: `colour.test.ts` against WCAG's and Ottosson's figures;
+  `palettes.test.ts`, the eight read as the tests read them, twenty tokens in order, either line
+  ending; `derive.test.ts`, the eight given back exactly, light or dark at 0.179, each register's
+  scrim and shadow, every value's shape, the four rendered themes value for value, the 56 within
+  the workshop's medians and worsts, and no more than two of their 952 pairs under a bar.
+- **Kept and stamped**: `theme.test.ts`'s sixteen new cases, the reader's, the wearing's and the
+  pre-paint script's run in jsdom; `theme.spec.ts`'s two, a kept theme with the bundle blocked and
+  leaving it for Ember.
+- **The list**: `ThemeMenu.test.tsx`'s five new cases.
+- **The panel**: `ThemePanel.test.tsx`, twenty-three cases through the palette's list as a person
+  goes; `theme.spec.ts`'s four, the live repaint with the bar and the swatch, a press on the board,
+  the keyboard in and out, and the phone's sheet at 422 of 844 with Keep in view.
+- **Measured against the picked prototype**, pixel for pixel, by the gitignored
+  `workshop.local/theme-of-your-own/compare-built.mjs`: the list by no pixel in 8 states, and the
+  panel by no pixel in 14, the first time and by *Edit…*, once each page's selects were laid out
+  afresh; see **A theme of your own** in `docs/design.md`.
+
+### Checked by putting each fault back
+
+One at a time, by the gitignored `workshop.local/theme-of-your-own/faults.mjs`, #27's script grown a
+step at a time, with a Firefox runner beside the Chromium one, restoring each file after its run.
+**All 54 turned red exactly the cases named.** Each step's ran as the step went green; then the whole
+table again against the finished build, which **Claude Code stopped for low memory after 35**,
+steps 1 to 4 whole and step 5's first, all 35 red again. The other 19, step 5's other sixteen and
+step 6's three, had run red in their own steps against `src/` as it stands: nothing in it changed
+after step 5's faults ran, and step 6's ran after its own change. The stopped run left step 5's
+second fault planted in `ThemePanel.tsx` with its backup beside it; it was put back from the
+backup, which was the committed file byte for byte.
+
+| Step | Fault | What goes red |
+|---|---|---|
+| 1 | A pair answering to the wrong colour | *answer each pair to the colour a person would change first* |
+| 1 | A pair taken out of the list | the count of seventeen, the eight's measure and Harbour's list |
+| 1 | Dusk's quiet text at `#b4bfcc`, too faint on the delete warning | *quiet text on the delete warning clears 4.5:1*, on Dusk |
+| 1 | The mark painted with the drop tint | *the mark round a word found clears 1.4:1* on all nine, and three of the pairs' cases |
+| 1 | A stripe under the floor, Arcade at `oklch(0.48 0.2 340)` | the games palette's *as visible as the faintest one that ships* |
+| 2 | Nothing changed worked out anyway, rather than given back | *is the theme it was made from, exactly* |
+| 2 | Light or dark decided at half the luminance | *is light or dark by its card* |
+| 2 | A dark card keeping a paper base's scrim | *takes the scrim and the card's shadow from its own register* |
+| 2 | The text solved on the old card rather than the new | the four rendered themes, and the 952 pairs |
+| 2 | A colour between two others losing its lean off the line | the four rendered themes, and the 56's medians and worsts |
+| 2 | A scrim written as `rgba()` | every value's shape, the register's scrim, and the four rendered themes |
+| 2 | A tint measured as if it were solid | the eight read as readable, and Harbour's and Fog's ratios |
+| 2 | Faint stripes in no order | *faintest first* |
+| 2 | A palette block read past its end | `palettes.test.ts` refuses to load: *does not set the twenty tokens in order* |
+| 2 | A token missing from the list of twenty | the same refusal |
+| 2 | Contrast taken from two luminances alone | three of `colour.test.ts`'s |
+| 3 | The pre-paint script stamping no theme of your own | three of `theme.test.ts`'s, and in a browser *on the page before the bundle is* |
+| 3 | The pre-paint script stamping a value that is not a colour | *stamps what the bundle's reader keeps* |
+| 3 | The pre-paint script trusting a base that is gone | *falls back to System for a record it cannot read* |
+| 3 | The bar in the base's ground rather than your own | the script's stamp, and in a browser *the bar included* |
+| 3 | The script reading another key than the bundle keeps | four, *reads the key theme.ts keeps it under* among them |
+| 3 | Leaving your own theme leaving its values behind | *takes every inline value off*, and in a browser *leaving a theme of your own* |
+| 3 | Wearing your own theme again leaving the last one behind | *leaves nothing of the last one behind* |
+| 3 | The reader trusting every value | *skips a value that is not a colour*, and the script held to the reader |
+| 3 | Mine chosen with nothing kept to wear | *only while there is one to wear*, and *refused whole* |
+| 3 | Your own theme worn without its `color-scheme` | *stamps its base, every value inline, its color-scheme*, and *worn again* |
+| 4 | Your own offered with nothing kept | *offers every theme*, and *no tenth until there is one* |
+| 4 | Your own chosen and stored without being worn | *wears it when chosen* |
+| 4 | *Make your own…* even once there is one | *a tenth choice*, and *keeps it there to choose again* |
+| 4 | The way to make one with no rule above it | *offers to make one under the nine* |
+| 4 | Your own named for something else | *named for the theme it is made from* |
+| 5 | The board wearing a colour only once it is kept | twelve of `ThemePanel.test.tsx`'s, and in a browser *wears each colour as it is typed* |
+| 5 | A box taking a colour before it is whole | *once it is a whole #rrggbb* |
+| 5 | Made from starting again from the new theme's colours | *keeps your three colours when Made from changes* |
+| 5 | Cancel leaving on what was picked | Cancel, the ×, Escape, and a theme of your own put back |
+| 5 | The panel without the modal keyboard | three, and in a browser *the keyboard goes in from the list* |
+| 5 | Every warning under the card | *said under the colour it answers to*, and *a pair on the ground under the ground* |
+| 5 | System read as light on a dark device | *starts from the theme System is showing* |
+| 5 | *Edit…* opening on the theme worn rather than the one kept | *opens Edit… on the theme you kept* |
+| 5 | The choice stored though the theme was not | *when storage refuses* |
+| 5 | A press on the page cancelling | *lays an inert, transparent layer* |
+| 5 | A press on the page reaching the board, the layer `pointer-events-none` | in a browser, *a press on the board neither keeps nor cancels* |
+| 5 | The panel gone with nothing put back | *goes with neither Keep nor Cancel* |
+| 5 | The keyboard left where Keep was pressed | *keeps the theme on Keep … the keyboard back on the palette* |
+| 5 | The phone's sheet three quarters of the screen | in a browser, *a sheet over half the screen* |
+| 5 | Keep scrolled under the sheet's fold, not pinned | the same |
+| 6 | The panel without the modal keyboard, in Firefox | *the keyboard goes in from the list* |
+| 6 | The board wearing a colour only once it is kept, in Firefox | *wears each colour as it is typed* |
+| 6 | The swatch heard by nothing, in Firefox | the same |
+
+### What the plan got wrong, or left out
+
+- **Vitest hands a test an empty string for `index.css?raw`**, as for every stylesheet: the plan's
+  step 2 had the derivation's bases come from nowhere in particular, and the first run of
+  `palettes.test.ts` refused a stylesheet with no blocks in it. `test.css.include` names that one
+  import. A CLAUDE.md line now, since it reaches anybody who reads a stylesheet's text in a test.
+- **The prototype's script let any lowercase word through**, though the measures said a value that
+  is not a colour was skipped; the probe's bad value had a semicolon in it, which any rule refuses.
+- **Dusk's quiet text on the delete warning is 4.58:1**, not the 4.57 `docs/design.md` and the
+  contrast test's comment said; measured with the same arithmetic. And design.md's count of the
+  contrast cases, ninety-nine and eleven, is 153 and seventeen, as the measures above found.
+- **A `<select>`'s text sits where it was laid out**, so a page whose theme changes under it draws
+  its selects a pixel off one that loaded wearing the theme. It made the first pixel comparison
+  differ in every panel state, inside selects only, and the same history on both servers gave the
+  same pixels. Not the build's doing; worth knowing at the next comparison.
+- **Playwright gives `<input type="color">` the textbox role**, where jsdom gives it none, so the
+  e2e suite's first run found two textboxes named *Card*. The specs find a box by its label and
+  its type.
+- **The open picker in the user's own Firefox was not measured**, as it was not at the workshop:
+  headless browsers open none. Whether Firefox on Windows repaints the board as you drag in its
+  picker, or only on OK, is for the user's browser and the workshop's `/workshop-probe` to say; the
+  box beside each swatch works either way.
 
 ---
 

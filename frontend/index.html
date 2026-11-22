@@ -39,6 +39,11 @@
       renamed key here fails by silently ignoring the preference rather than by breaking. The same
       goes for each theme's ground, the one colour this file has to know before index.css loads.
 
+      A theme of your own (#28) is stamped here too, or it would be the one theme that repaints
+      after the bundle mounts: its base as the attribute, and the values kept for it set inline
+      on the root, over the base's block. The bundle works them out when the theme is kept, so
+      this only copies.
+
       Wrapped in try/catch: reading localStorage throws outright in a browser set to block site
       data, and an exception at this point is a blank page rather than a wrong colour.
     -->
@@ -51,17 +56,64 @@
             'dusk': '#2a323c', 'blood-red': '#430404',
             'shelf-dark': '#16130f', 'console': '#0a0c10', 'ember': '#121110',
           };
+          var root = document.documentElement;
           var theme = localStorage.getItem('hobbytracker.theme');
+          var mine = null;
+          var ground = null;
+
+          // A theme of your own: one of the eight underneath, so a token not kept is still
+          // answered by its block. A record that is not JSON, or made from a theme that is gone,
+          // falls back to System as an unknown name does. readMine in theme.ts keeps the same
+          // record by the same rules, and theme.test.ts runs the two on one record.
+          if (theme === 'mine') {
+            try {
+              mine = JSON.parse(localStorage.getItem('hobbytracker.theme.mine'));
+            } catch (unreadable) {
+              mine = null;
+            }
+            if (
+              mine &&
+              typeof mine.tokens === 'object' &&
+              mine.tokens !== null &&
+              Object.prototype.hasOwnProperty.call(grounds, mine.from)
+            ) {
+              theme = mine.from;
+              if (/^#[0-9a-f]{6}$/.test(mine.tokens['--sunken'])) {
+                ground = mine.tokens['--sunken'];
+              }
+            } else {
+              mine = null;
+              theme = null;
+            }
+          }
+
           // 'system' is stored as an absent attribute on purpose, so an unknown value and the
           // system default land in the same place: leave the root alone and let the
           // prefers-color-scheme query in index.css answer. The bar is left to System's tags.
           if (Object.prototype.hasOwnProperty.call(grounds, theme)) {
-            document.documentElement.setAttribute('data-theme', theme);
+            root.setAttribute('data-theme', theme);
 
             var bar = document.createElement('meta');
             bar.name = 'theme-color';
-            bar.content = grounds[theme];
+            bar.content = ground || grounds[theme];
             document.head.insertBefore(bar, document.querySelector('meta[name="theme-color"]'));
+          }
+
+          // Each kept value that can be stamped, inline, where it outranks the base's block. One
+          // that is not a colour would paint nothing at all where it is used, so it is skipped
+          // and the base's own answers for it.
+          if (mine) {
+            for (var name in mine.tokens) {
+              var value = mine.tokens[name];
+              if (
+                /^--[a-z-]+$/.test(name) &&
+                typeof value === 'string' &&
+                /^(#[0-9a-f]{6}|transparent|[0-9 .,/()pxrgb]+)$/.test(value)
+              ) {
+                root.style.setProperty(name, value);
+              }
+            }
+            root.style.setProperty('color-scheme', mine.scheme === 'light' ? 'light' : 'dark');
           }
 
           var density = localStorage.getItem('hobbytracker.density');

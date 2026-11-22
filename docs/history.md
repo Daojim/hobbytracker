@@ -247,4 +247,15 @@
       The renders found two bugs on main, a long title on the calendar widening a phone's page and
       the modal running off one, both fixed, and the built header and dialog match the picked
       renders to the pixel
+- [x] A theme of your own. *Make your own…* under the palette's list opens a panel beside the
+      board with no scrim, so the board wears each colour as it is picked: the ground, the card
+      and the accent, each a swatch and a box for a typed or pasted colour, made from one of the
+      eight themes, which works out the other seventeen colours its own way. A colour that cannot
+      be read on what it sits on says so in a tinted line under it, with the ratio and the bar it
+      misses, and the theme can still be kept, because it is your own screen. It is one per
+      browser, a tenth choice in the palette's list, *Your own · From Shelf Dark*, and the script
+      that runs before the page paints stamps it, so it never flashes. The way the seventeen are
+      worked out was measured before anything was drawn, by making each of the eight from each of
+      the others with its own three colours; every one of the thirteen choices was the
+      recommendation, and the built list and panel match the picked renders to the pixel
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

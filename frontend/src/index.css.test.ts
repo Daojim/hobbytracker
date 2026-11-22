@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { css, paletteAfter } from './test/palette';
-import { MATCH_MARK } from './lib/Marked';
+import { PAIRS, type Shade } from './theme/pairs';
 import { THEMES } from './theme/theme';
-
-/**
- * What a word a note search found is painted with: a token at an opacity, read out of the class
- * the mark wears, so the ground measured below is the one on screen. A mark that stopped being
- * one token at one opacity fails here rather than going unmeasured.
- */
-const MARK_TINT = /\bbg-([a-z-]+)\/(\d+)\b/.exec(MATCH_MARK);
 
 function luminance(hex: string): number {
   const value = hex.trim().replace('#', '');
@@ -69,6 +62,10 @@ describe('contrast', () => {
   // near-white on every theme, which is right on a light theme where the danger fill is a deep
   // red and about 2:1 on a dark one where the fill is a light salmon — a chip whose label could
   // not be read, in the one place the app asks "are you sure".
+  //
+  // The pairs are `PAIRS` in src/theme/pairs.ts since #28, each with why it is there, because the
+  // panel that makes a theme of your own warns against the same list. This reads them; it does
+  // not keep a second copy, which could fall behind the warning or ahead of it.
   for (const [name, marker] of PALETTES) {
     describe(name, () => {
       const palette = paletteAfter(marker);
@@ -78,71 +75,18 @@ describe('contrast', () => {
 
         return found!;
       };
-      const on = (token: string, ground: string) => contrast(value(token), value(ground));
 
-      it.each([
-        ['fg', 'surface'],
-        ['muted', 'surface'],
-        // Among others, a search result's name once it opens the journal: the tile is `surface`.
-        // The lowest on 7 October 2026, measured in the browser: 5.11 on Ember.
-        ['accent', 'surface'],
-        ['danger', 'surface'],
-        // All three rating bands, not just the one that happens to be on screen. The low band is
-        // the risk: a red that reads well on a dark ground is easy to pick, and a red dark enough
-        // to read on a light one stops looking like the same scale.
-        ['rating-low', 'surface'],
-        ['rating-mid', 'surface'],
-        ['rating-high', 'surface'],
-        ['muted', 'well'],
-        ['muted', 'sunken'],
-        // A share's banner is a strip of `well` with Make your own on it, the first accent ink on
-        // that ground. And the year row's way to Stats is accent on the page's own ground, on your
-        // board and on a share's. The lowest on 5 October 2026: 5.37 on Ember, 5.24 on Shelf Light.
-        ['accent', 'well'],
-        ['accent', 'sunken'],
-        // A tile's + ▶ ✓ under the cursor: the symbol turns the accent, on the hover fill. Held
-        // to text's bar rather than the 3:1 a symbol needs, because every theme clears it.
-        ['accent', 'hover'],
-      ])('%s reads on %s', (token, ground) => {
-        expect(on(token, ground)).toBeGreaterThanOrEqual(4.5);
-      });
+      /** A shade as the browser paints it: one token, or a token laid over another. */
+      const paint = (shade: Shade) =>
+        'over' in shade
+          ? over(value(shade.token), value(shade.over), shade.opacity)
+          : value(shade.token);
 
-      it('the destructive chip can be read', () => {
-        // Its label sits on `danger` as a fill, not on the surface — the one pair in the palette
-        // where both halves move together, and so the one that is easiest to get backwards.
-        expect(on('danger-fg', 'danger')).toBeGreaterThanOrEqual(4.5);
-      });
-
-      it.each(['fg', 'muted'])('%s reads on the account warning’s tint', (token) => {
-        // The warning in Settings is `bg-danger/10` over the panel, a ground none of the pairs
-        // above reach. Its words are `fg` and its backups line `muted`, and muted is thin there:
-        // 4.57:1 on Dusk. The failure line is `danger`, which measured 4.24:1 on Dusk's tint, so
-        // it sits under the tint on the panel's own ground instead, and is not asked about here.
-        const tint = over(value('danger'), value('surface'), 0.1);
-
-        expect(contrast(value(token), tint)).toBeGreaterThanOrEqual(4.5);
-      });
-
-      // A word a note search found, marked in a result's card and in the journal, both of which
-      // are `surface`. The user's pick at the #6 workshop on 9 October 2026, over bold.
-      const markTint = () => {
-        expect(MARK_TINT, `${MATCH_MARK} is not one token at an opacity`).not.toBeNull();
-        const [, token, percent] = MARK_TINT!;
-
-        return over(value(token!), value('surface'), Number(percent) / 100);
-      };
-
-      it('fg reads on the tint of a word a search found', () => {
-        // The lowest on 9 October 2026: 5.48 on Dusk.
-        expect(contrast(value('fg'), markTint())).toBeGreaterThanOrEqual(4.5);
-      });
-
-      it('the tint of a word a search found stands off the card it is on', () => {
-        // The first tint tried was `--drop`, the colour a column takes under a held card. It sat
-        // 1.02:1 off the card on Dusk and Blood Red, and on Dusk a marked word showed no mark at
-        // all. The floor is Ember's 1.41, the faintest that read in the renders.
-        expect(contrast(markTint(), value('surface'))).toBeGreaterThanOrEqual(1.4);
-      });
+      for (const pair of PAIRS) {
+        it(`${pair.words} clears ${pair.min}:1`, () => {
+          expect(contrast(paint(pair.ink), paint(pair.ground))).toBeGreaterThanOrEqual(pair.min);
+        });
+      }
     });
   }
 });

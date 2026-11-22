@@ -95,13 +95,14 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Films, from TMDB** | A second hobby end to end: its own board, search, detail table, and a drawer with a film's fields rather than a game's | `docs/movies-tmdb.md` |
 | **Television, from TMDB** | A third hobby, on the same client and a **second source row**: seasons in a table of their own, and a pass that says which episode you are on | `docs/tv-tmdb.md` |
 | **Anime, from MAL** | A fourth hobby, **one card per cour**: no seasons table, a pass with an episode and no season, a card with two titles, and a re-rank because MAL's order is wrong for a person | `docs/anime-mal.md` |
-| **The design layer** | Semantic tokens, eight themes behind a palette in the header, **Settings a dialog behind a gear beside it**, two densities, and a board that works at every width — **on a phone, one column at a time under a switcher pinned to the top**. An icon, and a manifest, so it installs to a home screen | `docs/design.md` |
+| **The design layer** | Semantic tokens, eight themes and one of your own behind a palette in the header, **Settings a dialog behind a gear beside it**, two densities, and a board that works at every width — **on a phone, one column at a time under a switcher pinned to the top**. An icon, and a manifest, so it installs to a home screen | `docs/design.md` |
+| **A theme of your own** | Three colours, the ground, the card and the accent, **made from one of the eight, which works the other seventeen out its own way**, in a panel beside the board that the board repaints behind as you pick, half the screen on a phone. **A tinted warning under a colour that cannot be read, and it can still be kept.** One per browser, a tenth choice in the palette's list, **stamped before the bundle like the eight** | `docs/design.md` |
 | **Auth** | Google and Discord, an httpOnly cookie, and every pass and note scoped to whoever wrote it | `docs/auth.md` |
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
 **Four hobbies are live**, anime included, and **no new phase is queued**: the games board has
-two planned features left and then the README, and books and music are on hold. See **What is next**, which also lists
+one planned feature left and then the README, and books and music are on hold. See **What is next**, which also lists
 the smaller things named but not built.
 
 ## Start here
@@ -284,7 +285,8 @@ the API resolves 10.0.11 via the Design package, which does not flow across a `P
 │       ├── share/        a share link: its row in Settings and the dialog, and the two pages a
 │       │                 visitor reads outside the session gate, under query keys of their own
 │       ├── shell/        header, sign-in screen, session gate, hobbies, providers
-│       ├── theme/        the eight themes, two densities, and the menu that picks them
+│       ├── theme/        the eight themes, two densities, and the menu that picks them; a theme
+│       │                 of your own: its arithmetic, the pairs it is held to, and the panel
 │       └── test/         MSW server, fixtures, and the render helper
 └── backend/
     ├── Directory.Packages.props   ALL package versions (central management)
@@ -515,6 +517,7 @@ Decided with the user. Each is a real decision with a cost that was accepted, no
 | On Hold | **After Playing, a plain column, and exempt from the year like Backlog** — Playing with the controller put down, so it takes Playing's rule for the dates and keeps where you were in a show. A fifth `LogStatus` with **no migration**, because `status` is unconstrained text. Position, look and width were each picked from rendered screenshots on 17 September 2026. `docs/board.md` |
 | Hiding a column | **Any but Backlog, per board, per browser, from a Columns group of checkboxes in Settings.** Not rendered, not fetched, not a drop target, not offered in a card's menu — and nothing written, so its titles are there when it comes back. Backlog stays because search adds to it. `docs/board.md` |
 | Settings and the themes | **The themes a palette in the header, the user's own answer, to prepare for #28; Settings a dialog behind a gear beside it, the user's addition**: 768 wide from 768px, the user's pick over 672, *Every board* beside this board's settings and *Your data* across the foot, the user's pick, each choice one line. **Seven settings added, each a store per browser that its reader subscribes to**: your pace with *Clear*, which forgets both answers; what a card shows, which a share ignores; which board `/` opens on; which boards the header names, never the one you're on; dates day first, the time of day as it was; skipping the wheel's spin; and the games hidden from Discover. A board's setting only where the board has it. **The journal a modal by default, and below 768px the drawer's full screen whichever is chosen.** Two rounds of renders on 21 November 2026; the built header and dialog match the picked prototype to the pixel. `docs/design.md`, `docs/board.md`, `docs/journal.md` |
+| A theme of your own | **Three colours, the ground, the card and the accent, made from one of the eight, and the other seventeen worked out as that theme works them out**: a colour between two others stays as far between them, and one there to be read keeps its hue and has its lightness solved until it reads on the new card as it did on the old. **A tinted warning under the colour a failing pair answers to, and the theme can still be kept**, because it is your own screen: *Hard to read* against text's 4.5:1, *Hard to see* against a mark's and a stripe's floors, from **one list of seventeen pairs that `index.css.test.ts` reads too**. **One, per browser, never on a share**; *Your own · From Shelf Dark* a tenth choice in the palette's list, *Make your own…* or *Edit…* under it in the accent; **a panel beside the board with no scrim**, the board repainting as you pick and a press on it doing nothing, a sheet over half a phone's screen; the browser's swatch and a box for a typed colour; *Made from* keeping your three. **Kept as the twenty values worked out, so the pre-paint script only copies**, and `THEMES` stays the eight and System. All thirteen picks were the recommendation, from two rounds on 21 November 2026, and the built list and panel match the picked prototype to the pixel. `docs/design.md` |
 | On a phone | **One column at a time below Tailwind's `md`, chosen from a segmented switcher pinned to the top** that counts every column and takes a dropped card. A finger holds still for a quarter of a second to drag, so a swipe scrolls; a mouse still drags from 8px. Picked from four layouts rendered at 390px on 1 October 2026. **A column not shown is not mounted**, because a hidden one is still a drop target. `docs/design.md`, `docs/board.md` |
 | A hobby's words | **`frontend/src/hobbies/`, one file per hobby.** Column labels, the length label and its format, the pass noun, the genre list, search dispatch, which fields a pass has, and how it says where you are in one. Never a branch on the slug |
 | Anime | **Its own hobby, from MAL, and one card per cour** — Frieren and Frieren 2nd Season are two cards because they are two MAL ids. Anime does not appear in a TV search; **the Movies board is deliberately left alone**, and that asymmetry is intended. A film reads fine on two boards; a series with episode progress on two boards is the confusing case. `docs/anime-mal.md` |
@@ -587,6 +590,8 @@ here**.
 | **A pass's date is a day or a year, and a reader of the instant alone leaves the year out with no error.** Since #24 a start or a finish can be kept as a year with its instant null, so a filter, a list of years, a sort or a format that reads only `completed_at` files the pass under All years and nowhere else. Every reader takes the pair: `InYear`, both lists of years and the Stats page's reads on the server, and `lib/passDate.ts` on the client, which is handed both | `docs/data-model.md` |
 | **Tailwind v4 scans source text**, so an interpolated class name generates nothing and the element renders unstyled rather than failing — `` `bg-genre-${x}` `` paints a transparent stripe | `docs/design.md` |
 | **A new theme has more lists to join than it looks**, and the one that fails quietly stamps nothing: the theme is offered, chosen, stored, and then repainted after the bundle mounts on every load — the flash the pre-paint script exists to prevent, on the one theme nobody would test for it | `docs/design.md` |
+| **Choosing any theme takes every custom property off the root's inline style.** A theme of your own lives there, over its base's block, where it outranks any selector, so it has to go when another is chosen; anything else that sets a `--*` inline on `<html>` goes with it, with no error | `docs/design.md` |
+| **Vitest hands a test an empty string for every stylesheet it imports, `?raw` included**, unless `test.css.include` in `vite.config.ts` names it. A test that looks for something in the text finds nothing, and can pass for it; `index.css?raw` is named there, for the panel that reads the eight themes out of it | `docs/design.md` |
 | **`log_entries` and `notes` are yours; `media`, `games` and the lookup tables are shared and must stay shared.** Scoping is an injected `ICurrentUser` at sixteen call sites rather than a query filter, and a missed one shows as a stranger's data on your board, never as an error | `docs/auth.md` |
 | **Options captured from `builder.Configuration` while `Program.cs` runs miss any source added afterwards** — which is exactly what `ApiFactory` does. It surfaced once as all 153 endpoint tests 500ing on an empty ClientId | `docs/auth.md` |
 | **Data Protection falls back to keys held only in memory when its directory is not writable**, and says so in a log line nobody is reading at the time — so every redeploy signs everybody out | `docs/deploy.md` |
@@ -810,8 +815,12 @@ shuffled.
         renders found two bugs on main, a long calendar title widening a phone's page and the
         modal running off one, both fixed. Four picks were the user's over the recommendation
         (PR #105, deployed)
-      - [ ] a theme of your own — a workshop after #27: made from one of the eight, with a
-        warning for a colour that cannot be read, and no flash on load
+      - [x] a theme of your own — the ground, the card and the accent, made from one of the
+        eight, which works out the other seventeen; a panel beside the board with no scrim, so
+        the board repaints as you pick, and a sheet over half a phone; a warning under a colour
+        that cannot be read, from the seventeen pairs the contrast test holds the eight to; one
+        per browser, a tenth choice in the palette's list, stamped before the bundle. Every pick
+        was the recommendation (built 21 and 22 November 2026, not yet merged)
       - [ ] collapsing a column — an arrow beside every heading, side by side, that keeps the
         heading, the hours and the drop target, as Dropped does now
       - [ ] the README, refreshed — after #25 to #29: shots that open bigger on GitHub, which a
