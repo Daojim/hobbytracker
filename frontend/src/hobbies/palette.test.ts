@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { hobbyDefinition } from './index';
 import { HOBBIES } from '../shell/hobbies';
+import { STRIPE_FLOOR } from '../theme/pairs';
 import { THEMES } from '../theme/theme';
 import type { Genre } from './types';
 
@@ -80,15 +81,11 @@ const ACCEPTED_FLOOR = 0.103;
 const LIGHTNESS = { min: 0.48, max: 0.75 };
 
 /**
- * The faintest stripe that ships: Horror on Dusk, at 1.484:1, a hue films and anime share.
- *
- * Dusk is where every list's faintest stripe sits, because its card is a mid slate that a dark hue
- * has little to stand out from, and the lightness band is not enough to keep a stripe off it. The
- * first try at the nineteen-genre games palette put Arcade at `oklch(0.48 0.2 340)`, inside the
- * band, and it measured 1.33:1. A *new* stripe fainter than any that has shipped is what this
- * catches, the way the separation floor catches a new pair.
+ * The faintest stripe that ships, Horror on Dusk at 1.484:1. In src/theme/pairs.ts beside the pairs
+ * every theme is held to since #28, because the panel that makes a theme of your own holds a card
+ * of your own to the same floor. Why it is that number is said there.
  */
-const CONTRAST_FLOOR = 1.48;
+const CONTRAST_FLOOR = STRIPE_FLOOR;
 
 /** Every theme's card, which is the ground a stripe is read against. */
 const SURFACES = new Map(
