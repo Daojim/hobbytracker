@@ -93,7 +93,10 @@ function Shared({ token, board }: { token: string; board: SharedBoard }) {
   // thing to do with it. The visitor's view, so held here and never written anywhere.
   const [sorts, setSorts] = useState<Record<LogStatus, LibrarySort>>(ALL_MANUAL);
   const [chosen, setChosen] = useState<{ year?: number } | null>(null);
-  const [droppedOpen, setDroppedOpen] = useState(false);
+  // Which columns the visitor has collapsed (#29), Dropped to start as on your board. For the
+  // visit and never stored: what this browser keeps collapsed is the visitor's view of their own
+  // board, and kept under the board's key a fold here would fold that board too.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<LogStatus>>(() => new Set(['Dropped']));
   const sideBySide = useMediaQuery(SIDE_BY_SIDE, true);
   const [shown, setShown] = useState<LogStatus>('Backlog');
 
@@ -158,12 +161,19 @@ function Shared({ token, board }: { token: string; board: SharedBoard }) {
                 sort={sorts[status]}
                 onSortChange={(sort) => setSorts((current) => ({ ...current, [status]: sort }))}
                 year={yearFor(status, year)}
-                // Dropped folds side by side, as on yours, and not on a phone, where choosing it
-                // in the switcher is already asking to see it.
-                collapsed={sideBySide && status === 'Dropped' ? !droppedOpen : undefined}
+                // Every column collapses side by side, as on yours, and none on a phone, where
+                // choosing one in the switcher is already asking to see it.
+                collapsed={sideBySide ? collapsed.has(status) : undefined}
                 onToggleCollapse={
-                  sideBySide && status === 'Dropped'
-                    ? () => setDroppedOpen((open) => !open)
+                  sideBySide
+                    ? () =>
+                        setCollapsed((was) => {
+                          const next = new Set(was);
+                          if (!next.delete(status)) {
+                            next.add(status);
+                          }
+                          return next;
+                        })
                     : undefined
                 }
                 namedAbove={switching}

@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { SharedBoardPage } from './SharedBoardPage';
 import { setCardShows } from '../board/cardShows';
 import { setColumnHidden } from '../board/hiddenColumns';
+import { collapsedColumnsKey, setColumnCollapsed } from '../board/collapsedColumns';
 import { setPace } from '../lib/pace';
 import { libraryItem } from '../test/library';
 import { windowOfWidth } from '../test/media';
@@ -259,6 +260,39 @@ describe('SharedBoardPage', () => {
       await userEvent.click(show);
 
       expect(await screen.findByText('Spiritfarer')).toBeInTheDocument();
+    });
+
+    it('folds every column side by side for the visit, and remembers none of it', async () => {
+      // #29: a visitor scrolling a long Completed has the owner's complaint. Page state, for the
+      // reason the calendar's fold is not remembered on a share: kept under the board's key, a
+      // visitor's fold would fold their own games board too.
+      sharedServer({
+        board: { parts: ['Completed'] },
+        columns: { Completed: [libraryItem({ title: 'Celeste', currentStatus: 'Completed' })] },
+        years: [2026],
+      });
+      renderShare();
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Collapse Completed' }));
+
+      expect(screen.queryByText('Celeste')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Expand Completed' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Collapse Backlog' })).toBeInTheDocument();
+      expect(localStorage.getItem(collapsedColumnsKey('games'))).toBeNull();
+    });
+
+    it('never folds a column because this browser folded its own', async () => {
+      // What this browser keeps collapsed is the visitor's view of their own board.
+      setColumnCollapsed('games', 'Completed', true);
+      sharedServer({
+        board: { parts: ['Completed'] },
+        columns: { Completed: [libraryItem({ title: 'Celeste', currentStatus: 'Completed' })] },
+        years: [2026],
+      });
+      renderShare();
+
+      expect(await screen.findByText('Celeste')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Collapse Completed' })).toBeInTheDocument();
     });
 
     it('keeps a sort control on every column, and calls the hand-made order Board order', async () => {
