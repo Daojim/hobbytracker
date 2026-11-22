@@ -30,6 +30,7 @@ two densities in Settings beside it (#27).
 | Columns | **One at a time on a phone, two across from 768px, every column from 1280px** — five, or fewer with some taken off in Settings. Four at 768 left each one 168px; five at 1280 is 234px, chosen from screenshots |
 | On a phone | **A segmented switcher pinned to the top of the screen**: every column's name over its count, the current one raised. Picked on 1 October 2026 from four layouts rendered at 390px. See **On a phone** |
 | Column hours | **A muted line of its own under each heading**, and on a phone beside the sort control, where the hidden heading was. Picked on 1 October 2026 from three placements rendered wide and two at 390px. See **Hours in the column headers** |
+| Collapsing a column | **The journal's chevron before every column's heading, side by side**, down open and right collapsed, and a collapsed column is its header with no cards, its hours and sort control kept. The calendar folds by the same arrow. Picked on 22 November 2026 in two rounds, every pick the recommendation. See **Collapsing a column** |
 | How long | **A quiz behind a link under the estimates**, not a calculator always open — two questions, then a sentence with a date in it. Picked on 2 October 2026 from three options rendered in the drawer, the modal and at 390px. See **How long will it take me?** |
 | Stats | **Four tiles of numbers, then panels two across in the board's wells**: covers by month, a column per rating, a bar per game either side of its estimate, and the backlog oldest first. Picked on 2 October 2026 from eight choices rendered at 1440 and 390px. See **Stats** |
 | Coming soon | **Two of the board's tracks wide**, laid out on the board's own grid, so its right edge lands on a grid line however many columns there are |
@@ -331,7 +332,11 @@ interpolated-class trap — and fewer than four simply fill the width, which the
 
 Left alone: at 1280 the **Completed and Dropped headers wrap** their sort select onto a second line,
 so their cards start lower than their neighbours'. Completed did this with four columns too; by 1440
-only Dropped's does, because it carries a Show button the others do not.
+only Dropped's did, because it carried a Show button the others did not. **Since #29 every header
+carries the collapse arrow instead**, 28px with its gap, so at 1440 Backlog's and Completed's wrap
+and Dropped's no longer does, and at 1280 all five do, which leaves Backlog's, Playing's and On
+Hold's cards level at 97px down. Shown on the renders and taken with the pick; see **Collapsing a
+column**.
 
 **The release calendar is two of the board's tracks wide**, and it shipped as the whole board. A
 card answers "what is this" and wants the room; a calendar row answers "how far off is it" on one
@@ -391,7 +396,8 @@ rather than glimpsed through the gutter. All of that is `board/ColumnSwitcher.ts
 - **The column under it does not repeat its own name.** Its heading goes `sr-only` (the
   `namedAbove` prop), so the region keeps its name for a screen reader and the switcher says it
   once on screen. Its sort control stays.
-- **Dropped is not folded on a phone.** Choosing it in the switcher is already asking to see it.
+- **No column is collapsed on a phone**, Dropped included. Choosing one in the switcher is already
+  asking to see it, so there is no arrow and what is stored side by side does not apply (#29).
 - **Nothing to switch with only Backlog drawn**, so there is no switcher then.
 - **Stacking: z-15 at rest, z-50 while a card is carried.** At rest it sits over a card's open
   menu (z-10) and under the drawer (z-20). While a card is being carried it lifts over the card
@@ -462,7 +468,7 @@ and how it is added up is `docs/board.md`'s.
   moment the board compared anything.
 - **Left alone: at 1280, Backlog's sort control wraps once its count has two digits**, as
   Completed's and Dropped's always have. The renders had 17 there. The line does not touch that
-  row.
+  row. Since #29 the collapse arrow before every heading wraps all five at 1280.
 
 ### The titles a header leaves out
 
@@ -504,6 +510,44 @@ titles a header's count leaves out**.
 - **The keyboard is on the first title once a list opens**, which the prototype did not do. After a
   press of the pointer the browser draws no ring for it, measured as `:focus-visible` false on the
   focused row in every open shot, so the open list looks as rendered.
+
+### Collapsing a column
+
+**An arrow before each column's heading, side by side, and a collapsed column is its header with no
+cards.** Picked at the #29 workshop on 22 November 2026, every pick the recommendation, from renders
+of the shipped board with the user's games board as read on 3 November, at 1440 and 1280 in Shelf
+Light and Shelf Dark and at 390: https://claude.ai/artifact/Xq1fhryspTKvxUzh4W7tFa. What it does is
+`docs/board.md`'s, under **Collapsing a column**.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| What a collapsed column looks like | **Dropped's shape**: the header, its count, the hours and Completed's comparison, and the sort control, no cards, in the same track | a 48px strip with the name on its side and the width given to the others, which had no room for the hours or the sort control, put the calendar 290px off Playing's line and only worked five across; the cards in a box 70% of the window tall that scrolls inside the page |
+| Where the arrow sits | **Before the heading**, on the heading's row whatever wraps, at the same spot in every column | after the count, where Dropped's words were; past the sort control, which goes down with the sort control whenever that wraps |
+| Its form | **The journal's chevron**, the app's one arrow | a filled triangle |
+| The calendar | **The same arrow before its heading**, in place of the word *Hide* at the far right | the word, as it was |
+
+- **`board/CollapseArrow.tsx`**: a `size-5` button, `inline-flex items-center justify-center
+  rounded text-muted hover:bg-hover hover:text-fg`, the hover fill of the journal heading's column
+  control, holding `lib/Chevron.tsx`, 10 × 6 with a 1.5 stroke, turned `-rotate-90` to point right
+  when collapsed. The columns and the calendar both draw it, and the journal's control draws the
+  chevron, so there is one arrow.
+- **What the arrow costs, measured**: with the row's 8px gap it adds 28px to a heading's row, so at
+  1440 Backlog's and Completed's sort controls go under their headings, where before Backlog's and
+  Dropped's did, and Completed's cards start 113px down rather than 85; at 1280 all five go under.
+  Every place for the arrow costs the same, which is why the place was decided by where the arrow
+  ends up when a row wraps. See **The board at every width**.
+- **The page with Completed collapsed**, measured on the user's board: 4,940px at 1440 becomes 2,400,
+  and 11,627 under All years becomes 2,400; at 1280, 5,553 becomes 2,654; at 1024, two across,
+  5,789 becomes 3,257. Side by side the page is as tall as its tallest column, so collapsing
+  Completed shortens it to the next tallest, Backlog's six cards there.
+- **In Dropped the arrow fades with its column**, at the well's 70%, as everything in it does.
+- **Measured against the picked prototype**, pixel for pixel, from the gitignored
+  `workshop.local/collapsing-a-column/compare-built.mjs` on #27's stage: the whole page at 1440 and
+  1280 as a board starts and with Completed collapsed, the header band close up and under the
+  pointer at 1440, the calendar collapsed, and a phone with Completed chosen, in both themes. **No
+  pixel differs in any of the 16.** A first run found the light header band 10,232 pixels apart
+  where its dark and hovered twins matched; it matched in three runs after, so it was the shot, not
+  the build.
 
 ### How long will it take me?
 

@@ -58,7 +58,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Shipped and deployed 21 November 2026** (PR #103), built tests first the same night: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
 | 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Shipped and deployed 21 November 2026** (PR #105), built tests first the same day, a commit per step and one per addition: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Shipped and deployed 22 November 2026** (PR #107), built tests first on the 21st and 22nd, a commit per step: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. See its section |
-| 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. See its section |
+| 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. **Built the same day, tests first**, a commit per step: the full e2e suite went 278 green, the 275 before and 3 new, Vitest 1,692, every fault put back turned its cases red, the drops and the keyboard held in Firefox, and the built board differs from the picked prototype by no pixel in 16 states. Not yet merged. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
 Production runs `ca90070`'s code, which was `main` on 22 November 2026. Deploying is the runbook in
@@ -6193,6 +6193,80 @@ Tests first in each step, shown red, each fault put back afterwards, a commit pe
    themes, then the full e2e suite.
 7. **Docs**: this section and its status row, `docs/board.md`, `docs/design.md`, CLAUDE.md's
    Settled and What exists rows, and `docs/history.md`.
+
+### Built, 22 November 2026
+
+The workshop's own session, tests first in every step, each shown red before it went green, a
+commit per step, on `collapsing-a-column` from `b790895`:
+
+| Step | Commit | What it holds |
+|---|---|---|
+| The workshop record | `e211293` | This section's tables, committed as docs first |
+| 1. The store | `4d41fcc` | `board/collapsedColumns.ts` beside the hidden columns' store: nothing stored is Dropped collapsed, a stored empty list is every column open, written whole in board order |
+| 2. The arrow | `6693a6e` | `ColumnFrame` draws the arrow before the heading where it is handed a toggle, and Dropped's words go; `BoardPage` reads the store side by side alone. The journal's chevron moved to `lib/Chevron.tsx` |
+| 3. A share | `320a0f2` | every column collapses for the visit, Dropped to start, and no store is read or written |
+| 4. The calendar | `393c5c2` | the word *Hide* turned into the arrow before its heading; `board/CollapseArrow.tsx`, one component for the columns and the calendar |
+| 5. e2e | `864450c` | a drop onto a collapsed Completed and one out of Completed onto a collapsed Playing, a reload on its own board, and the arrow from the keyboard; green in Chromium and Firefox |
+| 7. Docs | this commit | `docs/board.md`, `docs/design.md`, `docs/journal.md`, `docs/history.md`, CLAUDE.md and this section |
+
+Step 6, the comparison and the full suites, put nothing in the repo; its results are below.
+
+**Decided at the build, for the user to object to**, none of it drawn at the workshop:
+
+- **The journal's chevron moved to `lib/Chevron.tsx`**, and the journal's column control and the
+  arrow both draw it, rather than the board reaching into `journal/` or keeping a copy to drift.
+- **One component for the arrow, `board/CollapseArrow.tsx`**, which the columns and the calendar
+  both draw.
+- **The calendar's arrow stays on a phone**, as its word did, so the two phone cases that say a
+  column has no arrow look inside the column.
+
+### Tests
+
+**The full e2e suite went 278 green**, the 275 before and 3 new. **Vitest went 1,692 green**,
+from 1,674. **In Playwright's Firefox**, `board.spec.ts`'s four collapse cases, the two drops, the
+reload and the keyboard, 4 of 4.
+
+- **The store**: `collapsedColumns.test.ts`, ten cases.
+- **The column**: `Column.test.tsx`, the header kept while collapsed, the arrow before the heading
+  and its press, *Expand* and never *Show* or *Hide*, and no arrow when handed no way to fold.
+- **The board**: `BoardPage.test.tsx`, an arrow on every column, a collapse remembered across a
+  remount and not on the films board, Dropped expanded by its arrow, and on a phone no arrow in the
+  column with what is stored not applied.
+- **A share**: `SharedBoardPage.test.tsx`, every column collapsing with nothing stored, and none
+  following this browser's own.
+- **The calendar**: `ComingSoon.test.tsx`'s arrow before its heading, its renamed fold cases, and
+  `coming-soon.spec.ts`'s fold across a reload.
+- **e2e**: `board.spec.ts`'s three new cases, and the five that pressed *Show Dropped*.
+- **Measured against the picked prototype**, pixel for pixel, by the gitignored
+  `workshop.local/collapsing-a-column/compare-built.mjs`: 16 states in both themes, whole pages at
+  1440 and 1280, the header band close up and under the pointer, the calendar collapsed and a phone,
+  and **no pixel differs in any**. See **Collapsing a column** in `docs/design.md`.
+
+### Checked by putting each fault back
+
+One at a time against the finished build, by the gitignored
+`workshop.local/collapsing-a-column/faults.mjs`, #27's script with a Playwright runner beside the
+Vitest one, which restores each file after its run. **All fifteen turned red the cases named**; the
+table is in `docs/board.md`, under **Collapsing a column**. The two Playwright faults were run again
+with the reporter's output kept, because the script's first pattern for a failed case matched none,
+and the cases are named from that output rather than from the exit code.
+
+### What the plan got wrong, or left out
+
+- **A share folded Dropped too**, through the same frame, and the plan said nothing of a share.
+  Round one asked: a share collapses every column for the visit.
+- **The calendar had a fold of its own**, the word *Hide*, which the plan did not mention. Round
+  two drew it both ways, and it is the arrow now.
+- **The arrow costs its 28px on the heading's row**, which the plan did not foresee: at 1440
+  Completed's sort control goes under its heading, and at 1280 all five do. Every place for the
+  arrow costs the same, so the renders decided where it ends up when a row wraps.
+- **"On a phone there is no arrow" holds for the columns alone**, since the calendar keeps its
+  arrow at every width.
+- **The fault the plan named**, the section not rendered while collapsed, would also have taken
+  the region the specs find a column by. The fault put back is the section without the droppable's
+  ref, which is the bug the section's comment records, and the drops went red for it.
+- **The first comparison run found the light header band 10,232 pixels apart**, where its dark and
+  hovered twins matched; three runs after matched, so it was the shot and not the build.
 
 ---
 

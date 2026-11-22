@@ -258,4 +258,13 @@
       worked out was measured before anything was drawn, by making each of the eight from each of
       the others with its own three colours; every one of the thirteen choices was the
       recommendation, and the built list and panel match the picked renders to the pixel
+- [x] Collapsing a column. Every column side by side has an arrow before its heading, the chevron
+      from the journal's heading, and a press leaves the column its header, its hours and its sort
+      control with none of its cards, which is how Dropped had always folded. It is still a place
+      to drop a card, and a collapse is remembered per board, so a Completed that grows with every
+      finish stays out of the way: on the user's board that took the page at 1440 from 4,940px to
+      2,400. Dropped starts collapsed as it always did and now stays open once opened; a share
+      collapses for the visit only; and the calendar under the board folds by the same arrow in
+      place of the word *Hide*. Eleven choices in a round of words and a round of renders, every
+      one the recommendation, and the built board matches the picked renders to the pixel
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration
