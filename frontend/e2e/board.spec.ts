@@ -298,6 +298,85 @@ test('a card can be dragged into Dropped while Dropped is still collapsed', asyn
   expect(await titlesIn(page, 'Completed')).not.toContain('Anthem');
 });
 
+test('a card dragged onto a collapsed column lands there, and leaving Completed still asks', async ({
+  page,
+}) => {
+  // #29: every column collapses now, and a collapsed column is Dropped's shape, header and no
+  // cards, so it is still a drop target the whole way across.
+  const playing = await seed(page.request, 'Celeste', 'InProgress', { startedAt: '2026-05-01' });
+  const finished = await seed(page.request, 'Hollow Knight', 'Completed', {
+    startedAt: '2026-01-10',
+    completedAt: '2026-03-02',
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Collapse Completed' }).click();
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toHaveCount(0);
+
+  await drag(page, card(page, 'Celeste'), column(page, 'Completed'));
+  await expect
+    .poll(async () => (await entriesFor(page.request, playing))[0]?.status)
+    .toBe('Completed');
+  // Collapsed still, and counting it.
+  await expect(column(page, 'Completed').getByRole('heading', { name: 'Completed 2' })).toBeVisible();
+  await expect(column(page, 'Completed').getByText('Celeste')).toHaveCount(0);
+
+  // Out of Completed into a collapsed column still asks whether it was finished (#14).
+  await page.getByRole('button', { name: 'Expand Completed' }).click();
+  await page.getByRole('button', { name: 'Collapse Playing' }).click();
+  await drag(page, card(page, 'Hollow Knight'), column(page, 'InProgress'));
+  await answerFinished(page, 'Hollow Knight', true);
+  await expect
+    .poll(async () => (await entriesFor(page.request, finished))[0]?.status)
+    .toBe('InProgress');
+  await expect(column(page, 'InProgress').getByRole('heading', { name: 'Playing 1' })).toBeVisible();
+});
+
+test('a collapsed column stays collapsed after a reload, on its own board alone', async ({ page }) => {
+  await seed(page.request, 'Hollow Knight', 'Completed', {
+    startedAt: '2026-01-10',
+    completedAt: '2026-03-02',
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Collapse Completed' }).click();
+  await page.reload();
+
+  await expect(page.getByRole('button', { name: 'Expand Completed' })).toBeVisible();
+  await expect(column(page, 'Completed').getByRole('heading', { name: 'Completed 1' })).toBeVisible();
+  await expect(column(page, 'Completed').getByText('Hollow Knight')).toHaveCount(0);
+
+  // Per board: Watched is open on the films board.
+  await page.goto('/board/movies');
+  await expect(page.getByRole('button', { name: 'Collapse Watched' })).toBeVisible();
+});
+
+test('a column collapses and opens from the keyboard, keeping the keyboard on its arrow', async ({
+  page,
+}) => {
+  await seed(page.request, 'Hollow Knight', 'Completed', {
+    startedAt: '2026-01-10',
+    completedAt: '2026-03-02',
+  });
+  await page.reload();
+  await expect(card(page, 'Hollow Knight')).toBeVisible();
+
+  // Reached by Tab from the control before it, On Hold's sort with On Hold empty, rather than
+  // handed focus.
+  await page.getByRole('combobox', { name: 'On Hold order' }).focus();
+  await page.keyboard.press('Tab');
+  const arrow = page.getByRole('button', { name: 'Collapse Completed' });
+  await expect(arrow).toBeFocused();
+
+  await page.keyboard.press('Enter');
+  await expect(card(page, 'Hollow Knight')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Expand Completed' })).toBeFocused();
+
+  await page.keyboard.press('Space');
+  await expect(card(page, 'Hollow Knight')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Collapse Completed' })).toBeFocused();
+});
+
 test('removing a backlog game takes it off the board rather than dropping it', async ({
   page,
 }) => {
