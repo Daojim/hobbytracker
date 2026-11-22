@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { THEMES } from './theme';
+import { THEMES, type NamedTheme, type ThemeChoice } from './theme';
 import { useTheme } from './useTheme';
+
+/** A theme's name as the list says it: *Shelf Dark*. */
+const labelOf = (theme: NamedTheme) => THEMES.find((each) => each.value === theme)!.label;
 
 /**
  * The themes, as a palette in the header that opens today's list: each theme's name and its hint,
@@ -10,8 +13,13 @@ import { useTheme } from './useTheme';
  * point in asking for the workshop. Three places were rendered for them, a row opening the list in
  * place of the panel, the same row opening a dialog of swatches, and tabs, and **the user's answer
  * was none of them: a control of their own in the header**, *to prepare for* #28, which makes a
- * theme of your own and decides where the themes finally live. So this is the list as it was,
- * moved, and the swatches can come with #28.
+ * theme of your own and decides where the themes finally live.
+ *
+ * **#28 kept the list**, the recommendation, over the same list with a swatch before each name and
+ * #27's dialog of swatches: a theme of your own is a tenth choice in it once there is one, *Your
+ * own · From Shelf Dark*, one 28px line with every base, over *Made from Shelf Dark*, which wraps
+ * the name at 224px. *Make your own…* sits under a rule before there is one, and *Edit…* after,
+ * in the accent, because it is a way somewhere rather than a theme.
  *
  * A palette rather than the word *Theme*, the user's pick from round two over the recommended
  * word: on a 390 phone the word wrapped *Sign out* onto two lines unless the title dropped a size,
@@ -27,8 +35,13 @@ import { useTheme } from './useTheme';
  * read storage once on mount and go on drawing the old choice. `AppHeader.test.tsx` pins one.
  */
 export function ThemeMenu() {
-  const { theme, setTheme } = useTheme();
+  const { theme, mine, setTheme } = useTheme();
   const [open, setOpen] = useState(false);
+
+  const choices: readonly { value: ThemeChoice; label: string; hint: string }[] = [
+    ...THEMES,
+    ...(mine === null ? [] : [{ value: 'mine' as const, label: 'Your own', hint: `From ${labelOf(mine.from)}` }]),
+  ];
 
   const ids = useId();
   const button = useRef<HTMLButtonElement>(null);
@@ -86,7 +99,7 @@ export function ThemeMenu() {
             Theme
           </p>
           <div role="radiogroup" aria-labelledby={`${ids}-theme`} className="flex flex-col">
-            {THEMES.map((option) => (
+            {choices.map((option) => (
               // The hint is a description, not part of the name. Left to be read as content it
               // joins the accessible name — "System Follows your device" — which is both a worse
               // announcement and unmatchable by the name a person would say.
@@ -114,6 +127,14 @@ export function ThemeMenu() {
                 </span>
               </button>
             ))}
+          </div>
+          <div className="mt-1 border-t border-line-soft pt-1">
+            <button
+              type="button"
+              className="w-full rounded px-2 py-1 pl-6 text-left text-sm text-accent hover:bg-hover"
+            >
+              {mine === null ? 'Make your own…' : 'Edit…'}
+            </button>
           </div>
         </div>
       )}
