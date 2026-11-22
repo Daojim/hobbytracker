@@ -58,7 +58,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Shipped and deployed 21 November 2026** (PR #103), built tests first the same night: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
 | 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Shipped and deployed 21 November 2026** (PR #105), built tests first the same day, a commit per step and one per addition: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Shipped and deployed 22 November 2026** (PR #107), built tests first on the 21st and 22nd, a commit per step: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. See its section |
-| 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
+| 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
 Production runs `ca90070`'s code, which was `main` on 22 November 2026. Deploying is the runbook in
@@ -6110,6 +6110,89 @@ next tallest, which is the point.
 - On a phone there is no arrow.
 - e2e: a card dragged onto a collapsed column lands there.
 - **Put the fault back:** stop rendering the section while collapsed, and the drop test goes red.
+
+### The workshop, 22 November 2026
+
+On branch `collapsing-a-column` from `b790895`. Round one in words, then round two in renders of
+the shipped board on #27's harness and stage (`workshop.local/settings-rearranged/`: #19's read of
+the user's games board on 3 November 2026, which opens on 2026 with Backlog 6, Playing 2, On Hold
+4, **Completed 21** and Dropped 1, and Completed 64 under All years). Prototypes, shots and
+measures in the gitignored `frontend/workshop.local/collapsing-a-column/`.
+
+**Round one, in words: all seven picks the recommendation.** Two of the questions were not in the
+plan, found by reading the code: a share folds Dropped through the same `ColumnFrame`, and the
+release calendar has a fold of its own, *Hide* / *Show*, remembered per board.
+
+| Choice | Picked | Against |
+|---|---|---|
+| Which columns | **Every column, Backlog too**: nothing is hidden for good, and Backlog's header keeps *Pick*. A title added from a search tile to a collapsed Backlog lands out of sight, its count going up and the tile then naming Backlog | every column but Backlog, as hiding is; Completed and Dropped only |
+| Remembered | **Per board and per browser**, a store beside `board/hiddenColumns.ts`, so collapsing Completed on Games leaves Watched on Films open. **Dropped starts collapsed with nothing stored and keeps its own state after that**: once opened it stays open, where today it folds itself again on every load | forgotten on a reload, as Dropped's fold is today |
+| The words | ***Collapse Completed* / *Expand Completed***, the name saying what a press does, as Dropped's and the calendar's buttons do; Dropped's visible *Show Dropped* / *Hide Dropped* go, so every column says it one way, and *hide* stays what Settings does | *Hide* / *Show Completed*, which is what Settings' Columns group does; one name that never changes, with `aria-expanded` |
+| On a phone | **Side by side only**, from 768px, as Dropped's fold is today. Below it a stored collapse does not apply: choosing a column in the switcher is asking to see it | the arrow on a phone too, where a collapsed column chosen would show its header over nothing |
+| Settings | **Nothing in Settings**, which answers #27's *Collapsed columns*: the arrow is the control, on the column it folds, and a collapsed column stays on the board with it, where a column taken off can only come back from Settings | a Collapsed group of boxes under Columns; Columns as a three-way *Shown · Collapsed · Off* |
+| A share | **Every column, never remembered**: page state, Dropped collapsed to start, for the reason the calendar's fold is not remembered on a share (`remembers={false}`), since a visitor's fold kept under the board's key would fold their own board | Dropped alone, as today |
+| The calendar | **Rendered both ways in round two**, its word beside the arrow, and the look decides | left alone, out of scope |
+
+What a collapsed column looks like, and where the arrow sits, were not asked in words: they are
+round two's.
+
+**Round two, in renders: all four picks the recommendation**, from
+https://claude.ai/artifact/Xq1fhryspTKvxUzh4W7tFa. The shipped board on Vite alone, BoardPage's
+`./Column` and `./ComingSoon` swapped for prototypes by `resolveId`, every `/api/` request answered
+from #27's stage; shot at 1440 and 1280 in Shelf Light and Shelf Dark, the forms at three times the
+size, and the phone at 390. **The picked look is `?look=a&arrow=before&form=chevron&cal=arrow`**,
+`ColumnProto.tsx` and `ComingSoonProto.tsx` in `workshop.local/collapsing-a-column/`, which are
+the reference for values.
+
+| Choice | Picked | Against |
+|---|---|---|
+| What a collapsed column looks like | **A, Dropped's shape**: the header, its count, the hours and Completed's comparison, and the sort control, with no cards; the same track, so `grid.ts` is untouched and the calendar stays on the board's lines. The page at 1440 goes from 4,940px to 2,400, and from 11,627 to 2,400 under All years; at 1280 from 5,553 to 2,654; at 1024, two across, from 5,789 to 3,257 | B, a 48px strip with the name on its side and the width given to the others: no room for the hours or the sort control, the calendar 290px off Playing's line, five across only, and the page 2,499 at 1440 because the wider columns' covers grow (2,435 at 1280, where the titles unwrap); C, the cards in a box 70% of the window tall that scrolls inside the page, not a collapse, and here no shorter than A, since Backlog is taller than the box |
+| Where the arrow sits | **Before the heading**, on the heading's row whatever wraps, at the same spot in every column | after the count, where Dropped's words are, moving with each name's length; past the sort control, which goes down with the sort control whenever that wraps, every column at 1280 |
+| Its form | **The journal's chevron** (`ColumnControl.tsx`): 10 × 6 with a 1.5 stroke in a 20px `rounded` button, `text-muted hover:bg-hover hover:text-fg`, pointing down open and turned a quarter to point right collapsed | a filled triangle, 10 × 10, a second arrow style in the app |
+| The calendar | **The arrow, before its heading**, named *Collapse Coming soon* / *Expand Coming soon*, so every fold on the board is one control and the board stops saying *hide* for a fold. Still remembered per board under `hobbytracker.coming-soon.<hobby>` | the word *Hide* / *Show* at the far right, as today |
+
+**What every place costs, measured and shown on the page**: the arrow and its gap add 28px to the
+heading's row, so at 1440 Backlog's and Completed's sort controls go under the heading, where today
+Backlog's and Dropped's do (Dropped's words were wider than the arrow), and Completed's cards start
+113px down rather than 85. At 1280 all five go under, where today Backlog's, Completed's and
+Dropped's do, so Playing's and On Hold's cards start 97px down rather than 69, level with Backlog's.
+
+**Found while rendering**: C was first shot with Dropped capped like Completed, which showed its one
+card and read as C changing Dropped; it was re-shot with Dropped keeping its fold. And a claim
+drafted for the page, that C's box would cut a card's menu, was measured false (the menu ends 4px
+inside the box) and left off.
+
+**Decided without asking, for the user to object to**:
+
+- **What is stored is which columns are collapsed**, under `hobbytracker.collapsed-columns.<hobby>`
+  beside the hidden columns' key, written whole on every press from what the board was showing. So
+  nothing stored is Dropped collapsed, a stored empty list is every column open, and a column added
+  later starts open. Anything unrecognised falls back to nothing stored.
+- **A share folds every column as the visitor's page state**, Dropped collapsed to start, and reads
+  and writes no store.
+- **The calendar keeps its arrow at every width**, as its word is today: on a phone it is under the
+  one column shown, and folding it is still the way past it.
+- **No `aria-expanded`**, as round one's words decided: the name says what a press does, and a name
+  and a state that both change would say it twice.
+
+### The build, in order
+
+Tests first in each step, shown red, each fault put back afterwards, a commit per step, on
+`collapsing-a-column`.
+
+1. **The store**: `board/collapsedColumns.ts` beside `hiddenColumns.ts`, through
+   `lib/preferenceStore.ts`. Nothing stored is Dropped collapsed; per board; written whole.
+2. **The arrow on every column side by side**: `ColumnFrame` draws the chevron before the heading
+   where it is handed a toggle, and Dropped's words go; `BoardPage` reads the store for every column
+   side by side, and nothing on a phone. The existing cases that press *Show Dropped* follow.
+3. **A share**: every column folds, as page state.
+4. **The calendar's arrow**, in place of its word, at every width.
+5. **e2e**: a card dragged onto a collapsed column lands there; a collapse survives a reload, per
+   board; the arrow from the keyboard. The drop and the keyboard in Firefox too.
+6. **The built board against the picked prototype**, pixel for pixel, at 1440, 1280 and 390, both
+   themes, then the full e2e suite.
+7. **Docs**: this section and its status row, `docs/board.md`, `docs/design.md`, CLAUDE.md's
+   Settled and What exists rows, and `docs/history.md`.
 
 ---
 
