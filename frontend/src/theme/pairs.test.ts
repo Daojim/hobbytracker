@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { MATCH_MARK } from '../lib/Marked';
-import { PAIRS, type Shade } from './pairs';
+import { derive } from './derive';
+import { PAIRS, faintStripes, measure, type Shade } from './pairs';
+import { PALETTES, STRIPES } from './palettes';
 
 /** A shade as `index.css.test.ts` names it: `fg`, or `danger/10 over surface`. */
 const named = (shade: Shade) =>
@@ -73,6 +75,63 @@ describe('the pairs every theme is held to', () => {
     for (const each of words) {
       expect(each).toMatch(/^[a-z]/);
       expect(each).not.toMatch(/[.:]$/);
+    }
+  });
+});
+
+/** What a measure failed, as the warning under a colour prints it: the words and two places. */
+const failing = (tokens: Parameters<typeof measure>[0]) =>
+  measure(tokens)
+    .filter((each) => !each.ok)
+    .map((each) => [each.pair.words, each.ratio.toFixed(2)]);
+
+describe('a theme measured against them', () => {
+  it('finds every pair of every one of the eight readable', () => {
+    for (const [theme, palette] of Object.entries(PALETTES)) {
+      expect(measure(palette.tokens)).toHaveLength(17);
+      expect(failing(palette.tokens), theme).toEqual([]);
+    }
+  });
+
+  it('finds what a theme of your own cannot read, at the ratio the workshop showed', () => {
+    // Harbour, made from Dusk, whose blue accent cannot be read on its teal: the render said
+    // each of these under the Accent.
+    const harbour = derive(PALETTES.dusk, { sunken: '#23393b', surface: '#2f4a4d', accent: '#4f86b5' });
+    expect(failing(harbour.tokens)).toEqual([
+      ['the accent on a card', '2.45'],
+      ['the accent in a column', '2.68'],
+      ['the accent on the ground', '3.15'],
+      ['the accent under the pointer', '2.03'],
+      ['the mark round a word found', '1.26'],
+    ]);
+
+    // Fog, made from Frost, a card dimmed until much struggles: one under the Ground, and five
+    // under the Accent.
+    const fog = derive(PALETTES.frost, { sunken: '#9aa3ad', surface: '#b9c1ca', accent: '#1a5f9e' });
+    expect(failing(fog.tokens)).toEqual([
+      ['the accent on a card', '3.64'],
+      ['quiet text on the ground', '4.08'],
+      ['the accent in a column', '3.22'],
+      ['the accent on the ground', '2.59'],
+      ['the accent under the pointer', '3.23'],
+      ['the mark round a word found', '1.34'],
+    ]);
+  });
+
+  it('finds the genre stripes a card is too faint for, faintest first', () => {
+    expect(
+      faintStripes('#2f4a4d', STRIPES).map((each) => [each.name, each.ratio.toFixed(2)]),
+    ).toEqual([['horror', '1.45']]);
+
+    const fog = faintStripes('#b9c1ca', STRIPES);
+    expect(fog).toHaveLength(10);
+    expect(fog[0]!.name).toBe('puzzle');
+    expect(fog[0]!.ratio.toFixed(2)).toBe('1.16');
+    expect(fog.every((each, at) => at === 0 || each.ratio >= fog[at - 1]!.ratio)).toBe(true);
+
+    // And none on the eight's own cards, which is palette.test.ts's floor seen from here.
+    for (const [theme, palette] of Object.entries(PALETTES)) {
+      expect(faintStripes(palette.tokens['--surface'], STRIPES), theme).toEqual([]);
     }
   });
 });

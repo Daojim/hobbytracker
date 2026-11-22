@@ -13,6 +13,7 @@
  */
 
 import { readStored, writeStored } from '../lib/storage';
+import type { Part } from './pairs';
 
 export const THEME_ATTRIBUTE = 'data-theme';
 export const DENSITY_ATTRIBUTE = 'data-density';
@@ -64,6 +65,55 @@ export const JOURNAL_VIEWS = [
 export type Theme = (typeof THEMES)[number]['value'];
 export type Density = (typeof DENSITIES)[number]['value'];
 export type JournalView = (typeof JOURNAL_VIEWS)[number]['value'];
+
+/** One of the eight: a theme with a block of its own in index.css, which System is not. */
+export type NamedTheme = Exclude<Theme, 'system'>;
+
+/**
+ * The twenty custom properties every palette block in index.css sets, in its order. What a theme
+ * *is*, and so what a theme of your own has to say: `palettes.test.ts` holds every block to this
+ * list, name for name and in order.
+ */
+export const TOKENS = [
+  '--surface',
+  '--sunken',
+  '--hover',
+  '--line',
+  '--line-soft',
+  '--fg',
+  '--muted',
+  '--accent',
+  '--danger',
+  '--ok',
+  '--drop',
+  '--dropped',
+  '--scrim',
+  '--well',
+  '--rating-low',
+  '--rating-mid',
+  '--rating-high',
+  '--danger-fg',
+  '--card-shadow',
+  '--card-line',
+] as const;
+
+export type Token = (typeof TOKENS)[number];
+export type Tokens = Readonly<Record<Token, string>>;
+
+/** A token as a utility names it, without its two hyphens: `surface`, `danger-fg`. */
+export type TokenName = Token extends `--${infer Name}` ? Name : never;
+
+/** Light or dark: what a block's `color-scheme` says, and what themes a range input's track. */
+export type Scheme = 'light' | 'dark';
+
+/** A theme's values: one of the eight's block, or a theme of your own worked out from one. */
+export interface Palette {
+  readonly tokens: Tokens;
+  readonly scheme: Scheme;
+}
+
+/** The three colours a person sets for a theme of their own: the ground, the card and the accent. */
+export type Picks = Readonly<Record<Part, string>>;
 
 const DEFAULT_THEME: Theme = 'system';
 const DEFAULT_DENSITY: Density = 'comfortable';

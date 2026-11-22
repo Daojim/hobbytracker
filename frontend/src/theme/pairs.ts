@@ -1,4 +1,7 @@
 import { MATCH_MARK } from '../lib/Marked';
+import { contrast, luminance, oklchLuminance, over } from './colour';
+import type { Stripe } from './palettes';
+import { TOKENS, type TokenName, type Tokens } from './theme';
 
 /**
  * What every theme is held to: each pair of colours where one is read or seen on another, and the
@@ -20,8 +23,8 @@ export type Part = 'sunken' | 'surface' | 'accent';
 
 /** A colour on screen: one token, or a token laid over another at an opacity, as `bg-danger/10`. */
 export type Shade =
-  | { readonly token: string }
-  | { readonly token: string; readonly opacity: number; readonly over: string };
+  | { readonly token: TokenName }
+  | { readonly token: TokenName; readonly opacity: number; readonly over: TokenName };
 
 export interface Pair {
   readonly ink: Shade;
@@ -39,9 +42,9 @@ export interface Pair {
   readonly words: string;
 }
 
-const token = (name: string): Shade => ({ token: name });
+const token = (name: TokenName): Shade => ({ token: name });
 
-const tint = (name: string, percent: number, over: string): Shade => ({
+const tint = (name: TokenName, percent: number, over: TokenName): Shade => ({
   token: name,
   opacity: percent / 100,
   over,
@@ -61,11 +64,14 @@ const text = (ink: Shade, ground: Shade, by: Part, words: string): Pair => ({
  * ground measured is the one on screen. A mark that stopped being one token at one opacity fails
  * here, loudly, rather than going unmeasured.
  */
-const MARKED = /\bbg-([a-z-]+)\/(\d+)\b/.exec(MATCH_MARK);
-if (MARKED === null) {
+const isTokenName = (name: string): name is TokenName =>
+  (TOKENS as readonly string[]).includes(`--${name}`);
+
+const [, markToken = '', markPercent = ''] = /\bbg-([a-z-]+)\/(\d+)\b/.exec(MATCH_MARK) ?? [];
+if (!isTokenName(markToken)) {
   throw new Error(`${MATCH_MARK} is not one token at an opacity, so its mark cannot be measured`);
 }
-const mark = tint(MARKED[1]!, Number(MARKED[2]), 'surface');
+const mark = tint(markToken, Number(markPercent), 'surface');
 
 /**
  * The delete warning in Settings and a share's *Stop sharing?*: `bg-danger/10` over the card, a
@@ -100,7 +106,7 @@ export const PAIRS: readonly Pair[] = [
   // together, and so the one that is easiest to get backwards. It was near-white on every theme
   // once, which is right on a deep red fill and about 2:1 on a dark theme's light salmon.
   text(token('danger-fg'), token('danger'), 'surface', 'a delete button’s label'),
-  // The warning's words are `fg` and its backups line `muted`, and muted is thin there: 4.57:1 on
+  // The warning's words are `fg` and its backups line `muted`, and muted is thin there: 4.58:1 on
   // Dusk. The failure line is `danger`, which measured 4.24:1 on Dusk's tint, so it sits under the
   // tint on the card's own ground instead, and is not asked about here.
   text(token('fg'), warning, 'surface', 'text on the delete warning'),
@@ -133,3 +139,46 @@ export const PAIRS: readonly Pair[] = [
  * catches, the way the separation floor catches a new pair.
  */
 export const STRIPE_FLOOR = 1.48;
+
+/** A pair as one theme paints it: how far apart its two shades are, and whether that is enough. */
+export interface Measured {
+  readonly pair: Pair;
+  readonly ratio: number;
+  readonly ok: boolean;
+}
+
+/** A shade as the browser paints it in a theme: a token's value, or a tint laid over one. */
+function paint(shade: Shade, tokens: Tokens): string {
+  const value = (name: TokenName) => tokens[`--${name}`];
+  return 'over' in shade
+    ? over(value(shade.token), value(shade.over), shade.opacity)
+    : value(shade.token);
+}
+
+/** Every pair, in the list's order, as `tokens` paints it. */
+export function measure(tokens: Tokens): Measured[] {
+  return PAIRS.map((pair) => {
+    const ratio = contrast(paint(pair.ink, tokens), paint(pair.ground, tokens));
+    return { pair, ratio, ok: ratio >= pair.min };
+  });
+}
+
+/**
+ * The genre stripes a card is too faint for, faintest first: none on any of the eight, which is
+ * `palette.test.ts`'s floor, and on a card of your own whichever fall under it.
+ */
+export function faintStripes(
+  surface: string,
+  stripes: readonly Stripe[],
+): { name: string; ratio: number }[] {
+  const card = luminance(surface);
+
+  return stripes
+    .map((stripe) => {
+      const lit = oklchLuminance(stripe);
+      const [hi, lo] = lit > card ? [lit, card] : [card, lit];
+      return { name: stripe.name, ratio: (hi + 0.05) / (lo + 0.05) };
+    })
+    .filter((each) => each.ratio < STRIPE_FLOOR)
+    .sort((a, b) => a.ratio - b.ratio);
+}
