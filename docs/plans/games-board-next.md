@@ -57,11 +57,11 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 25 | A journal from the Stats page | S–M | **Planned 14 November 2026**, at the user's request: a cover in a year's months, and a row in #21's list of a rating's games, open that title's journal. **Reverses #21's *nothing opened from a row***. The drawer's moves are the board's, so the work is lifting them out of `BoardPage`. Not on a share. **Shipped and deployed 20 November 2026** (PR #101), built tests first the day it was picked up and workshopped. Round one, four questions in words, and round two, three looks rendered on the user's finishes, took every recommendation: a cover rings in the accent, a rating's row is a button with its name in the accent, a phone keeps today's 32px covers. The board's drawer, whole, with its way in lifted out of `BoardPage`; a move landing last in its column, as from the board's journal; and every write that can change a finish settling the page, which fixed a Stats page that kept its old numbers for 30 seconds. See its section |
 | 26 | The picker, roomier | S | **Planned 14 November 2026**, at the user's request: #16's panel centred and wider on a desktop, its wheel larger, and each length chip saying *5 games* on a line of its own above its hours. *Leave out* unchanged. **Workshopped 20 November 2026**, every pick the recommendation: 576 wide in one column with a 400 wheel, centred from `md`, the count in grey on a line of its own, and on a phone 16px from the top, because the taller chips put the panel 19px off a 390 × 844 screen. **Shipped and deployed 21 November 2026** (PR #103), built tests first the same night: the full e2e suite went 259 green, the 257 before and 2 new, and the desktop specs 4 of 4 in Firefox. See its section |
 | 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Shipped and deployed 21 November 2026** (PR #105), built tests first the same day, a commit per step and one per addition: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
-| 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Built 21 and 22 November 2026**, tests first, a commit per step, on `theme-of-your-own`: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. **Not yet merged.** See its section |
+| 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Shipped and deployed 22 November 2026** (PR #107), built tests first on the 21st and 22nd, a commit per step: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
 
-Production runs `76172b4`'s code, which was `main` on 21 November 2026. Deploying is the runbook in
+Production runs `ca90070`'s code, which was `main` on 22 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -5659,7 +5659,7 @@ a drawer may need one press in Settings for the modal.
 
 ---
 
-## 28. A theme of your own · built
+## 28. A theme of your own · shipped
 
 **Planned 14 November 2026**, at the user's request: *"maybe have the users to be able to create
 their own theme."* A workshop first, and **after #27**, since #27 decides where themes live.
@@ -6025,6 +6025,35 @@ backup, which was the committed file byte for byte.
   headless browsers open none. Whether Firefox on Windows repaints the board as you drag in its
   picker, or only on OK, is for the user's browser and the workshop's `/workshop-probe` to say; the
   box beside each swatch works either way.
+
+### Deployed
+
+**At about 03:22 Eastern on 22 November 2026**, merged as PR #107 and deployed by the runbook in
+`docs/deploy.md`, `76172b4` to `ca90070`, carrying #106's docs with it. Frontend and docs only: no
+migration, no variable and no route. **Caddy alone was recreated**, and the API kept its 30 hours of
+uptime; the whole deploy took 13 seconds.
+
+- **The bundle** went `index-Co5mM0L7.js` to `index-BEoiX2sR.js`, where a local build said
+  `index-DC7PfnJg.js`. **The stylesheet** went `index-DT1iVaz_.css` to `index-cESev2uj.css`, the
+  local build's name, and byte for byte the local build's file.
+- **The panel's own chunk** is `ThemePanel-CwYVfnpj.js`, where a local build said
+  `ThemePanel-CYFI915u.js`: built from the app's code, it does not keep its name between machines,
+  as the spreadsheet writer's chunk, built from a dependency alone, does. It is named in the bundle
+  and served as `text/javascript`, and six of its strings are 1 each in it: *Your own theme*, *Not
+  on the board*, *Hard to read:*, *Start again from*, the stripe floor's sentence and
+  `pl-[5.25rem]`.
+- **Five script strings 0 then 1**, by `grep -F`: `hobbytracker.theme.mine`, `Make your own…`,
+  `Edit…`, the kept value rule's `pxrgb`, and `ThemePanel-`, the dynamic import.
+- **The page itself** changed too: the pre-paint script's `hobbytracker.theme.mine` and `pxrgb`, 0
+  then 1 each in the served `index.html`.
+- **The selector diff** found 23 rules new and none gone, the panel's classes:
+  `.pl-\[5\.25rem\]{`, `.rounded-t-xl{`, `.md\:-bottom-5{` and the colour rows' grid among them,
+  each 0 then 1. Afterwards the served stylesheet's selectors were the local build's exactly.
+- **`/api/auth/me` answered `null` (200)** before and after; Caddy's log had no error, and the API's
+  no warn, fail or crit line in 20 minutes.
+
+**A browser that has never kept a theme of its own sees nothing change** until *Make your own…* is
+pressed in the palette's list.
 
 ---
 
