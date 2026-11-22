@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type Ref } from 'react';
 import { BOARD_STATUSES, type BoardColumn } from '../hobbies';
+// Drawn rather than a glyph, like the tick below: a fallback font draws ▾ differently on every
+// phone. Shared with each board column's collapse since #29, so the app has one arrow.
+import { Chevron } from '../lib/Chevron';
 import type { LogStatus } from '../api/types';
 
 export interface ColumnControlProps {
@@ -163,22 +166,6 @@ export function ColumnControl({
         </div>
       )}
     </div>
-  );
-}
-
-/** Drawn rather than a glyph, like the tick below it: a fallback font draws ▾ differently on every phone. */
-function Chevron() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 10 6" className="h-1.5 w-2.5 shrink-0">
-      <path
-        d="M1 1l4 4 4-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 

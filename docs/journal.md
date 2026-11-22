@@ -49,7 +49,8 @@ Settled:
   became a second way in **without** a copy — it calls the drag's own mutation — and the heading is
   a third caller of the same one, handed to the drawer by the board as `onMove`. The rules still
   live in one place, the move route. `journal/ColumnControl.tsx` holds the control: the column's
-  name with a chevron, opening the board's columns as a group of buttons with the current one
+  name with a chevron (`lib/Chevron.tsx` since #29, the arrow that collapses a board column too,
+  so the app has one), opening the board's columns as a group of buttons with the current one
   ticked. **Picked from renders** over a *Move* button beside the heading and the phone switcher's
   segments in its place, because it is the only one of the three that changes nothing at rest — the
   same `BAND_HEADING` type, the same 16px row, the same 44px down to Rating. The workshop is in

@@ -367,7 +367,7 @@ describe('ComingSoon', () => {
     const { unmount } = renderCalendar([upcomingItem('Silksong II', '2026-11-03')]);
 
     await screen.findByText('Silksong II');
-    await userEvent.click(screen.getByRole('button', { name: /hide coming soon/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse Coming soon' }));
 
     expect(screen.queryByText('Silksong II')).not.toBeInTheDocument();
 
@@ -375,28 +375,28 @@ describe('ComingSoon', () => {
     renderCalendar([upcomingItem('Silksong II', '2026-11-03')]);
 
     expect(
-      await screen.findByRole('button', { name: /show coming soon/i }),
+      await screen.findByRole('button', { name: 'Expand Coming soon' }),
     ).toBeInTheDocument();
   });
 
-  it('says only Hide, and says the rest to a screen reader', async () => {
-    // The heading is right beside it saying "Coming soon", so repeating that in the button is
-    // noise on screen. It is not noise off screen: a screen reader reaches the button without
-    // the heading in hand, and "Hide" alone would be the third such button on the page.
-    //
-    // So the visible word narrows and the accessible name does not, which is also why the
-    // e2e spec's `getByRole('button', { name: 'Hide Coming soon' })` still finds it.
+  it('folds by the columns’ arrow, before its heading, named for what a press does', async () => {
+    // #29: every fold on the board is one control. The word *Hide* at the far right went, so the
+    // board no longer says *hide* for a fold, and the arrow sits where each column's does. Its
+    // name carries the heading's words, because a screen reader reaches it without the heading.
     renderCalendar([upcomingItem('Silksong II', '2026-11-03')]);
 
-    const fold = await screen.findByRole('button', { name: 'Hide Coming soon' });
+    const fold = await screen.findByRole('button', { name: 'Collapse Coming soon' });
 
-    expect(fold).toHaveTextContent(/^Hide$/);
+    expect(fold).toHaveTextContent(/^$/);
+    expect(
+      fold.compareDocumentPosition(screen.getByRole('heading', { name: /^Coming soon/ })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
 
     await userEvent.click(fold);
 
-    expect(await screen.findByRole('button', { name: 'Show Coming soon' })).toHaveTextContent(
-      /^Show$/,
-    );
+    expect(await screen.findByRole('button', { name: 'Expand Coming soon' })).toBeInTheDocument();
+    expect(screen.queryByText('Silksong II')).not.toBeInTheDocument();
   });
 
   it('opens a title the way a card does', async () => {
@@ -486,9 +486,9 @@ describe('ComingSoon on a share', () => {
     // and the board's key would fold the visitor's own calendar along with it.
     renderShared([upcomingItem('Silksong II', '2026-11-03')]);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Hide Coming soon' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Collapse Coming soon' }));
 
-    expect(await screen.findByRole('button', { name: 'Show Coming soon' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Expand Coming soon' })).toBeInTheDocument();
     expect(localStorage.length).toBe(0);
   });
 });

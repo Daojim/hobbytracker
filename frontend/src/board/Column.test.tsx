@@ -529,7 +529,43 @@ describe('Column', () => {
     expect(screen.getByRole('combobox', { name: 'Completed order' })).toBeInTheDocument();
   });
 
-  it('keeps its count visible while collapsed, and hides only the cards', async () => {
+  it('keeps its heading, count, hours and sort control while collapsed, and hides only the cards', async () => {
+    // #29: a collapse takes the cards away and nothing that says what is in the column. That is
+    // what makes it a collapse rather than the column taken off in Settings.
+    boardServer({
+      columns: { Backlog: [libraryItem({ title: 'Celeste', lengthHours: 62 })] },
+      hours: { Backlog: { ...NO_HOURS, length: 62, lengthTitles: 1 } },
+    });
+
+    renderColumn({ status: 'Backlog', label: 'Backlog', collapsed: true, onToggleCollapse: vi.fn() });
+
+    expect(await screen.findByRole('heading', { name: 'Backlog 1' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'About 62 hours to beat' })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Backlog order' })).toBeInTheDocument();
+    expect(screen.queryByText('Celeste')).not.toBeInTheDocument();
+  });
+
+  it('puts its arrow before the heading, named for what a press does', async () => {
+    boardServer({ columns: { Completed: [libraryItem({ title: 'Celeste', currentStatus: 'Completed' })] } });
+    const onToggleCollapse = vi.fn();
+
+    renderColumn({ status: 'Completed', label: 'Completed', onToggleCollapse });
+
+    const arrow = await screen.findByRole('button', { name: 'Collapse Completed' });
+    // Before the heading, so it stays on the heading's row whatever else in the row wraps: picked
+    // from renders on 22 November 2026 over after the count and past the sort control.
+    expect(
+      arrow.compareDocumentPosition(screen.getByRole('heading', { name: /^Completed/ })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    await userEvent.click(arrow);
+    expect(onToggleCollapse).toHaveBeenCalledOnce();
+  });
+
+  it('says Expand once collapsed, and never Show or Hide', async () => {
+    // Dropped's fold used to say *Show Dropped* in words. Every column says it one way now, and
+    // *hide* is left to what Settings does.
     boardServer({ columns: { Dropped: [libraryItem({ title: 'Anthem' })] } });
 
     const { container } = renderColumn({
@@ -539,8 +575,17 @@ describe('Column', () => {
       onToggleCollapse: vi.fn(),
     });
 
-    expect(await screen.findByRole('heading', { name: 'Dropped 1' })).toBeInTheDocument();
-    expect(screen.queryByText('Anthem')).not.toBeInTheDocument();
-    expect(within(container).getByRole('button', { name: 'Show Dropped' })).toBeInTheDocument();
+    expect(await within(container).findByRole('button', { name: 'Expand Dropped' })).toBeInTheDocument();
+    expect(within(container).queryByRole('button', { name: /^(Show|Hide) / })).not.toBeInTheDocument();
+  });
+
+  it('has no arrow when it is handed no way to fold', async () => {
+    // A phone's column, where choosing it in the switcher is asking to see it.
+    boardServer({ columns: { Completed: [libraryItem({ title: 'Celeste', currentStatus: 'Completed' })] } });
+
+    renderColumn({ status: 'Completed', label: 'Completed' });
+
+    expect(await screen.findByText('Celeste')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Collapse|Expand) / })).not.toBeInTheDocument();
   });
 });

@@ -12,6 +12,7 @@ import {
   releaseProgress,
 } from '../lib/release';
 import { readStored, writeStored } from '../lib/storage';
+import { CollapseArrow } from './CollapseArrow';
 import { todayHere } from '../lib/time';
 import type { Voice } from '../lib/voice';
 import { upcomingKey } from './keys';
@@ -162,16 +163,15 @@ export function ComingSoon({ hobby, columns, query, voice, remembers, onOpen }: 
     <div className={`mt-6 grid ${BOARD_GAP} ${boardTracks(columns)}`}>
       <section aria-labelledby={headingId} className={`min-w-0 ${calendarSpan(columns)}`}>
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
-            {words.heading} <span className="text-muted">{items.length}</span>
-          </h2>
-
-          {/* The visible word is bare because the heading is right beside it; the accessible name
-              is not, because a screen reader reaches the button without the heading in hand and
-              "Hide" alone would be the third such button on the page. */}
-          <button
-            type="button"
-            onClick={() => {
+          {/* The columns' arrow, before the heading, since #29: every fold on the board is one
+              control, and the board stopped saying *hide* for a fold. It was the word *Hide* at
+              the far right, picked against from renders on 22 November 2026. At every width, as
+              the word was: on a phone the calendar is under the one column shown, and folding it
+              is still the way past it. */}
+          <CollapseArrow
+            collapsed={!open}
+            name={words.heading}
+            onToggle={() => {
               setOpen((wasOpen) => {
                 if (remembers) {
                   writeOpen(hobby, !wasOpen);
@@ -179,11 +179,10 @@ export function ComingSoon({ hobby, columns, query, voice, remembers, onOpen }: 
                 return !wasOpen;
               });
             }}
-            aria-label={`${open ? 'Hide' : 'Show'} ${words.heading}`}
-            className="ml-auto rounded px-1 text-xs text-muted hover:bg-hover"
-          >
-            {open ? 'Hide' : 'Show'}
-          </button>
+          />
+          <h2 id={headingId} className="text-sm font-medium tracking-wide uppercase">
+            {words.heading} <span className="text-muted">{items.length}</span>
+          </h2>
         </div>
 
         {open && (

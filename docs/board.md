@@ -731,8 +731,10 @@ belongs on the server.
   browsers set to block site data. Its test is worth reading before writing another like it:
   it passed with the map deleted, the first time — see **The things that fail quietly** in
   `docs/design.md`.
-- **The word *hide* is not used in Settings.** On the board it already means *fold*, for Dropped and
-  for the calendar, and a third meaning in the header would be one too many. Ticked means shown.
+- **The word *hide* is not used in Settings.** On the board it meant *fold*, for Dropped and for the
+  calendar, and a third meaning in the header would have been one too many. Since #29 every fold on
+  the board is an arrow named *Collapse* and *Expand*, so the board no longer says *hide* for one;
+  Settings still says nothing but *shown*. Ticked means shown.
 
 **Checked by reintroducing each fault.** The menu working its moves out from the hobby again fails
 `Card.test.tsx` and `BoardPage.test.tsx`; one storage key for every board fails the store's test and
@@ -760,6 +762,71 @@ palette**.
 - **The wheel** (`pick/wheelSpin.ts`): *Spin* or *Skip the spin*, per board where the board has a
   picker. Skipping takes the path reduced motion already takes, so the pick is the same either way:
   it is made before anything moves.
+
+### Collapsing a column
+
+**An arrow before every column's heading, side by side, draws the column as its header with none
+of its cards.** Built on 22 November 2026 for #29 in `docs/plans/games-board-next.md`, which has
+the workshop and every pick; the look is `docs/design.md`'s, under **Collapsing a column**. It is
+Dropped's fold, which was the only one, for every column: in the user's words, *"to just quickly
+collapse the column and not hide it like my option in Settings"*, because a Completed that grows
+with every finish had made the page long to scroll past.
+
+- **Not the column taken off in Settings.** That one is not drawn, not fetched and not a drop
+  target. A collapsed column is all three: only its cards go. The heading and its count, the hours
+  line with #20's counts that open their lists, and the sort control stay, so the switcher's counts
+  and the hours still come from the column's own request. The section stays `min-h-24` and keeps
+  the droppable's ref collapsed or open, the fix Dropped's fold once needed (`Column.tsx` says
+  why), so a card let go on a collapsed column lands last in it, and one leaving Completed for it
+  still asks *Did you finish it?* (#14).
+- **A store beside the hidden columns', `board/collapsedColumns.ts`**, per board and per browser
+  under `hobbytracker.collapsed-columns.<hobby>`, through `lib/preferenceStore.ts`: collapsing
+  Completed on Games leaves Watched open on Films. **Nothing stored is Dropped collapsed, and a
+  stored empty list is every column open**, so Dropped starts out of the way as it always has and,
+  once opened, stays open, where it used to fold itself again on every load. What is stored is the
+  whole list, written on every press from what the board was showing, in board order, so the
+  first press anywhere also writes Dropped down as it was. Anything that is not a list reads as
+  nothing stored; a list keeps the columns there are.
+- **Side by side only.** `BoardPage` hands a column its collapse and its arrow only while the
+  columns are side by side, two across included, where a long Completed pushes Dropped's row and
+  the calendar down. On a phone, choosing a column in the switcher is asking to see it: there is no
+  arrow, and what is stored does not apply.
+- **Every column, Backlog too.** Its header keeps *Pick*, and the picker reads the whole column for
+  itself. A title a tile adds to a collapsed Backlog lands out of sight: the count goes up, and the
+  tile names Backlog.
+- **A share collapses every column for the visit**, Dropped to start, as page state that reads and
+  writes no store: what this browser keeps collapsed is the visitor's view of their own board, and
+  a share's fold kept under the board's key would fold that board too.
+- **The calendar folds by the same arrow**, `board/CollapseArrow.tsx`, in place of the word
+  *Hide*, named *Collapse Coming soon* and *Expand Coming soon*: still remembered per board under
+  `hobbytracker.coming-soon.<hobby>`, still at every width, and still forgotten on a share.
+- **Nothing in Settings.** #27 left *Collapsed columns* to #29, which answered it: the arrow is on
+  the column it folds, where a column taken off can only come back from Settings.
+
+**Checked by putting each fault back**, one at a time against the finished feature, by the
+gitignored `workshop.local/collapsing-a-column/faults.mjs`, which restores each file after its run:
+
+| Fault | What goes red |
+|---|---|
+| Nothing stored collapses nothing, Dropped included | every case of the store's that reads Dropped's default, *collapses Dropped until asked*, and the board's two cases after it |
+| The press written alone, not the whole list | *stores the whole list*, *opens a column again*, *for that board and no other*, the refusal case and the board's remembering case; and *hears a choice made in another tab*, through the page's copy the refusal case leaves behind when it fails |
+| One key for every board | the store's per-board case, and the board's, at films |
+| A stored empty list read as nothing stored | *keeps Dropped open once it is opened* |
+| What is stored applied on a phone | both phone cases |
+| The arrow drawn on a phone | both phone cases |
+| Dropped alone with an arrow, as before | *puts an arrow on every column side by side, Backlog too*, and the remembering case |
+| The arrow after the heading | *puts its arrow before the heading* |
+| A collapsed column without its hours | *keeps its heading, count, hours and sort control while collapsed* |
+| The words *Show* and *Hide* again | five cases in the column's file and the calendar's |
+| A share starting from this browser's own collapses | *never folds a column because this browser folded its own* |
+| A share writing its collapses down | *folds every column … and remembers none of it* |
+| The calendar's arrow after its heading | its *before its heading* case |
+| A collapsed section without the droppable's ref | `board.spec.ts`'s two drops: the card landed in Completed beside a collapsed Dropped, and in On Hold beside a collapsed Completed |
+| The arrow remounted by a press | the keyboard case, with the keyboard on nothing after Enter |
+
+The plan named a section not rendered at all while collapsed; the fault put back keeps the section
+and drops its ref, because a section not rendered would also take the region the specs find a
+column by, and go red for that instead of for the drop.
 
 ### A second thing that narrows a column
 
@@ -1076,7 +1143,8 @@ of their own board, and what a share shows is its owner's to say, stored with th
 **A shared column is the board's frame around faces with nothing in their hands.**
 `board/Column.tsx` is split in two since then. `Column` is yours: a drop target and a stack of
 `Card`s to carry and open. `ColumnFrame` is everything a column is apart from its cards (the well,
-the heading and count, the hours, the fold, the sort control, the empty and loading states), and
+the arrow that collapses it, the heading and count, the hours, the sort control, the empty and
+loading states), and
 both wear it, so they cannot drift. `SharedColumn` hands it `CardFace` with no handlers, exactly as
 the drag preview draws a card, and with `latestNotePreview` set to null, and since #18 the picture
 and its count too: the server sends no note on a share, and a note or a picture that ever arrived
@@ -1090,8 +1158,9 @@ dnd-kit, so nothing can be pressed, carried or dropped onto.
   `queryOptions` will not widen to a type two sources share.
 - **The sort control stays, and the hand-made order is *Board order*** there, since it is the
   owner's and not the reader's. The visitor's sorts are page state, never written anywhere.
-- **Dropped folds side by side, as on yours**, and not on a phone, where choosing it in the switcher
-  is already asking to see it.
+- **Every column collapses side by side, as on yours, for the visit** (#29), Dropped to start, and
+  none on a phone, where choosing one in the switcher is already asking to see it. Page state, never
+  stored, for the calendar's reason below.
 - **Backlog's *at your pace* line is left off**: a share's frame is handed no pace, because the
   pace in this browser is the visitor's, about their own board.
 - **On a phone it is one column at a time under `ColumnSwitcher`, outside any `DndContext`.** Its

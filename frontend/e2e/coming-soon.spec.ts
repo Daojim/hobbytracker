@@ -216,18 +216,18 @@ test('the calendar folds away and stays folded', async ({ page }) => {
   await expect(page.getByRole('region', { name: /^Coming soon/ }).getByText('Silksong II'))
     .toBeVisible();
 
-  // Named "Hide Coming soon" and reading "Hide". The button carries the heading's words in its
-  // aria-label only, so this locator is deliberately the accessible name and the assertion
-  // beneath it is deliberately the visible one — they are two different claims about one button.
-  const fold = page.getByRole('button', { name: 'Hide Coming soon' });
-  await expect(fold).toHaveText('Hide');
+  // The columns' arrow since #29, before the heading: named "Collapse Coming soon" and showing the
+  // chevron alone. The name is the heading's words in an aria-label, so this locator is the
+  // accessible name and the assertion beneath it says there is no word on screen.
+  const fold = page.getByRole('button', { name: 'Collapse Coming soon' });
+  await expect(fold).toHaveText('');
 
   await fold.click();
   await expect(page.getByText('Silksong II')).toHaveCount(0);
 
   await page.reload();
 
-  await expect(page.getByRole('button', { name: 'Show Coming soon' })).toHaveText('Show');
+  await expect(page.getByRole('button', { name: 'Expand Coming soon' })).toBeVisible();
   await expect(page.getByText('Silksong II')).toHaveCount(0);
 });
 
