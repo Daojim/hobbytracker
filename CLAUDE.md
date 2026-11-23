@@ -836,8 +836,8 @@ shuffled.
         the board with a phone over its corner, each still a light and dark pair that opens
         bigger in the reader's own theme, and the wheel a 656px GIF in a column of its own, where
         GitHub had drawn it 88px wide. The share link and Settings joined the tour, the user's
-        picks over a theme of your own; every other pick was the recommendation (branch
-        `readme-refreshed`)
+        picks over a theme of your own; every other pick was the recommendation (PR #111, which
+        needs no deploy)
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
