@@ -69,8 +69,12 @@ them: `design-notes.md` (all twenty decisions, six of which the README keeps sho
 (every route) and `history.md` (what shipped, in order). They were the README's until it became a
 tour on 1 November 2026. **A route added or changed updates `api.md`, and a feature that ships
 adds its entry to `history.md`.** `docs/shots/` holds the README's screenshots: a demo account on
-a database of its own, never production, in Shelf Light and Shelf Dark as WebP at 1,760px, and
-the wheel as a GIF.
+a database of its own, never production, each a close crop framed on a soft backdrop of Shelf's
+own colours, in Shelf Light and Shelf Dark as WebP at 1,760px, and the wheel as a GIF. **Each
+still is a pair of Markdown images ending `#gh-light-mode-only` and `#gh-dark-mode-only`, the one
+form GitHub's repo page opens bigger in the reader's own theme; a `<picture>` there is never a
+link.** The wheel alone stays a `<picture>`, and `frontend/src/readme.test.ts` holds both. How
+they were made is #30 in `docs/plans/games-board-next.md`.
 
 ## What exists
 
@@ -102,8 +106,8 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **Deployment** | One Dockerfile, a compose file, Caddy in front, and an origin the app is told rather than left to guess | `docs/deploy.md` |
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
-**Four hobbies are live**, anime included, and **no new phase is queued**: the games board has
-the README left, and books and music are on hold. See **What is next**, which also lists
+**Four hobbies are live**, anime included, and **no new phase is queued**: the games board's
+planned list is done, and books and music are on hold. See **What is next**, which also lists
 the smaller things named but not built.
 
 ## Start here
@@ -828,8 +832,12 @@ shuffled.
         target; remembered per board, Dropped collapsed until opened, a share collapsing for the
         visit, and the calendar's *Hide* turned into the same arrow. Every pick was the
         recommendation (PR #109, deployed)
-      - [ ] the README, refreshed — after #25 to #29: shots that open bigger on GitHub, which a
-        `<picture>` there does not, a wheel larger than its 360px GIF, and the tour caught up
+      - [x] the README, refreshed — every shot a close crop framed on a soft backdrop, the hero
+        the board with a phone over its corner, each still a light and dark pair that opens
+        bigger in the reader's own theme, and the wheel a 656px GIF in a column of its own, where
+        GitHub had drawn it 88px wide. The share link and Settings joined the tour, the user's
+        picks over a theme of your own; every other pick was the recommendation (PR #111, which
+        needs no deploy)
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.

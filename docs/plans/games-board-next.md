@@ -59,7 +59,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 27 | Settings, rearranged | M–L | **Planned 14 November 2026**, at the user's request, a workshop first: the themes out of the top of the panel into a place of their own, **Modal as the journal's default**, and new settings to choose from, listed whole in its section. **Workshopped 21 November 2026 in two rounds of renders**, and it grew: the themes leave Settings for a palette button in the header, Settings becomes a dialog behind a gear, seven settings are added, a phone keeps the full-screen journal whichever is chosen, and two bugs on main found by the renders are fixed in the same branch. Four picks were the user's over the recommendation (where the themes go, the two icons, 768px, Your data at the foot), and five of the seven additions were ones recommended against. **Shipped and deployed 21 November 2026** (PR #105), built tests first the same day, a commit per step and one per addition: the full e2e suite went 269 green, the 259 before and 10 new, Vitest 1,601, every fault put back turned its cases red, the keyboard held in Firefox as in Chromium, and the built header, palette and dialog differ from the picked prototype by no pixel. See its section |
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Shipped and deployed 22 November 2026** (PR #107), built tests first on the 21st and 22nd, a commit per step: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. **Built the same day, tests first**, a commit per step: the full e2e suite went 278 green, the 275 before and 3 new, Vitest 1,692, every fault put back turned its cases red, the drops and the keyboard held in Firefox, and the built board differs from the picked prototype by no pixel in 16 states. **Shipped and deployed 22 November 2026** (PR #109): frontend and docs only, Caddy alone recreated, and the stylesheet the local build's byte for byte. See its section |
-| 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. See its section |
+| 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. **Workshopped 22 November 2026 in two rounds**, measured on GitHub's own repo page: the wheel rendered 88px wide on a desktop and 25 on a phone, its cell's doing, and the user's *etc.* was that the pictures were not appealing beside well-made repos. So every shot became a close crop framed on a soft backdrop of Shelf's own colours, the hero the board with a phone over its corner, each still a light and dark pair GitHub picks between by fragment so a press opens the reader's own theme, and the wheel a 656px GIF in its own column. The share link and Settings join the tour, the user's picks over a theme of your own. Every pick but that one was the recommendation. **Shipped 22 November 2026** (PR #111), built the same day, test first: `src/readme.test.ts` holds the pairs and the one picture, and nine faults put back each turned it red. On the pushed branch's own page, in Chrome and Firefox, light and dark, every still opened its own file in the reader's theme, and a reader downloads 5.0 MB against 3.0 today. No deploy: the README is GitHub's. See its section |
 
 Production runs `bd0f672`'s code, which was `main` on 22 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -6290,7 +6290,7 @@ of uptime, since no base image had moved; the script took 12 seconds.
 
 ---
 
-## 30. The README, refreshed · planned
+## 30. The README, refreshed · shipped
 
 **Planned 20 November 2026**, at the user's request, **to be done after #25 to #29**, so its shots
 show them. In the user's words: *"one of the improvements I want would be to have better
@@ -6348,6 +6348,147 @@ small, etc."* The *etc.* is the user's, so the workshop asks what else before it
 - **A shot is a download**: say what each costs a reader, the wheel above all.
 - **Check the README as the repo page renders it** before calling it done, on the branch, since
   the API and the page differed on 20 November.
+
+### Measured before round one, 22 November 2026
+
+On GitHub's own repo page, logged out, in Chrome and Firefox, light and dark, by a Playwright
+probe of `article.markdown-body` (`workshop.local/readme-refreshed/gh-probe.mjs`):
+
+- **None of the nine opens bigger**: 0 of 9 images is inside a link. A reader downloads only their
+  own theme's files, 3.0 MB, 1.8 MB of it the GIF.
+- **The wheel renders 88 × 146px on a desktop, not the 300 its `width` says**, because its table
+  cell gives the words the room, and **25px wide on a phone** (390px, GitHub's mobile layout,
+  a 324px column). The grid's four shots render at 367–390px on a desktop and 129–140px on a
+  phone; neither table scrolls sideways. So most of *too small* was the cell, not the file.
+- **Reduced motion.** GitHub wraps a plain GIF in `<animated-image>`, which gives it a play/pause
+  button and starts it paused for a reader who asked for reduced motion. Today's GIF, inside a
+  `<picture>`, gets neither, and nor does an animated WebP or AVIF.
+- **The wheel's forms**, from #26's panel (576 wide, a 400 wheel) recorded afresh: not a screen
+  recording but the wheel's own CSS transition stepped frame by frame through
+  `document.getAnimations()` at DPR 2, with `Math.random` seeded so both themes draw the same wheel
+  (`wheel-frames.mjs`). 6.0 s: 0.5 still, the 4 s spin, 1.5 on the pick. **Clean frames alone
+  halve a GIF**: today's recipe at 360px makes 952 KB from them, against 1,809 KB from the video.
+  One reader, light: GIF 480 at 12 fps 1,575 KB; **GIF 600 at 12 fps 2,228 KB**; animated WebP 600
+  at 15 fps 1,144 KB; animated AVIF 600 at 15 fps 522 KB; MP4 600 at 30 fps 794 KB. On a pushed
+  throwaway branch all three image forms showed, animated and were links in both browsers; **an
+  MP4 in the repo does not play**: GitHub strips `<video>`, and as a Markdown image it is a broken
+  image that still downloads. GitHub documents that an uploaded video plays, which only the
+  user's browser could measure.
+- **Every shot is stale**, and costs about what it did when retaken as before (WebP q90 at up to
+  1,760px, KB light / dark): board 136 / 134, journal 179 / 156, Stats 103 / 103, search 148 /
+  147, calendar 53 / 52, Discover 294 / 291, anime 113 / 112, phones 176 / 174. The candidates:
+  From your ratings 298 / 300, a rating's games 31 / 31, the ✓'s question 167 / 165, a theme of
+  your own 145 / 142, Settings 104 / 89, searching notes 86 / 86, Suggest three 120 / 93, a share
+  link 127 / 125, TV 92 / 91, films 77 / 76, a header's opened list 136 / 134.
+- **The demo board has aged.** GTA VI's day, 19 November, has passed, so it has arrived in Backlog
+  with no estimate and sits at the top of the column; Fable carries the calendar's countdown. A
+  refresh from IGDB on 22 November changed no date and renamed *The Elder Scrolls VI* to
+  *… : Sentinel*. The journal is a modal since #27, which at the old window shows a note's first
+  picture large and cuts the rest.
+
+### Round one, 22 November 2026: in words
+
+Two calls. **The *etc.* was the user's to say, and it changed the model**: *"mainly how all the
+pics were not appealing to look at compared to other well made repos"*, with the hero shot ticked.
+So a second call asked what *appealing* means here before anything was drawn. Picked:
+
+- **Close crops**, each shot cropped to the part it is about and shown near its real size, so its
+  words read; the hero stays a wider view. Recommended.
+- **On a backdrop**: padding in a backdrop of the theme's own tones, rounded corners and a soft
+  shadow, baked into every image, light and dark alike. Recommended.
+- **The hero is the board with a phone beside it**, a composite. Recommended.
+- **The wheel a GIF at 600, taking the column**, centred under its words. Both recommended.
+- **Folded into shots retaken anyway**: Stats with a rating's list open (#21), Search with the ✓'s
+  *When did you finish it?* open (#24), and Discover on *From your ratings* (#17). All three
+  recommended; the hero with a header's list open (#20) was not taken.
+- **The tour gains the share link and the Settings dialog**, the user's picks over the one
+  recommended, a theme of your own, which is not taken.
+
+### Round two, 22 November 2026: in renders
+
+**How a shot opens bigger, measured on GitHub's own page** on the throwaway branch
+`readme-workshop`, six forms with a still and a GIF each, Chrome and Firefox, light and dark
+(`gh-forms.mjs`). They agreed in every cell but one fetch:
+
+| Form | A dark reader sees | Pressing the shot | The GIF | Downloads |
+|---|---|---|---|---|
+| Two Markdown images with `#gh-light-mode-only` and `#gh-dark-mode-only` | dark | opens that theme's file on GitHub's file page, in GitHub's own theme: 1,760px shown at 1,085 in a 1,440 window | GitHub's player | **both themes** |
+| The same as HTML `<img>`, with and without `loading="lazy"` | dark | as above | as above | both: GitHub strips `loading` |
+| Today's `<picture>`, a *Full size: light · dark* line under it | dark | nothing; the line opens either file | no player | one theme (Firefox in dark fetched both once) |
+| One theme, plain images | **light** | the light file | player | one |
+| A link around a `<picture>` | **light**: the link breaks the switch | the light file | player | one |
+
+**The look**, rendered by `tour.mjs` (crops clipped in the browser at DPR 2), `compose.mjs` (each
+crop on an 880px mat, rounded 12px, a hairline and a soft shadow, drawn by the browser) and
+`gif-compose.mjs` (the wheel's 181 frames framed the same way, the panel's top held still so it
+grows downward rather than jumping as the centred dialog does). One page:
+https://claude.ai/artifact/94G2xeoeN4C1Vr8ujgBihn. The draft README was pushed to
+`readme-workshop-look` and read back from GitHub, every shot at a phone's full 324px column.
+**The page set its height, 10,872px at a desktop, against today's 6,891, and that was unfair**:
+the draft stopped after *How it's built*, about 2,200px short of a whole README. The built one is
+13,055 against 6,891, and 10,865 on a phone against 7,599. Close crops, each with the column to
+itself, are the length.
+
+**Picked, every one the recommendation:**
+
+- **The stills as fragment pairs, the wheel in a `<picture>`.** Every still opens bigger in the
+  reader's own theme, at the cost of both themes downloaded; the wheel is already shown at its full
+  656px, so it stays one theme and spins without GitHub's pause. One reader: **5.0 MB** (light
+  5,091 KB, dark 5,131), against 7.2 MB for fragments everywhere and 3.6 MB for pictures with a
+  *Full size* line. Today's is 3.0 MB.
+- **The soft backdrop**: Shelf's ground running into a tint of its accent, `#f3eee7` to `#d5ddd5`
+  in light and `#16130f` to `#1f2b25` in dark, over the ground and accent flat and no mat at all.
+- **The journal to the foot of its newest note**: the top band with OpenCritic and Steam, the pass
+  with the pace answer, and a note with three pictures. 294 KB and 1,478px on GitHub, the tallest
+  image, over the pass alone (73 KB, 776px) and the drawer (197 KB, 1,368px).
+- **The other stale words caught up too**: Tests' stand-ins, the optional OpenCritic key, Credits.
+
+Two choices were made without being asked and are on the page to object to: **GTA VI moved last
+in the demo Backlog's order** (it sat first only because its place dated from its unreleased add),
+and the wheel lands on **Metaphor: ReFantazio** by a seeded `Math.random`, as 1 November's did.
+**Left to tidy at the build**: Discover's second row lost its add buttons at the crop's foot, and
+the anime and share crops ended partway through a card.
+
+**The harness** is `frontend/workshop.local/readme-refreshed/`, gitignored: `api.sh` starts the
+API on `hobbytracker_readme` (:5203, Development, only Google pointed at the e2e stub), with Vite on
+:5176 and `node frontend/e2e/support/google-stub.mjs`; the seed and `lib.mjs` are still 1
+November's, in `workshop.local/readme/`. `throwaway.mjs` pushes a branch named `readme-workshop…`
+from a scratch index, so the checkout is never touched. Delete those branches when the work ships.
+
+### Built, 22 November 2026
+
+On `readme-refreshed`, a commit per step: the workshop's record, the shots, then the README with
+its test. **Tidied at the build**, as the page said: Discover's crop ends on its second row's add
+buttons, and the anime and share crops end on a card's foot.
+
+- **`docs/shots/`**: ten stills and the wheel in two themes. One reader's theme, KB light / dark:
+  hero 136 / 133, journal 293 / 291, Stats 96 / 91, search 125 / 123, calendar 58 / 57, Discover
+  298 / 301, anime 96 / 93, share 110 / 106, Settings 87 / 84, phones 146 / 141, and the wheel
+  2,204 / 2,244. `board-*.webp` went, the hero in its place.
+- **The README**: every still a light and dark pair of Markdown images by fragment, the wheel one
+  `<picture>` in `<p align="center">`, the tour's words for each shot, and *How it's built*, the
+  *Also* line, Running it, Tests and Credits caught up.
+- **`frontend/src/readme.test.ts`**, written first and shown red (three of five; the other two
+  held today's README too): every still a pair whose two images share their words, no WebP in a
+  `<picture>`, the wheel the only picture with no link round it, every file named and every name a
+  file, and each pair 1,760 wide and one size. Beside `manifest.test.ts`, which reads files outside
+  `src` the same way. Vitest 1,697, the 1,692 before and these five.
+- **Checked by putting each fault back** (`faults.mjs`), all nine red: a still back in a
+  `<picture>`; a still without its fragment; a dark reader handed the light file; a pair whose
+  words differ; a link round the wheel; the wheel as two plain images; a file nothing names; a name
+  with no file; a still at half the width.
+- **On the pushed branch's own page** (`gh-verify.mjs`), Chrome and Firefox, light and dark: ten
+  stills and the wheel shown, **each of the ten pressed and opening its own file in the reader's
+  theme**, 1,760px shown at 1,085 on GitHub's white or `#0d1117`. GitHub opens it in the same tab,
+  where the workshop's probe had looked for a new one. **A reader downloads 5,081 KB in light and
+  5,121 in dark**, against 3,045 and 3,034 today.
+
+**What the plan got wrong, or left out.** The plan put the wheel's smallness down to its 360px
+GIF; on GitHub's page its table cell drew it at 88px, and on a phone 25. It also expected the
+fragments to answer the double download by renders alone: GitHub strips `loading="lazy"`, so no
+markup avoids it, and the pick paid it for the stills only. And it asked what else the *etc.*
+covered expecting a list; the answer was a standard, *appealing beside well-made repos*, which
+turned a retake into a redesign.
 
 ---
 
