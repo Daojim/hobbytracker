@@ -267,4 +267,13 @@
       collapses for the visit only; and the calendar under the board folds by the same arrow in
       place of the word *Hide*. Eleven choices in a round of words and a round of renders, every
       one the recommendation, and the built board matches the picked renders to the pixel
+- [x] The README, refreshed. Every screenshot retaken on the demo account, cropped to what it is
+      about and framed on a soft backdrop of the app's own colours, because the old ones were the
+      whole window shrunk until its words could not be read. The first image is the board with
+      the same board on a phone over its corner, and the tour gained sharing a board and Settings.
+      A screenshot now opens bigger when pressed, in the theme the reader is in, which a
+      `<picture>` never could on GitHub, and the picker's wheel is a 656px GIF in a column of its
+      own: GitHub's page had drawn it 88px wide in its table cell, and 25 on a phone. All of it
+      was measured on GitHub's own page, in Chrome and Firefox, light and dark, before anything
+      was drawn, and every choice but one was the recommendation
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration
