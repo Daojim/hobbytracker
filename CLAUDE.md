@@ -107,8 +107,8 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
 **Four hobbies are live**, anime included, and **no new phase is queued**: the games board's
-planned list is done, and books and music are on hold. See **What is next**, which also lists
-the smaller things named but not built.
+planned list has four not yet built, #31 to #34, and books and music are on hold. See **What is
+next**, which also lists the smaller things named but not built.
 
 ## Start here
 
@@ -687,7 +687,7 @@ shuffled.
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
       notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
       two more on 3 November, one on 4 November, one on 7 November, out of #17's workshop,
-      two on 8 November, five on 14 November, and one on 20 November:
+      two on 8 November, five on 14 November, one on 20 November, and four on 25 November:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -838,6 +838,20 @@ shuffled.
         GitHub had drawn it 88px wide. The share link and Settings joined the tour, the user's
         picks over a theme of your own; every other pick was the recommendation (PR #111, which
         needs no deploy)
+      - [ ] the installed app's bottom bar — a bug, measured on the user's Android phone on
+        25 November 2026: the status bar follows the theme, and the navigation bar stays the
+        manifest's Shelf Light. Whether anything newer changes that, then a manifest that
+        follows the theme, one fixed colour, or leaving it and saying why
+      - [ ] a queue for adding many games at once — a workshop first: a list apart from the
+        board, filled from search or from a pasted list of names matched against IGDB and never
+        guessed, and a selection added to one column in one go, #24's year and all. The app's
+        first multi-select
+      - [ ] month and week views of the release calendar — a choice beside the agenda, with a
+        place for the titles no day fits, a phone from the start, and a week view only if the
+        user's real calendar has the days for one
+      - [ ] a better sign-in page — a workshop in renders: the page saying what the app is
+        before it asks anyone to sign in, from the README's shots, keeping the neutral buttons,
+        the full-bleed ground and *Account deleted*
 
       **Noted for the other hobbies and deliberately not planned:** a +1 episode button on
       Watching cards. Importing a MAL list was dropped on 1 November 2026.
