@@ -11,6 +11,7 @@ import {
   JOURNAL_ATTRIBUTE,
   JOURNAL_KEY,
   JOURNAL_VIEWS,
+  MANIFEST,
   MINE_KEY,
   THEMES,
   THEME_ATTRIBUTE,
@@ -19,6 +20,7 @@ import {
   applyJournalView,
   applyMine,
   applyTheme,
+  manifestOf,
   readDensity,
   readJournalView,
   readMine,
@@ -54,6 +56,19 @@ const inline = () => {
 const chosenBar = () =>
   document.head.querySelector('meta[name="theme-color"]:not([media])')?.getAttribute('content');
 
+/** index.html's manifest link, as it is before anything moves it, and in place of any before it. */
+const linkManifest = () => {
+  document.head.querySelectorAll('link[rel="manifest"]').forEach((el) => el.remove());
+  const link = document.createElement('link');
+  link.setAttribute('rel', 'manifest');
+  link.setAttribute('href', MANIFEST);
+  document.head.append(link);
+};
+
+/** The manifest the page links: what Chrome reads for the installed app's bar at the bottom. */
+const linkedManifest = () =>
+  document.head.querySelector('link[rel="manifest"]')?.getAttribute('href');
+
 /** Forest, from the workshop: a theme of your own made from Shelf Dark, which reads throughout. */
 const forest = derive(PALETTES['shelf-dark'], {
   sunken: '#111a15',
@@ -75,7 +90,7 @@ describe('theme preferences', () => {
     document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
     document.documentElement.removeAttribute('style');
     document.head
-      .querySelectorAll('meta[name="theme-color"], style[data-palette]')
+      .querySelectorAll('meta[name="theme-color"], style[data-palette], link[rel="manifest"]')
       .forEach((el) => el.remove());
     vi.restoreAllMocks();
   });
@@ -327,6 +342,61 @@ describe('theme preferences', () => {
     expect(chosen()).toHaveLength(0);
     expect(document.head.querySelectorAll('meta[name="theme-color"][media]')).toHaveLength(2);
   });
+
+  /**
+   * The installed app's bar at the bottom (#31). Since Chrome 153 it is the manifest's
+   * theme_color, from the copy Chrome keeps when it builds the app, and no tag reaches it; so a
+   * chosen theme links a manifest of its own, which Chrome builds the app again with the next time
+   * it checks. manifest.test.ts holds the files.
+   */
+  describe('the manifest the page links', () => {
+    it('is the stored theme’s before the first paint, and System’s for System', () => {
+      // The script cannot import manifestOf, so it repeats the rule; this runs it for every
+      // theme to hold the two together. A value no theme answers keeps System's, as the
+      // attribute does.
+      for (const theme of THEMES) {
+        linkManifest();
+        localStorage.setItem(THEME_KEY, theme.value);
+        runPrePaint();
+        expect(linkedManifest(), theme.label).toBe(manifestOf(theme.value));
+      }
+
+      linkManifest();
+      localStorage.setItem(THEME_KEY, 'midnight');
+      runPrePaint();
+      expect(linkedManifest()).toBe(MANIFEST);
+    });
+
+    it('costs the script nothing else when the page links none', () => {
+      // An exception inside the script skips everything after it in the try, which is the
+      // density and the journal.
+      localStorage.setItem(THEME_KEY, 'ember');
+      runPrePaint();
+
+      expect(document.documentElement.getAttribute(THEME_ATTRIBUTE)).toBe('ember');
+      expect(document.documentElement.getAttribute(DENSITY_ATTRIBUTE)).toBe('comfortable');
+      expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe(DEFAULT_JOURNAL);
+    });
+
+    it('moves when a theme is chosen, and goes back to System’s for System', () => {
+      // The script runs only on a load. Without this, a theme chosen and then installed from
+      // the same tab would be built with the manifest the page loaded with.
+      linkManifest();
+
+      applyTheme('ember');
+      expect(linkedManifest()).toBe(manifestOf('ember'));
+
+      applyTheme('dusk');
+      expect(linkedManifest()).toBe(manifestOf('dusk'));
+
+      applyTheme('shelf-light');
+      expect(linkedManifest()).toBe(MANIFEST);
+
+      applyTheme('frost');
+      applyTheme('system');
+      expect(linkedManifest()).toBe(MANIFEST);
+    });
+  });
 });
 
 /**
@@ -341,7 +411,9 @@ describe('a theme of your own', () => {
     document.documentElement.removeAttribute(DENSITY_ATTRIBUTE);
     document.documentElement.removeAttribute(JOURNAL_ATTRIBUTE);
     document.documentElement.removeAttribute('style');
-    document.head.querySelectorAll('meta[name="theme-color"]').forEach((el) => el.remove());
+    document.head
+      .querySelectorAll('meta[name="theme-color"], link[rel="manifest"]')
+      .forEach((el) => el.remove());
     vi.restoreAllMocks();
   });
 
@@ -464,6 +536,18 @@ describe('a theme of your own', () => {
       expect(inline()).toEqual({ ...withoutOk, 'color-scheme': 'dark' });
       expect(document.head.querySelectorAll('meta[name="theme-color"]:not([media])')).toHaveLength(1);
     });
+
+    it('links its base’s manifest, so its bar at the bottom is its base’s ground', () => {
+      // #31's pick. Every manifest is a file in public/, and one for any colour would need a
+      // route on the API to write it.
+      linkManifest();
+
+      applyMine(FOREST);
+      expect(linkedManifest()).toBe(manifestOf('shelf-dark'));
+
+      applyTheme('system');
+      expect(linkedManifest()).toBe(MANIFEST);
+    });
   });
 
   describe('before the bundle', () => {
@@ -476,7 +560,16 @@ describe('a theme of your own', () => {
       expect(chosenBar()).toBe('#111a15');
     });
 
+    it('links its base’s manifest before the bundle too', () => {
+      keep(FOREST);
+      linkManifest();
+      runPrePaint();
+
+      expect(linkedManifest()).toBe(manifestOf('shelf-dark'));
+    });
+
     it('falls back to System for a record it cannot read, with no error', () => {
+      linkManifest();
       for (const record of [
         '{"from":"dusk",',
         JSON.stringify({ ...FOREST, from: 'midnight' }),
@@ -489,6 +582,7 @@ describe('a theme of your own', () => {
         expect(document.documentElement.hasAttribute(THEME_ATTRIBUTE), record).toBe(false);
         expect(inline(), record).toEqual({});
         expect(chosenBar(), record).toBeUndefined();
+        expect(linkedManifest(), record).toBe(MANIFEST);
         // The rest of the script still ran.
         expect(document.documentElement.getAttribute(JOURNAL_ATTRIBUTE)).toBe(DEFAULT_JOURNAL);
       }

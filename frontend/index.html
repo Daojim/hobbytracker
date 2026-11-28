@@ -9,7 +9,8 @@
       The icon, in a tab and on a home screen. The .ico carries sizes="32x32" so that Chrome
       takes the SVG instead of fetching both and preferring the .ico. Everything named here is a
       file in public/, which Vite copies across without fingerprinting it; manifest.test.ts
-      checks each one is there and is the size it says.
+      checks each one is there and is the size it says. The manifest is System's: a chosen theme
+      links its own in its place, from the script below and then from applyTheme.
     -->
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
@@ -21,7 +22,8 @@
       theme's is its ground, the sunken token in index.css, which is what every page is painted
       on. These two answer for System, one per colour scheme, and nothing ever changes them. A
       chosen theme gets a third tag ahead of them, from the script below and then from applyTheme,
-      because a browser takes the first one that matches.
+      because a browser takes the first one that matches. The installed app's bar at the bottom
+      reads none of them: it is the manifest's theme_color, which is why a theme links its own.
     -->
     <meta name="theme-color" content="#efe9e1" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#16130f" media="(prefers-color-scheme: dark)" />
@@ -89,7 +91,8 @@
 
           // 'system' is stored as an absent attribute on purpose, so an unknown value and the
           // system default land in the same place: leave the root alone and let the
-          // prefers-color-scheme query in index.css answer. The bar is left to System's tags.
+          // prefers-color-scheme query in index.css answer. The bar is left to System's tags,
+          // and the installed app's bar at the bottom to System's manifest.
           if (Object.prototype.hasOwnProperty.call(grounds, theme)) {
             root.setAttribute('data-theme', theme);
 
@@ -97,6 +100,15 @@
             bar.name = 'theme-color';
             bar.content = ground || grounds[theme];
             document.head.insertBefore(bar, document.querySelector('meta[name="theme-color"]'));
+
+            // The installed app's bar at the bottom is its manifest's theme_color, from the copy
+            // Chrome keeps (#31). So a chosen theme links a manifest in its own ground, for Chrome
+            // to find the next time it checks the app, and a theme of your own its base's.
+            // Shelf Light's is System's, linked above. manifestOf in theme.ts is the same rule.
+            var manifest = document.querySelector('link[rel="manifest"]');
+            if (manifest && theme !== 'shelf-light') {
+              manifest.setAttribute('href', '/manifest-' + theme + '.webmanifest');
+            }
           }
 
           // Each kept value that can be stamped, inline, where it outranks the base's block. One

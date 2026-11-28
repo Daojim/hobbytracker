@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { groundOf } from './test/palette';
+import { MANIFEST, THEMES, manifestOf } from './theme/theme';
 
 /**
  * What a phone installs, and what a browser tab shows.
@@ -42,11 +43,19 @@ interface Manifest {
   icons: ManifestIcon[];
 }
 
+/** The manifest index.html links, which is System's. */
 function manifest(): Manifest {
   const href = hrefOf('link[rel="manifest"]');
   expect(href, 'index.html links no manifest').toBeDefined();
 
-  return JSON.parse(readFileSync(publicFile(href!), 'utf8')) as Manifest;
+  return manifestAt(href!);
+}
+
+/** A manifest in public/, by the address a page links it at. */
+function manifestAt(href: string): Manifest {
+  expect(existsSync(publicFile(href)), `${href} is not in public/`).toBe(true);
+
+  return JSON.parse(readFileSync(publicFile(href), 'utf8')) as Manifest;
 }
 
 /** Width x height out of a PNG's header, once it has been shown to be a PNG at all. */
@@ -145,9 +154,11 @@ describe('the manifest', () => {
 
   it('starts the app on the default theme’s ground, which is also the icon’s', () => {
     // background_color is the splash, shown before any of the app has loaded, and theme_color
-    // is the bar until the page's own <meta name="theme-color"> takes over. Neither can follow
-    // a stored theme, so both are what System shows in daylight. The icon was drawn on that
-    // same paper, so the splash, the icon and the default theme are one colour.
+    // is the bar above it until the page's own <meta name="theme-color"> takes over, and the
+    // installed app's bar at the bottom for good. This is the manifest index.html links, which
+    // is System's, so both are what System shows in daylight; a chosen theme links its own,
+    // below. The icon was drawn on that same paper, so the splash, the icon and the default
+    // theme are one colour.
     const ground = groundOf("[data-theme='shelf-light'] {");
 
     expect(manifest().theme_color).toBe(ground);
@@ -157,6 +168,56 @@ describe('the manifest', () => {
       expect(existsSync(resolve(process.cwd(), drawing)), `${drawing} does not exist`).toBe(true);
       expect(groundOfDrawing(drawing), drawing).toBe(ground);
     }
+  });
+});
+
+/**
+ * The manifest a chosen theme links (#31). Since Chrome 153 an installed app's navigation bar is
+ * its manifest's theme_color, from the copy Chrome keeps when it builds the app, and nothing on
+ * the page reaches it. So each theme links a manifest of its own, and Chrome builds the app again
+ * with it the next time it checks.
+ */
+describe('the manifest a theme links', () => {
+  const chosen = THEMES.filter((theme) => theme.value !== 'system');
+
+  it('is System’s for System, which is Shelf Light’s paper', () => {
+    // A bar that follows a day behind could never follow the device's scheme at sunset, so
+    // System keeps the manifest index.html links, the one above.
+    expect(manifestOf('system')).toBe(MANIFEST);
+    expect(manifestOf('shelf-light')).toBe(MANIFEST);
+    expect(hrefOf('link[rel="manifest"]')).toBe(MANIFEST);
+  });
+
+  it('gives the installed app’s bar at the bottom each theme’s ground', () => {
+    // A copy of a ground that drifts from index.css puts the old colour under the board on a
+    // phone, where nobody working at a desktop would ever see it.
+    for (const theme of chosen) {
+      expect(manifestAt(manifestOf(theme.value)).theme_color, theme.label).toBe(
+        groundOf(`[data-theme='${theme.value}'] {`),
+      );
+    }
+  });
+
+  it('differs from System’s in its theme_color alone, so the installed app stays one app', () => {
+    // background_color is the splash, behind an icon drawn on Shelf Light's paper, so it stays
+    // the paper. The rest is the app itself, and an id that differed would be another app:
+    // Chrome would never update the installed one from it.
+    const system = manifest();
+
+    for (const theme of chosen) {
+      const own = manifestAt(manifestOf(theme.value));
+      expect(own, theme.label).toEqual({ ...system, theme_color: own.theme_color });
+    }
+  });
+
+  it('is the only kind of manifest in public/', () => {
+    // Both ways round: a theme with no file, and a file for a theme that is gone.
+    const linked = new Set(THEMES.map((theme) => manifestOf(theme.value)));
+    const files = readdirSync(resolve(process.cwd(), 'public'))
+      .filter((name) => name.endsWith('.webmanifest'))
+      .map((name) => `/${name}`);
+
+    expect(files.sort()).toEqual([...linked].sort());
   });
 });
 
