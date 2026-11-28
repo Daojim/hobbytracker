@@ -15,8 +15,10 @@ A twenty-third and a twenty-fourth were asked for on 8 November 2026, the mornin
 hiding a game from Discover, and adding a game finished long ago without inventing its dates.
 Five more were asked for on 14 November 2026: a journal opened from the Stats page, a roomier
 picker, Settings rearranged, a theme of your own, and collapsing a column. A thirtieth, the README
-refreshed once those five are built, was asked for on 20 November 2026. CLAUDE.md's **What is
-next** points here.
+refreshed once those five are built, was asked for on 20 November 2026. Four more followed on
+25 November 2026: the installed app's bottom bar, a bug measured on the user's Android phone; a
+queue for adding many games at once; month and week views of the release calendar; and a better
+sign-in page. CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -60,6 +62,10 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Shipped and deployed 22 November 2026** (PR #107), built tests first on the 21st and 22nd, a commit per step: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. **Built the same day, tests first**, a commit per step: the full e2e suite went 278 green, the 275 before and 3 new, Vitest 1,692, every fault put back turned its cases red, the drops and the keyboard held in Firefox, and the built board differs from the picked prototype by no pixel in 16 states. **Shipped and deployed 22 November 2026** (PR #109): frontend and docs only, Caddy alone recreated, and the stylesheet the local build's byte for byte. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. **Workshopped 22 November 2026 in two rounds**, measured on GitHub's own repo page: the wheel rendered 88px wide on a desktop and 25 on a phone, its cell's doing, and the user's *etc.* was that the pictures were not appealing beside well-made repos. So every shot became a close crop framed on a soft backdrop of Shelf's own colours, the hero the board with a phone over its corner, each still a light and dark pair GitHub picks between by fragment so a press opens the reader's own theme, and the wheel a 656px GIF in its own column. The share link and Settings join the tour, the user's picks over a theme of your own. Every pick but that one was the recommendation. **Shipped 22 November 2026** (PR #111), built the same day, test first: `src/readme.test.ts` holds the pairs and the one picture, and nine faults put back each turned it red. On the pushed branch's own page, in Chrome and Firefox, light and dark, every still opened its own file in the reader's theme, and a reader downloads 5.0 MB against 3.0 today. No deploy: the README is GitHub's. See its section |
+| 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. See its section |
+| 32 | A queue for adding many games at once | L | **Planned 25 November 2026**, at the user's request, a workshop first: a list kept apart from the board, filled from search or from a pasted list of names matched against IGDB and never guessed, then a selection added to one column in one go, Completed with #24's year or *I don't remember*. The app's first multi-select, and where the queue lives is the workshop's to propose. A rating, hours and anything done in bulk to titles already on the board come later. See its section |
+| 33 | Month and week views of the release calendar | M | **Planned 25 November 2026**, at the user's request: a month view, and perhaps a week view, as a choice beside the *Coming soon* agenda, with a place for the titles no day fits. A week view only if the user's real calendar has enough exact days, and a phone considered from the start. See its section |
+| 34 | A better sign-in page | S–M | **Planned 25 November 2026**, at the user's request, a workshop first, in renders: the sign-in page saying what the app is before asking anyone to sign in, from the README's shots, and a sentence that no longer says *a game*. The neutral buttons, the full-bleed ground and *Account deleted* stay. See its section |
 
 Production runs `bd0f672`'s code, which was `main` on 22 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
@@ -81,6 +87,13 @@ Production runs `bd0f672`'s code, which was `main` on 22 November 2026. Deployin
 - **#17's look, whenever, and before the rest of #17.** It is a measurement rather than a build,
   the user asked to see it, and it decides whether #17 is built at all. **Looked at on 7 November
   2026, and it said build.**
+- **#31 first of the four.** It is a measurement and then a small decision, and the user's phone
+  has taken the measurement already: what is left is whether anything newer changes it, then one
+  of three.
+- **#32 is the biggest, and a workshop before anything.** Where the queue lives, how a selection
+  works on a phone, and what the paste box says about a name it cannot settle are all for renders.
+- **#33 and #34 are independent**, of each other and of #32. #33 begins by reading the user's real
+  calendar, which decides whether a week view is drawn at all.
 
 ## Rules every plan below follows
 
@@ -6489,6 +6502,424 @@ fragments to answer the double download by renders alone: GitHub strips `loading
 markup avoids it, and the pick paid it for the stills only. And it asked what else the *etc.*
 covered expecting a list; the answer was a standard, *appealing beside well-made repos*, which
 turned a retake into a redesign.
+
+---
+
+## 31. The installed app's bottom bar ignores the theme · planned
+
+**Planned 25 November 2026**, at the user's request: a bug, on Android. Lines were read at
+`762161f`.
+
+**Measured 25 November 2026** on the user's Android phone, in the app installed through Chrome,
+with Dusk chosen and the app closed and opened again. Pixels sampled from the user's screenshot:
+
+| Bar | Colour | Whose |
+|---|---|---|
+| The status bar, at the top | `#2a323c` | Dusk's ground, `--sunken` |
+| The navigation bar, at the bottom | `#efe9e1` | The manifest's `theme_color`, Shelf Light's ground |
+
+**So `docs/design.md`'s *The bar above the page follows the theme* is half confirmed, and the
+other half was never measured.** The `theme-color` tag reaches the top bar, as that section says:
+the pre-paint script's tag on a load, `applyTheme`'s after one. The bottom bar is coloured from the
+manifest alone, which a stored setting cannot change. The section says as much of the bar *before
+the page has loaded*; nobody had looked at the bottom one after. #1's checks on the phone asked
+about the status bar only (step 3).
+
+**Developer reports agree, and Chrome's own docs say nothing.** Discourse's forum thread,
+*Android bottom navigation bar color issues in Discourse PWA*, from September 2025
+(https://meta.discourse.org/t/android-bottom-navigation-bar-color-issues-in-discourse-pwa/381137),
+read while this was planned, all but a few posts the page did not show:
+
+- *"chrome only looks at the `theme_color` in the Web App Manifest to color the system bar"*
+  (post 38). Another reply: the tag *"reliably changes the top address bar color in Chrome on
+  Android"*, while *"the native bottom navigation bar usually cannot be controlled from a web
+  app"* (post 35).
+- **It was never resolved.** There is *"no workaround that can guarantee"* the bar's colour (post
+  40); it was assigned to an engineer on 3 September 2025 (post 41), where the thread ends. One
+  reply had a Galaxy S23's bar following light and dark (post 8), so devices may differ.
+- **Nobody there separated `theme_color` from `background_color`, and this measurement cannot
+  either: both are `#efe9e1` in `public/manifest.webmanifest`.** The thread names `theme_color`.
+  A pickup that changes the manifest changes one field at a time and measures, since
+  `background_color` is also the splash behind the icon.
+- Its one workaround was a Trusted Web Activity built with Bubblewrap, which sets the bar for each
+  scheme. That is an Android app to build and sign rather than a web page, and is not offered
+  here.
+
+**What colours the bars today:**
+
+- **`index.html`**: System's two `theme-color` tags, `#efe9e1` light and `#16130f` dark, with
+  media queries, and the pre-paint script writing a chosen theme's tag ahead of them from its own
+  copy of each ground, which `theme.test.ts` holds to `index.css`. `applyTheme` rewrites it when
+  the theme changes. A theme of your own's bar is its own ground.
+- **`public/manifest.webmanifest`**: `theme_color` and `background_color`, both Shelf Light's
+  ground, held to it by `manifest.test.ts`, which is what makes the splash, the icon's paper and
+  the default theme one colour (`docs/design.md`).
+- **The grounds a bottom bar would sit under**, three light and five dark:
+
+| Theme | Ground | Scheme |
+|---|---|---|
+| Shelf Light | `#efe9e1` | light |
+| Frost | `#e4e9f0` | light |
+| Almanac | `#e5d9bf` | light |
+| Dusk | `#2a323c` | dark |
+| Blood Red | `#430404` | dark |
+| Shelf Dark | `#16130f` | dark |
+| Console | `#0a0c10` | dark |
+| Ember | `#121110` | dark |
+
+The ninth, a theme of your own, has whatever ground its maker picked, and System is Shelf Light or
+Shelf Dark by the device's scheme.
+
+### Decide at pickup
+
+**First, check whether anything newer changes this.** The thread is from September 2025. Look for
+a Chrome or Android release since then that colours the navigation bar from the page, as an iPhone
+is reported to; whether Chrome on Android now reads a manifest's dark-scheme colours, which would
+let System's bar follow the device at least; and whether drawing edge to edge on newer Android
+reaches an installed app, so the page paints under the bar itself. Then one of three:
+
+- **(a) A manifest that follows the theme**, served per theme or rewritten.
+  - **The theme is kept in the browser's `localStorage` and never reaches the server**, so *served
+    per theme* means the page choosing which manifest it links to: eight files and none for a
+    theme of your own, or a route that writes one for a colour it is handed. A manifest is fetched
+    without cookies unless its link says `crossorigin="use-credentials"` (MDN, on
+    `<link rel="manifest">`), so one chosen by a cookie needs that too.
+  - **Chrome re-reads an installed app's manifest only occasionally, so the bar would lag.**
+    web.dev's *How Chrome handles updates to the web app manifest*
+    (https://web.dev/articles/manifest-updates) is where to read how occasionally. Its copies say
+    a launch checks at most once a day, and that on Android a new WebAPK follows later still, once
+    the app is closed and the phone is charging on Wi-Fi, with `about://webapks` to ask for one by
+    hand, which is how a pickup would measure it. Read its current English page, since copies of
+    it differ.
+  - **System is the hard case**: the device's scheme changes at sunset, and the manifest would
+    follow a day later at best. And whether Chrome follows a page that links a different manifest
+    under the same `id` is the first thing to measure.
+- **(b) One fixed colour that sits acceptably under all nine themes**: `theme_color` alone, if it
+  proves to be the field, leaving `background_color` as the splash's paper. No one colour is near
+  all eight grounds, so it is a render: the bar under each of them on a phone's frame, beside
+  today's paper. It also changes the top bar before the page loads, `theme_color`'s other job, and
+  `manifest.test.ts`'s rule that the manifest is Shelf Light's ground; the colour becomes a token
+  in `index.css`, since every colour a browser reads early is a copy held to that file.
+- **(c) Leave it**, and record why in `docs/design.md` beside the iPhone paragraph.
+- **Recommended: nothing until the check.** If it finds nothing newer, (a), provided Chrome follows
+  a changed link under the same `id` and the lag measures in a day rather than weeks: a theme is
+  picked once and kept, so a bar a day late is right every day after. Otherwise (b) from its
+  renders, or (c).
+
+### Things to get right
+
+- **Whatever is chosen, `docs/design.md` gains the measurement**: *The bar above the page follows
+  the theme* says the top bar is confirmed and the bottom bar is not, and so does the bar's row in
+  that file's table, *Each theme's ground, on Android in Chrome and in the installed app*.
+- **Only the user's phone can measure it** (the memory *Jimmy uses Android*). After the deploy,
+  the measurement's own steps: Dusk chosen, the app closed and opened, the bottom bar sampled; then
+  Shelf Light and a theme of your own; and under (a), again once `about://webapks` has asked for
+  an update.
+- **Installable still**: `e2e/install.spec.ts` reads every manifest the page can link, in full
+  Chromium (the rule under *Phone tests*).
+- **The splash is `background_color`, and the icon's paper is drawn to match it**, so a change to
+  `background_color` puts a paper icon on another colour.
+
+### Tests first
+
+Which cases depends on the pick.
+
+- **(a)** `manifest.test.ts` holds each theme's manifest to its ground, and every other field
+  (`id`, `start_url`, `scope`, the icons) to the first's; `theme.test.ts`, that the pre-paint
+  script links the stored theme's manifest before the bundle, and under System the device's
+  scheme's; `applyTheme` links it again when the theme changes; `install.spec.ts` reads each.
+- **(b)** `manifest.test.ts` holds the manifest to the new token.
+- **(c)** Nothing runs; the docs are the change.
+- **Put the fault back:** under (a), one file's `theme_color` changed alone, and the pre-paint
+  script no longer linking, each goes red, the second at the reload; under (b), the token changed
+  alone.
+
+---
+
+## 32. A queue for adding many games at once · planned
+
+**Planned 25 November 2026**, at the user's request, a workshop first. The biggest of the four.
+Lines were read at `762161f`.
+
+**Why.** #24 made it possible to add a game finished long ago, and once its name is found that is
+a press and an Enter. Entering a history of past games is still one search and one add a game, a
+game at a time, and that is slow.
+
+**What.** A list kept apart from the board: games go into it without being added to the board
+yet.
+
+- **Two ways in.** From search, *add to queue* alongside the Backlog, Playing and Completed
+  buttons. And a text box where a list of game names is pasted, each matched against IGDB. A name
+  with no clear match is flagged for the person to settle, never guessed, in the spirit of the
+  HowLongToBeat matcher.
+- **The first version, agreed with the user**: select several games in the queue; set a column,
+  Backlog, Playing or Completed, and for Completed a finish year with #24's year-only dates,
+  *I don't remember* too; remove from the queue; then add the selected games to the board in one
+  go, each dated as a drag or #24's panel would date it.
+- **Later, and not in the first version**: a rating, hours, and anything done in bulk to titles
+  already on the board.
+
+**What it builds on.**
+
+- **The add is a route already.** `POST /api/library/{mediaId}` takes `AddToBoardRequest`: a
+  column, and for Completed `completedYear`, `undated` or neither, which is today, and
+  `hoursPlayed`. 409 for a title already on your board, 404 for one the catalogue does not hold,
+  and `AddingToBoardTests` holds that an add leaves exactly what adding to Backlog and dragging
+  would.
+- **The tile's control is one control in equal thirds** (`search/AddControl.tsx`), which every
+  search result and Discover tile share. **A part for the queue changes the Settled row *Adding
+  from a tile***, "+ ▶ ✓, one control in equal thirds", in the same PR, as #25 changed #21's.
+  `ADD_STATUSES` in `hobbies/index.ts` lists the columns a tile adds to; the queue is not a
+  column, so it is not a fourth.
+- **#24's panel**, `search/WhenFinished.tsx`, asks *When did you finish it?*: a year, *Today* or
+  *I don't remember*, and an optional hours box. `search/lastYear.ts` keeps the year added last,
+  per board, for the visit.
+- **The app already refuses to guess at a name.** `Services/HltbMatcher.cs` takes a candidate only
+  above a threshold *and* a margin over the runner-up, 0.9 and 0.05 in `HltbOptions`; numerals
+  must agree outright, and roman numerals are folded first. The two *Resident Evil 4*s, 2005 and
+  2023, both score 1.0 on the title, and only a year tells them apart: that matcher has IGDB's,
+  and a pasted name has none. IGDB's search order (`IgdbRelevance`) is a ranking for a person to
+  choose from, not a match.
+- **Nothing in the app selects several things for one action today.** The boxes in Settings and
+  the share dialog are settings, and the picker's chips are a filter. This is the first, on a
+  phone as well as a desktop.
+
+### Decide at pickup
+
+- **Where the queue lives in the app.** Open: the user has not decided, and the workshop proposes
+  a place. Render: a page of its own beside Discover and Stats, offered under the empty search box
+  as Discover is; a panel over the board, as the picker is; a strip under the search box while the
+  queue holds anything. Recommended: the page. A paste box and a list to select from want width a
+  panel over the board does not have, a page is a phone's own shape, and the board's drag stays
+  out of it. A page is a new route, which **Settled**, *Scope*, lists.
+- **How selecting works, on a phone and a desktop.** Render: a box on every row, always shown,
+  with *Select all*; a long press to begin, as Android does, which nothing here uses off the
+  board; Shift-click for a run of rows on a desktop as well. And where the bar that acts on a
+  selection sits: pinned to the foot on a phone, under the list's heading on a desktop.
+  Recommended: boxes always shown, since selecting is what the page is for.
+- **What the bar holds.** One column for everything selected, and for Completed a year or *I don't
+  remember*, so a history goes in a year at a time. Whether *Today* sits beside them as in #24's
+  panel; recommended, so the queue and the tile never disagree about what a finish can be. Whether
+  the year box starts at the year added last; recommended, `lastYear.ts`'s.
+- **What the paste box says about a line.** Rendered with a real list: matched, with the cover and
+  year of what it matched, so a wrong match is seen before it is added; *Which one?*, with the
+  candidates side by side; *Not found*, with the line kept to edit and search again; and *On your
+  board · Completed* for a title already there. And whether a line may carry a year,
+  *Resident Evil 4 (2005)*, to break a tie as IGDB's year breaks one for HowLongToBeat's matcher.
+- **Whether a name still to settle waits in the queue.** Recommended not, in the first version:
+  the paste box settles its lines before they go in, so the queue holds titles alone, in one
+  shape, and a line nobody settles stays in the box as text.
+- **Kept where.** Recommended: per account, a table beside `discover_hides`, because a history
+  entered over several sittings, on a phone and then a desktop, should be one list. Per browser is
+  where every preference is kept, and a list of titles is not a preference.
+- **One request a game, or one for the lot.** Recommended: the route that exists, once a game and
+  one after another. Every rule #24 put on it holds as it is, and a 409 is one game's answer
+  rather than the whole add's. One route for the lot is one transaction, all or none, and a second
+  set of rules.
+- **Which surfaces offer *add to queue***: search, as the user named, or Discover's tiles too,
+  since they share the control and Most played is the list a board is filled backwards from.
+  Recommended: both.
+- **A title not out yet** offers *Add to calendar* alone on its tile. Recommended: no *add to
+  queue* there, and a pasted name that matches one says so, since a history is of games that are
+  out.
+- **Games first, never a branch on the slug.** The queue follows `HobbyDefinition`, and a paste is
+  matched through the hobby's own search, so films follow with TMDB's.
+
+### Things to get right
+
+- **IGDB allows 4 requests a second, and a search sends two at once**
+  (`IgdbClient.SearchGamesAsync`). A 429 is an exception and a 502, never a back-off, because "a
+  single user searching will not get near it". A pasted list of forty names is eighty requests,
+  twenty times the limit if sent at once. Paced, a name at a time, or behind a throttle such as
+  HowLongToBeat's.
+- **A lookup is a search, and a search upserts what it returns into `media`**, so a paste grows the
+  catalogue as typing those names would.
+- **Every add goes through tracked entities**, so each writes its `status_changes` row. CLAUDE.md,
+  **What fails silently**, names an import; the route that exists already does it.
+- **Each add finds the top of its column by reading it**: `BoardPositions.TopOfColumnAsync` is the
+  lowest position less one, read and then written. Two adds at once can read the same top, and
+  adds sent in the queue's order leave the column in reverse. Decide the order a selection lands
+  in, and send them one after another.
+- **A column stops at 100 titles.** CLAUDE.md's **Small things** says any import will hit it, and
+  this is the first thing here that imports. In the copy of the user's board from 3 November that
+  #29's workshop used, Completed held 64 under All years; a history of forty takes it past 100,
+  where it says *Showing 100 of N* with no way to the rest. The workshop should know, and whether
+  *Load more* comes first is the user's call.
+- **A table of yours means new scoping sites.** `log_entries` and `notes` are yours and `media` is
+  shared; a queue is yours, read and written through `ICurrentUser`, each site with a test that a
+  stranger's queue never shows.
+- **Deleting an account takes the queue with it**, by a cascade on `user_id`. Whether the deletion
+  warning counts it is a choice; it does not count #23's hides.
+- **Nothing counts the queue at you**, per *HobbyTracker is for leisure*. The way in may say what
+  is queued; nothing nags.
+- **A share never shows it.**
+
+### Tests first
+
+- The paste: a name matching one title clearly is matched; *Resident Evil 4* is *Which one?*, never
+  either; *Final Fantasy VII* never matches *VIII*; a name with nothing is *Not found*; a title on
+  the board says its column; each line is asked about once, one after another.
+- The queue is yours: two people's never meet, and deleting an account empties it.
+- Adding a selection, to Backlog, to Playing, and to Completed with a year, *I don't remember* and
+  today: each title leaves exactly what the tile's add would, `AddingToBoardTests`' equivalence
+  over the queue, and writes its history; added titles leave the queue, removed ones leave it with
+  the board untouched, and a title added elsewhere meanwhile is reported, not added twice.
+- A tile's *add to queue* puts the title in the queue and not on the board, and the tile says so.
+- At 390, selecting and the bar, in Playwright's phone block.
+- **Put the fault back:** let the matcher take IGDB's first result, and *Resident Evil 4* goes red;
+  send the adds at once, and the order test goes red.
+
+---
+
+## 33. Month and week views of the release calendar · planned
+
+**Planned 25 November 2026**, at the user's request. Lines were read at `762161f`.
+
+**What exists already.** *Coming soon*, under the board, is an agenda (`board/ComingSoon.tsx`):
+Backlog's titles not out yet, a row each, under headings for this month, a month, a quarter, a
+year, and *No date yet* last. Each title sits at the last day it could come out (#11), the first
+20 dated titles are shown and the rest folded (`SHOWN_AT_FIRST`), and a row opens the journal.
+Side by side it is two of the board's tracks wide (`calendarSpan`), it folds by #29's arrow,
+remembered per board, and a share shows it when *Coming soon* is ticked.
+
+**A date is kept only as precisely as the publisher announced it** (#11, and `docs/games-igdb.md`,
+**The shapes a date arrives in**): a day, a month, a quarter, a year, or none. `ReleasePrecision`
+is `Day`, `Month`, `Quarter`, `Year` or `Unknown`, and a window carries its first and last days.
+**Only a day counts down** (`countsDown`), and never for a cancelled title.
+
+**What.** A month view, and perhaps a week view, as a choice beside the agenda.
+
+### Decide at pickup
+
+- **Where the titles with no day go.** Only a title with an exact day fits a square on a grid.
+  Render: a strip above the month for that month's month-only titles; quarters, years and undated
+  titles in a list under the grid, as the agenda's tail; the grid holding days only, and the rest
+  left to the agenda. Recommended: a month's titles in its strip, a quarter in the strip of the
+  month it closes on, since #11 files it at its last day, and a year and the undated in the agenda
+  only, since a year's strip would sit under December for a title that may come in March.
+- **A week view at all.** Worth it only if enough of a real board has exact days. **Read the user's
+  real calendar before drawing one**, as #19's workshop read the board: how many titles have a
+  day, and how many fall in any one week. If most weeks are empty, a week view is a page of
+  nothing.
+- **Choosing the view.** Recommended: a switch in the calendar's heading beside its arrow, *Agenda
+  · Month · Week*, the agenda the default; remembered per board and per browser, as its fold is;
+  and on a share, for the visit alone, as #29's collapse is.
+- **The width.** Side by side the calendar is two tracks wide: at 1440 with five columns, two
+  266px tracks and a 16px gap inside 24px of page padding, about 547px, which is 78px a day across
+  seven; with four columns 688px, 98px a day. A cover and a name do not fit 78px. Render: the
+  month at two tracks, covers only; the month across the whole board, which changes **Settled**,
+  *Coming soon*'s "two of the board's tracks wide"; a month as a list of weeks.
+- **On a phone, from the start.** At 390 the page's 16px each side leaves 358px, 51px a day before
+  the calendar's own padding. Render: a grid of marks that opens a day's titles under it; a week as
+  seven rows rather than seven columns; the agenda alone on a phone.
+- **Which day a week starts on**: Sunday or Monday.
+- **How far it goes.** Recommended: a month at a time with arrows, from this month to the last
+  dated title's.
+
+### Things to get right
+
+- **Never a day nobody named** (#11): a month, a quarter or a year never lands in a square, and a
+  test says so with every precision.
+- **A release day is a calendar day and never goes through the zone** (`lib/release.ts`;
+  CLAUDE.md, **What fails silently**). Today's square is `todayHere()`'s day, the countdown's, so
+  the zone is applied in the four places `docs/data-model.md` counts and no fifth.
+- **A title in a square opens its journal and hands the keyboard back**, as a row does
+  (`calendarTitleId`).
+- **A cancelled title** says *Cancelled*, on its day or left to the agenda.
+- **The grid's classes are whole names**: Tailwind scans source text, and a class built from a
+  number paints nothing.
+
+### Tests first
+
+- Every precision placed: a day in its square; a month in its strip; a quarter, a year and an
+  undated title where the workshop puts them, never in a square.
+- Today's square is the day in New York: with the clock at 11pm Eastern on 30 November, already
+  1 December in UTC, it is the 30th.
+- The view survives a reload, per board; a share's is forgotten.
+- At 390, the month fits the screen.
+- **Put the fault back:** draw a window on its first day, and the never-a-day test goes red.
+
+---
+
+## 34. A better sign-in page · planned
+
+**Planned 25 November 2026**, at the user's request, a workshop first, in renders, as the recent
+features were. Lines were read at `762161f`.
+
+**What it is today** (`shell/SignInPage.tsx`): a card on the theme's ground with a heading, one
+sentence, and the Google and Discord buttons. The sentence is *"Your backlog, your ratings and
+everything you have written about a game are yours alone. Signing in is what makes them yours."*
+It still says *a game*, though four hobbies are live. After a delete the heading is *Account
+deleted*, with a sentence of its own, and the keyboard goes to it.
+
+**Who reads it.** It is the only page reachable without a session, and **a share sends people to
+it**. *Make your own* in a share's banner goes to the board (`/board/games` from a games share),
+and *Make your own board* on a dead link to `/`. Both are behind the session gate, so somebody not
+signed in lands on `/signin`. The one stranger the app sends anywhere on purpose arrives having
+just seen a board, and is asked to sign in without being told to what.
+
+**What.** Say what the app is before asking anyone to sign in. The README's shots in `docs/shots/`
+are a ready source: a demo account, light and dark pairs, already cropped and framed.
+
+**What the code's comments settled, and what stays.**
+
+- **The buttons are neutral and the marks are not**: `bg-surface` behind `border-line` with
+  `text-fg`, and the provider's own colours only inside its mark. In the accent, *Continue with
+  Google* was a green button with no Google about it, and a filled one would want an `--accent-fg`
+  nothing has.
+- **The ground is the whole viewport**, full-bleed, so the theme has nowhere to leak, as it once
+  did on Ember either side of a 384px strip.
+- **The providers are links, not buttons**: signing in is a top-level navigation answered with a
+  302.
+- ***Account deleted* is the heading after a delete**, holding the keyboard: picked from renders
+  on 4 October 2026 over a line in place of the intro and a notice above it.
+
+### Decide at pickup
+
+- **What it says**, for every board rather than *a game*, and whether it names the four hobbies,
+  which a fifth would change, or says what the app is without naming them.
+- **Which shots, and how many.** Render: the hero alone; three, the board, the journal and Stats;
+  a strip a visitor scrolls.
+- **In whose theme.** Recommended: the reader's, the light shot under the three light themes and
+  the dark under the five dark, by each theme's `color-scheme` in `index.css`.
+- **Their weight.** The stills are WebP at 1,760px, from 57 KB (the calendar) to 301 KB
+  (Discover) a file and the hero 133 to 136, and the wheel's GIF over 2,200 KB, in PR #111's
+  table. A sign-in page is the first a visitor loads, often on a phone. Recommended: smaller
+  copies made for the page, in `srcset`, and never the GIF.
+- **Where the card goes.** Render: beside the shots on a desktop and under them on a phone; first,
+  with the shots below it; over a shot.
+- **The share's dead-link and unreachable cards** "are the sign-in screen's card" (`docs/design.md`,
+  *Sharing*): whether they follow the new page or keep the card as it is.
+- **Not to decide here, but to know.** A page that tells a stranger what the app is invites them to
+  sign up, and sign-up is open (CLAUDE.md, **Small things**, *`Auth:AllowNewAccounts` does not
+  exist*). It was kept open at #18's pickup, and a share's *Make your own* already invites it.
+
+### Things to get right
+
+- **The shots live in `docs/`, which the build never sees.** They are copied into
+  `frontend/public/` or imported so Vite hashes them, and `docs/shots/` stays the README's.
+  Whether the page's copies are made from the README's or retaken beside them is #30's harness,
+  `frontend/workshop.local/readme/`, gitignored and so in one checkout alone.
+- **Never production data**: the demo account's shots only (CLAUDE.md, **The map**).
+- **A framed shot carries Shelf's colours**: the README's frames are a soft backdrop of Shelf's
+  own, so under Blood Red or Dusk a frame is not the page's colour. The workshop renders all eight.
+- **The providers keep their names and addresses, and the suite barely presses them.**
+  `SignInPage.test.tsx`'s *offers every provider as a link* reads **every** link on the page and
+  expects exactly the two, so a page that gains a link changes that case on purpose.
+  `auth.spec.ts` checks only that both are shown; every other spec signs in by going straight to
+  `/api/auth/{provider}/start` (`e2e/support/auth.ts`), past the page, so no spec presses one.
+- **At 390** the buttons are on the first screen, or the page says how to reach them.
+- **Each shot's alt text** says what it shows.
+
+### Tests first
+
+- The sentence speaks for every board that is built, never for *a game* alone.
+- The heading and both providers, links with their names; after a delete, *Account deleted* is the
+  heading and holds the keyboard, as now.
+- The shots follow the reader's scheme: light under Shelf Light, dark under Dusk.
+- At 390, both providers on the first screen, if the workshop picks that.
+- e2e, and new: pressing a provider on the page signs in and lands on the board.
+- **Put the fault back:** draw the light shot under every theme, and the Dusk case goes red.
 
 ---
 
