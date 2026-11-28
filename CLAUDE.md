@@ -844,7 +844,7 @@ shuffled.
         `theme_color`, from the copy kept in the app, and nothing on the page reaches it. So each
         theme links a manifest of its own, and Chrome builds the app again with it a day or so
         later; System keeps today's paper and a theme of your own takes its base's. Every pick
-        was the recommendation (built on `bottom-bar-follows-theme`, not yet merged)
+        was the recommendation (PR #113, deployed)
       - [ ] a queue for adding many games at once — a workshop first: a list apart from the
         board, filled from search or from a pasted list of names matched against IGDB and never
         guessed, and a selection added to one column in one go, #24's year and all. The app's
