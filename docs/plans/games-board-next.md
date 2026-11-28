@@ -7607,6 +7607,15 @@ Each step's record, as it was written at its commit:
   so they do not bring it on. Three times now, once at #25 and twice here, deep into a full run
   and never alone, and nothing on its path changed in any: the panel measured 8px behind its ✓
   just after the strip scrolls 8px reads as a placement a frame late under load, unproved.
+  **Fixed on 28 November 2026, in the spec and not the app.** The listener places the panel a
+  frame or more after the ✓ has moved, and the case measured it once. Made late but correct,
+  `place` run from a 100ms timeout, it went red alone at that check, 24 expected and 32 received,
+  the flake's numbers, which shows the shape though not what makes a full run late. The case now
+  tries each check after a scroll until it holds, `toPass` for up to 5 seconds, keeping the boxes
+  it held with, and the late fault went green. No scroll heard, from #24's table, still goes red
+  once the 5 seconds are up, and so does a scroll heard only as it bubbles, the fault #24 planted
+  against this case; the checks after the question opens stay one-shot, as a layout effect places
+  it there. Green 5 of 5 alone in Chromium and in Firefox, and two full runs went 284 green each.
 
 ### Deployed
 

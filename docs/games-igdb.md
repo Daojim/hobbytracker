@@ -374,6 +374,10 @@ answer on, and the server's half is **Adding straight to a column** in `docs/boa
   how the strip's sideways scroll reaches it. The window's width is `clientWidth`, where the
   prototype read `innerWidth`, so a panel held at the right edge never sits under a desktop's
   scrollbar.
+- **The panel lands a frame or more behind its ✓**, since the browser calls the listener at its
+  next frame and React renders after that, where the ✓ moves the moment the scroll does. So
+  `search.spec.ts`'s *follows its ✓ as the strip and the page scroll* tries each check after a
+  scroll until it holds: measured once, it went red three times deep in a full run, never alone.
 - **`position: fixed` is what keeps the strip from cutting the panel off, and the portal is what
   keeps that true.** Round two's renders found the strip clipping whatever hung over its edge,
   and the portal was the answer then. Moved back into the tile, the fixed panel was still whole

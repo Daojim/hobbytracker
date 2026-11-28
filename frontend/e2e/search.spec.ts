@@ -41,6 +41,21 @@ const check = (page: Page, title: string) =>
 
 const expectPlaced = (page: Page, title: string) => expectQuestionPlaced(page, check(page, title));
 
+/**
+ * `expectPlaced` after a scroll, tried until it holds, answering the boxes it held with. The
+ * question is placed again by its scroll listener, which the browser calls at its next frame and
+ * React renders after that, where the ✓ has moved the moment the scroll returns: measured once,
+ * deep in a full run, it was where it sat before the strip moved, three times and never alone.
+ * Not after it opens, where a layout effect places it before the year box can take the keyboard.
+ */
+async function expectPlacedAgain(page: Page, title: string) {
+  let placed: Awaited<ReturnType<typeof expectPlaced>> | undefined;
+  await expect(async () => {
+    placed = await expectPlaced(page, title);
+  }).toPass({ timeout: 5000 });
+  return placed!;
+}
+
 async function boxOf(locator: Locator, what: string) {
   const box = await locator.boundingBox();
   if (box === null) {
@@ -294,7 +309,7 @@ test.describe("the ✓'s question", () => {
       const strip = page.getByRole('region', { name: 'Search results' }).getByRole('list').first();
       await strip.evaluate((list) => list.scrollBy(8, 0));
       await expect.poll(async () => (await boxOf(add, 'the add')).x).toBeLessThan(control.x - 6);
-      const { panel: sideways } = await expectPlaced(page, 'Hollow Knight');
+      const { panel: sideways } = await expectPlacedAgain(page, 'Hollow Knight');
       expect(sideways.x, 'moved with the strip').toBeLessThan(before.x - 6);
 
       // Down the page as far as it goes, which takes the control up near the window's top and
@@ -302,7 +317,7 @@ test.describe("the ✓'s question", () => {
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       await expect.poll(async () => (await boxOf(add, 'the add')).y).toBeLessThan(6 + 156 + 8);
 
-      const { panel, control: moved } = await expectPlaced(page, 'Hollow Knight');
+      const { panel, control: moved } = await expectPlacedAgain(page, 'Hollow Knight');
       expect(panel.y, 'the question is below its ✓').toBeGreaterThan(moved.y);
     });
   });
