@@ -9,7 +9,14 @@ import { collapsedColumnsKey } from './collapsedColumns';
 import { statsKey, statsYearsKey } from './keys';
 import { finish, stats } from '../test/stats';
 import { server } from '../test/server';
-import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
+import {
+  NO_HOURS,
+  boardServer,
+  heldMoves,
+  libraryItem,
+  libraryPage,
+  manyGames,
+} from '../test/library';
 import { AUTOSAVE_MS } from '../journal/fields';
 import type { LibraryItem, LogEntry, LogStatus } from '../api/types';
 import { game, gameDetail, journalServer, logEntry, note, searchServer } from '../test/games';
@@ -1766,6 +1773,78 @@ describe('BoardPage, a card leaving Completed', () => {
   });
 });
 
+describe('BoardPage, a column past a page', () => {
+  /** Backlog's next 100, as a reader asks for them. */
+  async function loadMore(name: string, last: string) {
+    const column = await screen.findByRole('region', { name });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+    await within(column).findByText(last);
+    return column;
+  }
+
+  it('draws a card moved out of a column with two pages loaded once, in the column it went to', async () => {
+    // A move takes the card out of whichever page it is on. Left on the second, it would be
+    // drawn in the column it left as well as the one it went to: one media id mounted twice,
+    // which is a card nobody can drag (see docs/board.md, A card mounted twice).
+    boardServer({ columns: { Backlog: manyGames(140) } });
+    const held = heldMoves();
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    const backlog = await loadMore('Backlog 140', 'Game 140');
+
+    await userEvent.click(within(backlog).getByRole('button', { name: 'Options for Game 130' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Completed' }));
+
+    // Read while the move is on its way, before an answer and a refetch can tidy the cache.
+    const completed = screen.getByRole('region', { name: /^Completed/ });
+    await waitFor(() =>
+      expect(within(completed).getByRole('button', { name: 'Game 130' })).toBeInTheDocument(),
+    );
+    expect(cardsNamed('Game 130')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: 'Backlog 139' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Completed 1' })).toBeInTheDocument();
+
+    held.release();
+  });
+
+  it('writes the order of every page it has loaded after a move into it, and keeps them loaded', async () => {
+    // A move into a column in My order stores the column as it is drawn, with the card where it
+    // was let go: from a menu, at the foot of what is loaded. With two pages in that is all 140
+    // and the card; the server numbers anything a board has not loaded after what it sent.
+    const board = boardServer({
+      columns: {
+        Backlog: manyGames(140, { firstId: 5001 }),
+        InProgress: [libraryItem({ mediaId: 6001, title: 'Hades', currentStatus: 'InProgress' })],
+      },
+    });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    const backlog = await loadMore('Backlog 140', 'Game 140');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Options for Hades' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Move to Backlog' }));
+
+    await waitFor(() => expect(board.reorders).toHaveLength(1));
+    expect(board.reorders[0]).toEqual({
+      hobby: 'games',
+      status: 'Backlog',
+      mediaIds: [...Array.from({ length: 140 }, (_, index) => 5001 + index), 6001],
+    });
+
+    // And the column the move settles asks again for both pages it had, rather than going back
+    // to its first 100 under the reader's hand.
+    await waitFor(() =>
+      expect(board.queriesFor('Backlog').map((query) => query.get('page'))).toEqual([
+        '1',
+        '2',
+        '1',
+        '2',
+      ]),
+    );
+    expect(within(backlog).getByText('Game 140')).toBeInTheDocument();
+  });
+});
+
 describe('BoardPage, on a phone', () => {
   let phone: ReturnType<typeof windowOfWidth>;
 
@@ -1880,6 +1959,18 @@ describe('BoardPage, on a phone', () => {
 
     await waitFor(() => expect(board.queriesFor('Completed')).toHaveLength(1));
     expect(board.queriesFor('Completed')[0]?.get('year')).toBe('2026');
+    expect(board.queriesFor('Backlog')).toHaveLength(1);
+  });
+
+  it('counts a column past a page whole, from its first page, and asks for it once', async () => {
+    // The segment is the heading's count on a phone, and a column of 140 shows its first 100:
+    // the count is the column's, read off the first page it shares with the column (#35).
+    const board = boardServer({ columns: { Backlog: manyGames(140) } });
+
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+    await screen.findByText('Game 100');
+
+    expect(screen.getByRole('radio', { name: 'Backlog 140' })).toBeChecked();
     expect(board.queriesFor('Backlog')).toHaveLength(1);
   });
 

@@ -36,8 +36,8 @@ export function listColumn(query: ColumnQuery): Promise<LibraryPage> {
 /**
  * Every title in one column, in the order you put them in, paged through to the end.
  *
- * What the picker draws from. A column on the board is one page of 100, and a picker that read
- * only that page could never land on the 101st title, so this walks the pages as
+ * What the picker draws from. A column on the board is the pages of 100 a reader has loaded, and a
+ * picker that read only those could never land on a title past them, so this walks the pages as
  * `libraryStatuses` walks the library, and stops at the same 5,000. No year, because the one
  * column that has a picker is exempt from it.
  */

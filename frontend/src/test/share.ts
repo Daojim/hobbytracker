@@ -73,9 +73,18 @@ export function sharedServer({
         return notFound();
       }
 
-      return HttpResponse.json(
-        libraryPage(columns[status] ?? [], { hours: hours[status] ?? NO_HOURS }),
-      );
+      // Paged as the API pages, as the board's fixture does: a column past a page answers its
+      // first 100 and says how many there are, and the rest are on the pages after (#35).
+      const items = columns[status] ?? [];
+      const pageSize = Number(url.searchParams.get('pageSize') ?? items.length);
+      const page = Number(url.searchParams.get('page') ?? 1);
+      const shown = pageSize > 0 ? items.slice((page - 1) * pageSize, page * pageSize) : items;
+
+      return HttpResponse.json({
+        ...libraryPage(shown, { total: items.length, hours: hours[status] ?? NO_HOURS }),
+        page,
+        pageSize: pageSize > 0 ? pageSize : 100,
+      });
     }),
 
     http.get(`${base}/years`, ({ request }) => {

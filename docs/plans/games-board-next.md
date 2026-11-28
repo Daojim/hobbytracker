@@ -7454,7 +7454,36 @@ server is stopped.
 | The tie-break off *Title* | its *Title* case alone |
 | The tie-break off *Length* | its *Length* case alone |
 
-Steps 3 to 6 are not begun.
+- **Step 3 is built.** A column's answer is an infinite query under the same `columnKey`, pages
+  of 100 by number. `board/columnPages.ts` holds `ColumnRequest` (its `queryFn` takes the page),
+  `columnPages`, the one options builder the column and a phone's segments share, and the
+  cache's helpers every write in `useBoard` goes through: `cardsOf`, which drops a title a later
+  page repeats, `totalOf`, `withoutCard`, `withCard` and `reordered`. Each segment observes its
+  column's pages itself and counts off the first. A share's request takes a page. The foot is a
+  plain *Load more* under today's line, for step 4 to make as picked. Eight tests: seven red
+  first, every one on there being no *Load more*, and the phone's count of 140, green before and
+  after, guarding a segment that counts the column rather than the cards loaded. Vitest 1,714
+  green, no request refused.
+- **Decided at the build:** the next page is found from the number this side asked with, never
+  the one an answer echoes, so a stub or a server that misnumbers a page cannot keep a column
+  asking; and a write puts the cards back over the pages in order, each page keeping its length
+  and the last taking the rest, because where a page ends is the server's on the next refetch,
+  which asks by number. In the stubs, a share's fixture pages as the API does, and
+  `test/library.ts` gained `manyGames` and `heldMoves`, which holds a move's request so a test
+  reads the cache the move wrote before a refetch tidies it.
+
+| Fault put back | What goes red |
+|---|---|
+| A title a later page repeats drawn again | *draws a title a later page repeats once* |
+| A move out taking the card off the first page alone | *draws a card moved out of a column with two pages loaded once*, and the picker's *starts playing a pick on a later page* |
+| The card a move takes looked for on the first page alone | the same two |
+| The order after a move written from the first page alone | *writes the order of every page it has loaded after a move into it* |
+| A move resetting the column it went to back to its first page | the same case, at its pages asked again |
+| One page kept at most (`maxPages: 1`) | that case, and the column's three |
+| A segment counting the cards loaded rather than the column | *counts a column past a page whole* |
+| A share's column asking for no page | the share's *offers a column past a page the same Load more* |
+
+Steps 4 to 6 are not begun.
 
 ---
 

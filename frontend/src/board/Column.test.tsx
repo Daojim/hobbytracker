@@ -6,7 +6,7 @@ import { Column } from './Column';
 import { columnsFor } from '../hobbies';
 import { setPace } from '../lib/pace';
 import { server } from '../test/server';
-import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
+import { NO_HOURS, boardServer, libraryItem, libraryPage, manyGames } from '../test/library';
 
 /**
  * The estimate poll, with its two durations compressed.
@@ -354,6 +354,76 @@ describe('Column', () => {
     renderColumn({ status: 'Backlog', label: 'Backlog' });
 
     expect(await screen.findByText('Showing 1 of 140')).toBeInTheDocument();
+  });
+
+  it('shows its first 100 and a Load more, and the rest of the column when it is pressed', async () => {
+    // A column past a page was "Showing 100 of 140" with no way to the rest (#35). The next 100
+    // a press, of the same column in the same order, and no button once every page is in.
+    const board = boardServer({ columns: { Backlog: manyGames(140) } });
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    await within(column).findByText('Game 100');
+    expect(within(column).queryByText('Game 101')).not.toBeInTheDocument();
+
+    await userEvent.click(within(column).getByRole('button', { name: 'Load more' }));
+
+    expect(await within(column).findByText('Game 140')).toBeInTheDocument();
+    expect(within(column).getAllByRole('button', { name: /^Options for/ })).toHaveLength(140);
+    expect(within(column).queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(within(column).getByRole('heading', { name: 'Backlog 140' })).toBeInTheDocument();
+    expect(
+      board
+        .queriesFor('Backlog')
+        .map((query) => [query.get('page'), query.get('pageSize'), query.get('sort')]),
+    ).toEqual([
+      ['1', '100', 'manual'],
+      ['2', '100', 'manual'],
+    ]);
+  });
+
+  it('draws a title a later page repeats once', async () => {
+    // Pages are asked for one at a time, so a title added on top between two of them pushes the
+    // last card of the first page onto the second, which then carries it again. Drawn twice, it
+    // would be one media id mounted twice: a card that cannot be dragged (see docs/board.md).
+    const titles = manyGames(140);
+    boardServer();
+    server.use(
+      http.get('/api/library', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 1);
+        const shown = page === 1 ? titles.slice(0, 100) : titles.slice(99);
+        return HttpResponse.json({ ...libraryPage(shown, { total: 141 }), page });
+      }),
+    );
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: /^Backlog/ });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+    await within(column).findByText('Game 140');
+
+    expect(within(column).getAllByRole('button', { name: 'Game 100' })).toHaveLength(1);
+    expect(within(column).getAllByRole('button', { name: /^Options for/ })).toHaveLength(140);
+  });
+
+  it('asks again for every page it has loaded, and keeps them', async () => {
+    // A move, an add, a removal, a write in the journal and the estimates' poll each ask a
+    // column again. One that went back to its first 100 on each would lose the reader's place.
+    const board = boardServer({ columns: { Backlog: manyGames(140) } });
+
+    const { queryClient } = renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+    await within(column).findByText('Game 140');
+
+    await act(() => queryClient.invalidateQueries({ queryKey: ['library', 'games', 'Backlog'] }));
+
+    expect(board.queriesFor('Backlog').map((query) => query.get('page'))).toEqual([
+      '1',
+      '2',
+      '1',
+      '2',
+    ]);
+    expect(within(column).getAllByRole('button', { name: /^Options for/ })).toHaveLength(140);
   });
 
   it('says under its heading how long its titles take, in words that read aloud', async () => {
