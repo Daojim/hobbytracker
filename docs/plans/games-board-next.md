@@ -62,12 +62,12 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Shipped and deployed 22 November 2026** (PR #107), built tests first on the 21st and 22nd, a commit per step: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. **Built the same day, tests first**, a commit per step: the full e2e suite went 278 green, the 275 before and 3 new, Vitest 1,692, every fault put back turned its cases red, the drops and the keyboard held in Firefox, and the built board differs from the picked prototype by no pixel in 16 states. **Shipped and deployed 22 November 2026** (PR #109): frontend and docs only, Caddy alone recreated, and the stylesheet the local build's byte for byte. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. **Workshopped 22 November 2026 in two rounds**, measured on GitHub's own repo page: the wheel rendered 88px wide on a desktop and 25 on a phone, its cell's doing, and the user's *etc.* was that the pictures were not appealing beside well-made repos. So every shot became a close crop framed on a soft backdrop of Shelf's own colours, the hero the board with a phone over its corner, each still a light and dark pair GitHub picks between by fragment so a press opens the reader's own theme, and the wheel a 656px GIF in its own column. The share link and Settings join the tour, the user's picks over a theme of your own. Every pick but that one was the recommendation. **Shipped 22 November 2026** (PR #111), built the same day, test first: `src/readme.test.ts` holds the pairs and the one picture, and nine faults put back each turned it red. On the pushed branch's own page, in Chrome and Firefox, light and dark, every still opened its own file in the reader's theme, and a reader downloads 5.0 MB against 3.0 today. No deploy: the README is GitHub's. See its section |
-| 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. **Checked 27 November 2026 in Chromium's source**: Chrome 153 is what paints the bar from the manifest, from the installed app's own copy, and nothing newer lets the page reach it. **(a) picked, every pick the recommendation**: a manifest per theme, System keeping today's and a theme of your own its base's. **Built the same day, tests first**: the full e2e suite went 279 green, the 278 before and 1 new, Vitest 1,706, every fault put back turned its cases red, and the pre-paint script held in Firefox. Not yet merged. See its section |
+| 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. **Checked 27 November 2026 in Chromium's source**: Chrome 153 is what paints the bar from the manifest, from the installed app's own copy, and nothing newer lets the page reach it. **(a) picked, every pick the recommendation**: a manifest per theme, System keeping today's and a theme of your own its base's. **Built the same day, tests first**: the full e2e suite went 279 green, the 278 before and 1 new, Vitest 1,706, every fault put back turned its cases red, and the pre-paint script held in Firefox. **Shipped and deployed 27 November 2026** (PR #113): frontend and docs only, api and caddy both recreated because `aspnet:10.0` had moved, the stylesheet the local build's byte for byte, and every manifest served as one and the commit's bytes. The bar itself waits for the user's phone. See its section |
 | 32 | A queue for adding many games at once | L | **Planned 25 November 2026**, at the user's request, a workshop first: a list kept apart from the board, filled from search or from a pasted list of names matched against IGDB and never guessed, then a selection added to one column in one go, Completed with #24's year or *I don't remember*. The app's first multi-select, and where the queue lives is the workshop's to propose. A rating, hours and anything done in bulk to titles already on the board come later. See its section |
 | 33 | Month and week views of the release calendar | M | **Planned 25 November 2026**, at the user's request: a month view, and perhaps a week view, as a choice beside the *Coming soon* agenda, with a place for the titles no day fits. A week view only if the user's real calendar has enough exact days, and a phone considered from the start. See its section |
 | 34 | A better sign-in page | S–M | **Planned 25 November 2026**, at the user's request, a workshop first, in renders: the sign-in page saying what the app is before asking anyone to sign in, from the README's shots, and a sentence that no longer says *a game*. The neutral buttons, the full-bleed ground and *Account deleted* stay. See its section |
 
-Production runs `bd0f672`'s code, which was `main` on 22 November 2026. Deploying is the runbook in
+Production runs `cb0eb5d`'s code, which was `main` on 27 November 2026. Deploying is the runbook in
 `docs/deploy.md`.
 
 ## Suggested order (any order works)
@@ -6505,7 +6505,7 @@ turned a retake into a redesign.
 
 ---
 
-## 31. The installed app's bottom bar ignores the theme · built
+## 31. The installed app's bottom bar ignores the theme · shipped
 
 **Planned 25 November 2026**, at the user's request: a bug, on Android. Lines were read at
 `762161f`.
@@ -6740,7 +6740,32 @@ One at a time against the finished build, each file restored after its run:
 - **Nothing in the plan said the script must survive a page with no link.** An exception there
   skips the density and the journal, and three tests found it.
 
+### Deployed
+
+**At about 21:29 Eastern on 27 November 2026**, merged as PR #113 and deployed by the runbook in
+`docs/deploy.md`, `bd0f672` to `cb0eb5d`, carrying #110's, #111's and #112's docs with it.
+Frontend and docs only: no migration, no variable and no route. **api and caddy were both
+recreated, api first**, because `aspnet:10.0` had moved upstream and its layers were downloaded;
+the script took 27 seconds.
+
+- **The bundle** went `index-BbPJB8Ld.js` to `index-D8kpQg1T.js`, where a local build said
+  `index-CLrakKVn.js`. **The stylesheet** kept `index-D6mybYIa.css`, as the local build predicted,
+  and was the local build's file byte for byte.
+- **Counted with `grep -F`, each 0 then the local build's count**: the served `index.html`'s
+  `'/manifest-' + theme` 0 then 1, and in the bundle `.webmanifest` 0 then 2, `/manifest-` 0 then 1
+  and `link[rel="manifest"]` 0 then 1.
+- **Each of the seven new manifests** went `text/html`, `try_files`' page, to
+  `application/manifest+json` with `no-cache`, and **all eight were the commit's bytes**, by
+  `sha256sum` against `git show cb0eb5d:…`.
+- **`/api/auth/me` answered `null` (200)** before and after. The API's log had 11 `info` lines and
+  no `warn`, `fail` or `crit`, and said *No migrations were applied*; Caddy's had no error.
+  **Both timers ran five minutes on**, `Queued 0 titles for HowLongToBeat.` and `Release refresh
+  brought 15 not-yet-released titles up to date.`, waited for with a background until-loop over
+  `ssh … docker compose logs api --since 20m`, and still no `warn`, `fail` or `crit`.
+
 ### On the phone, after the deploy
+
+**Not measured yet**: the steps below went to the user with the deploy, on 27 November 2026.
 
 The measurement's own steps (the memory *Jimmy uses Android*), as web.dev's page has them for an
 update asked for by hand. Without them the app updates itself on the first night it is closed on a
