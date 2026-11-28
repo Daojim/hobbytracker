@@ -276,4 +276,13 @@
       own: GitHub's page had drawn it 88px wide in its table cell, and 25 on a phone. All of it
       was measured on GitHub's own page, in Chrome and Firefox, light and dark, before anything
       was drawn, and every choice but one was the recommendation
+- [x] The installed app's bottom bar. On an Android phone, the app installed from Chrome kept a
+      paper-coloured bar along the bottom of the screen whatever the theme, while the bar along
+      the top followed it. Chrome's own source said why: since Chrome 153 it paints that bar in
+      the app's manifest colour, from the copy it keeps when it builds the app, and nothing on
+      the page can reach it. So each theme now links a manifest of its own in its own colour, and
+      Chrome builds the app again with it the next time it checks, a day or so after a change.
+      System keeps the paper, since a bar that far behind could never follow a phone into dark
+      mode at sunset, and a theme of your own takes the bar of the theme it was made from. Every
+      choice was the recommendation
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration
