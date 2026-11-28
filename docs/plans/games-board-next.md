@@ -65,7 +65,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. **Workshopped 22 November 2026 in two rounds**, measured on GitHub's own repo page: the wheel rendered 88px wide on a desktop and 25 on a phone, its cell's doing, and the user's *etc.* was that the pictures were not appealing beside well-made repos. So every shot became a close crop framed on a soft backdrop of Shelf's own colours, the hero the board with a phone over its corner, each still a light and dark pair GitHub picks between by fragment so a press opens the reader's own theme, and the wheel a 656px GIF in its own column. The share link and Settings join the tour, the user's picks over a theme of your own. Every pick but that one was the recommendation. **Shipped 22 November 2026** (PR #111), built the same day, test first: `src/readme.test.ts` holds the pairs and the one picture, and nine faults put back each turned it red. On the pushed branch's own page, in Chrome and Firefox, light and dark, every still opened its own file in the reader's theme, and a reader downloads 5.0 MB against 3.0 today. No deploy: the README is GitHub's. See its section |
 | 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. **Checked 27 November 2026 in Chromium's source**: Chrome 153 is what paints the bar from the manifest, from the installed app's own copy, and nothing newer lets the page reach it. **(a) picked, every pick the recommendation**: a manifest per theme, System keeping today's and a theme of your own its base's. **Built the same day, tests first**: the full e2e suite went 279 green, the 278 before and 1 new, Vitest 1,706, every fault put back turned its cases red, and the pre-paint script held in Firefox. **Shipped and deployed 27 November 2026** (PR #113): frontend and docs only, api and caddy both recreated because `aspnet:10.0` had moved, the stylesheet the local build's byte for byte, and every manifest served as one and the commit's bytes. **On the user's phone the same evening, a fresh install wore the theme at the bottom**; an installed app's update to a new theme is yet to be seen. See its section |
 | 32 | A queue for adding many games at once | L | **Planned 25 November 2026**, at the user's request, a workshop first: a list kept apart from the board, filled from search or from a pasted list of names matched against IGDB and never guessed, then a selection added to one column in one go, Completed with #24's year or *I don't remember*. The app's first multi-select, and where the queue lives is the workshop's to propose. A rating, hours and anything done in bulk to titles already on the board come later. **Workshopped 27 November 2026, every pick the recommendation**, 26 of them: round one in words, then the user's own pasted list run live through the app's search, which picked the rule (a name or one of IGDB's alternative names, then the part after the colon, a tie asked: seven of the nine matched, none wrong), then round two in renders and four follow-ups. A page of its own at `/board/:hobby/queue`, found lines into the queue at once, a box on every row with Shift-click, the bar under the heading and at a phone's foot, a fourth quarter on every tile, *Open your queue* under the search box. **Load more on a column first, as #35, so this build waits for it.** See its section |
-| 35 | A column's Load more | S–M | **Planned 27 November 2026, at #32's workshop**, the user's pick: a *Load more* under a column past 100 titles, on Discover's shape, built as its own PR **before #32**. Completed holds 75 under All years. What a drag does in a column partly loaded is its main question. **Workshopped 28 November 2026** on branch `column-load-more`, all seven picks the recommendation. Round one in words: the server numbers what a drag did not send after what it did, which also ends the interleave a year's drags left under All years, found in the production copy; the next 100 a press; the same button on a share; nothing while folded, its pages kept. Round two in renders, with a column staged past 100 from the production copy: today's *Showing 100 of N* over Discover's *Load more*, at its own width on a phone, and nothing once every page is in. The build is written up in order and not begun. See its section |
+| 35 | A column's Load more | S–M | **Planned 27 November 2026, at #32's workshop**, the user's pick: a *Load more* under a column past 100 titles, on Discover's shape, built as its own PR **before #32**. Completed holds 75 under All years. What a drag does in a column partly loaded is its main question. **Workshopped 28 November 2026** on branch `column-load-more`, all seven picks the recommendation. Round one in words: the server numbers what a drag did not send after what it did, which also ends the interleave a year's drags left under All years, found in the production copy; the next 100 a press; the same button on a share; nothing while folded, its pages kept. Round two in renders, with a column staged past 100 from the production copy: today's *Showing 100 of N* over Discover's *Load more*, at its own width on a phone, and nothing once every page is in. **Built 28 November 2026, tests first**, a commit per step, with one more pick asked at the build, a share's keyboard on the first new card's name, the recommendation: the backend suite went 1,151 green, Vitest 1,721, every fault put back turned its cases red but one jsdom cannot see, which the e2e suite holds in Chromium; the full e2e suite went 283 green, the 279 before and 5 new, with #24's known flake the one red; the desktop cases pass in Firefox; and every shot of the picked states is the prototype's byte for byte. On branch `column-load-more`, not yet a PR. See its section |
 | 33 | Month and week views of the release calendar | M | **Planned 25 November 2026**, at the user's request: a month view, and perhaps a week view, as a choice beside the *Coming soon* agenda, with a place for the titles no day fits. A week view only if the user's real calendar has enough exact days, and a phone considered from the start. See its section |
 | 34 | A better sign-in page | S–M | **Planned 25 November 2026**, at the user's request, a workshop first, in renders: the sign-in page saying what the app is before asking anyone to sign in, from the README's shots, and a sentence that no longer says *a game*. The neutral buttons, the full-bleed ground and *Account deleted* stay. See its section |
 
@@ -96,7 +96,8 @@ Production runs `cb0eb5d`'s code, which was `main` on 27 November 2026. Deployin
   works on a phone, and what the paste box says about a name it cannot settle are all for renders.
   **Its build waits for #35**, the user's pick at its workshop on 27 November 2026.
 - **#35 before #32's build**: a history entered through the queue takes Completed past 100 under
-  All years.
+  All years. **Built 28 November 2026**, on `column-load-more` from `queue-for-adding-many`, so
+  #32's build can start from it.
 - **#33 and #34 are independent**, of each other and of #32. #33 begins by reading the user's real
   calendar, which decides whether a week view is drawn at all.
 
@@ -7254,7 +7255,7 @@ are a ready source: a demo account, light and dark pairs, already cropped and fr
 
 ---
 
-## 35. A column's Load more · planned
+## 35. A column's Load more · built
 
 **Planned 27 November 2026, at #32's workshop**, the user's pick there: built **as its own PR and
 before #32**, since the queue is the first thing here that imports and CLAUDE.md's **Small
@@ -7424,9 +7425,23 @@ infinite query of step 3.
    `docs/history.md`, and CLAUDE.md: **Small things** loses *A board column stops at 100 titles*,
    and **Settled** and **What exists** gain the column's Load more.
 
-**Where it stands.** Branch `column-load-more`, from `queue-for-adding-many` at `7a3ed7b`, with
-this section's workshop record and its status row committed at `1db4658`. The workshop's Vite
-server is stopped.
+### Built, 28 November 2026
+
+This section's own session, tests first in every step, each shown red before it went green and
+each fault put back after, a commit per step, on `column-load-more` from `queue-for-adding-many`
+at `7a3ed7b`, which holds #32's workshop and this plan and is not on `main`:
+
+| Step | Commit | What it holds |
+|---|---|---|
+| The workshop record | `1db4658` | This section's tables and its status row, committed as docs first |
+| 1. The rest numbered after | `44f17d9` | `ReorderAsync` reads the whole column in My order and numbers it from 0, what was sent first |
+| 2. The newest pass first | `26d2923` | *Title*, *Rating* and *Length* end on `Latest.Id` descending |
+| 3. An infinite query | `80469b3` | `board/columnPages.ts`, and every reader and writer of a column's cache moving with it, under a plain *Load more* |
+| 4. The foot, as picked | `70ed719` | the line over the button, *Loading…*, a failure by the button, the keyboard to the first card added and on a share to its name |
+| 5. e2e | `e966aa5` | five cases in `board.spec.ts`, `seedColumn`, and the stubs' Pagefillers |
+| 6. Docs | this commit | `docs/board.md`, `docs/design.md`, `docs/api.md`, `docs/history.md`, CLAUDE.md and this section |
+
+Each step's record, as it was written at its commit:
 
 - **Step 1 is built.** `ReorderAsync` reads the whole column in My order, every year of it, and
   numbers it from 0: what was sent first, in the order sent, then the rest in the order it had.
@@ -7553,7 +7568,46 @@ server is stopped.
 | The server numbering only the ids sent, step 1's | *a drag with 100 of 140 loaded leaves the other 40 below*: after the reload the 40 never loaded, Pagefiller 101 on, sat above the hundred dragged |
 | The keyboard not handed back to the button after a page fails | *a press from the keyboard … and a failed page back*, in Chromium: *Load more* not focused after the failure. The half jsdom could not hold |
 
-Step 6 is not begun.
+- **Step 6 is built**, in this commit: a section of its own in `docs/board.md`, **A column past a
+  page**, with the whole fault table, and the paragraphs that said a column is one page (the
+  switcher's counts, the hours, the picker and its *consequence worth knowing*, a share's
+  `ColumnRequest`, the query keys, the manual ranking, *Sorting never writes* and *A card mounted
+  twice*); **A column's Load more** in `docs/design.md`; the two routes in `docs/api.md`; an entry
+  in `docs/history.md`; and in CLAUDE.md, **Small things** without *A board column stops at 100
+  titles*, and **Settled**, **What exists** and **What is next** with the column's Load more.
+
+### What the plan got wrong, or left out
+
+- **A year was a partial view of a column already**, found by reading at the workshop: the fault
+  the plan named for a page was live for every year a drag had been made under, and step 1 ended
+  both. Under a year, the year dragged in now goes above every other as a block.
+- **Step 3 needed something to press.** The plan gave it **Tests first**'s cases, which press
+  *Load more*, so step 3 drew a plain one under today's line and step 4 made it as picked.
+- **The picker's *consequence worth knowing* moved with step 1 as well as with a loaded page**: a
+  pick past the loaded pages still has no card in the cache, and now lands at the foot of what
+  Playing has loaded, because the order that follows a move numbers it after the cards sent.
+- **Chromium blurs a button as it is disabled**, so a keyboard on Discover's *Load more* is left on
+  nothing when a page fails, and Tab from there skips the button that is the retry. The column's
+  hands it back, which Discover's does not; jsdom never blurs, so that half is the e2e suite's.
+- **Seeding 140 titles queued 140 HowLongToBeat lookups**, at the stub's 600ms a search, past the
+  truncation between specs. The stub answers the Pagefillers at once, and `seedColumn` waits for
+  every lookup to be done.
+- **The prototype could not run beside the build**, written against a request with no page, so the
+  built app was shot by the workshop's own script and stage and compared with the workshop's shots:
+  all 16 byte for byte.
+- **Postgres held ties still on a fresh table**, as the plan feared, so the tie-break's theory is
+  red on the order rather than on a repeat.
+- **The app retries a failed page three times**, about seven seconds of *Loading…* before it says
+  so, where the workshop's prototype asked once.
+- **The full e2e suite's one red was #24's *follows its ✓ as the strip and the page scroll***, 8px
+  off, as at #25's build, and 6 of 6 alone: twice now, and nothing on its path changed either time.
+
+**Where it stands.** Every step is built and committed on `column-load-more`, not yet a PR. Built
+on `queue-for-adding-many`, which is not on `main`, so a PR of it carries #32's workshop record
+too. The comparison's Vite server is stopped; `shoot-built.mjs`, `harness-built.mjs`,
+`vite.built.mjs`, `measures-built.json` and `shots-built/` beside the workshop's in the gitignored
+`frontend/workshop.local/column-load-more/` are what made it. No migration, no variable and no new
+route, so a deploy is the runbook's frontend and API images and nothing else.
 
 ---
 

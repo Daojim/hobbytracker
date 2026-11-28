@@ -37,7 +37,7 @@ off the routing table; see **Sharing a board** in `docs/auth.md`.
 | `POST /api/library/{mediaId}/status` | move a title to a board column — what a drag calls. **`notFinished: true` puts a finish back**: the finished pass itself moves, without its finish |
 | `POST /api/library/{mediaId}` | put a title on your board, in a column — what a tile's +, ▶ and ✓ call. **201** with the card; **409** when it is already on your board |
 | `DELETE /api/library/{mediaId}` | take a title off the board — **every pass of yours** |
-| `PUT /api/library/order` | store one column's manual ranking |
+| `PUT /api/library/order` | store one column's manual ranking: the titles sent first, in the order sent, and every other title in the column after them, in the order it had. See **A column past a page** |
 | `GET /api/stats?hobby=&year=` | the Stats page's year: every finish in it, your hours against them, what became of what was started, and the Backlog column. Every playthrough, not every title. **400** for a year outside 1–9998. See `docs/stats.md` |
 | `GET /api/stats/years?hobby=` | the years the Stats page can show — every pass's, where the board's are its current passes' |
 | `GET POST PUT DELETE /api/share?hobby=` | your board's read-only link: see it, make it, change what it shows, stop it. Addressed by hobby, never by an id. See **Sharing a board** in `docs/auth.md` |
@@ -518,7 +518,9 @@ reordered from a phone.
 **Every column's count comes from that column's own query.** `columnQuery` in `Column.tsx` is the
 request and key both. The switcher takes it as `requestFor`, so a share hands it
 `sharedColumnQuery` and counts from the share's own answers, never the signed-in board's. The switcher observes every drawn column's current view, so when a move
-writes the cached answers optimistically the counts change at once. Those views also count as
+writes the cached answers optimistically the counts change at once. Since #35 each segment
+observes its column's pages itself and reads the count off the first, because a column's answer
+is an infinite query and `useQueries` cannot hold one; see **A column past a page**. Those views also count as
 active, so a move's `removeQueries({ type: 'inactive' })` leaves them alone and drops only the
 other sorts and years of the two columns, as before.
 
@@ -802,6 +804,9 @@ with every finish had made the page long to scroll past.
   `hobbytracker.coming-soon.<hobby>`, still at every width, and still forgotten on a share.
 - **Nothing in Settings.** #27 left *Collapsed columns* to #29, which answered it: the arrow is on
   the column it folds, where a column taken off can only come back from Settings.
+- **A collapsed column draws no *Load more*, and keeps the pages it had loaded** (#35): the
+  column's query is the frame's, and the frame is there collapsed or open, so opening it again
+  shows the cards it had and the button under them.
 
 **Checked by putting each fault back**, one at a time against the finished feature, by the
 gitignored `workshop.local/collapsing-a-column/faults.mjs`, which restores each file after its run:
@@ -827,6 +832,98 @@ gitignored `workshop.local/collapsing-a-column/faults.mjs`, which restores each 
 The plan named a section not rendered at all while collapsed; the fault put back keeps the section
 and drops its ref, because a section not rendered would also take the region the specs find a
 column by, and go red for that instead of for the drop.
+
+### A column past a page
+
+**A column shows its first 100 titles and, while there are more, *Load more* under them, which
+brings the next 100**, on your board and on a share. Built on 28 November 2026 for #35 in
+`docs/plans/games-board-next.md`, which has the workshop and every pick; the look is
+`docs/design.md`'s, under **A column's Load more**. Until then a column past 100 said *Showing 100
+of N* with no way to the rest, and #32's queue, the first thing here that imports, would take
+Completed past it under All years.
+
+- **A column's answer is an infinite query, pages of 100 by number, under the same
+  `columnKey`.** `board/columnPages.ts` holds `ColumnRequest`, whose function takes the page;
+  `columnPages`, the one options builder the column and a phone's segments share; and the helpers
+  every reader and writer of the cache goes through, `cardsOf`, `totalOf`, `withoutCard`,
+  `withCard` and `reordered`. The next page is found from the number this side asked with, never
+  the one an answer echoes, so a page that misnumbers itself cannot keep a column asking.
+- **A refetch asks for every page loaded, and stops early where the column has shrunk**:
+  TanStack's own way, and the workshop's pick. A move, an add, a removal, a write in the journal
+  and the estimates' poll keep a reader's place; a reload, a new sort or a new year is a new key,
+  and starts at the first 100, as Discover's loaded pages are not in the address.
+- **A title a later page repeats is drawn once**, Discover's rule. Pages are asked for one at a
+  time, so a title added on top between two of them pushes the last card of one page onto the
+  next, which carries it again; see **A card mounted twice** for what two of one id do.
+- **Every read of a column goes through its pages.** A move takes the card off whichever page
+  holds it and puts it among the cards the column it went to has loaded, where it was let go or at
+  their foot; the order a move writes, and a drag within a column, send every page loaded; the
+  picker's *Start playing* finds a pick on any of them. A write puts the cards back over the pages
+  in order, each page keeping its length and the last taking the rest: where a page ends is the
+  server's on the next refetch, which asks by number and not by what the cache holds.
+- **The server numbers what a drag did not send after what it did.** `PUT /api/library/order`
+  reads the whole column in My order, every year of it, and numbers it from 0: the ids sent first,
+  in the order sent, then every other title, in the order it had. A board sends what it draws,
+  which is its loaded pages, or under a year that year's titles alone. Before #35 only the ids sent
+  were numbered and the rest kept their old numbers among the new ones, so 40 titles never loaded
+  rose over the hundred just dragged, and every year's drag numbered that year from 0: the user's
+  Completed under All years alternated 2025 and 2026 card by card from the top. **A drag under a
+  year now puts that year's titles above every other year's, as a block**, and a card moved in by
+  its menu, a phone's segment or the column's empty space lands at the foot of what is loaded,
+  with what was never loaded below it. The request is unchanged.
+- **Every sort ends on the newest pass first**, the current pass's id descending, My order's own
+  tie-break and the whole of Added, so a second page cannot draw a tied card the first showed and
+  skip another. *Title*, *Rating* and *Length* stopped at values two titles share until #35. On a
+  fresh table Postgres gave 140 ties back in insertion order on both pages, so the theory that
+  holds it went red on the order rather than on a repeat; the rule it holds is the tie-break's.
+- **The heading's count, the hours and a phone's segment are the whole column's**, read off the
+  first page, as they were off the one there was. Each segment observes its column's pages
+  itself, so a column a phone is not showing keeps the pages it had for when it is chosen again.
+- **The keyboard goes to the first card a press added**, found by its place among the cards'
+  `data-card-name` headings: its title, which opens its journal, or on a share, where a card has
+  nothing to press, its name, which `CardFace` makes focusable from script wherever it has no
+  handlers, as a Discover tile's name is. The user's pick at the build, the recommendation. Only
+  while the keyboard is where the press left it, on the button or nowhere, so somebody who moved
+  on while the page came keeps their place.
+- **A failed page says so by the button and hands the keyboard back to it**, since a press again
+  is the retry. Chromium blurs a button as it is disabled, so without it a reader on the keyboard
+  is left on nothing, and Tab from there skips the button. jsdom never blurs a disabled button, so
+  this one is `board.spec.ts`'s alone. The app's own retries stand, three with backoff for a 5xx,
+  about seven seconds of *Loading…* before a failure says so.
+- **A share's columns have the same button**, a visitor having no other way past a share's first
+  100; its route took a page already, and nothing on a share drags.
+
+**Checked by putting each fault back**, one at a time against the finished feature, the server's
+in the backend suite and the e2e suite alike:
+
+| Fault | What goes red |
+|---|---|
+| Only the ids sent numbered | `LibraryOrderingTests`' *first hundred … leaves the rest below* and *under a year puts that year's titles above*, and `board.spec.ts`'s drag with 100 of 140 loaded, where the 40 never loaded sat above the hundred after a reload |
+| The ids sent read wherever they are, and only they numbered | those two, and *a title that has left the column is still ignored where it went* |
+| The tie-break off *Rating*, *Title* or *Length* | that sort's case of *Every_sort_breaks_a_tie_newest_pass_first*, alone |
+| A title a later page repeats drawn again | *draws a title a later page repeats once* |
+| A move out taking the card off the first page alone | *draws a card moved out of a column with two pages loaded once*, read while the move is held, and the picker's *starts playing a pick on a later page* |
+| The card a move takes looked for on the first page alone | the same two |
+| The order after a move written from the first page alone | *writes the order of every page it has loaded after a move into it* |
+| A move resetting the column it went to | the same case, at its pages asked again |
+| One page kept at most | that case, and the column's three about pages |
+| A segment counting the cards loaded | *counts a column past a page whole* |
+| A share's column asking for no page | the share's *offers a column past a page the same Load more* |
+| *Loading…* never said, the button pressable | *says Loading… on a button that takes no press* |
+| A later page's failure said at the top of the column | *says why a page did not come over its button* |
+| The keyboard left on the button | *hands the keyboard to the first card a press added*, and the share's case |
+| The keyboard taken from wherever a reader went | *leaves the keyboard where a reader took it* |
+| A share's card name not focusable | the share's *to the first new card's name* |
+| The foot drawn while collapsed | *shows no Load more collapsed* |
+| A line where the button was, at the end; the line under the button | *says how much of it is showing … and nothing once every page is in* |
+| No hand-back after a failed page | **nothing in Vitest**; `board.spec.ts`'s keyboard case in Chromium, *Load more* not focused after the failure |
+
+**Seeding a column past a page end to end** is `seedColumn` in `e2e/support/board.ts`: 140 of the
+IGDB stub's *Pagefiller* games, put in the catalogue by one search and logged last to first so the
+column is numbered as adds number one. **The HowLongToBeat stub answers them at once**, a miss
+each: at the 600ms it holds every other search, their lookups held the worker 84 seconds a spec,
+and a queue outlives the truncation between specs, so the next spec's own lookups waited behind
+them.
 
 ### A second thing that narrows a column
 
@@ -892,7 +989,7 @@ Built on 1 October 2026, on the games board only. A muted line under each headin
 Where the line sits, and why Playing says *to beat* rather than what is left, were picked from
 renders: **Hours in the column headers** in `docs/design.md`.
 
-**The figures are the whole column's, and the cards are one page of it.** `GET /api/library`
+**The figures are the whole column's, and the cards are the pages of it loaded.** `GET /api/library`
 answers with a `LibraryPage`, which is `PagedResult<LibraryItemDto>` plus `ColumnHours`, added up
 over the filtered column before the page is cut, exactly as `Total` is. A column of 140 has a
 header about 140. Backlog's leaves out the titles on the release calendar and Completed's follows
@@ -1062,7 +1159,7 @@ header. Built on 25 October 2026 for #16 in `docs/plans/games-board-next.md`, wh
 choice and the workshop that made them. Its look is `docs/design.md`'s, under **What should I play
 next?**. What belongs here is how it reads the board and what it does to it.
 
-- **It draws from the whole column, never a page.** A column on the board loads 100 cards.
+- **It draws from the whole column, never a page.** A column on the board loads 100 cards a press.
   `wholeColumn` in `api/library.ts` pages `listColumn` to the end, as `libraryStatuses()` pages
   the library, so a backlog of 101 can land on the 101st. No backend change: the Backlog request
   already leaves the calendar's titles out, so a game that is not out yet is never offered.
@@ -1102,10 +1199,12 @@ next?**. What belongs here is how it reads the board and what it does to it.
   holds the question, *Start playing* and the bands, because a length is the hobby's: a film's
   would be a runtime nobody counts in weekends.
 
-**One consequence worth knowing rather than fixing:** a pick past the column's first 100 has no
-card in the cache, so *Start playing* moves it without the optimistic write and the reorder that
-follows one, and it arrives in Playing wherever its old position puts it. It reaches Playing either
-way. Only its place in a hand-made order is left to the next drag.
+**One consequence worth knowing rather than fixing, which #35 narrowed:** a pick on a page the
+board has not loaded has no card in the cache, so *Start playing* moves it without the optimistic
+write. A pick on any page loaded moves as a drag would. One past them still reaches Playing, and
+the order that follows sends Playing's loaded cards without it, which the server answers by
+numbering it after them: it lands at the foot of what Playing has loaded, where it used to land
+wherever its old place number put it.
 
 **Checked by putting each fault back**, one at a time, against the finished feature:
 
@@ -1155,7 +1254,9 @@ dnd-kit, so nothing can be pressed, carried or dropped onto.
 - **Where a column's answer comes from is a `ColumnRequest`**, a key and a function. `columnQuery`
   is the board's and `sharedColumnQuery` the share's. It is a plain object rather than
   `queryOptions` because TanStack types `queryFn` against the exact key, and a result of
-  `queryOptions` will not widen to a type two sources share.
+  `queryOptions` will not widen to a type two sources share. Since #35 the function takes a page
+  and the type lives in `board/columnPages.ts`, whose `columnPages` makes either request the
+  infinite query the column and the switcher read, so a share pages as your board does.
 - **The sort control stays, and the hand-made order is *Board order*** there, since it is the
   owner's and not the reader's. The visitor's sorts are page state, never written anywhere.
 - **Every column collapses side by side, as on yours, for the visit** (#29), Dropped to start, and
@@ -1186,6 +1287,12 @@ What a caller has to know:
 - The column key is `['library', hobby, status, { sort, year }]`. **The sort and the year belong in
   the key, not just in the request** — leaving them out serves the previous ordering from cache and
   corrects itself only on the next refetch, which is a board showing one order while claiming another.
+- **Its entry is every page of the view loaded since #35**, an infinite query's `{ pages,
+  pageParams }`, so anything that reads or writes it goes through `board/columnPages.ts`. Read the
+  way a single page was, `.items` is undefined, and the `?? []` every reader writes makes that an
+  empty column with no error: a drag that finds no card to move, a move with no optimistic write.
+  `getQueryData<LibraryPage>` will not say so, because the type parameter is a promise rather than
+  a check.
 - **A move invalidates the column *prefix* `['library', hobby, status]`, not the fully-qualified
   key**, because a column has one cache entry per sort and year and the exact key only reaches
   whichever one is on screen. **A reorder keeps the exact key on purpose**: it writes `position`, and
@@ -1246,13 +1353,17 @@ What a caller has to know:
 
 **Manual ranking** lives in `log_entries.position`, ordered `position ASC, id DESC`. New entries take
 `min(position) - 1` for their column (`BoardPositions.TopOfColumnAsync`) so a title just added appears
-on top and nothing gets renumbered. `PUT /api/library/order` takes the whole column top-first rather
-than a move-and-index: idempotent, no off-by-one arithmetic, and ids that have since left the column
-are ignored rather than rejected, because a loaded board can legitimately be one drag out of date.
+on top and nothing gets renumbered. `PUT /api/library/order` takes the column as the board draws it,
+top first, rather than a move-and-index: idempotent, no off-by-one arithmetic, and ids that have since
+left the column are ignored rather than rejected, because a loaded board can legitimately be one drag
+out of date. **What it was not sent goes after what it was, in the order it had**, since #35: a board
+draws its loaded pages, or one year, and the rest of the column is numbered below them rather than
+left at numbers that land among them. See **A column past a page**.
 
 **Sorting never writes.** `sort` ∈ `manual` (default) · `added` · `title` · `rating` · `length` are
 read-only views that leave `position` untouched, which is what lets the UI enable dragging only in
-manual mode and still guarantee the ranking survives a look at the alphabetical order.
+manual mode and still guarantee the ranking survives a look at the alphabetical order. **Each ends
+on the newest pass first**, so two titles that tie keep one order from page to page (#35).
 
 `sort=length` is **how long the title takes**, shortest first, with titles that have no figure last —
 the same treatment an unrated title gets under `sort=rating`, rather than sorting as though nobody
@@ -1331,6 +1442,13 @@ columns made it an ordinary thing to do rather than an unlikely one. A remove no
 inactive views as a move drops its two columns'. *Does not bring a removed card back in an
 ordering it left behind, once it is added again*, in `BoardPage.test.tsx`, reproduces it — two
 cards named Celeste on the unfixed board.
+
+**A column past a page is a fourth way to get two of one card**, closed as it was built (#35).
+A move takes the card off whichever page of its column holds it, since one left on the second page
+would be drawn in both columns until the refetch, and a title a later page repeats is drawn once.
+*Draws a card moved out of a column with two pages loaded once* holds the first with the move's
+request held open, which is the only moment the evidence is on screen, and *draws a title a later
+page repeats once* holds the second.
 
 **Two things about testing it, and the first cost an hour.**
 

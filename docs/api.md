@@ -110,11 +110,11 @@ Sign in once and spend the cookie, as below.
 | `GET PUT DELETE /api/notes/{id}` | one note. Rewriting it does not move its date, and a form rewrite names the pictures it keeps |
 | `GET /api/note-pictures/{id}`, and `thumbnail` under it | a picture in one of your notes, or the card's small copy of it. Never rewritten, so the browser keeps it |
 | `GET /api/notes/search?q=&hobby=` | your notes on one board with every word of `q` in them, in any order and any case, newest first. Fifty at most, and it says when there were more |
-| `GET /api/library?hobby=&status=&year=&sort=` | your collection, or one board column, with the hours its header says over the whole column and the titles each of its counts leaves out |
+| `GET /api/library?hobby=&status=&year=&sort=&page=&pageSize=` | your collection, or one board column, a page of 100 at most, with the hours its header says over the whole column and the titles each of its counts leaves out. Every sort ends on the newest pass first, so tied titles keep one order from page to page |
 | `POST /api/library/{mediaId}` | put a title on your board in a column, dated as a drag into it would date it. An add to Completed can name its finish, `completedYear` or `undated: true`, and `hoursPlayed`. 409 if it is on your board already |
 | `POST /api/library/{mediaId}/status` | move a title between columns — what a drag calls. `notFinished: true` puts a finish back on the pass it was made on |
 | `DELETE /api/library/{mediaId}` | take a title off the board — every pass of yours against it |
-| `PUT /api/library/order` | store one column's manual ranking |
+| `PUT /api/library/order` | store one column's manual ranking: the titles sent first, in the order sent, and every other title in the column after them, in the order it had, since a board sends the pages it has loaded or one year |
 | `GET /api/library/export?hobby=` | everything on your board, every pass and every note, for the spreadsheet. Not paged |
 | `GET /api/stats?hobby=&year=` | a year in numbers: every playthrough finished, your hours against the estimates, what became of what you started, and how long the backlog has waited |
 | `GET /api/stats/years?hobby=` | the years there is something to show for |
