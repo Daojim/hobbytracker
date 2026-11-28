@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using HobbyTracker.Api.Contracts;
+using HobbyTracker.Api.Data;
 using HobbyTracker.Api.Domain;
 using HobbyTracker.Api.Tests.Infrastructure;
 using Microsoft.EntityFrameworkCore;
@@ -77,6 +78,71 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         (await ReorderAsync(LogStatus.Backlog, [])).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
+    // ------------------------------------- a column partly loaded (#35)
+
+    [Fact]
+    public async Task A_reorder_of_the_first_hundred_leaves_the_rest_of_the_column_below_in_its_order()
+    {
+        // A column of 140 is drawn 100 at a time, and a drag sends what is drawn. The other 40
+        // were never on screen, so they stay where they were: under every card that was.
+        //
+        // Numbered as adds number a column, each new title on top at min(position) - 1, so the
+        // 40 not sent hold places a reorder starting from 0 would land the hundred under.
+        var column = await GivenBacklogOfAsync(140);
+        var loaded = column.Take(100).ToList();
+        var rest = column.Skip(100).ToList();
+
+        // The top card let go second.
+        List<int> dragged = [loaded[1], loaded[0], .. loaded.Skip(2)];
+        (await ReorderAsync(LogStatus.Backlog, dragged)).StatusCode.ShouldBe(HttpStatusCode.NoContent);
+
+        (await WholeColumnAsync(LogStatus.Backlog)).ShouldBe([.. dragged, .. rest]);
+    }
+
+    [Fact]
+    public async Task A_reorder_under_a_year_puts_that_years_titles_above_every_other_years()
+    {
+        // A board under 2026 draws Completed's 2026 finishes alone, so a drag there sends those
+        // and nothing else. They go above every other year's as a block, and every other year
+        // keeps its own order. Numbering the 2026 titles from 0 and leaving the rest where they
+        // were is what interleaved the user's Completed year by year, card by card.
+        var v24 = await GivenAddedToCompletedAsync("V", "1", 2024);
+        var x25 = await GivenAddedToCompletedAsync("X", "2", 2025);
+        var y26 = await GivenAddedToCompletedAsync("Y", "3", 2026);
+        var z25 = await GivenAddedToCompletedAsync("Z", "4", 2025);
+        var w26 = await GivenAddedToCompletedAsync("W", "5", 2026);
+
+        (await WholeColumnAsync(LogStatus.Completed)).ShouldBe([w26, z25, y26, x25, v24]);
+        (await WholeColumnAsync(LogStatus.Completed, year: 2026)).ShouldBe([w26, y26]);
+
+        (await ReorderAsync(LogStatus.Completed, [y26, w26])).StatusCode
+            .ShouldBe(HttpStatusCode.NoContent);
+
+        (await WholeColumnAsync(LogStatus.Completed)).ShouldBe([y26, w26, z25, x25, v24]);
+        (await WholeColumnAsync(LogStatus.Completed, year: 2026)).ShouldBe([y26, w26]);
+        (await WholeColumnAsync(LogStatus.Completed, year: 2025)).ShouldBe([z25, x25]);
+    }
+
+    [Fact]
+    public async Task A_title_that_has_left_the_column_is_still_ignored_where_it_went()
+    {
+        // The race the order route has always forgiven, a card moved in another tab before this
+        // drop landed, now that the route reads the whole column. The title left is not this
+        // column's to number, so its place in the column it went to is as the move left it.
+        var stays = await GivenAddedAsync("Stays", "1", LogStatus.Backlog);
+        var playing = await GivenAddedAsync("Playing", "2", LogStatus.InProgress);
+        var moved = await GivenAddedAsync("Moved", "3", LogStatus.Backlog);
+        await MoveAsync(moved, LogStatus.InProgress);
+        var before = await WholeColumnAsync(LogStatus.InProgress);
+
+        (await ReorderAsync(LogStatus.Backlog, [moved, stays])).StatusCode
+            .ShouldBe(HttpStatusCode.NoContent);
+
+        (await WholeColumnAsync(LogStatus.Backlog)).ShouldBe([stays]);
+        (await WholeColumnAsync(LogStatus.InProgress)).ShouldBe(before);
+        before.ShouldBe([moved, playing]);
+    }
+
     // ------------------------------------------------------------- sort modes
 
     [Fact]
@@ -125,6 +191,40 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         var column = await GetColumnAsync(LogStatus.Completed, sort: LibrarySort.Rating);
 
         column.Items.Select(item => item.Title).ShouldBe(["Great", "Good", "Unrated"]);
+    }
+
+    [Theory]
+    [InlineData(LibrarySort.Manual)]
+    [InlineData(LibrarySort.Added)]
+    [InlineData(LibrarySort.Title)]
+    [InlineData(LibrarySort.Rating)]
+    [InlineData(LibrarySort.Length)]
+    public async Task Every_sort_breaks_a_tie_newest_pass_first_so_two_pages_hold_each_title_once(
+        LibrarySort sort)
+    {
+        // A column past 100 is read a page at a time (#35), and Postgres promises no order among
+        // rows that tie from one request to the next: page two can repeat a card page one showed
+        // and skip another. So every sort ends on the newest pass first, My order's own
+        // tie-break, and a column tied on everything reads newest first whichever it is in.
+        // Built as adds build one, so My order is newest first too.
+        var column = await GivenBacklogOfAsync(140);
+        await WithDbAsync(async db =>
+        {
+            foreach (var entry in await db.LogEntries.ToListAsync(Ct))
+            {
+                entry.Rating = 8m;
+            }
+
+            foreach (var game in await db.Games.ToListAsync(Ct))
+            {
+                game.Title = "Tied";
+                game.HltbAllStylesHours = 20m;
+            }
+
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WholeColumnAsync(LogStatus.Backlog, sort: sort)).ShouldBe(column);
     }
 
     [Fact]
@@ -446,6 +546,85 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
             Json,
             Ct);
         return mediaId;
+    }
+
+    /// <summary>
+    /// A Backlog of <paramref name="count"/> games, numbered as adding each in turn numbers one:
+    /// every title on top of the last at <c>min(position) - 1</c>. In one save rather than through
+    /// the add route a title at a time, which would say the same at 140 times the cost. Returned
+    /// top first, as the column is drawn.
+    /// </summary>
+    private Task<List<int>> GivenBacklogOfAsync(int count) => WithDbAsync(async db =>
+    {
+        var games = Enumerable.Range(1, count)
+            .Select(number => new Game
+            {
+                HobbyId = SeedData.Hobbies.Games,
+                SourceId = SeedData.Sources.Igdb,
+                ExternalId = $"{number}",
+                Title = $"Title {number:D3}",
+            })
+            .ToList();
+
+        db.Games.AddRange(games);
+        await db.SaveChangesAsync(Ct);
+
+        db.LogEntries.AddRange(games.Select((game, index) => new LogEntry
+        {
+            MediaId = game.Id,
+            UserId = UserId,
+            Status = LogStatus.Backlog,
+            Position = -(index + 1),
+            LoggedAt = Clock.UtcNow,
+        }));
+        await db.SaveChangesAsync(Ct);
+
+        return games.Select(game => game.Id).Reverse().ToList();
+    });
+
+    /// <summary>A game put on the board as a tile puts one there, on top of its column.</summary>
+    private async Task<int> GivenAddedAsync(string title, string externalId, LogStatus status)
+    {
+        var mediaId = await GivenGameAsync(title, externalId);
+        var response = await Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}", new AddToBoardRequest(status), Json, Ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        return mediaId;
+    }
+
+    /// <summary>A game added to Completed finished in a year, as the tile's check mark adds one.</summary>
+    private async Task<int> GivenAddedToCompletedAsync(string title, string externalId, int year)
+    {
+        var mediaId = await GivenGameAsync(title, externalId);
+        var response = await Client.PostAsJsonAsync(
+            $"/api/library/{mediaId}",
+            new AddToBoardRequest(LogStatus.Completed, CompletedYear: year),
+            Json,
+            Ct);
+        response.StatusCode.ShouldBe(HttpStatusCode.Created);
+        return mediaId;
+    }
+
+    /// <summary>A whole column, top first, read a page of 100 at a time as a board reads one.</summary>
+    private async Task<List<int>> WholeColumnAsync(
+        LogStatus status, int? year = null, LibrarySort? sort = null)
+    {
+        var ids = new List<int>();
+
+        for (var page = 1; ; page++)
+        {
+            var url = $"/api/library?hobby=games&status={status}&page={page}&pageSize=100";
+            if (year is { } wanted) url += $"&year={wanted}";
+            if (sort is { } chosen) url += $"&sort={chosen}";
+
+            var column = await ReadAsync<PagedResult<LibraryItemDto>>(await Client.GetAsync(url, Ct));
+            ids.AddRange(column.Items.Select(item => item.MediaId));
+
+            if (column.Items.Count == 0 || ids.Count >= column.Total)
+            {
+                return ids;
+            }
+        }
     }
 
     private Task<HttpResponseMessage> MoveAsync(int mediaId, LogStatus status) =>

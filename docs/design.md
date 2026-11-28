@@ -554,6 +554,39 @@ Light and Shelf Dark and at 390: https://claude.ai/artifact/Xq1fhryspTKvxUzh4W7t
   where its dark and hovered twins matched; it matched in three runs after, so it was the shot, not
   the build.
 
+### A column's Load more
+
+**Today's *Showing 100 of N*, centred, over Discover's *Load more*.** Picked at the #35 workshop on
+28 November 2026, every pick the recommendation, from renders of the shipped app with Completed
+staged past 100 on the user's games board as read on 27 November, at 1440 in Shelf Light and Shelf
+Dark and at 390: https://claude.ai/artifact/KuJQpFFvcSz6zMMebTXpaU. What it does is
+`docs/board.md`'s, under **A column past a page**.
+
+| Choice | Picked | Rendered against |
+|---|---|---|
+| What a column's foot says while more is left | **Today's line over *Load more***, the button word for word Discover's at its own width, 119 × 36. The one foot that says how many are left when the heading is 14,151px up the page at 1440, and it changes nothing that was there; 24px taller than the button alone | *Load more* alone, Discover's exactly; *Load 15 more*, which past 200 reads *Load 100 more* and no longer says how many are left |
+| The button at 390 | **Its own width**, 119 × 36, centred, as Discover's is at every width | the column's width, 332 × 36 in a 358px column |
+| Once the last page is in | **Nothing**: the button goes, and the column ends as every column ends | a muted line, *That's everything here.*, 40px taller at 1440 |
+
+- **The foot is `mt-cardgap flex flex-col items-center gap-2`** under the cards, so twice the gap
+  between cards sits above it, 24px at 1440 and 20 at 390, and it never reads as another card.
+  The line is `text-center text-xs text-muted`; the button Discover's, `h-9 rounded border
+  border-line bg-surface px-6 text-sm font-medium hover:bg-hover disabled:opacity-50`.
+- ***Loading…*, disabled, while a page comes**, which narrows the button to 114 × 36, as
+  Discover's does. A page that fails puts the API's words in red over the button, `text-center
+  text-sm text-danger`: *An error occurred while processing your request.*, two lines in a 266px
+  column. The column's top line keeps only a first page's failure.
+- **No button while a column is collapsed**: a collapsed Completed is its heading and its count,
+  the hours and the sort, 142px tall. A share's foot is the same line and button.
+- **Measured against the picked prototype**, by the gitignored
+  `workshop.local/column-load-more/shoot-built.mjs`, the workshop's own script and stage run on the
+  built app with no swaps: before a press at 1440 in both themes and at 390, the whole width at
+  1440, at the end after a press from the keyboard, *Loading…*, a failed page, collapsed, and on a
+  share. **All 16 shots are the prototype's byte for byte**, and 15 of the 16 measures are the same
+  to the pixel. The 16th is where the keyboard is after a failed page: on the page's body for the
+  prototype, which Chromium left there when it blurred the disabled button, and on *Load more* for
+  the build, which hands it back.
+
 ### How long will it take me?
 
 **A link under the four estimates, and a quiz behind it.** Picked on 2 October 2026 from three

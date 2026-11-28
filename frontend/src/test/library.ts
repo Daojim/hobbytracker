@@ -83,6 +83,48 @@ export function libraryPage(
   return { items, total, page: 1, pageSize: 100, hours };
 }
 
+/**
+ * A column past a page (#35): `count` games named `Game 1` to `Game {count}`, top first, which a
+ * board shows 100 at a time. Ids count up from `firstId` when a test names the cards it sends.
+ */
+export function manyGames(
+  count: number,
+  { firstId, status = 'Backlog' }: { firstId?: number; status?: LogStatus } = {},
+): LibraryItem[] {
+  return Array.from({ length: count }, (_, index) =>
+    libraryItem({
+      title: `Game ${index + 1}`,
+      currentStatus: status,
+      ...(firstId === undefined ? {} : { mediaId: firstId + index }),
+    }),
+  );
+}
+
+/**
+ * Every move's request held until it is released, so a test reads the board the moment a move
+ * is written to the cache. The answer and the refetch after it would otherwise tidy away a card
+ * left where it was, which is the very thing being looked for. Call after `boardServer`, whose
+ * own handler this goes in front of.
+ */
+export function heldMoves() {
+  let release = () => {};
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  server.use(
+    http.post('/api/library/:mediaId/status', async ({ params, request }) => {
+      const { status } = (await request.json()) as { status: LogStatus };
+      await released;
+      return HttpResponse.json(
+        libraryItem({ mediaId: Number(params['mediaId']), currentStatus: status }),
+      );
+    }),
+  );
+
+  return { release: () => release() };
+}
+
 export interface BoardFixture {
   columns?: Partial<Record<LogStatus, LibraryItem[]>>;
 

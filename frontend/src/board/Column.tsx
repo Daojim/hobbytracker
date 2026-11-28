@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { useQuery, type QueryKey } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { listColumn } from '../api/library';
@@ -7,6 +7,7 @@ import { Card, type OpenJournal } from './Card';
 import { SortSelect } from './SortSelect';
 import { type BoardColumn, hobbyDefinition } from '../hobbies';
 import { COLUMN_PAGE_SIZE, columnKey } from './keys';
+import { cardsOf, columnPages, totalOf, type ColumnRequest } from './columnPages';
 import { columnHoursLines, type HoursLine, type HoursPart, type LeftOutList } from './columnHours';
 import { ESTIMATE_POLL_BUDGET_MS, ESTIMATE_POLL_MS, waitingOn } from './estimates';
 import { usePace, type Pace } from '../lib/pace';
@@ -16,7 +17,6 @@ import type {
   ColumnHours,
   LeftOutTitle,
   LibraryItem,
-  LibraryPage,
   LibrarySort,
   LogStatus,
 } from '../api/types';
@@ -34,21 +34,13 @@ export const leftOutCountId = (status: LogStatus, list: LeftOutList) =>
   `left-out-${status}-${list}`;
 
 /**
- * Where one column's answer comes from: your board's library, or a share's. Whichever it is, the
- * column and anything else that needs its answer share it — the phone's switcher counts from it.
- */
-export interface ColumnRequest {
-  queryKey: QueryKey;
-  queryFn: () => Promise<LibraryPage>;
-}
-
-/**
  * One column's request, for the column and for anything else that needs its answer.
  *
  * The phone's switcher counts every column from this, so a segment's count is the total its
  * column shows: the same key, so the column on screen and its segment share one fetch, and the
  * same year, so Completed's segment does not count every year's completions under a column
- * showing this one's.
+ * showing this one's. A page of 100 at a time, the next a press of Load more (#35); see
+ * `columnPages` for how the pages are asked for.
  */
 export const columnQuery = (
   hobby: string,
@@ -57,7 +49,7 @@ export const columnQuery = (
   year: number | undefined,
 ): ColumnRequest => ({
   queryKey: columnKey(hobby, status, sort, year),
-  queryFn: () => listColumn({ hobby, status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
+  queryFn: (page) => listColumn({ hobby, status, sort, year, page, pageSize: COLUMN_PAGE_SIZE }),
 });
 
 /**
@@ -297,7 +289,7 @@ export interface ColumnFrameProps {
    */
   onOpenLeftOut?: (mediaId: number, list: LeftOutList) => void;
 
-  /** The cards, drawn from this page of the column. */
+  /** The cards, drawn from every page of the column loaded so far, each title once. */
   children: (items: LibraryItem[]) => ReactNode;
 }
 
@@ -334,8 +326,18 @@ export function ColumnFrame({
   // answered for yet. Zero means it is not waiting for anything. See estimates.ts.
   const [pollUntil, setPollUntil] = useState(0);
 
-  const { data, isPending, error } = useQuery({
-    ...request,
+  // Every page loaded so far, the next a press (#35). A poll asks for all of them again, as every
+  // refetch does, so the cards a reader has loaded stay loaded.
+  const {
+    data,
+    isPending,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = useInfiniteQuery({
+    ...columnPages(request),
 
     // A function rather than a number, and that is load-bearing. TanStack calls this to schedule
     // each next ask, so the budget is re-read against the clock every time — where a number
@@ -344,7 +346,14 @@ export function ColumnFrame({
     refetchInterval: () => (Date.now() < pollUntil ? ESTIMATE_POLL_MS : false),
   });
 
-  const waiting = waitingOn(data?.items);
+  const items = cardsOf(data);
+
+  // The whole column's, from its first page: the count, and the hours the server adds up over
+  // every title rather than over the pages a reader has loaded.
+  const first = data?.pages[0];
+  const total = totalOf(data);
+
+  const waiting = waitingOn(items);
 
   // A fresh budget whenever the set of waiting titles changes, so a title added while the last
   // one is still being looked up is not left on the tail end of somebody else's clock. When the
@@ -353,13 +362,57 @@ export function ColumnFrame({
     setPollUntil(waiting === '' ? 0 : Date.now() + ESTIMATE_POLL_BUDGET_MS);
   }, [waiting]);
 
-  const items = data?.items ?? [];
+  // Where the keyboard goes once a press of Load more has its answer (#35), set after the answer
+  // and taken in an effect, once the cards it brought are drawn and the button is enabled again.
+  const cards = useRef<HTMLDivElement>(null);
+  const loadButton = useRef<HTMLButtonElement>(null);
+  const [handOff, setHandOff] = useState<{ to: 'card'; index: number } | { to: 'button' } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (handOff === null) {
+      return;
+    }
+
+    if (handOff.to === 'button') {
+      loadButton.current?.focus();
+      return;
+    }
+
+    // The first card the page added, by its place among the cards: its title, which opens its
+    // journal, or on a share, where a card has nothing to press, its name, which a face with no
+    // handlers makes focusable from script alone. See CardFace.
+    const name = cards.current?.querySelectorAll<HTMLElement>('[data-card-name]')[handOff.index];
+    (name?.querySelector<HTMLElement>('button') ?? name)?.focus();
+  }, [handOff]);
+
+  const loadMore = () => {
+    const from = items.length;
+
+    void fetchNextPage().then((result) => {
+      // Only while the keyboard is where the press left it: on the button, or nowhere, which is
+      // where Chromium puts it when the button is disabled under it. Somebody who went elsewhere
+      // while the page came keeps their place.
+      const active = document.activeElement;
+      if (active !== null && active !== document.body && active !== loadButton.current) {
+        return;
+      }
+
+      // To the first card the press added, which arrived above the button: left on the button, a
+      // reader on a keyboard would go back up through every one of them to reach it. Discover's
+      // rule. And back to the button when the page failed, since a press again is the retry.
+      setHandOff(result.isError ? { to: 'button' } : { to: 'card', index: from });
+    });
+  };
+
   const muted = status === 'Dropped';
   const definition = hobbyDefinition(hobby);
 
   // How long the column's titles take, which the server adds up over the whole column rather
-  // than this page of it. See columnHours.ts for what each column says.
-  const hours = data === undefined ? [] : columnHoursLines(definition, status, data, voice, pace);
+  // than the pages of it loaded. See columnHours.ts for what each column says.
+  const hours =
+    first === undefined ? [] : columnHoursLines(definition, status, first, voice, pace);
 
   return (
     <section
@@ -384,7 +437,7 @@ export function ColumnFrame({
             id={headingId}
             className={`text-sm font-medium tracking-wide uppercase ${namedAbove ? 'sr-only' : ''}`}
           >
-            {label} <span className="text-muted">{data?.total ?? 0}</span>
+            {label} <span className="text-muted">{total}</span>
           </h2>
 
           {/* On a phone the heading is off the screen and the switcher says its name, so the
@@ -395,7 +448,7 @@ export function ColumnFrame({
             <HoursLines
               status={status}
               lines={hours}
-              named={data?.hours}
+              named={first?.hours}
               onOpen={onOpenLeftOut}
             />
           )}
@@ -420,17 +473,21 @@ export function ColumnFrame({
           <HoursLines
             status={status}
             lines={hours}
-            named={data?.hours}
+            named={first?.hours}
             onOpen={onOpenLeftOut}
             className="mt-1"
           />
         )}
       </div>
 
+      {/* Collapsed, no cards and so no Load more, its pages kept for when it opens again: the
+          query is the frame's, and the frame is there either way (#35). */}
       {!collapsed && (
-        <div className="flex flex-1 flex-col gap-cardgap">
+        <div ref={cards} className="flex flex-1 flex-col gap-cardgap">
           {isPending && <p className="text-sm text-muted">Loading…</p>}
-          {error !== null && (
+          {/* A later page that failed says so by the button instead, under the cards it leaves
+              in place: Discover's rule. */}
+          {error !== null && !isFetchNextPageError && (
             <p role="alert" className="text-sm text-danger">
               {error.message}
             </p>
@@ -441,10 +498,37 @@ export function ColumnFrame({
           {data !== undefined && items.length === 0 && (
             <p className="text-sm text-muted">Nothing here yet.</p>
           )}
-          {data !== undefined && items.length < data.total && (
-            <p className="text-xs text-muted">
-              Showing {items.length} of {data.total}
-            </p>
+
+          {/* While the column has pages left: today's line over Discover's button, word for word
+              and at its own width at every width, the picks from renders on 28 November 2026 over
+              the button alone and over "Load 15 more". The one foot that says how many are left
+              when the heading is far up the page, and it changes nothing that was there. Twice
+              the gap between cards above it, so it never reads as another card. And nothing once
+              every page is in, the column ending as every column ends, the pick over a line
+              saying so. */}
+          {hasNextPage && (
+            <div className="mt-cardgap flex flex-col items-center gap-2">
+              <p className="text-center text-xs text-muted">
+                Showing {items.length} of {total}
+              </p>
+
+              {isFetchNextPageError && (
+                // Pressing the button again is the retry, so it stays where it is, under this.
+                <p role="alert" className="text-center text-sm text-danger">
+                  {error?.message}
+                </p>
+              )}
+
+              <button
+                ref={loadButton}
+                type="button"
+                disabled={isFetchingNextPage}
+                onClick={loadMore}
+                className="h-9 rounded border border-line bg-surface px-6 text-sm font-medium hover:bg-hover disabled:opacity-50"
+              >
+                {isFetchingNextPage ? 'Loading…' : 'Load more'}
+              </button>
+            </div>
           )}
         </div>
       )}

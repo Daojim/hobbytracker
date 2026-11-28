@@ -6,7 +6,7 @@ import { Column } from './Column';
 import { columnsFor } from '../hobbies';
 import { setPace } from '../lib/pace';
 import { server } from '../test/server';
-import { NO_HOURS, boardServer, libraryItem, libraryPage } from '../test/library';
+import { NO_HOURS, boardServer, libraryItem, libraryPage, manyGames } from '../test/library';
 
 /**
  * The estimate poll, with its two durations compressed.
@@ -27,10 +27,10 @@ const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 import { renderWithProviders } from '../test/render';
 import type { LibrarySort, LogStatus } from '../api/types';
 
-function renderColumn(
-  props: Partial<Parameters<typeof Column>[0]> & { status: LogStatus; label: string },
-) {
-  return renderWithProviders(
+type ColumnUnderTest = Partial<Parameters<typeof Column>[0]> & { status: LogStatus; label: string };
+
+function columnElement(props: ColumnUnderTest) {
+  return (
     <Column
       hobby="games"
       sort="manual"
@@ -48,9 +48,12 @@ function renderColumn(
       onOpen={vi.fn()}
       onOpenLeftOut={vi.fn()}
       {...props}
-    />,
-    { dnd: true },
+    />
   );
+}
+
+function renderColumn(props: ColumnUnderTest) {
+  return renderWithProviders(columnElement(props), { dnd: true });
 }
 
 /** A title a header leaves out, as the server names it. */
@@ -354,6 +357,225 @@ describe('Column', () => {
     renderColumn({ status: 'Backlog', label: 'Backlog' });
 
     expect(await screen.findByText('Showing 1 of 140')).toBeInTheDocument();
+  });
+
+  it('shows its first 100 and a Load more, and the rest of the column when it is pressed', async () => {
+    // A column past a page was "Showing 100 of 140" with no way to the rest (#35). The next 100
+    // a press, of the same column in the same order, and no button once every page is in.
+    const board = boardServer({ columns: { Backlog: manyGames(140) } });
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    await within(column).findByText('Game 100');
+    expect(within(column).queryByText('Game 101')).not.toBeInTheDocument();
+
+    await userEvent.click(within(column).getByRole('button', { name: 'Load more' }));
+
+    expect(await within(column).findByText('Game 140')).toBeInTheDocument();
+    expect(within(column).getAllByRole('button', { name: /^Options for/ })).toHaveLength(140);
+    expect(within(column).queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(within(column).getByRole('heading', { name: 'Backlog 140' })).toBeInTheDocument();
+    expect(
+      board
+        .queriesFor('Backlog')
+        .map((query) => [query.get('page'), query.get('pageSize'), query.get('sort')]),
+    ).toEqual([
+      ['1', '100', 'manual'],
+      ['2', '100', 'manual'],
+    ]);
+  });
+
+  it('draws a title a later page repeats once', async () => {
+    // Pages are asked for one at a time, so a title added on top between two of them pushes the
+    // last card of the first page onto the second, which then carries it again. Drawn twice, it
+    // would be one media id mounted twice: a card that cannot be dragged (see docs/board.md).
+    const titles = manyGames(140);
+    boardServer();
+    server.use(
+      http.get('/api/library', ({ request }) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 1);
+        const shown = page === 1 ? titles.slice(0, 100) : titles.slice(99);
+        return HttpResponse.json({ ...libraryPage(shown, { total: 141 }), page });
+      }),
+    );
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: /^Backlog/ });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+    await within(column).findByText('Game 140');
+
+    expect(within(column).getAllByRole('button', { name: 'Game 100' })).toHaveLength(1);
+    expect(within(column).getAllByRole('button', { name: /^Options for/ })).toHaveLength(140);
+  });
+
+  it('asks again for every page it has loaded, and keeps them', async () => {
+    // A move, an add, a removal, a write in the journal and the estimates' poll each ask a
+    // column again. One that went back to its first 100 on each would lose the reader's place.
+    const board = boardServer({ columns: { Backlog: manyGames(140) } });
+
+    const { queryClient } = renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+    await within(column).findByText('Game 140');
+
+    await act(() => queryClient.invalidateQueries({ queryKey: ['library', 'games', 'Backlog'] }));
+
+    expect(board.queriesFor('Backlog').map((query) => query.get('page'))).toEqual([
+      '1',
+      '2',
+      '1',
+      '2',
+    ]);
+    expect(within(column).getAllByRole('button', { name: /^Options for/ })).toHaveLength(140);
+  });
+
+  it('says how much of it is showing over its Load more, and nothing once every page is in', async () => {
+    // Today's line kept over Discover's button, the workshop's pick: the one foot that says how
+    // many are left when the heading is far up the page. And the column ends as every column
+    // ends once the last page is in, with no line where the button was.
+    boardServer({ columns: { Backlog: manyGames(140) } });
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    const line = await within(column).findByText('Showing 100 of 140');
+    const button = within(column).getByRole('button', { name: 'Load more' });
+    expect(line.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await userEvent.click(button);
+    await within(column).findByText('Game 140');
+
+    expect(within(column).queryByText(/^Showing/)).not.toBeInTheDocument();
+    expect(within(column).queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(within(column).queryByText(/everything/)).not.toBeInTheDocument();
+  });
+
+  it('says Loading… on a button that takes no press while the next page comes', async () => {
+    const board = boardServer({ columns: { Backlog: manyGames(140) } });
+    let release = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // Holds the second page, then hands it on to the board's own answer.
+    server.use(
+      http.get('/api/library', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('page') === '2') {
+          await released;
+        }
+      }),
+    );
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+
+    expect(within(column).getByRole('button', { name: 'Loading…' })).toBeDisabled();
+
+    release();
+    expect(await within(column).findByText('Game 140')).toBeInTheDocument();
+    expect(board.queriesFor('Backlog').filter((query) => query.get('page') === '2')).toHaveLength(1);
+  });
+
+  it('says why a page did not come over its button, keeps its cards, and asks again on a press', async () => {
+    // The API's words, by the button rather than at the top of the column, since the cards
+    // there are still good: Discover's rule. The press is the retry, so the button stays.
+    boardServer({ columns: { Backlog: manyGames(140) } });
+    let fails = true;
+    server.use(
+      http.get('/api/library', ({ request }) => {
+        if (fails && new URL(request.url).searchParams.get('page') === '2') {
+          return HttpResponse.json(
+            { title: 'An error occurred while processing your request.', status: 500 },
+            { status: 500 },
+          );
+        }
+      }),
+    );
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    const button = await within(column).findByRole('button', { name: 'Load more' });
+    await userEvent.click(button);
+
+    const alert = await within(column).findByRole('alert');
+    expect(alert).toHaveTextContent('An error occurred while processing your request.');
+    expect(alert.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      within(column).getByText('Game 100').compareDocumentPosition(alert) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(column).getAllByRole('button', { name: /^Options for/ })).toHaveLength(100);
+    expect(button).toHaveFocus();
+
+    fails = false;
+    await userEvent.click(button);
+
+    expect(await within(column).findByText('Game 140')).toBeInTheDocument();
+    expect(within(column).queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('hands the keyboard to the first card a press added', async () => {
+    // The new cards arrive above the button, so left on it a reader on a keyboard would have to
+    // go back up through all of them to reach the first: Discover's rule, on a card's name.
+    boardServer({ columns: { Backlog: manyGames(140) } });
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    (await within(column).findByRole('button', { name: 'Load more' })).focus();
+    await userEvent.keyboard('{Enter}');
+
+    await waitFor(() =>
+      expect(within(column).getByRole('button', { name: 'Game 101' })).toHaveFocus(),
+    );
+  });
+
+  it('leaves the keyboard where a reader took it while the page came', async () => {
+    // Somebody who pressed and moved on before the answer keeps their place: Discover's rule
+    // for its tiles. Here the sort control, a Tab away from nothing in particular.
+    boardServer({ columns: { Backlog: manyGames(140) } });
+    let release = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.get('/api/library', async ({ request }) => {
+        if (new URL(request.url).searchParams.get('page') === '2') {
+          await released;
+        }
+      }),
+    );
+
+    renderColumn({ status: 'Backlog', label: 'Backlog' });
+    const column = await screen.findByRole('region', { name: 'Backlog 140' });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+    const sort = within(column).getByRole('combobox', { name: 'Backlog order' });
+    sort.focus();
+
+    release();
+    await within(column).findByText('Game 140');
+
+    expect(sort).toHaveFocus();
+  });
+
+  it('shows no Load more collapsed, and the pages it had with it when opened again', async () => {
+    // Collapsed is no cards, so no button, and the heading still counts the column. Opened
+    // again, it is where it was: the cards it had loaded, and the button under them.
+    boardServer({ columns: { Backlog: manyGames(240) } });
+    const props = { status: 'Backlog', label: 'Backlog', onToggleCollapse: vi.fn() } as const;
+
+    const { rerender } = renderColumn(props);
+    const column = await screen.findByRole('region', { name: 'Backlog 240' });
+    await userEvent.click(await within(column).findByRole('button', { name: 'Load more' }));
+    await within(column).findByText('Game 200');
+
+    rerender(columnElement({ ...props, collapsed: true }));
+    expect(within(column).queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+    expect(within(column).queryByText(/^Showing/)).not.toBeInTheDocument();
+    expect(within(column).getByRole('heading', { name: 'Backlog 240' })).toBeInTheDocument();
+
+    rerender(columnElement({ ...props, collapsed: false }));
+    expect(within(column).getByText('Game 200')).toBeInTheDocument();
+    expect(within(column).getByText('Showing 200 of 240')).toBeInTheDocument();
+    expect(within(column).getByRole('button', { name: 'Load more' })).toBeInTheDocument();
   });
 
   it('says under its heading how long its titles take, in words that read aloud', async () => {

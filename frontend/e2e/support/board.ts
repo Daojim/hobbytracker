@@ -1,4 +1,5 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { psql } from './database';
 import type { LogEntry, LogStatus } from '../../src/api/types';
 
 /**
@@ -95,6 +96,52 @@ export async function seed(
   expect(created.ok(), `log ${title} as ${status}`).toBeTruthy();
 
   return media!.id;
+}
+
+/**
+ * A column past a page (#35): the stub's `count` Pagefiller games in one column, numbered top
+ * first, `Pagefiller 001` on top, through the same surfaces `seed` uses.
+ *
+ * One search for the word they share puts them all in the catalogue, as it would on IGDB. Then a
+ * pass each, logged last to first, because a pass takes `min(position) - 1` and lands on top: so
+ * the column is numbered as adding each in turn numbers one, and a fault that left the titles
+ * not sent at their old numbers would show. And it waits for HowLongToBeat to have asked about
+ * every one, so no column is polling for an estimate while a spec drags or presses.
+ */
+export async function seedColumn(
+  request: APIRequestContext,
+  status: LogStatus,
+  count = 140,
+): Promise<string[]> {
+  const found = await request.get('/api/games', { params: { search: 'Pagefiller', limit: 500 } });
+  expect(found.ok(), 'search for the Pagefillers').toBeTruthy();
+  const results = (await found.json()) as { id: number; title: string }[];
+
+  const titles = Array.from({ length: count }, (_, index) =>
+    `Pagefiller ${String(index + 1).padStart(3, '0')}`,
+  );
+  const ids = titles.map((title) => {
+    const media = results.find((candidate) => candidate.title === title);
+    expect(media, `${title} is in the stub catalogue`).toBeDefined();
+    return media!.id;
+  });
+
+  for (const [index, mediaId] of [...ids.entries()].reverse()) {
+    const created = await request.post('/api/log-entries', { data: { mediaId, status } });
+    expect(created.ok(), `log ${titles[index]} as ${status}`).toBeTruthy();
+  }
+
+  await expect
+    .poll(
+      () =>
+        psql(
+          `select count(*) from games where hltb_checked_at is null and media_id in (${ids.join(',')});`,
+        ),
+      { message: 'HowLongToBeat asked about every Pagefiller', timeout: 60_000 },
+    )
+    .toBe('0');
+
+  return titles;
 }
 
 export async function entriesFor(

@@ -221,6 +221,21 @@ const CATALOGUE = [
   { id: 3029, released: inMonths(5), precision: 'YYYYMMDD', gameType: 0,
     name: 'Lanternfall: Ballad of the Ninefold Drowned Archive', platforms: ['PC'],
     developer: 'Nobody In Particular', genres: ['Adventure'] },
+
+  // A column past a page (#35): 140 games under one word no spec searches for, so one search
+  // puts them all in the catalogue and a search for one finds it alone. Long out, with no hype
+  // and no ratings, so they are on no Discover list; numbered to three places, so no name is
+  // inside another. See seedColumn in e2e/support/board.ts.
+  ...Array.from({ length: 140 }, (_, index) => ({
+    id: 5001 + index,
+    released: '2012-03-01',
+    precision: 'YYYYMMDD',
+    gameType: 0,
+    name: `Pagefiller ${String(index + 1).padStart(3, '0')}`,
+    platforms: ['PC'],
+    developer: 'Nobody In Particular',
+    genres: ['Indie'],
+  })),
 ];
 
 /**

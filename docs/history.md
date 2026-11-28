@@ -285,4 +285,15 @@
       System keeps the paper, since a bar that far behind could never follow a phone into dark
       mode at sunset, and a theme of your own takes the bar of the theme it was made from. Every
       choice was the recommendation
+- [x] A column's Load more. A column past a hundred titles used to say *Showing 100 of 140* and
+      offer no way to the rest. The same line now sits over a *Load more*, the Discover page's
+      button word for word, which brings the next hundred, on your board and on a share; pressed
+      from the keyboard, it lands on the first title it brought. Dragging in a column with only
+      some of its titles loaded would have scattered the ones not loaded among the ones dragged,
+      so the server now puts every title a drag did not send after the ones it did, in the order
+      they had. That also ended something found on the user's own board while it was planned:
+      each year's drags had interleaved Completed under All years, a 2025 game and a 2026 game
+      turn about down the column. Built before the queue for adding many games at once, whose
+      first import would take Completed past a hundred. Eight choices, every one the
+      recommendation, and the built column matches the picked renders to the pixel
 - [ ] Books and music, on hold — each would be a sibling detail table plus its source integration

@@ -1,6 +1,9 @@
 import type { LibrarySort, LogStatus } from '../api/types';
 
-/** The API caps a page at 100. A column asks for that so it is not silently cut off at 25. */
+/**
+ * The API caps a page at 100. A column asks for pages that long, so it is not silently cut off at
+ * 25, and for the next one a press of Load more (#35).
+ */
 export const COLUMN_PAGE_SIZE = 100;
 
 /**
@@ -22,6 +25,9 @@ export const ALL_MANUAL: Readonly<Record<LogStatus, LibrarySort>> = {
  * while nothing varied, but with a per-column sort it would serve the previous ordering from
  * cache and only correct itself on the next refetch — a board that shows one order and claims
  * another.
+ *
+ * The entry holds every page of the view loaded so far since #35, an infinite query's pages
+ * rather than one answer; `board/columnPages.ts` is how every reader and writer reaches them.
  */
 export const columnKey = (
   hobby: string,
@@ -31,7 +37,8 @@ export const columnKey = (
 ) => ['library', hobby, status, { sort, year }] as const;
 
 /**
- * One column's every title, for the picker — a column on the board is one page of it.
+ * One column's every title, for the picker — a column on the board is the pages of it a reader
+ * has loaded.
  *
  * **Under the column's own prefix on purpose.** A move settles `['library', hobby, from]` and
  * `['library', hobby, to]`, and an add, a remove or a drawer write settles `['library', hobby]`, so

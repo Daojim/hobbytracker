@@ -7,9 +7,16 @@ import { isSegment } from './ColumnSwitcher';
 import { removeFromBoard, reorderColumn, transition } from '../api/library';
 import { columnKey, mediaKey, yearFor } from './keys';
 import { settleMove, settleStats } from './settle';
+import {
+  cardsOf,
+  reordered,
+  withCard,
+  withoutCard,
+  type ColumnPages,
+} from './columnPages';
 import { BOARD_STATUSES } from '../hobbies';
 import { useBoardSensors } from './sensors';
-import type { LibraryItem, LibraryPage, LibrarySort, LogStatus } from '../api/types';
+import type { LibraryItem, LibrarySort, LogStatus } from '../api/types';
 
 export interface BoardView {
   hobby: string;
@@ -17,7 +24,11 @@ export interface BoardView {
   year: number | undefined;
 }
 
-type Column = LibraryPage;
+/**
+ * A column as the cache holds it: every page loaded so far (#35). Every read here goes through
+ * `cardsOf`, so a card on the second page is found, moved and ordered as one on the first is.
+ */
+type Column = ColumnPages;
 
 interface Move {
   mediaId: number;
@@ -82,13 +93,14 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
 
       // The transition alone puts the card wherever the server decided, which is the top of the
       // column whenever it had to start a new entry. Storing the order it was actually dropped
-      // into is a second call, and the optimistic cache is already exactly that order.
-      const landed = columnOf(to);
-      if (sorts[to] === 'manual' && landed !== undefined && landed.items.length > 0) {
+      // into is a second call, and the optimistic cache is already exactly that order: every page
+      // loaded, so the server numbers what was never loaded after it (#35).
+      const landed = cardsOf(columnOf(to));
+      if (sorts[to] === 'manual' && landed.length > 0) {
         await reorderColumn({
           hobby,
           status: to,
-          mediaIds: landed.items.map((item) => item.mediaId),
+          mediaIds: landed.map((item) => item.mediaId),
         });
       }
     },
@@ -97,25 +109,20 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       await holdRefetches();
       const taken = snapshot();
 
+      // Off whichever page holds it, and nowhere in the column it left: a card left on a second
+      // page would be drawn in both columns, one media id mounted twice.
       const source = columnOf(from);
-      const card = source?.items.find((item) => item.mediaId === mediaId);
+      const card = cardsOf(source).find((item) => item.mediaId === mediaId);
 
       if (source !== undefined && card !== undefined) {
-        queryClient.setQueryData<Column>(keyFor(from), {
-          ...source,
-          items: source.items.filter((item) => item.mediaId !== mediaId),
-          total: source.total - 1,
-        });
+        queryClient.setQueryData<Column>(keyFor(from), withoutCard(source, mediaId));
 
         const target = columnOf(to);
         if (target !== undefined) {
-          const items = [...target.items];
-          items.splice(index ?? items.length, 0, { ...card, currentStatus: to });
-          queryClient.setQueryData<Column>(keyFor(to), {
-            ...target,
-            items,
-            total: target.total + 1,
-          });
+          queryClient.setQueryData<Column>(
+            keyFor(to),
+            withCard(target, { ...card, currentStatus: to }, index),
+          );
         }
       }
 
@@ -153,11 +160,7 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
 
       const column = columnOf(status);
       if (column !== undefined) {
-        const byId = new Map(column.items.map((item) => [item.mediaId, item]));
-        queryClient.setQueryData<Column>(keyFor(status), {
-          ...column,
-          items: mediaIds.flatMap((mediaId) => byId.get(mediaId) ?? []),
-        });
+        queryClient.setQueryData<Column>(keyFor(status), reordered(column, mediaIds));
       }
 
       return { taken };
@@ -207,7 +210,7 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
   const sensors = useBoardSensors();
 
   const findCard = (mediaId: number) =>
-    BOARD_STATUSES.flatMap((status) => columnOf(status)?.items ?? []).find(
+    BOARD_STATUSES.flatMap((status) => cardsOf(columnOf(status))).find(
       (item) => item.mediaId === mediaId,
     ) ?? null;
 
@@ -251,8 +254,9 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
     }
 
     if (from !== to) {
-      // Dropped onto a card: land where that card is. Dropped onto the column itself: the end.
-      const target = columnOf(to)?.items ?? [];
+      // Dropped onto a card: land where that card is. Dropped onto the column itself: the end
+      // of what it has loaded.
+      const target = cardsOf(columnOf(to));
       const overIndex = target.findIndex((item) => item.mediaId === Number(over.id));
       moveOrAsk({ mediaId, from, to, index: overIndex === -1 ? undefined : overIndex });
       return;
@@ -264,7 +268,7 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
       return;
     }
 
-    const items = columnOf(from)?.items ?? [];
+    const items = cardsOf(columnOf(from));
     const oldIndex = items.findIndex((item) => item.mediaId === mediaId);
     const newIndex = items.findIndex((item) => item.mediaId === Number(over.id));
     if (oldIndex === -1 || newIndex === -1) {
@@ -273,7 +277,8 @@ export function useBoard({ hobby, sorts, year }: BoardView) {
 
     reorder.mutate({
       status: from,
-      // The whole column, top first — idempotent, and with no off-by-one to get wrong.
+      // The column as it is drawn, top first — idempotent, and with no off-by-one to get wrong.
+      // Every page loaded; the server numbers the titles not loaded after them, in their order.
       mediaIds: arrayMove(items, oldIndex, newIndex).map((item) => item.mediaId),
     });
   }

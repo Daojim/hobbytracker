@@ -18,7 +18,7 @@ export function sharedBoard(token: string): Promise<SharedBoard> {
 /** One column of the share, as its owner's board draws it, less the note. */
 export function sharedColumn(
   token: string,
-  query: { status: LogStatus; sort?: LibrarySort; year?: number; pageSize?: number },
+  query: { status: LogStatus; sort?: LibrarySort; year?: number; page?: number; pageSize?: number },
 ): Promise<LibraryPage> {
   return apiJson<LibraryPage>(`${base(token)}/library`, { query: { ...query } });
 }

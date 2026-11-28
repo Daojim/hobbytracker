@@ -6,7 +6,7 @@ import { BoardPage } from '../board/BoardPage';
 import { setColumnHidden } from '../board/hiddenColumns';
 import { setPace } from '../lib/pace';
 import { setWheelSpin } from './wheelSpin';
-import { boardServer, libraryItem, libraryPage } from '../test/library';
+import { boardServer, heldMoves, libraryItem, libraryPage } from '../test/library';
 import { gameDetail, journalServer, logEntry } from '../test/games';
 import { BackButton, renderWithProviders } from '../test/render';
 import { windowOfWidth } from '../test/media';
@@ -325,6 +325,36 @@ describe('What should I play next?', () => {
     expect(
       within(dialog).getByRole('button', { name: 'The Witcher 3: Wild Hunt Remastered' }),
     ).toBeInTheDocument();
+  });
+
+  it('starts playing a pick on a later page of the column at once, as a drag would', async () => {
+    // The panel draws from the whole column, and the board's own Backlog can have its next 100
+    // in (#35). A pick found on any page it has loaded moves at once, out of Backlog and into
+    // Playing, before the answer comes: the move's own optimistic write, as from page one.
+    stillWindow();
+    const rpgs = Array.from({ length: 100 }, (_, i) =>
+      libraryItem({ title: `An RPG ${i + 1}`, genres: ['Role-playing (RPG)'] }),
+    );
+    const last = libraryItem({ title: 'Armored Core VI: Fires of Rubicon', genres: ['Shooter'] });
+    boardServer({ columns: { Backlog: [...rpgs, last] } });
+    const held = heldMoves();
+    renderWithProviders(<BoardPage />, BOARD_ROUTE);
+
+    const backlog = await screen.findByRole('region', { name: 'Backlog 101' });
+    await userEvent.click(await within(backlog).findByRole('button', { name: 'Load more' }));
+    await within(backlog).findByText(last.title);
+
+    const dialog = await openPicker();
+    await within(dialog).findByText('101 in the draw, 8 of them on the wheel at a time');
+    await userEvent.click(within(dialog).getByRole('button', { name: /^RPG 100/ }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Spin' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Start playing' }));
+
+    const playing = screen.getByRole('region', { name: /^Playing/ });
+    await waitFor(() => expect(within(playing).getByText(last.title)).toBeInTheDocument());
+    expect(within(backlog).queryByText(last.title)).not.toBeInTheDocument();
+
+    held.release();
   });
 
   it("starts playing the pick through the board's own move, and closes", async () => {

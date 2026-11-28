@@ -7,7 +7,7 @@ import {
   sharedUpcoming,
   sharedYears,
 } from '../api/shared';
-import type { ColumnRequest } from '../board/Column';
+import type { ColumnRequest } from '../board/columnPages';
 import type { UpcomingRequest } from '../board/ComingSoon';
 import { COLUMN_PAGE_SIZE } from '../board/keys';
 import {
@@ -41,7 +41,10 @@ export const sharedBoardQuery = (token: string) => ({
   queryFn: () => sharedBoard(token),
 });
 
-/** One of the share's columns — `columnQuery`'s counterpart, which the switcher counts from too. */
+/**
+ * One of the share's columns — `columnQuery`'s counterpart, which the switcher counts from too. A
+ * page at a time, as yours is (#35): the share's route takes a page as the board's does.
+ */
 export const sharedColumnQuery = (
   token: string,
   status: LogStatus,
@@ -49,7 +52,8 @@ export const sharedColumnQuery = (
   year: number | undefined,
 ): ColumnRequest => ({
   queryKey: sharedColumnKey(token, status, sort, year),
-  queryFn: () => sharedColumn(token, { status, sort, year, pageSize: COLUMN_PAGE_SIZE }),
+  queryFn: (page) =>
+    sharedColumn(token, { status, sort, year, page, pageSize: COLUMN_PAGE_SIZE }),
 });
 
 /** The share's calendar — `upcomingQuery`'s counterpart. */

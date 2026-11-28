@@ -7,7 +7,7 @@ import { setCardShows } from '../board/cardShows';
 import { setColumnHidden } from '../board/hiddenColumns';
 import { collapsedColumnsKey, setColumnCollapsed } from '../board/collapsedColumns';
 import { setPace } from '../lib/pace';
-import { libraryItem } from '../test/library';
+import { libraryItem, manyGames } from '../test/library';
 import { windowOfWidth } from '../test/media';
 import { renderWithProviders } from '../test/render';
 import { server } from '../test/server';
@@ -111,6 +111,38 @@ describe('SharedBoardPage', () => {
       ).toEqual(['Backlog 1', 'Playing 0', 'Completed 1']);
       expect(share.queriesFor('OnHold')).toHaveLength(0);
       expect(share.queriesFor('Dropped')).toHaveLength(0);
+    });
+
+    it('offers a column past a page the same Load more, asking the share’s own route', async () => {
+      // A visitor has no other way past a share's first 100 (#35), and nothing on a share drags,
+      // so the button is the board's whole. The next page is the share's to answer, never yours.
+      const share = sharedServer({ columns: { Backlog: manyGames(140) }, years: [2026] });
+      renderShare();
+
+      const backlog = await screen.findByRole('region', { name: 'Backlog 140' });
+      await within(backlog).findByText('Game 100');
+      expect(within(backlog).queryByText('Game 101')).not.toBeInTheDocument();
+
+      await userEvent.click(within(backlog).getByRole('button', { name: 'Load more' }));
+
+      expect(await within(backlog).findByText('Game 140')).toBeInTheDocument();
+      expect(within(backlog).queryByRole('button', { name: 'Load more' })).not.toBeInTheDocument();
+      expect(share.queriesFor('Backlog').map((query) => query.get('page'))).toEqual(['1', '2']);
+    });
+
+    it('hands the keyboard to the first new card’s name, a card having nothing to press', async () => {
+      // On your board the keyboard goes to the first new card's title, which opens its journal.
+      // A share's card is its face alone, so its name takes it, focusable from script and never
+      // a stop for Tab, as a Discover tile's name is: the user's pick at #35's build.
+      sharedServer({ columns: { Backlog: manyGames(140) }, years: [2026] });
+      renderShare();
+
+      const backlog = await screen.findByRole('region', { name: 'Backlog 140' });
+      await userEvent.click(await within(backlog).findByRole('button', { name: 'Load more' }));
+
+      const name = await within(backlog).findByRole('heading', { name: 'Game 101' });
+      await waitFor(() => expect(name).toHaveFocus());
+      expect(name).toHaveAttribute('tabindex', '-1');
     });
 
     it('offers no way to pick what to play from the owner’s Backlog', async () => {

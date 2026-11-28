@@ -84,10 +84,12 @@ public sealed record AddToBoardRequest(
 }
 
 /// <summary>
-/// The full desired order of one board column, top first.
+/// The desired order of one board column as a board draws it, top first.
 ///
-/// Sending the whole column rather than a move-plus-index is idempotent and immune to
-/// off-by-one bugs, and at the size a personal backlog reaches the extra ids cost nothing.
+/// Sending the column rather than a move-plus-index is idempotent and immune to off-by-one bugs,
+/// and at the size a personal backlog reaches the extra ids cost nothing. **What a board draws is
+/// not always the whole column** (#35): its first pages until Load more brings the rest, or one
+/// year of it. The titles not sent keep their order, below every title that was.
 /// </summary>
 public sealed record ReorderRequest(
     [Required(AllowEmptyStrings = false)] string Hobby,

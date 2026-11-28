@@ -950,31 +950,41 @@ public sealed class LibraryService(
 
     public async Task ReorderAsync(ReorderRequest request, CancellationToken cancellationToken)
     {
-        // Only the entries that currently decide a card's place in *this* column. Anything the
-        // caller listed that has since moved elsewhere simply is not here — a board loaded a
-        // moment ago can legitimately be one drag out of date, and failing the whole request
-        // over that would strand the user's reorder.
+        // The whole column in the order you put it in, every year of it: the entries that decide
+        // a card's place in *this* column. Anything the caller listed that has since moved
+        // elsewhere simply is not here — a board loaded a moment ago can legitimately be one drag
+        // out of date, and failing the whole request over that would strand the user's reorder.
         // Default, so a reorder acts on the column as it is drawn: an unreleased title is on the
-        // calendar rather than in the well, and is not one of the cards being dragged past.
-        var inColumn = await Filtered(
-                BoardQuery(user.Id), request.Hobby, request.Status, year: null,
-                LibraryPartition.Default, clock.Today)
-            .Where(row => request.MediaIds.Contains(row.Media.Id))
+        // calendar rather than in the well, keeps the number it has, and is not one of the cards
+        // being dragged past.
+        var column = await Sorted(
+                Filtered(
+                    BoardQuery(user.Id), request.Hobby, request.Status, year: null,
+                    LibraryPartition.Default, clock.Today),
+                LibrarySort.Manual)
             .Select(row => new { MediaId = row.Media.Id, Entry = row.Latest })
             .ToListAsync(cancellationToken);
-
-        if (inColumn.Count == 0)
-        {
-            return;
-        }
 
         var rank = request.MediaIds
             .Select((mediaId, index) => (mediaId, index))
             .ToDictionary(pair => pair.mediaId, pair => pair.index);
 
-        foreach (var row in inColumn)
+        // What was sent, in the order sent, and then every title that was not, in the order it
+        // had (#35). A board sends what it draws, which is not always the column: 100 cards of
+        // 140 until a press loads the rest, and under a year that year's titles alone. Numbering
+        // only what was sent left the rest at their old numbers among the new ones, so the 40
+        // never loaded rose over the hundred a drag had just ordered, and a year's drag
+        // interleaved Completed under All years card by card, every year dragged in holding 0
+        // upward. Under a year, the year dragged in goes above every other year's as a block.
+        var sent = column
+            .Where(row => rank.ContainsKey(row.MediaId))
+            .OrderBy(row => rank[row.MediaId]);
+        var rest = column.Where(row => !rank.ContainsKey(row.MediaId));
+
+        var position = 0;
+        foreach (var row in sent.Concat(rest))
         {
-            row.Entry.Position = rank[row.MediaId];
+            row.Entry.Position = position++;
         }
 
         await db.SaveChangesAsync(cancellationToken);
@@ -1264,6 +1274,17 @@ public sealed class LibraryService(
         IQueryable<BoardRow> query, LibrarySort sort, LibraryPartition partition) =>
         partition == LibraryPartition.Upcoming ? ByLastPossibleDay(query) : Sorted(query, sort);
 
+    /// <summary>
+    /// A column in the order its sort control names.
+    ///
+    /// <para>
+    /// <b>Every arm ends on the newest pass first</b>, the current pass's id descending, which is
+    /// My order's own tie-break and the whole of Added (#35). A column past 100 is read a page at a
+    /// time, and Postgres promises no order among rows that tie from one request to the next, so
+    /// an arm that stopped at a value two titles share could draw a card on page two that page one
+    /// showed, and skip another. <c>Every_sort_breaks_a_tie_newest_pass_first…</c> holds all five.
+    /// </para>
+    /// </summary>
     private static IQueryable<BoardRow> Sorted(IQueryable<BoardRow> query, LibrarySort sort) => sort switch
     {
         // Alphabetical on the name the card prints, which for an anime is MAL's English title
@@ -1275,14 +1296,16 @@ public sealed class LibraryService(
         // there it would empty the whole board with no error, where here the worst case is this
         // one mode. Sorting_anime_by_title_orders_on_the_name_the_card_shows is what says so.
         LibrarySort.Title => query
-            .OrderBy(row => (row.Media as Anime)!.EnglishTitle ?? row.Media.Title),
+            .OrderBy(row => (row.Media as Anime)!.EnglishTitle ?? row.Media.Title)
+            .ThenByDescending(row => row.Latest.Id),
 
         LibrarySort.Added => query.OrderByDescending(row => row.Latest.Id),
 
         // Unrated last in both directions of the scale, rather than sorting as if they were 0.
         LibrarySort.Rating => query
             .OrderBy(row => row.Latest.Rating == null)
-            .ThenByDescending(row => row.Latest.Rating),
+            .ThenByDescending(row => row.Latest.Rating)
+            .ThenByDescending(row => row.Latest.Id),
 
         // Shortest first, on the same number the card prints, and that is the whole rule: a
         // column ordered by a figure nobody can see reads as broken. This used to order on main
@@ -1308,7 +1331,8 @@ public sealed class LibraryService(
             .ThenBy(row => (row.Media as Game)!.HltbAllStylesHours
                            ?? (row.Media as Movie)!.RuntimeMinutes / 60m
                            ?? (row.Media as TvShow)!.TotalRuntimeMinutes / 60m
-                           ?? (row.Media as Anime)!.TotalRuntimeMinutes / 60m),
+                           ?? (row.Media as Anime)!.TotalRuntimeMinutes / 60m)
+            .ThenByDescending(row => row.Latest.Id),
 
         // Manual: the user's own ranking. Every other mode is a read-only view that leaves
         // Position untouched, which is why dragging is only offered in this one.

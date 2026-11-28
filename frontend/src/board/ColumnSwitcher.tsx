@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useDndContext, useDroppable, type UniqueIdentifier } from '@dnd-kit/core';
-import type { ColumnRequest } from './Column';
+import { columnPages, totalOf, type ColumnRequest } from './columnPages';
 import type { BoardColumn } from '../hobbies';
 import type { LogStatus } from '../api/types';
 
@@ -57,17 +57,16 @@ export interface ColumnSwitcherProps {
  * Its counts are the columns' own answers, from each column's request. The column on screen
  * shares its fetch with its segment, and every other column is fetched once, as it was side by
  * side. So choosing a column shows what is already known about it, and a move counts at once in
- * the column it went to, because a move writes those same cached answers.
+ * the column it went to, because a move writes those same cached answers. **Each segment observes
+ * its column's pages itself**, and reads the count off the first, since #35 made a column's answer
+ * an infinite query and `useQueries` cannot hold one. Observed, a column a phone is not showing
+ * keeps the pages it had loaded for when it is chosen again.
  *
  * **On a share it is the same switcher outside any drag.** Rendered with no `DndContext` above
  * it, its segments register on dnd-kit's defaults, which reach nothing: there is nothing on a
  * share to carry, and nowhere a card could land. Found while rendering the #9 workshop.
  */
 export function ColumnSwitcher({ columns, requestFor, shown, onShow, lifted }: ColumnSwitcherProps) {
-  const totals = useQueries({
-    queries: columns.map(({ status }) => requestFor(status)),
-  });
-
   // Where the switcher sits when nothing has scrolled it. Sticky, it reports the top of the
   // screen instead, so the place it would be is read from a mark just before it.
   const resting = useRef<HTMLDivElement>(null);
@@ -104,12 +103,12 @@ export function ColumnSwitcher({ columns, requestFor, shown, onShow, lifted }: C
             SEGMENT_TRACKS[columns.length] ?? SEGMENT_TRACKS[5]
           }`}
         >
-          {columns.map(({ status, label }, index) => (
+          {columns.map(({ status, label }) => (
             <Segment
               key={status}
               status={status}
               label={label}
-              total={totals[index]?.data?.total ?? 0}
+              request={requestFor(status)}
               current={status === shown}
               onChoose={() => choose(status)}
             />
@@ -123,13 +122,15 @@ export function ColumnSwitcher({ columns, requestFor, shown, onShow, lifted }: C
 interface SegmentProps {
   status: LogStatus;
   label: string;
-  total: number;
+  /** Its column's request, whose first page says how many titles the column holds. */
+  request: ColumnRequest;
   current: boolean;
   onChoose: () => void;
 }
 
-function Segment({ status, label, total, current, onChoose }: SegmentProps) {
+function Segment({ status, label, request, current, onChoose }: SegmentProps) {
   const { setNodeRef } = useDroppable({ id: segmentId(status), data: { status } });
+  const total = totalOf(useInfiniteQuery(columnPages(request)).data);
 
   // Lit while a card from another column is held over it, in the colour a column takes for the
   // same news: let go here and it moves there. Never for the card's own column, where letting
