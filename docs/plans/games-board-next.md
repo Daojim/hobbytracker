@@ -7523,7 +7523,37 @@ server is stopped.
 | The line under the button | the same case |
 | **The keyboard not handed back to the button after a page fails** | **nothing in Vitest**: jsdom keeps the keyboard on a disabled button. Measured in Chromium above, and step 5's e2e is to hold it |
 
-Steps 5 and 6 are not begun.
+- **Step 5 is built.** Five cases in `board.spec.ts`, four under *a column past a page* and one
+  in the phone block: the first 100 and *Load more*, then 140 and no button and no line; the
+  drag of the top two with 100 of 140 loaded, read after a reload and a press; a card moved by
+  its menu from the second page, drawn once where it went, Backlog keeping both pages through
+  the refetch, and dragged on from there; *Load more* from the keyboard, a failed page, the
+  keyboard back on the button, a press again, and the keyboard on *Pagefiller 101*; and at 390
+  the button at its own width, 110 to 130px, under the one column shown. The seed is
+  `seedColumn` in `e2e/support/board.ts`: 140 of the IGDB stub's new *Pagefiller* games, long
+  out and on no Discover list, put in the catalogue by one search for the word they share and
+  logged last to first, so the column is numbered as adds number one. A failed page is
+  Playwright's `page.route` answering 500 for page 2 alone, and the app's own retries take
+  about seven seconds before it says so.
+- **Found at the build:** each seeded title queues a HowLongToBeat lookup, and the stub holds
+  every search 600ms to model the site, so 140 of them held the worker 84 seconds a spec, and
+  a queue outlives the truncation between specs: the next spec's own lookups would have waited
+  behind them. The stub answers the Pagefillers at once, a miss each, and `seedColumn` waits for
+  all 140 to be checked, so no column polls for an estimate while a spec drags. The cases run 5
+  to 15 seconds each, under a timeout of 60 for the margin.
+- **In Firefox**, `--browser=firefox`, the four desktop cases pass, 9 to 15 seconds each, the
+  keyboard after a failed page included. The phone case is `isMobile`, which Firefox does not
+  take.
+- **The full e2e suite went 283 green and 1 red**, the 279 before and the 5 new. The red was
+  #24's *follows its ✓ as the strip and the page scroll*, 8px off where the question should
+  sit, as it was at #25's build: 6 of 6 alone, and nothing on its path changed.
+
+| Fault put back | What goes red |
+|---|---|
+| The server numbering only the ids sent, step 1's | *a drag with 100 of 140 loaded leaves the other 40 below*: after the reload the 40 never loaded, Pagefiller 101 on, sat above the hundred dragged |
+| The keyboard not handed back to the button after a page fails | *a press from the keyboard … and a failed page back*, in Chromium: *Load more* not focused after the failure. The half jsdom could not hold |
+
+Step 6 is not begun.
 
 ---
 

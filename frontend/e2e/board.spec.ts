@@ -10,6 +10,7 @@ import {
   entriesFor,
   holdAndDrag,
   seed,
+  seedColumn,
   segment,
   setSort,
   swipeUp,
@@ -625,10 +626,149 @@ test('a year offered by the picker is one something was only started in', async 
   await expect.poll(() => titlesIn(page, 'InProgress')).toEqual(['Anthem']);
 });
 
+test.describe('a column past a page', () => {
+  // A hundred and forty titles seeded through the API, HowLongToBeat asked about each, and the
+  // app's own three retries of a failed page: 5 to 15 seconds a case here on 28 November 2026,
+  // too near a case's 30 on a busy machine.
+  test.describe.configure({ timeout: 60_000 });
+
+  test('shows its first 100 and the rest from Load more, and ends with no button', async ({
+    page,
+  }) => {
+    await seedColumn(page.request, 'Backlog');
+    await page.reload();
+
+    const backlog = column(page, 'Backlog');
+    await expect(backlog.getByRole('heading', { level: 2 })).toHaveText('Backlog 140');
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(100);
+    await expect(backlog.getByText('Showing 100 of 140')).toBeVisible();
+
+    await backlog.getByRole('button', { name: 'Load more' }).click();
+
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(140);
+    await expect(backlog.getByRole('button', { name: 'Load more' })).toHaveCount(0);
+    await expect(backlog.getByText(/^Showing/)).toHaveCount(0);
+    await expect(backlog.getByRole('heading', { level: 2 })).toHaveText('Backlog 140');
+  });
+
+  test('a drag with 100 of 140 loaded leaves the other 40 below, in their order', async ({
+    page,
+  }) => {
+    // The drag sends the hundred drawn, and the server numbers the forty never loaded after
+    // them. Numbered as adds number a column, the forty hold the places on top of the hundred,
+    // so a server that numbered only what it was sent would put them first after a reload.
+    const titles = await seedColumn(page.request, 'Backlog');
+    await page.reload();
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(100);
+
+    await drag(page, card(page, 'Pagefiller 002'), card(page, 'Pagefiller 001'));
+    const dragged = [titles[1]!, titles[0]!, ...titles.slice(2, 100)];
+    await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(dragged);
+
+    await page.reload();
+    await expect.poll(() => titlesIn(page, 'Backlog')).toEqual(dragged);
+
+    await column(page, 'Backlog').getByRole('button', { name: 'Load more' }).click();
+    await expect
+      .poll(() => titlesIn(page, 'Backlog'))
+      .toEqual([...dragged, ...titles.slice(100)]);
+  });
+
+  test('a card moved out with two pages loaded is drawn once, where it went, and drags on', async ({
+    page,
+  }) => {
+    await seedColumn(page.request, 'Backlog');
+    await page.reload();
+    await column(page, 'Backlog').getByRole('button', { name: 'Load more' }).click();
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(140);
+
+    // From the second page, by its menu.
+    await chooseOption(page, 'Pagefiller 130', 'Move to Playing');
+
+    await expect(column(page, 'InProgress').getByText('Pagefiller 130')).toBeVisible();
+    await expect(card(page, 'Pagefiller 130')).toHaveCount(1);
+    await expect(column(page, 'Backlog').getByRole('heading', { level: 2 })).toHaveText(
+      'Backlog 139',
+    );
+
+    // Backlog keeps both its pages through the move's refetch, and the card is a card where it
+    // went: one media id mounted twice is a card nothing can pick up.
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(139);
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+    await drag(page, card(page, 'Pagefiller 130'), column(page, 'Completed'));
+    await expect(column(page, 'Completed').getByText('Pagefiller 130')).toBeVisible();
+  });
+
+  test('a press from the keyboard hands it to the first card added, and a failed page back', async ({
+    page,
+  }) => {
+    // The next page refused, as a server that answered 500 refuses it, until it is let through.
+    // The app asks three more times before saying so, about seven seconds.
+    const secondPage = (url: URL) =>
+      url.pathname === '/api/library' && url.searchParams.get('page') === '2';
+    await page.route(secondPage, (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ title: 'An error occurred while processing your request.', status: 500 }),
+      }),
+    );
+
+    await seedColumn(page.request, 'Backlog');
+    await page.reload();
+    const backlog = column(page, 'Backlog');
+    const button = backlog.getByRole('button', { name: 'Load more' });
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(100);
+
+    await button.focus();
+    await page.keyboard.press('Enter');
+
+    // Said over the button, and the keyboard back on it, which a browser that blurs a button as
+    // it is disabled would otherwise have left on nothing: a press again is the retry.
+    await expect(backlog.getByRole('alert')).toHaveText(
+      'An error occurred while processing your request.',
+      { timeout: 20_000 },
+    );
+    await expect(button).toBeFocused();
+
+    await page.unroute(secondPage);
+    await page.keyboard.press('Enter');
+
+    await expect(
+      card(page, 'Pagefiller 101').getByRole('button', { name: 'Pagefiller 101', exact: true }),
+    ).toBeFocused();
+    await expect(backlog.getByRole('alert')).toHaveCount(0);
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(140);
+  });
+});
+
 test.describe('on a phone', () => {
   // A phone's width, and a page told about touches rather than a mouse. Without hasTouch the
   // browser never sends one, and nothing below could happen.
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+  test('a column past a page loads the rest from under the one column shown, at its own width', async ({
+    page,
+  }) => {
+    test.setTimeout(60_000);
+    await seedColumn(page.request, 'Backlog');
+    await page.reload();
+    await expect(segment(page, 'Backlog')).toHaveAccessibleName('Backlog 140');
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(100);
+
+    // Centred at its own width, as Discover's is at every width, the pick over the column's.
+    const button = column(page, 'Backlog').getByRole('button', { name: 'Load more' });
+    await button.scrollIntoViewIfNeeded();
+    const box = await button.boundingBox();
+    expect(box?.width).toBeGreaterThan(110);
+    expect(box?.width).toBeLessThan(130);
+
+    await button.tap();
+
+    await expect.poll(() => titlesIn(page, 'Backlog')).toHaveLength(140);
+    await expect(segment(page, 'Backlog')).toHaveAccessibleName('Backlog 140');
+    await expect(column(page, 'Backlog').getByRole('button', { name: 'Load more' })).toHaveCount(0);
+  });
 
   /**
    * A Backlog long enough to scroll on a phone. A phone shows one column at a time, so the

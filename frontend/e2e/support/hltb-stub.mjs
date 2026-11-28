@@ -272,9 +272,14 @@ const server = createServer(async (request, response) => {
     // The search, and only the search. Fetching a pinned id answers at once because that is the
     // one route somebody is genuinely waiting on — see the pin control — and slowing it would
     // be modelling something the real site does not do to us either.
+    //
+    // Except for the IGDB stub's Pagefillers (#35), a column of 140 that only a column past a
+    // page needs: a miss each, answered at once. At 600ms apiece their lookups held the worker
+    // 84 seconds a spec, and a queue outlives the truncation between specs, so the next spec's
+    // own lookups waited behind them. Nothing about them is about HowLongToBeat.
     setTimeout(
       () => json(response, { count: matches.length, data: matches.map(asSearchResult) }),
-      SEARCH_DELAY_MS,
+      terms.includes('pagefiller') ? 0 : SEARCH_DELAY_MS,
     );
     return;
   }
