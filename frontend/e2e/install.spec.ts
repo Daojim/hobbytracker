@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { THEMES, manifestOf } from '../src/theme/theme';
 
 /**
  * What a phone installs, asked of a real browser.
@@ -38,6 +39,52 @@ test('Chrome reads the manifest without complaint, and finds no reason not to in
   // manifest-missing-suitable-icon.
   const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
   expect(installabilityErrors.map((error) => error.errorId)).toEqual(['in-incognito']);
+});
+
+test('every theme links a manifest in the ground it paints, and Chrome would install from each', async ({
+  page,
+}) => {
+  // Since Chrome 153 an installed app's bar at the bottom is its manifest's theme_color (#31),
+  // so a chosen theme links a manifest of its own. Each is asked for after a reload, which makes
+  // this the pre-paint script's half: the bundle applies nothing on a load. The rule is imported
+  // rather than copied again. In daylight, because System's manifest is Shelf Light's paper,
+  // which is what System paints in daylight and not after dark.
+  await page.emulateMedia({ colorScheme: 'light' });
+  await page.goto('/signin');
+  const cdp = await page.context().newCDPSession(page);
+
+  const asked = async (label: string, expected: string) => {
+    await page.reload();
+
+    const manifest = await cdp.send('Page.getAppManifest');
+    expect(new URL(manifest.url).pathname, label).toBe(expected);
+    expect(manifest.errors, label).toEqual([]);
+
+    const ground = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--sunken').trim(),
+    );
+    const { theme_color } = JSON.parse(manifest.data ?? '{}') as { theme_color?: string };
+    expect(theme_color, label).toBe(ground);
+
+    const { installabilityErrors } = await cdp.send('Page.getInstallabilityErrors');
+    expect(installabilityErrors.map((error) => error.errorId), label).toEqual(['in-incognito']);
+  };
+
+  for (const theme of THEMES) {
+    await page.evaluate((value) => localStorage.setItem('hobbytracker.theme', value), theme.value);
+    await asked(theme.label, manifestOf(theme.value));
+  }
+
+  // A theme of your own links its base's, so its bar at the bottom is its base's ground and not
+  // its own, which the page paints: here the ground is left to the base's block, so the two agree.
+  await page.evaluate(() => {
+    localStorage.setItem('hobbytracker.theme', 'mine');
+    localStorage.setItem(
+      'hobbytracker.theme.mine',
+      JSON.stringify({ from: 'dusk', scheme: 'dark', tokens: { '--accent': '#e3b04b' } }),
+    );
+  });
+  await asked('a theme of your own, from Dusk', manifestOf('dusk'));
 });
 
 test('every icon is served as the picture it claims to be', async ({ page }) => {
