@@ -1466,6 +1466,12 @@ an experiment that is off by default, with a second switch for a standalone one
   ([CL 5532134](https://chromium-review.googlesource.com/c/chromium/src/+/5532134)). A manifest
   with no `theme_color` would hand the bar back to Android's own light or dark, which follows the
   device rather than the theme, and was not measured.
+- **On the phone after the deploy, a fresh install wore the theme at the bottom.** On 27 November
+  2026 the user uninstalled the app and installed it again, rather than asking `about://webapks`
+  for an update, and reported the bar right. A fresh install is built from the manifest the page
+  links, so that proves the link and the files. **An app already installed following a new
+  address under the same `id` is not yet seen**: the next change of theme is its test, and its
+  bar should follow within a day or two with no reinstall.
 
 **An iPhone takes none of this.** Several developers report that Safari 26 ignores `theme-color`
 and takes its bars' colour from the page's own background, or from a fixed bar at the top. **The
