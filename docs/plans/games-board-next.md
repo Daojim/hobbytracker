@@ -18,7 +18,8 @@ picker, Settings rearranged, a theme of your own, and collapsing a column. A thi
 refreshed once those five are built, was asked for on 20 November 2026. Four more followed on
 25 November 2026: the installed app's bottom bar, a bug measured on the user's Android phone; a
 queue for adding many games at once; month and week views of the release calendar; and a better
-sign-in page. CLAUDE.md's **What is next** points here.
+sign-in page. A thirty-fifth, a column's Load more, came out of #32's workshop on 27 November
+2026, to be built before it. CLAUDE.md's **What is next** points here.
 
 **This file lives in the repo.** It began in `~/.claude/plans/`, which Claude Code sweeps after 30
 days; the hosting plan was lost from there, so this one moved on 1 October 2026. See **The plan
@@ -63,7 +64,8 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. **Built the same day, tests first**, a commit per step: the full e2e suite went 278 green, the 275 before and 3 new, Vitest 1,692, every fault put back turned its cases red, the drops and the keyboard held in Firefox, and the built board differs from the picked prototype by no pixel in 16 states. **Shipped and deployed 22 November 2026** (PR #109): frontend and docs only, Caddy alone recreated, and the stylesheet the local build's byte for byte. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. **Workshopped 22 November 2026 in two rounds**, measured on GitHub's own repo page: the wheel rendered 88px wide on a desktop and 25 on a phone, its cell's doing, and the user's *etc.* was that the pictures were not appealing beside well-made repos. So every shot became a close crop framed on a soft backdrop of Shelf's own colours, the hero the board with a phone over its corner, each still a light and dark pair GitHub picks between by fragment so a press opens the reader's own theme, and the wheel a 656px GIF in its own column. The share link and Settings join the tour, the user's picks over a theme of your own. Every pick but that one was the recommendation. **Shipped 22 November 2026** (PR #111), built the same day, test first: `src/readme.test.ts` holds the pairs and the one picture, and nine faults put back each turned it red. On the pushed branch's own page, in Chrome and Firefox, light and dark, every still opened its own file in the reader's theme, and a reader downloads 5.0 MB against 3.0 today. No deploy: the README is GitHub's. See its section |
 | 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. **Checked 27 November 2026 in Chromium's source**: Chrome 153 is what paints the bar from the manifest, from the installed app's own copy, and nothing newer lets the page reach it. **(a) picked, every pick the recommendation**: a manifest per theme, System keeping today's and a theme of your own its base's. **Built the same day, tests first**: the full e2e suite went 279 green, the 278 before and 1 new, Vitest 1,706, every fault put back turned its cases red, and the pre-paint script held in Firefox. **Shipped and deployed 27 November 2026** (PR #113): frontend and docs only, api and caddy both recreated because `aspnet:10.0` had moved, the stylesheet the local build's byte for byte, and every manifest served as one and the commit's bytes. **On the user's phone the same evening, a fresh install wore the theme at the bottom**; an installed app's update to a new theme is yet to be seen. See its section |
-| 32 | A queue for adding many games at once | L | **Planned 25 November 2026**, at the user's request, a workshop first: a list kept apart from the board, filled from search or from a pasted list of names matched against IGDB and never guessed, then a selection added to one column in one go, Completed with #24's year or *I don't remember*. The app's first multi-select, and where the queue lives is the workshop's to propose. A rating, hours and anything done in bulk to titles already on the board come later. See its section |
+| 32 | A queue for adding many games at once | L | **Planned 25 November 2026**, at the user's request, a workshop first: a list kept apart from the board, filled from search or from a pasted list of names matched against IGDB and never guessed, then a selection added to one column in one go, Completed with #24's year or *I don't remember*. The app's first multi-select, and where the queue lives is the workshop's to propose. A rating, hours and anything done in bulk to titles already on the board come later. **Workshopped 27 November 2026, every pick the recommendation**, 26 of them: round one in words, then the user's own pasted list run live through the app's search, which picked the rule (a name or one of IGDB's alternative names, then the part after the colon, a tie asked: seven of the nine matched, none wrong), then round two in renders and four follow-ups. A page of its own at `/board/:hobby/queue`, found lines into the queue at once, a box on every row with Shift-click, the bar under the heading and at a phone's foot, a fourth quarter on every tile, *Open your queue* under the search box. **Load more on a column first, as #35, so this build waits for it.** See its section |
+| 35 | A column's Load more | S–M | **Planned 27 November 2026, at #32's workshop**, the user's pick: a *Load more* under a column past 100 titles, on Discover's shape, built as its own PR **before #32**. Completed holds 75 under All years. What a drag does in a column partly loaded is its main question. See its section |
 | 33 | Month and week views of the release calendar | M | **Planned 25 November 2026**, at the user's request: a month view, and perhaps a week view, as a choice beside the *Coming soon* agenda, with a place for the titles no day fits. A week view only if the user's real calendar has enough exact days, and a phone considered from the start. See its section |
 | 34 | A better sign-in page | S–M | **Planned 25 November 2026**, at the user's request, a workshop first, in renders: the sign-in page saying what the app is before asking anyone to sign in, from the README's shots, and a sentence that no longer says *a game*. The neutral buttons, the full-bleed ground and *Account deleted* stay. See its section |
 
@@ -92,6 +94,9 @@ Production runs `cb0eb5d`'s code, which was `main` on 27 November 2026. Deployin
   of three. **Checked, picked and built on 27 November 2026: (a).**
 - **#32 is the biggest, and a workshop before anything.** Where the queue lives, how a selection
   works on a phone, and what the paste box says about a name it cannot settle are all for renders.
+  **Its build waits for #35**, the user's pick at its workshop on 27 November 2026.
+- **#35 before #32's build**: a history entered through the queue takes Completed past 100 under
+  All years.
 - **#33 and #34 are independent**, of each other and of #32. #33 begins by reading the user's real
   calendar, which decides whether a week view is drawn at all.
 
@@ -6919,6 +6924,182 @@ yet.
 - **Put the fault back:** let the matcher take IGDB's first result, and *Resident Evil 4* goes red;
   send the adds at once, and the order test goes red.
 
+### The workshop, 27 November 2026
+
+On branch `queue-for-adding-many` from `2bd6022`. Round one in words; then renders from real data
+of the three the section names (where the queue lives, selecting and its bar, what the paste box
+says about a line), and of the tile's part for the queue and what a tile says once a title is
+queued, which the plan does not list but which are decided by eye and change **Settled**, *Adding
+from a tile*.
+
+**Found by reading, before round one:**
+
+- **Your board holds versions, filed under the originals' names.** *Castlevania: Aria of Sorrow*
+  and *Circle of the Moon* are IGDB's 2021 entries (the Advance Collection's platforms), *Dawn of
+  Sorrow* its 2024 one, *Symphony of the Night* the 2007 PSP one, and *Metal Gear Solid 2* the
+  Master Collection Version. So a clear match can still be the wrong version, and the plan gives a
+  matched line no way to choose another; the paste box's renders draw one.
+- **A column's manual order is written for the ids a reorder sends** (`ReorderAsync`, positions
+  0 to n − 1), so a column dragged with only its first 100 loaded would leave the rest interleaved
+  among them. That is Load more's own decision, whenever it is built.
+- **On 3 November Completed held 64 under All years**: 15 in 2024, 28 in 2025, 21 in 2026. A
+  history added with #24's years lands in its own years, so the board's default year is untouched,
+  and All years passes 100 at 37 more. **Read fresh from production after round one** (read-only,
+  `workshop.local/queue-for-adding-many/read-board.sql`): 101 titles on the games board, **Completed
+  75 under All years**, 15 in 2024, 28 in 2025 and 25 in 2026, and seven finishes kept as years
+  since #24 (*Persona 5* 2017, *Hollow Knight* and *Devil May Cry 5* 2019, *Ghost of Tsushima*
+  2020, *Monster Hunter Rise* and *Scarlet Nexus* 2021, *Metal Gear Rising: Revengeance* 2023). So
+  All years passes 100 at 26 more.
+
+**Round one, in words.** Two of its questions are from **Things to get right** rather than
+**Decide at pickup**, because the section says they need deciding: whether the deletion warning
+counts the queue, and the order a selection lands in.
+
+| Choice | Picked | Against |
+|---|---|---|
+| Where a line still to settle waits | **In the paste box, for the visit**, recommended: the box settles its lines before they go in, so the queue holds titles alone, in one shape, and a line nobody settles stays in the box as text until the page is left | the box kept per browser, its lines surviving a reload there; in the queue too, as a row of its own (*Which one?*, *Not found*) |
+| Kept where | **Per account**, recommended: a table beside `discover_hides`, read and written through the session, one list across a phone and a desktop, each new scoping site with a test that a stranger's queue never shows | per browser, in `localStorage`, a phone's and a desktop's two lists |
+| Requests | **One a game, in turn**, recommended: `POST /api/library/{mediaId}` once a game, one after another; every rule #24 put on it holds as it is, and a 409 is that game's answer, on its row | one route for the lot, one transaction, all or none, and a second set of rules |
+| Which tiles offer it | **Search and Discover**, recommended: both share the control, and Most played is the list a board is filled backwards from | search alone, as the plan named it |
+| A title not out yet | **Never queued**, recommended: no part for the queue on its tile, and a pasted name that matches one says so rather than queuing it, since a history is of games that are out | queued, its add from the queue putting it on the calendar whatever column the bar names |
+| Which boards | **Games first**, recommended: the games board alone in the first version, carried by `HobbyDefinition` and never a branch on the slug, so films, TV and anime follow by filling in theirs, each matched through its own hobby's search; the matching is measured on IGDB alone | every board at once, as #18 and #24 went, each measured on its own provider |
+| What the bar holds | **Today beside a year and *I don't remember*, and the year box starting at the year added last**, both recommended: #24's panel's three answers, and `lastYear.ts`'s year, shared with the ✓, so the queue and the tile never disagree about what a finish can be | Today with an empty box; no Today with the last year; no Today with an empty box |
+| A year in a line | **Yes, a release year**, recommended: a year in brackets at the end of a line, *Resident Evil 4 (2005)*, is read as the release year and only breaks a tie between titles that match equally, never refusing a lone match, `HltbMatcher`'s rule | no year, every tie *Which one?*; a finish year too, so a history goes in at once rather than a year at a time (not in the plan, and wider) |
+| The 100-title column | **Load more first, as its own PR**, recommended: planned as #35 below and built before this, on Discover's Load more, whose look is picked already. So **#32's build waits for #35** | first, as the first step of this branch, one PR for both; after the queue, *Showing 100 of N* under All years until then; not planned |
+| The deletion warning | **Does not count the queue**, recommended, as it does not count #23's hides: the queue is titles on no board yet. The queue still goes with the account, by a cascade on `user_id` | counts it: *… 41 notes, 12 pictures and 30 games in your queue* |
+| The order a selection lands in | **The queue's order**, recommended: sent last first, so the column reads top to bottom as the queue did under *My order*, the first selected on top | reversed, sent first first, the last selected on top |
+| The renders' data | **The user's own list**, pasted as they would write it, every line asked of IGDB live through the app's search, **and the games board read fresh from production**, read-only | the user's list and the 3 November copy; a list written from the board's series, either board |
+
+**The user's list, measured, 27 November 2026.** *"A list I would probably do is"*: `MGSV`, `Link
+to the Past`, `Celeste`, `sekiro`, `totk`, `a link between worlds`, `DMC4`, `persona 4`, `origami
+king`. Every line went through the app's own search (`GET /api/games?search=`, the strip's default
+limit of 20) on a workshop API with the real IGDB behind it and a database of its own,
+`hobbytracker_queue`, then IGDB was asked by id for what a tile is never sent: alternative names,
+rating counts, the kind of entry and what it is a version of. Six rules were run over the
+answers, each keeping `HltbMatcher`'s checks (numerals agree, 0.9 alike, 0.05 ahead, the year as a
+tie-breaker alone), ported line for line in `workshop.local/queue-for-adding-many/matcher.mjs`:
+
+| Rule | The user's nine | Asked | Wrong |
+|---|---|---|---|
+| The plan's: `HltbMatcher` over the name and IGDB's alternative names | 6 matched | *Link to the Past*, *totk*, *a link between worlds* | none |
+| **The name or an alternative name, then the part after the colon when none is close** | **7 matched** | *Link to the Past* (the 1991 SNES game, the 2002 GBA one, and an unrelated *Trump Anthology Episode 1: A Link to the Past*); *totk* (2023, or the 2025 Switch 2 Edition) | none |
+| The same, and a tie between a game and its own port or expanded edition goes to the game | 8 | *Link to the Past* | none here; the user's 2021 *Aria of Sorrow* and *Circle of the Moon* and 2024 *Dawn of Sorrow*, all on the board, each match the GBA or DS original |
+| The same, and a tie goes to one rated by five times as many | 9 | — | the same Castlevania cost |
+| The name alone | 2 | the other seven | none |
+| IGDB's first result, the plan's named fault | 9 | — | *persona 4* is Golden, and *Dawn of Sorrow* is *Aria of Sorrow* |
+
+- **IGDB lists the user's shorthand as alternative names**: `MGSV`, `TotK`, `DMC4`, `SEKIRO`,
+  `Origami King`, and `P5R` and `BotW` in the lines added below. That is why even the plan's rule
+  matches six. A search tile is never sent them, so the paste has to ask IGDB for
+  `alternative_names` itself.
+- **The part after the colon is tried only when no name is close.** Mixed into one pass,
+  *Final Fantasy VII* answered to *Crisis Core: Final Fantasy VII* and *Dirge of Cerberus: Final
+  Fantasy VII* as well as itself.
+- **IGDB files a game several times under one name**: *Resident Evil 4* four times (the 2005
+  original, the 2023 remake, the 2011 remaster and the 2005 PC and PS2 version), *Final Fantasy VII*
+  five, *Aria of Sorrow* four. **A year in brackets narrows and may not settle**: *Resident Evil 4
+  (2005)* still leaves two, both 2005, so it still asks.
+- **Lines added to reach the states the list did not**, each labelled where shown: *Resident Evil 4*
+  and *Resident Evil 4 (2005)* (*Which one?*), *Final Fantasy VII* (never *VIII*; five of the same
+  name, so it asks), *Hollow Knight* (on the board, Completed 2019), *The Elder Scrolls VI* (not
+  out, no date), *sekrio* (nothing at all). And ten more in the list's own shorthand, under the
+  picked rule: `ff7 remake`, `botw`, `pokemon red`, `witcher 3` and `p5r` matched; `mgs3` asks
+  between *Snake Eater* and *Subsistence*; `smash bros` and `zelda` have nothing close; `re4 remake`
+  and `ac unity` find nothing, because IGDB's own search finds nothing for them.
+
+| Choice | Picked | Against |
+|---|---|---|
+| What counts as a match | **The name or one of IGDB's alternative names, then the part after the colon when none is close; a tie is *Which one?***, a year in brackets breaking it first, recommended. Seven of the nine, none wrong | the same with a game winning a tie over its own port or edition (eight, and the Castlevania cost); with the far more played winning a tie (nine, the same cost); the plan's, names alone (six) |
+| A line with nothing close | ***Which one?*, the search's best three**, recommended: *smash bros*, *Melee · Ultimate · Brawl*; a press picks one, or the line is edited | *Not found*, as a search that found nothing is |
+| The user's *Persona 4* | **The 2008 game**, so the name's match on the list was right | Golden |
+
+**Round two, in renders, 27 November 2026**, from https://claude.ai/artifact/DvZcqSu5Tg2HnAVLtojRYt.
+The shipped app on Vite alone, every `/api/` request answered from a stage of the board read that
+day and the search answers the workshop API saved, with four `resolveId` swaps: `./App` from
+`main.tsx` for one more address, `../search/BoardSearch` from `BoardPage` for the way in, the
+strip and the panel, and `AddControl` from `SearchResult` and `WallTile` for the tile's part. The
+queue itself is `QueueProto.tsx`, behind `?place=&way=&flow=&select=&bar=&paste=&sel=&col=`, read
+once at load, and `AddControlProto.tsx` behind `?part=&queued=`. Shot at 1440 in Shelf Light and
+Shelf Dark and at 390, 41 shots, every caption's number from `measures.json`. All in the gitignored
+`frontend/workshop.local/queue-for-adding-many/`.
+
+| Choice | Picked | Against |
+|---|---|---|
+| Where the queue lives | **A page of its own**, `/board/games/queue`, beside Discover and Stats, recommended: at 1440 the paste box and the queue side by side, the queue's first row 280px down; on a phone they stack, and after a paste of nine the queue starts 1,513px down. A new route, so it changes **Settled**, *Scope* | a panel over the board, as the picker is, 2,011px tall with the nine pasted and the queue 1,275px down, below a 900px window; a strip under the search box, which while the queue holds anything starts the board 386px lower on every visit (276 to 662), and at 1,709 with the paste open |
+| The way in | **The same words always**, a line of its own under Discover's while the box is empty, recommended. It costs the board 24px. Drawn as *Adding a lot at once? Paste a list*, and **the words became *Open your queue* in the follow-ups below** | *Your queue · 9* while anything is queued |
+| The tile's part | **A fourth quarter of the one control**, recommended: + ▶ ✓ and the queue's mark, three lines of a list and a plus drawn as the others are, in quarters for thirds, 31px on the strip where a third is 42, and 40 on the wall at 1440. Named *Put Persona 4 Golden in your queue*, *Put in your queue* under a resting pointer | a button of its own beside the control, the thirds 29px and the button 32 |
+| A tile once queued | ***In your queue* where the control was**, with the mark, as a title on the board says its column, recommended. It comes back out on the queue page | the part pressed in the accent with + ▶ ✓ still there, a second press taking it out |
+| When a found line goes in | **At once**, recommended: a found line says *In your queue* with *Not this one* beside it, which takes it back out and offers the choices; the queue is where a match is checked, and nothing reaches the board until the bar adds it | on a press, the lines waiting with *Change* beside each and *Queue the 7 found* |
+| What the box says about a line | **As drawn**, recommended: the line as typed above every answer, so a wrong match is read against what was written; then the title with its cover, year and platforms; *Which one?* with the choices side by side, for a tie and, with *Nothing is an exact match*, for nothing close; *Not found* with the line in a box to edit, *Search again* and *Drop it*; *On your board · Completed*; *Not out yet, so not queued*; and *Looking…* while lines are asked one at a time | the typed line only above *Which one?* and *Not found* |
+| Selecting | **A box on every row, always, with *Select all*, and Shift-click for a run on a desktop**, recommended | boxes with no Shift-click; no boxes until a long press on a phone or a click on a desktop, then boxes and *Done* |
+| The bar on a desktop | **Under the queue's heading**, the plan's and recommended: 46px tall, staying at the top of the window as a long queue scrolls. **On a phone it is pinned to the foot**, 112px in three rows at 390 | at the window's foot, as on a phone |
+
+**Found while rendering, and asked after round two**, from sections 9 and 10 of the same page:
+
+| Choice | Picked | Against |
+|---|---|---|
+| Found lines after a paste | **Every line stays in the box** until *Paste more* or the page is left, recommended: each match is read against what was typed, the reason the typed line was picked. The cost, on the page: found lines are listed twice, in the box and in the queue, which side by side at 1440 costs nothing, and stacked on a phone puts the queue 1,513px down after nine lines | the found ones folded into *7 found, now in your queue* with *Show them*, the box on a phone 585px where it is 1,251, and the queue 847px down |
+| A way to the queue from Discover | ***Your queue* in Discover's header**, beside *Back to your board* and drawn as it is, with the queue's mark before it as the hidden count has its eye, and no count, recommended | nothing new, the board's line the only way |
+| The way in's words | ***Adding a lot at once? Open your queue***, recommended, with no count as round two picked. The words drawn in round two, *Paste a list*, named only the paste, and a title queued from a tile would never be found by them; the page the link opens offers the paste box | *Paste a list*, as drawn; *Paste a list into your queue* |
+| The queue's order | **The order the titles went in**, the first on top, recommended: a pasted list reads as written and lands on the board that way, and a title queued from a tile goes to the bottom | newest on top |
+
+**Every pick of the workshop was the recommendation**, 26 of them: twelve in round one, two from
+the user's list (the rule and a line with nothing close), eight in round two and four after it.
+The third question on the list was a fact rather than a pick: the user's *Persona 4* was the 2008
+game.
+
+**Decided without asking, for the user to object to:**
+
+- **A line whose match is already queued says *Already in your queue*** and is not queued twice,
+  and a blank line or one pasted twice is skipped.
+- **A title that reached the board some other way meanwhile is reported on its row** when its add
+  answers 409, *Already on your board · Playing*, and leaves the queue with the titles added.
+  Added titles leave the queue, the selection empties, and the bar goes.
+- **The bar's year is `lastYear.ts`'s**, set by an *Add* with a year from the bar as from the ✓, so
+  the next batch starts at the year the last went in.
+- **Lines are asked about one at a time, in the order pasted**, each a search inside IGDB's four a
+  second, and the box says how many are left. No cap on a paste's length.
+- **The matcher is the server's, pure and beside `HltbMatcher`**, with IGDB's alternative names
+  asked for by the paste's own question, so a search tile's contract does not change. The rule is
+  the picked one, with `HltbMatcher`'s checks and options.
+- **The queue is a table beside `discover_hides`**: one row per person per title, keyed on
+  `(user_id, media_id)`, with its place in the queue, cascading from `users` and from `media`. A
+  board's queue is its titles of that hobby.
+- **A board with no queue in its definition has no page, no part on its tiles and no line**: the
+  address goes to the board, as Discover's does on a board with none.
+
+### The build, in order
+
+**It waits for #35**, a column's Load more, built and shipped first as its own PR, the user's pick.
+Then, tests first in each step, each shown red, each fault put back afterwards, a commit per step.
+The picked looks are `QueueProto.tsx` and `AddControlProto.tsx` in
+`frontend/workshop.local/queue-for-adding-many/`, behind `?place=page&way=words&flow=auto&select=boxes&bar=under`
+and `?part=quarter&queued=chip`, the reference for values. The way in's words are the follow-up's,
+*Open your queue*, where the prototype says *Paste a list*; the Discover link was drawn by DOM
+surgery in `shoot-followups.mjs`.
+
+1. **The matcher**, pure: the user's nine and the added lines as cases, from `searched.json` and
+   `facts.json`, and **Tests first** above. Fault: take IGDB's first result, and *Resident Evil 4*
+   goes red.
+2. **The paste's question**, a line at a time through the hobby's search with alternative names,
+   behind a throttle inside IGDB's four a second.
+3. **The queue's table and routes**, each scoping site with a stranger's-queue test red first, and
+   deleting an account emptying it.
+4. **The page**, `/board/:hobby/queue`: the paste box and its states, the queue, the boxes,
+   *Select all* and Shift-click, the bar under the heading and pinned at a phone's foot, and the
+   adds one after another in the queue's order, sent last first. Fault: send them at once, and the
+   order test goes red.
+5. **The tile's quarter and *In your queue***, the way in, and Discover's link. **Settled**,
+   *Adding from a tile* becomes quarters and *Scope* gains the address, in the same PR.
+6. **e2e**: the paste against the IGDB stub, which needs alternative names and the two *Resident
+   Evil 4*s; selecting and the bar at 390 in the phone block; the keyboard in Firefox too.
+7. **Docs**: this section, `docs/board.md`, `docs/games-igdb.md`, `docs/data-model.md`,
+   `docs/auth.md`, `docs/api.md`, `docs/design.md`, `docs/history.md`, and CLAUDE.md's rows.
+
+**Where it stands.** Branch `queue-for-adding-many` from `2bd6022` holds this section, #35's, their
+status rows and CLAUDE.md's lines, **uncommitted**. The workshop database `hobbytracker_queue` is
+on the local Postgres; the workshop servers are stopped.
+
 ---
 
 ## 33. Month and week views of the release calendar · planned
@@ -7070,6 +7251,57 @@ are a ready source: a demo account, light and dark pairs, already cropped and fr
 - At 390, both providers on the first screen, if the workshop picks that.
 - e2e, and new: pressing a provider on the page signs in and lands on the board.
 - **Put the fault back:** draw the light shot under every theme, and the Dusk case goes red.
+
+---
+
+## 35. A column's Load more · planned
+
+**Planned 27 November 2026, at #32's workshop**, the user's pick there: built **as its own PR and
+before #32**, since the queue is the first thing here that imports and CLAUDE.md's **Small
+things** says any import will hit the cap. Lines were read at `2bd6022`.
+
+**What exists.** A column asks for its first 100 titles (`COLUMN_PAGE_SIZE` in `board/keys.ts`,
+which is the API's `Paging.MaxPageSize`) and past them says *Showing 100 of N* under its cards
+(`Column.tsx`), with no way to the rest. Read from production on 27 November, the games board's
+Completed holds 75 under All years, so 26 more titles pass it; one year alone stays well under,
+25 in 2026. `libraryStatuses()` and `wholeColumn` already page to the end, and a header's hours and
+its counts are summed over the whole column on the server, so none of those change.
+
+**What.** A *Load more* under a column with more to show, bringing the next 100, on Discover's
+shape: the tile's add button at its own width, centred, picked for the wall on 24 September 2026
+(`docs/games-igdb.md`, **The page, picked from renders**).
+
+### Decide at pickup
+
+- **What a drag does in a column partly loaded.** `PUT /api/library/order` takes the column top
+  first, and `ReorderAsync` writes positions 0 to n − 1 for the ids sent, so reordering the first
+  100 of 140 leaves the other 40 at their old positions, among the new ones. Dragging is allowed
+  only under *My order*, whose loaded pages are always the top of the column, so one answer is
+  for the server to number what was not sent after what was, in its own order; others are to load
+  the rest before a drag can start, or a route that moves one title beside its neighbours, which
+  `docs/board.md` set aside for its arithmetic. Recommended: the first.
+- **How much a press brings**: the next 100, or the rest of the column at once.
+- **Where the button sits** at 390, under the one column shown, and in a collapsed column (#29),
+  which draws no cards and so no button.
+- **A share's columns**, which are read the same way (`share/queries.ts`): the same button, or
+  left as they are.
+
+### Things to get right
+
+- **The column's cache entry is one `LibraryPage` today**, and an infinite query changes its shape
+  for every reader and writer: `useBoard`'s move written into the cache, `settleMove`, the
+  switcher's counts (which read `total` through `columnQuery`), and a share's `sharedColumn`.
+- **A card mounted twice** (`docs/board.md`): a move out of a column with two pages loaded must not
+  leave the card in a page it left, and a later page must not carry a card an earlier one shows.
+- **The keyboard goes to the first card a press added**, as Discover's does, or it is left on a
+  button 100 cards down.
+
+### Tests first
+
+- A column of 140 shows 100 and *Load more*; pressed, it shows 140 and no button.
+- A drag in a column with 100 of 140 loaded leaves the other 40 below, in their order.
+- A card moved out of a column with two pages loaded is drawn once, in the column it went to.
+- **Put the fault back:** number only the ids sent, and the drag case goes red.
 
 ---
 

@@ -107,7 +107,7 @@ Everything below is built, merged and green. Nothing is half-finished.
 | **The schema** | Table-Per-Type over a shared `Media`, an Eastern journal clock, and instants rather than dates | `docs/data-model.md` |
 
 **Four hobbies are live**, anime included, and **no new phase is queued**: the games board's
-planned list has three not yet built, #32 to #34, and books and music are on hold. See **What is
+planned list has four not yet built, #32 to #35, and books and music are on hold. See **What is
 next**, which also lists the smaller things named but not built.
 
 ## Start here
@@ -688,7 +688,8 @@ shuffled.
       7 October, two more about it on 8 October, after a mistaken finish cost a pass its
       notes, two from suggestions the user picked on 23 October, one asked for on 30 October,
       two more on 3 November, one on 4 November, one on 7 November, out of #17's workshop,
-      two on 8 November, five on 14 November, one on 20 November, and four on 25 November:
+      two on 8 November, five on 14 November, one on 20 November, four on 25 November, and one
+      on 27 November, out of #32's workshop:
       - [x] a board that works on a phone — a swipe scrolls and a hold drags; one column at a
         time under a pinned switcher; and since 2 October 2026 a manifest and an icon, so it
         installs to a home screen (PR #48, deployed). Installed on an Android phone and reported
@@ -848,7 +849,11 @@ shuffled.
       - [ ] a queue for adding many games at once — a workshop first: a list apart from the
         board, filled from search or from a pasted list of names matched against IGDB and never
         guessed, and a selection added to one column in one go, #24's year and all. The app's
-        first multi-select
+        first multi-select. Workshopped on 27 November 2026, every pick the recommendation, and
+        its build waits for the Load more below
+      - [ ] a column's Load more — the next 100 under a column past its first, on Discover's
+        shape, as its own PR before the queue: the user's pick at #32's workshop, since a history
+        entered through the queue takes Completed past 100 under All years
       - [ ] month and week views of the release calendar — a choice beside the agenda, with a
         place for the titles no day fits, a phone from the start, and a week view only if the
         user's real calendar has the days for one
@@ -966,7 +971,8 @@ being wrong. Both rows are marked below.
   exposure as `Auth:AllowNewAccounts` above. The same role checked on those routes would close it.
 - **A board column stops at 100 titles.** `COLUMN_PAGE_SIZE` is `Paging.MaxPageSize`. Past it,
   `Column.tsx` says *Showing 100 of N* and offers no way to see the rest; a large Backlog, or any
-  import, will hit it. The fix is a *Load more* on Discover's shape. Anything that needs a whole
+  import, will hit it. The fix is a *Load more* on Discover's shape, planned as #35 and to be
+  built before #32's queue, the first import. Anything that needs a whole
   column — a total, an export, a share — aggregates on the server or pages to the end, as
   `libraryStatuses()` does.
 
