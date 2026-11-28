@@ -7600,7 +7600,11 @@ Each step's record, as it was written at its commit:
 - **The app retries a failed page three times**, about seven seconds of *Loading…* before it says
   so, where the workshop's prototype asked once.
 - **The full e2e suite's one red was #24's *follows its ✓ as the strip and the page scroll***, 8px
-  off, as at #25's build, and 6 of 6 alone: twice now, and nothing on its path changed either time.
+  off, as at #25's build, **in both full runs of the branch**, 283 green each. It passed 6 of 6
+  alone, and green after `board.spec.ts` with the five new cases run straight before it, 60 of 60,
+  so they do not bring it on. Three times now, once at #25 and twice here, deep into a full run
+  and never alone, and nothing on its path changed in any: the panel measured 8px behind its ✓
+  just after the strip scrolls 8px reads as a placement a frame late under load, unproved.
 
 **Where it stands.** Every step is built and committed on `column-load-more`, not yet a PR. Built
 on `queue-for-adding-many`, which is not on `main`, so a PR of it carries #32's workshop record
