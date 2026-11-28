@@ -858,7 +858,7 @@ shuffled.
         brought. The server numbers what a drag did not send after what it did, which also ended
         the interleave a year's drags had left in Completed under All years, and every sort ends
         on the newest pass first. Built before the queue, the user's pick at #32's workshop; all
-        eight picks the recommendation (built on `column-load-more`, not yet merged)
+        eight picks the recommendation (PR #116, deployed)
       - [ ] month and week views of the release calendar — a choice beside the agenda, with a
         place for the titles no day fits, a phone from the start, and a week view only if the
         user's real calendar has the days for one
