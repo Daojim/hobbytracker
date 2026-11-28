@@ -62,7 +62,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 28 | A theme of your own | M | **Planned 14 November 2026**, at the user's request, a workshop first and **after #27**: a theme made from one of the eight, how much of it a person picks, and what happens to a colour that cannot be read. **Workshopped 21 November 2026 in two rounds**, round one in words and round two in renders, all thirteen picks the recommendation: three colours of your own (the ground, the card and the accent) with the other 17 worked out as the theme it is made from works them out, a warning under a colour that cannot be read, one theme kept per browser and stamped before the bundle, *Your own · From Shelf Dark* as a tenth choice in the palette's list, and a panel beside the board with no scrim, so the board repaints as you pick, half the screen on a phone. Measured first: 20 tokens a theme, 17 pairs a warning checks, and a prototype pre-paint script that painted a kept theme with no bundle in Chromium and Firefox. **Shipped and deployed 22 November 2026** (PR #107), built tests first on the 21st and 22nd, a commit per step: the full e2e suite went 275 green, the 269 before and 6 new, Vitest 1,674, every fault put back turned its cases red, the keyboard and the live repaint held in Firefox, and the built list and panel differ from the picked prototype by no pixel in 22 states. See its section |
 | 29 | Collapsing a column | S | **Planned 14 November 2026**, at the user's request: an arrow beside every column's heading, side by side, that collapses its cards and keeps its heading, hours and drop target, as Dropped already does. Remembered per board, recommended. **Workshopped 22 November 2026 in two rounds, all eleven picks the recommendation**: every column, Backlog too, remembered per board and per browser with Dropped collapsed until opened, *Collapse Completed* / *Expand Completed*, side by side only, nothing in Settings, a share folding every column for the visit; Dropped's shape, the journal's chevron before the heading, and the calendar's *Hide* turned into the same arrow. At 1440 the page with Completed collapsed goes from 4,940px to 2,400. **Built the same day, tests first**, a commit per step: the full e2e suite went 278 green, the 275 before and 3 new, Vitest 1,692, every fault put back turned its cases red, the drops and the keyboard held in Firefox, and the built board differs from the picked prototype by no pixel in 16 states. **Shipped and deployed 22 November 2026** (PR #109): frontend and docs only, Caddy alone recreated, and the stylesheet the local build's byte for byte. See its section |
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. **Workshopped 22 November 2026 in two rounds**, measured on GitHub's own repo page: the wheel rendered 88px wide on a desktop and 25 on a phone, its cell's doing, and the user's *etc.* was that the pictures were not appealing beside well-made repos. So every shot became a close crop framed on a soft backdrop of Shelf's own colours, the hero the board with a phone over its corner, each still a light and dark pair GitHub picks between by fragment so a press opens the reader's own theme, and the wheel a 656px GIF in its own column. The share link and Settings join the tour, the user's picks over a theme of your own. Every pick but that one was the recommendation. **Shipped 22 November 2026** (PR #111), built the same day, test first: `src/readme.test.ts` holds the pairs and the one picture, and nine faults put back each turned it red. On the pushed branch's own page, in Chrome and Firefox, light and dark, every still opened its own file in the reader's theme, and a reader downloads 5.0 MB against 3.0 today. No deploy: the README is GitHub's. See its section |
-| 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. See its section |
+| 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. **Checked 27 November 2026 in Chromium's source**: Chrome 153 is what paints the bar from the manifest, from the installed app's own copy, and nothing newer lets the page reach it. **(a) picked, every pick the recommendation**: a manifest per theme, System keeping today's and a theme of your own its base's. **Built the same day, tests first**: the full e2e suite went 279 green, the 278 before and 1 new, Vitest 1,706, every fault put back turned its cases red, and the pre-paint script held in Firefox. Not yet merged. See its section |
 | 32 | A queue for adding many games at once | L | **Planned 25 November 2026**, at the user's request, a workshop first: a list kept apart from the board, filled from search or from a pasted list of names matched against IGDB and never guessed, then a selection added to one column in one go, Completed with #24's year or *I don't remember*. The app's first multi-select, and where the queue lives is the workshop's to propose. A rating, hours and anything done in bulk to titles already on the board come later. See its section |
 | 33 | Month and week views of the release calendar | M | **Planned 25 November 2026**, at the user's request: a month view, and perhaps a week view, as a choice beside the *Coming soon* agenda, with a place for the titles no day fits. A week view only if the user's real calendar has enough exact days, and a phone considered from the start. See its section |
 | 34 | A better sign-in page | S–M | **Planned 25 November 2026**, at the user's request, a workshop first, in renders: the sign-in page saying what the app is before asking anyone to sign in, from the README's shots, and a sentence that no longer says *a game*. The neutral buttons, the full-bleed ground and *Account deleted* stay. See its section |
@@ -89,7 +89,7 @@ Production runs `bd0f672`'s code, which was `main` on 22 November 2026. Deployin
   2026, and it said build.**
 - **#31 first of the four.** It is a measurement and then a small decision, and the user's phone
   has taken the measurement already: what is left is whether anything newer changes it, then one
-  of three.
+  of three. **Checked, picked and built on 27 November 2026: (a).**
 - **#32 is the biggest, and a workshop before anything.** Where the queue lives, how a selection
   works on a phone, and what the paste box says about a name it cannot settle are all for renders.
 - **#33 and #34 are independent**, of each other and of #32. #33 begins by reading the user's real
@@ -6505,7 +6505,7 @@ turned a retake into a redesign.
 
 ---
 
-## 31. The installed app's bottom bar ignores the theme · planned
+## 31. The installed app's bottom bar ignores the theme · built
 
 **Planned 25 November 2026**, at the user's request: a bug, on Android. Lines were read at
 `762161f`.
@@ -6572,6 +6572,10 @@ Shelf Dark by the device's scheme.
 
 ### Decide at pickup
 
+**Picked on 27 November 2026: (a), with System keeping today's manifest and a theme of your own
+linking its base's, every pick the recommendation.** The check came first and found the cause
+rather than a way out: **What the check found**, below, and the build is **Built**.
+
 **First, check whether anything newer changes this.** The thread is from September 2025. Look for
 a Chrome or Android release since then that colours the navigation bar from the page, as an iPhone
 is reported to; whether Chrome on Android now reads a manifest's dark-scheme colours, which would
@@ -6633,6 +6637,123 @@ Which cases depends on the pick.
 - **Put the fault back:** under (a), one file's `theme_color` changed alone, and the pre-paint
   script no longer linking, each goes red, the second at the reload; under (b), the token changed
   alone.
+
+### What the check found, 27 November 2026
+
+**Something newer had changed, and it is what the phone measured.** Read in Chromium's source and
+code reviews on 27 November 2026, with Android's stable channel at 158 and 159 rolling out:
+
+- **Since Chrome 153, stable from 8 September 2026, an installed app's navigation bar is its
+  manifest's `theme_color`.** [CL 8077818](https://chromium-review.googlesource.com/c/chromium/src/+/8077818),
+  merged 6 August 2026, fixed crbug 40759522 behind `WebAppNavigationBarThemeColor`, on by
+  default; before it Chrome *"left the Android navigation bar at the platform default"*.
+  `WebappIntentDataProvider.java` takes `theme_color` alone, from the WebAPK's own copy of the
+  manifest: `background_color` has no part in it, and only the WebAPK built again changes it.
+- **Nothing colours it from the page.** `BaseCustomTabActivity.updateNavigationBarColor` runs on
+  every change of the page's `theme-color`, and outside edge to edge applies the manifest's colour
+  each time. The one change that reads the page's,
+  [CL 8227486](https://chromium-review.googlesource.com/c/chromium/src/+/8227486), picks light or
+  dark buttons, and only while the app draws edge to edge.
+- **No manifest's dark-scheme colours are read.** Their parsing was deleted on 21 May 2024,
+  [CL 5532134](https://chromium-review.googlesource.com/c/chromium/src/+/5532134), *"as this
+  feature is not shipping"*, and the parser reads one `theme_color` and one `background_color`.
+  Android keeps a dark colour's slot, which nothing fills.
+- **Edge to edge reaches an installed app only in an experiment**, `WebAppShortEdgesCutoutMode`,
+  off by default, with a second default-off switch, `enable_standalone`, for a standalone app
+  ([CL 8447912](https://chromium-review.googlesource.com/c/chromium/src/+/8447912)), and only for a
+  page declaring `viewport-fit=cover`, which this one does not. The code says *"the experiment
+  targets fullscreen web apps"*; its flag runs to M163. Chrome's general edge to edge is refused
+  in an installed app: *"Currently edge to edge only supports CCT media viewer."*
+- **(a)'s two conditions, which this section had the phone measure, were in the source.** A
+  manifest at a new address is followed while its `id` matches, and its address kept
+  (`webapk_update_data_fetcher.cc`, lines 162 to 179; the comment above them still says a moved
+  manifest is another app, from before `id`). The lag is a check on a launch once 24 hours have
+  passed, then a WebAPK built once the app is closed and the phone is charging on Wi-Fi
+  (`WebApkUpdateManager.java`, `WebappDataStorage.java`, and web.dev's page, the English one, last
+  updated 19 September 2024), and every 30 days only after a failed update. The user's
+  `about://webapks` said *Check for Updates Less Frequently* `false`.
+- **The Discourse thread had not moved**: 34 posts, the last on 3 September 2025. GitHub PRs in
+  other projects describe the same bar with Chrome versions that disagree, and nothing rests on
+  them.
+
+### Built, 27 November 2026
+
+Tests first, each shown red before it went green, on `bottom-bar-follows-theme` from `0a5514b`:
+
+| Step | What it holds |
+|---|---|
+| Red | `manifest.test.ts`'s four cases for the manifest a theme links, `theme.test.ts`'s five and one widened, and `install.spec.ts`'s one: nine red in Vitest for want of `manifestOf`, then five for want of the files and the script's link |
+| `manifestOf` | `theme.ts`: `MANIFEST`, `manifestOf`, and `applyTheme` and `applyMine` linking it, a theme of your own its base's |
+| The script | `index.html`'s pre-paint script links the stored theme's manifest, and leaves a page with no link alone |
+| The files | Seven in `public/`, `manifest-<theme>.webmanifest`, each System's with its `theme_color` line alone replaced by the theme's ground |
+| Docs | `docs/design.md`, `docs/deploy.md`, `docs/history.md`, CLAUDE.md and this section |
+
+**Decided at the build, for the user to object to:**
+
+- **Shelf Light links System's manifest** rather than a copy of its own, since the two would be
+  the same file: seven new files, where the plan said eight.
+- **`install.spec.ts` imports `THEMES` and `manifestOf` from `src/`**, the first spec to import
+  anything but a type from there, so the rule is written once in code and once in the script.
+- **The panel that makes a theme of your own moves the manifest as it tries each base**, as it
+  already moves the bar above; *Cancel* puts back the worn theme's, as it puts back the bar.
+
+### Tests
+
+**The full e2e suite went 279 green**, the 278 before and 1 new. **Vitest went 1,706 green**,
+from 1,697, and the type check, which covers `e2e/`, was clean. **In Playwright's Firefox**,
+`theme.spec.ts` 13 passed and 1 skipped: the pre-paint script, before the bundle and after.
+
+- **The files**: `manifest.test.ts`, four cases. System's for System and Shelf Light, each theme's
+  `theme_color` its ground, every other field System's, and no manifest in `public/` that no theme
+  links.
+- **The script and the bundle**: `theme.test.ts`. The script linking every theme's manifest, and
+  System's for System and for a value no theme answers; nothing else lost on a page with no link;
+  `applyTheme` moving it; a theme of your own linking its base's, worn and before the bundle; and a
+  record the script cannot read keeping System's.
+- **Chrome itself**: `install.spec.ts`, in full Chromium, after a reload for each theme and for a
+  theme of your own: the manifest Chrome reads, its `theme_color` the ground the page paints, and
+  `in-incognito` the only reason not to install.
+
+### Checked by putting each fault back
+
+One at a time against the finished build, each file restored after its run:
+
+| Fault | Red |
+|---|---|
+| Dusk's `theme_color` drifts in its file alone | *gives the installed app's bar at the bottom each theme's ground* |
+| Ember's manifest gets an `id` of its own | *differs from System's in its theme_color alone, so the installed app stays one app* |
+| The pre-paint script no longer links | *is the stored theme's before the first paint, and System's for System* and *links its base's manifest before the bundle too*; and in Chromium `install.spec.ts`'s new case at its first reload, Frost's manifest expected and System's read |
+| The script's guard for a page with no link removed | *costs the script nothing else when the page links none*, and two of a theme of your own's cases before the bundle |
+
+### What the plan got wrong, or left out
+
+- **The newer thing was the cause, not a fix.** The plan read the thread as Chrome not reading the
+  page. Chrome 153 is what began painting the bar from the manifest at all, and the thread is
+  from a year before it, when the bar was Android's own.
+- **Both of (a)'s conditions were readable in Chromium's source**, where the plan had the phone
+  measure them. The phone still proves them after the deploy, because the update fetcher's comment
+  and its code disagree.
+- **`theme_color` alone**, which the plan could not separate from `background_color`: the source
+  does, so every file keeps the paper as its `background_color`.
+- **The plan's test list had System link the device's scheme's manifest.** The pick kept System on
+  today's, so no case asks for one.
+- **Nothing in the plan said the script must survive a page with no link.** An exception there
+  skips the density and the journal, and three tests found it.
+
+### On the phone, after the deploy
+
+The measurement's own steps (the memory *Jimmy uses Android*), as web.dev's page has them for an
+update asked for by hand. Without them the app updates itself on the first night it is closed on a
+charger and Wi-Fi, once a day has passed since its last check.
+
+1. **Dusk chosen**, plugged in and on Wi-Fi: close the installed app and force stop it in Android's
+   app settings. In Chrome, `about://webapks`, *Update* under HobbyTracker, and *Update Status*
+   says *Pending*.
+2. **Open the app**, let the board load, and close and force stop it again. Within a few minutes
+   *Update Status* says *Successful* and *Theme color* `#2a323c`.
+3. **Open it and sample the bar at the bottom**, as on 25 November: Dusk's ground. Then Shelf Light,
+   whose bar is the paper by choice now, and a theme of your own, whose bar is its base's ground,
+   each after steps 1 and 2 again.
 
 ---
 

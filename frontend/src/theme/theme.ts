@@ -83,6 +83,28 @@ export type JournalView = (typeof JOURNAL_VIEWS)[number]['value'];
 /** One of the eight: a theme with a block of its own in index.css, which System is not. */
 export type NamedTheme = Exclude<Theme, 'system'>;
 
+/** The manifest index.html links: System's, in Shelf Light's paper. */
+export const MANIFEST = '/manifest.webmanifest';
+
+/**
+ * The manifest a theme links, for the installed app's bar at the bottom (#31).
+ *
+ * Since Chrome 153 an installed app's navigation bar is its manifest's `theme_color`, read from
+ * the copy Chrome keeps when it builds the app, and no tag on the page reaches it. So each theme
+ * links a manifest of its own, in its own ground and otherwise System's, and Chrome builds the app
+ * again with it the next time it checks: at most once a day, and then once the phone is charging
+ * on Wi-Fi. System keeps the one index.html links, which is Shelf Light's, since a bar that far
+ * behind could never follow the device at sunset. A theme of your own links its base's: every
+ * manifest is a file in public/, and one for any colour would need a route to write it. The
+ * pre-paint script repeats the rule, and `theme.test.ts` runs it for every theme to hold the two
+ * together.
+ */
+export function manifestOf(theme: Theme): string {
+  return theme === 'system' || theme === 'shelf-light'
+    ? MANIFEST
+    : `/manifest-${theme}.webmanifest`;
+}
+
 /**
  * The twenty custom properties every palette block in index.css sets, in its order. What a theme
  * *is*, and so what a theme of your own has to say: `palettes.test.ts` holds every block to this
@@ -272,10 +294,14 @@ export function storeJournalView(view: JournalView): void {
  * A theme of your own worn before this takes all of its inline values off first, System included:
  * they sit over the base's block, where they outrank any selector, so one left behind would paint
  * over the theme chosen now, with no error.
+ *
+ * And it links the theme's manifest, for the installed app's bar at the bottom, which reads no
+ * tag: see `manifestOf`. A theme chosen and installed from the same tab is built with it.
  */
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
   takeOffMine(root);
+  linkManifest(theme);
 
   if (theme === 'system') {
     root.removeAttribute(THEME_ATTRIBUTE);
@@ -296,10 +322,14 @@ export function applyTheme(theme: Theme): void {
  * anything not kept, every kept value inline over it, its `color-scheme`, and the bar above the
  * page in its own ground. The pre-paint script does the same on a load; this does it when one is
  * kept, chosen, or tried in the panel that makes it, which wears each change as it is made.
+ *
+ * The bar at the bottom is its base's: it links its base's manifest, for the reason `manifestOf`
+ * gives.
  */
 export function applyMine(mine: Mine): void {
   const root = document.documentElement;
   takeOffMine(root);
+  linkManifest(mine.from);
 
   root.setAttribute(THEME_ATTRIBUTE, mine.from);
   for (const [name, value] of Object.entries(mine.tokens)) {
@@ -345,6 +375,11 @@ function setBar(colour: string): void {
   bar.name = 'theme-color';
   bar.content = colour;
   document.head.insertBefore(bar, document.head.querySelector('meta[name="theme-color"]'));
+}
+
+/** The theme's manifest, in place of whichever the page links. */
+function linkManifest(theme: Theme): void {
+  document.head.querySelector('link[rel="manifest"]')?.setAttribute('href', manifestOf(theme));
 }
 
 /** Density has no system to defer to, so it is always stamped. */

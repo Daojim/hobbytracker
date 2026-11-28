@@ -44,7 +44,7 @@ two densities in Settings beside it (#27).
 | Card size | **From its column, not the window** — the cover and the title are sized in `cqi` |
 | Nav | **A tab row under the header.** Games live, the other five dim and marked *Soon*. **Since #27, any but the board you're on can be taken off it in Settings**, Books and Music among them |
 | Icon | **A journal with three of the hobbies stuck on its cover, on Shelf Light's paper**: a controller, a TV and headphones as stickers on a black notebook. In a tab, one sticker. Picked on 3 October 2026 from eight drawings, over the recommended Telly, in place of the first icon's two covers and a tick. See **The icon, and the bar above the page** |
-| The bar above the page | **Each theme's ground**, on Android in Chrome and in the installed app. System's follows the device's scheme. An iPhone ignores the tag |
+| The bars above and below the page | **Each theme's ground**, on Android in Chrome and in the installed app: the bar above from the page's tag, and since #31 the installed app's bar at the bottom from **a manifest per theme**, a day or so behind a change. System's bar above follows the device's scheme and its bar below stays Shelf Light's paper; a theme of your own's bar below is its base's ground. An iPhone ignores the tag. See **The icon, and the bar above the page** |
 
 The user's own words on red, which is the principle the whole theme layer is shaped around:
 
@@ -65,7 +65,8 @@ available. A fact about the ground rather than a preference, and the contrast te
 
 **`src/index.css` is the only file in the app that names a colour.** The exceptions are things a
 browser reads before any stylesheet exists: the pre-paint script's bar colours and System's two
-`theme-color` tags in `index.html`, the web manifest's two colours, and the icon's drawings. Every copy
+`theme-color` tags in `index.html`, the web manifests' colours, one manifest per theme since #31,
+and the icon's drawings. Every copy
 that has to agree with this file is held to it by a test. See **The icon, and the bar above the
 page**. Each theme is one block of custom properties; `@theme inline` turns each into a utility. **The `inline` is the mechanism and not a
 detail**: without it a utility resolves to whatever the variable held at build time, so no attribute
@@ -208,7 +209,7 @@ Each is invisible in development and each has a test that was checked by breakin
   **The wrapper needs `bg-sunken text-fg`**, which `BoardPage`'s `<main>` carries. Without them the
   text colour resolves at `<body>`, outside the theme, and the first shots had black titles on dark
   cards.
-- **A new theme has three lists to join, and there used to be a fourth that failed silently.**
+- **A new theme has four lists to join, and there used to be a fifth that failed silently.**
   `THEMES` in `src/theme/theme.ts` is what the menu reads; the pre-paint script in `index.html`
   carries its own literal copy and stamps *nothing* for a name outside it — deliberately, since that
   is also how an unknown stored value falls back to the system palette. So a theme missing from that
@@ -217,9 +218,13 @@ Each is invisible in development and each has a test that was checked by breakin
   reads `index.html` and holds it, as `index.css.test.ts` holds the palette block. **That copy
   carries each theme's ground too**, for the bar above the page, so a new theme's entry there
   needs its `--sunken` as well. Leaving it out fails *gives the bar above the page each theme's
-  ground*.
+  ground*. **The fourth is a manifest of its own** in `public/`, `manifest-<name>.webmanifest`,
+  for the installed app's bar at the bottom (#31), which is System's in everything but
+  `theme_color`. Leaving it out fails *gives the installed app's bar at the bottom each theme's
+  ground*, and one left behind by a theme that is gone fails *is the only kind of manifest in
+  public/*.
 
-  **The fourth was `PALETTES` in `index.css.test.ts`, and nothing checked it against the menu.** A
+  **The fifth was `PALETTES` in `index.css.test.ts`, and nothing checked it against the menu.** A
   theme left out of that hand-kept list arrived with *no contrast assertions at all* — on precisely
   the measurements a brand-new palette is likeliest to get wrong — and the suite stayed green saying
   so. It is derived from `THEMES` now, the way `BOARD_STATUSES` is derived from `COLUMNS`. Proved by
@@ -1424,8 +1429,43 @@ ground, `--sunken`:
 - **A theme of your own's bar is its own ground**, kept with it, before the bundle and after; or its
   base's, where the kept ground is not a colour. In the panel that makes one, the bar follows the
   ground as it is picked.
-- **The manifest's `theme_color` and `background_color` are Shelf Light's ground**: the bar
-  before the page has loaded, and the splash. A manifest cannot follow a stored setting.
+- **System's manifest, the one `index.html` links, is Shelf Light's ground in both colours**:
+  `theme_color` is the bar before the page has loaded, and `background_color` the splash.
+
+**The installed app's bar at the bottom follows the theme too, a day or so behind (#31).** Measured
+on the user's Android phone on 25 November 2026, in the app installed through Chrome, with Dusk
+chosen and the app closed and opened again: the status bar at the top was Dusk's ground,
+`#2a323c`, and the navigation bar at the bottom `#efe9e1`, the manifest's. Chromium's own source,
+read on 27 November 2026, says why. Since Chrome 153, stable from 8 September 2026
+([CL 8077818](https://chromium-review.googlesource.com/c/chromium/src/+/8077818)), an installed
+app's navigation bar is its manifest's `theme_color`, that field alone, read from the copy kept in
+the installed app when Google's server built it; before 153, Chrome left the bar to Android. It is
+applied again on every change of the page's `theme-color`, in the manifest's colour each time. The
+page reaches the bar only while the app draws edge to edge, and an installed app does that only in
+an experiment that is off by default, with a second switch for a standalone one
+([CL 8447912](https://chromium-review.googlesource.com/c/chromium/src/+/8447912)). So:
+
+- **A chosen theme links a manifest of its own**, `public/manifest-<theme>.webmanifest`: System's
+  in everything but `theme_color`, which is the theme's ground. The pre-paint script links it on a
+  load and `applyTheme` when the theme changes, by `manifestOf` in `theme.ts`, whose rule the script
+  repeats and `theme.test.ts` holds. `background_color` stays the paper, because the icon is drawn
+  on it.
+- **Chrome builds the app again with it the next time it checks**: on a launch, at most once a
+  day, and then once the app is closed and the phone is charging on Wi-Fi (`WebApkUpdateManager`,
+  and web.dev's *How Chrome handles updates to the web app manifest*). It follows a manifest at a
+  new address because the `id` is the same (`webapk_update_data_fetcher.cc`), which is why every
+  other field is held to System's. `about://webapks` asks for an update by hand, and shows each
+  installed app's *Theme color* and *Check for Updates Less Frequently*, which was `false` on the
+  user's phone: checks every 30 days instead of every day are what a failed update leaves behind.
+- **System keeps today's manifest**, since a bar a day behind could never follow the device at
+  sunset, and Shelf Light shares it. **A theme of your own links its base's**, so its bar at the
+  bottom is its base's ground: a manifest is a file, and one for any colour would need a route to
+  write it. Both were the recommendation, picked with the rest on 27 November 2026.
+- **Nothing else would have done it.** Chrome reads no dark-scheme colours from a manifest: the
+  parsing was deleted on 21 May 2024, *"as this feature is not shipping"*
+  ([CL 5532134](https://chromium-review.googlesource.com/c/chromium/src/+/5532134)). A manifest
+  with no `theme_color` would hand the bar back to Android's own light or dark, which follows the
+  device rather than the theme, and was not measured.
 
 **An iPhone takes none of this.** Several developers report that Safari 26 ignores `theme-color`
 and takes its bars' colour from the page's own background, or from a fixed bar at the top. **The
@@ -1467,6 +1507,13 @@ What fails quietly here, each found while building it:
   of them, so a misspelled id takes a border, a shadow or a whole object out of the tab and every
   PNG alike. `manifest.test.ts` holds that every drawing names only parts it defines, checked red with
   one id misspelled.
+- **A manifest's `id` is the app.** A theme's manifest with an `id` of its own would be another app
+  to Chrome, which would never update the installed one from it, and nothing would fail: the bar
+  at the bottom would simply stay as it was. `manifest.test.ts` holds every field but
+  `theme_color` to System's, checked red with Ember's `id` changed.
+- **An exception in the pre-paint script skips the rest of it.** The density and the journal are
+  stamped after the manifest is linked, so the script leaves a page with no manifest link alone,
+  as jsdom's is. Without that check three tests went red, two of them a theme of your own's.
 
 ### The hobby nav
 

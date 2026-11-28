@@ -300,7 +300,8 @@ serves the new build, so prove that from outside:
 - **A change to the manifest or the icons is served as what it is.** `curl -I
   <origin>/manifest.webmanifest` says `application/manifest+json`, and `curl -I
   <origin>/icon-512.png` says `image/png`. `text/html` means the file is missing and `try_files`
-  answered with the page.
+  answered with the page. **Since #31 there is a manifest per theme**, and each is asked:
+  `manifest-frost.webmanifest` and the six beside it, the names `manifestOf` in `theme.ts` gives.
 - **A change to the icons alone is proved by their bytes.** The bundle keeps its name, which
   proves nothing either way. Hash each icon `<origin>` serves against the committed file, before
   the deploy and after it, for all six: `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`,
