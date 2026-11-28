@@ -950,31 +950,41 @@ public sealed class LibraryService(
 
     public async Task ReorderAsync(ReorderRequest request, CancellationToken cancellationToken)
     {
-        // Only the entries that currently decide a card's place in *this* column. Anything the
-        // caller listed that has since moved elsewhere simply is not here — a board loaded a
-        // moment ago can legitimately be one drag out of date, and failing the whole request
-        // over that would strand the user's reorder.
+        // The whole column in the order you put it in, every year of it: the entries that decide
+        // a card's place in *this* column. Anything the caller listed that has since moved
+        // elsewhere simply is not here — a board loaded a moment ago can legitimately be one drag
+        // out of date, and failing the whole request over that would strand the user's reorder.
         // Default, so a reorder acts on the column as it is drawn: an unreleased title is on the
-        // calendar rather than in the well, and is not one of the cards being dragged past.
-        var inColumn = await Filtered(
-                BoardQuery(user.Id), request.Hobby, request.Status, year: null,
-                LibraryPartition.Default, clock.Today)
-            .Where(row => request.MediaIds.Contains(row.Media.Id))
+        // calendar rather than in the well, keeps the number it has, and is not one of the cards
+        // being dragged past.
+        var column = await Sorted(
+                Filtered(
+                    BoardQuery(user.Id), request.Hobby, request.Status, year: null,
+                    LibraryPartition.Default, clock.Today),
+                LibrarySort.Manual)
             .Select(row => new { MediaId = row.Media.Id, Entry = row.Latest })
             .ToListAsync(cancellationToken);
-
-        if (inColumn.Count == 0)
-        {
-            return;
-        }
 
         var rank = request.MediaIds
             .Select((mediaId, index) => (mediaId, index))
             .ToDictionary(pair => pair.mediaId, pair => pair.index);
 
-        foreach (var row in inColumn)
+        // What was sent, in the order sent, and then every title that was not, in the order it
+        // had (#35). A board sends what it draws, which is not always the column: 100 cards of
+        // 140 until a press loads the rest, and under a year that year's titles alone. Numbering
+        // only what was sent left the rest at their old numbers among the new ones, so the 40
+        // never loaded rose over the hundred a drag had just ordered, and a year's drag
+        // interleaved Completed under All years card by card, every year dragged in holding 0
+        // upward. Under a year, the year dragged in goes above every other year's as a block.
+        var sent = column
+            .Where(row => rank.ContainsKey(row.MediaId))
+            .OrderBy(row => rank[row.MediaId]);
+        var rest = column.Where(row => !rank.ContainsKey(row.MediaId));
+
+        var position = 0;
+        foreach (var row in sent.Concat(rest))
         {
-            row.Entry.Position = rank[row.MediaId];
+            row.Entry.Position = position++;
         }
 
         await db.SaveChangesAsync(cancellationToken);

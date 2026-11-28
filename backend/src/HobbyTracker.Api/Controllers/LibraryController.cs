@@ -213,7 +213,9 @@ public class LibraryController(ILibraryService library) : ControllerBase
     /// Stores the manual ranking of one column, top first.
     ///
     /// Titles that have since moved out of the column are ignored rather than rejected — a
-    /// board loaded a moment ago can legitimately be one drag out of date.
+    /// board loaded a moment ago can legitimately be one drag out of date. Titles in the column
+    /// that were not sent go after the ones that were, in the order they had: a board sends what
+    /// it draws, which is its first pages, or one year of the column (#35).
     /// </summary>
     [HttpPut("order")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]

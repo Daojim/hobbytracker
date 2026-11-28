@@ -7424,9 +7424,22 @@ infinite query of step 3.
    `docs/history.md`, and CLAUDE.md: **Small things** loses *A board column stops at 100 titles*,
    and **Settled** and **What exists** gain the column's Load more.
 
-**Where it stands.** Branch `column-load-more` from `queue-for-adding-many` at `7a3ed7b` holds this
-section's workshop record and its status row, **uncommitted**. The workshop's Vite server is
-stopped. Nothing of the build is begun.
+**Where it stands.** Branch `column-load-more`, from `queue-for-adding-many` at `7a3ed7b`, with
+this section's workshop record and its status row committed at `1db4658`. The workshop's Vite
+server is stopped.
+
+- **Step 1 is built.** `ReorderAsync` reads the whole column in My order, every year of it, and
+  numbers it from 0: what was sent first, in the order sent, then the rest in the order it had.
+  Three tests in `LibraryOrderingTests`. On the old code the first two were red, the 40 not sent
+  risen over the hundred dragged and 2025's and 2024's finishes over the 2026 block under All
+  years, and the third was green, as it should be there. The backend suite 1,146 green.
+
+| Fault put back | What goes red |
+|---|---|
+| Only the ids sent numbered | *the first hundred … leaves the rest below*, and *under a year puts that year's titles above* |
+| The ids sent read wherever they are, and only they numbered | those two, and *a title that has left the column is still ignored where it went* |
+
+Steps 2 to 6 are not begun.
 
 ---
 
