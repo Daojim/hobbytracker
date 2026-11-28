@@ -7439,7 +7439,22 @@ server is stopped.
 | Only the ids sent numbered | *the first hundred … leaves the rest below*, and *under a year puts that year's titles above* |
 | The ids sent read wherever they are, and only they numbered | those two, and *a title that has left the column is still ignored where it went* |
 
-Steps 2 to 6 are not begun.
+- **Step 2 is built.** *Title*, *Rating* and *Length* each end on `Latest.Id` descending. The test
+  is a theory over all five sorts: 140 titles tied on name, rating and length, built as adds
+  build them, read in pages of 100, read newest pass first in every sort. On the old code *Title*,
+  *Rating* and *Length* were red and *My order* and *Added* green. **Red on the order, not on a
+  repeat**, as the plan feared: on a fresh table Postgres gave the 140 ties back in insertion
+  order on both pages, 140 titles each once, so a page repeating a card was not seen here. The
+  rule the test holds is the newest pass first, which is what a tie-break promises whatever
+  Postgres does. The backend suite 1,151 green.
+
+| Fault put back | What goes red |
+|---|---|
+| The tie-break off *Rating* | the theory's *Rating* case alone |
+| The tie-break off *Title* | its *Title* case alone |
+| The tie-break off *Length* | its *Length* case alone |
+
+Steps 3 to 6 are not begun.
 
 ---
 

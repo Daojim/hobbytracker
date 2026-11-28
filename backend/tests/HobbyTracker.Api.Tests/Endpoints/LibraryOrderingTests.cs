@@ -193,6 +193,40 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         column.Items.Select(item => item.Title).ShouldBe(["Great", "Good", "Unrated"]);
     }
 
+    [Theory]
+    [InlineData(LibrarySort.Manual)]
+    [InlineData(LibrarySort.Added)]
+    [InlineData(LibrarySort.Title)]
+    [InlineData(LibrarySort.Rating)]
+    [InlineData(LibrarySort.Length)]
+    public async Task Every_sort_breaks_a_tie_newest_pass_first_so_two_pages_hold_each_title_once(
+        LibrarySort sort)
+    {
+        // A column past 100 is read a page at a time (#35), and Postgres promises no order among
+        // rows that tie from one request to the next: page two can repeat a card page one showed
+        // and skip another. So every sort ends on the newest pass first, My order's own
+        // tie-break, and a column tied on everything reads newest first whichever it is in.
+        // Built as adds build one, so My order is newest first too.
+        var column = await GivenBacklogOfAsync(140);
+        await WithDbAsync(async db =>
+        {
+            foreach (var entry in await db.LogEntries.ToListAsync(Ct))
+            {
+                entry.Rating = 8m;
+            }
+
+            foreach (var game in await db.Games.ToListAsync(Ct))
+            {
+                game.Title = "Tied";
+                game.HltbAllStylesHours = 20m;
+            }
+
+            await db.SaveChangesAsync(Ct);
+        });
+
+        (await WholeColumnAsync(LogStatus.Backlog, sort: sort)).ShouldBe(column);
+    }
+
     [Fact]
     public async Task Viewing_a_column_sorted_does_not_disturb_the_stored_ranking()
     {
@@ -572,7 +606,8 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
     }
 
     /// <summary>A whole column, top first, read a page of 100 at a time as a board reads one.</summary>
-    private async Task<List<int>> WholeColumnAsync(LogStatus status, int? year = null)
+    private async Task<List<int>> WholeColumnAsync(
+        LogStatus status, int? year = null, LibrarySort? sort = null)
     {
         var ids = new List<int>();
 
@@ -580,6 +615,7 @@ public sealed class LibraryOrderingTests(PostgresFixture postgres) : DatabaseTes
         {
             var url = $"/api/library?hobby=games&status={status}&page={page}&pageSize=100";
             if (year is { } wanted) url += $"&year={wanted}";
+            if (sort is { } chosen) url += $"&sort={chosen}";
 
             var column = await ReadAsync<PagedResult<LibraryItemDto>>(await Client.GetAsync(url, Ct));
             ids.AddRange(column.Items.Select(item => item.MediaId));
