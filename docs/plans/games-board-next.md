@@ -7483,7 +7483,47 @@ server is stopped.
 | A segment counting the cards loaded rather than the column | *counts a column past a page whole* |
 | A share's column asking for no page | the share's *offers a column past a page the same Load more* |
 
-Steps 4 to 6 are not begun.
+- **Step 4 is built.** The foot as picked in `ColumnFrame`: *Showing 100 of N* over *Load
+  more* in Discover's classes, centred at its own width, `mt-cardgap` above; *Loading…*,
+  disabled, while a page comes; a later page's failure in red over the button, the column's top
+  line keeping only the first page's; nothing collapsed, and nothing once every page is in. The
+  keyboard goes to the first card a press added, found by its place among the cards'
+  `data-card-name` headings: its title button on your board, and on a share the name itself,
+  which `CardFace` makes focusable from script, `tabIndex={-1}`, wherever it has no handlers.
+  **Asked at the build: a share's keyboard lands on the first new card's name**, the user's pick,
+  the recommendation, over staying on the button and over the column's heading. Seven tests in
+  `Column.test.tsx` and one in `SharedBoardPage.test.tsx`: four red first (*Loading…*, the
+  failure by the button, the keyboard on your board and on a share), and four guarding picks the
+  plain button already met (the line over the button and nothing at the end, nothing collapsed
+  with the pages kept, and the keyboard left where a reader took it). Vitest 1,721 green.
+- **Decided at the build:** a press hands the keyboard over only while it is where the press
+  left it, on the button or nowhere, so somebody who moved on while the page came keeps their
+  place, Discover's rule for its tiles; and **a failed page hands it back to the button**, which
+  Discover does not. Chromium blurs a button as it is disabled, so without it a reader on the
+  keyboard was left on nothing, and Tab from there skips the button that is the retry. The app's
+  own retries stand, three with backoff for a 5xx, so a failed page says so after about seven
+  seconds of *Loading…*; the workshop's prototype asked once.
+- **Against the picked prototype:** `shoot-built.mjs` beside the workshop's script, the same
+  stage, run on the built app with no swaps, in the picked states alone. All 16 shots are the
+  prototype's byte for byte, at 1440 in both themes and at 390, before a press, at the end,
+  *Loading…*, a failed page, collapsed and on a share; 15 of the 16 measures are the same to the
+  pixel, and the 16th is the keyboard after a failed page: the prototype's on the page's body,
+  the built one's on *Load more*. That is the hand-back measured in Chromium, which jsdom, never
+  blurring a disabled button, cannot show.
+
+| Fault put back | What goes red |
+|---|---|
+| *Loading…* never said, and the button pressable while a page comes | *says Loading… on a button that takes no press* |
+| A later page's failure said at the top of the column | *says why a page did not come over its button* |
+| The keyboard left on the button after a page comes | *hands the keyboard to the first card a press added*, and the share's *to the first new card's name* |
+| The keyboard taken from wherever a reader went | *leaves the keyboard where a reader took it* |
+| A share's card name not focusable | the share's *to the first new card's name* |
+| The foot drawn while collapsed | *shows no Load more collapsed* |
+| A line where the button was once every page is in | *says how much of it is showing … and nothing once every page is in* |
+| The line under the button | the same case |
+| **The keyboard not handed back to the button after a page fails** | **nothing in Vitest**: jsdom keeps the keyboard on a disabled button. Measured in Chromium above, and step 5's e2e is to hold it |
+
+Steps 5 and 6 are not begun.
 
 ---
 

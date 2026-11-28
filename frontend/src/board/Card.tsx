@@ -290,8 +290,16 @@ export function CardFace({ item, onMove, removal, leaving, menu, onOpen, shows }
             constraints already decide it — 8px of mouse travel, or a finger held still for a
             quarter of a second: short of that the drag never begins and the click lands, and
             past it dnd-kit adds a capture-phase click listener of its own, so the press that
-            moved a card cannot also open its drawer. */}
-        <h3 className="text-card font-medium break-words">
+            moved a card cannot also open its drawer.
+
+            Marked as a card's name for Load more (#35), which hands the keyboard to the first
+            card a press added: its title, or on a share's face, with nothing to press, the name
+            itself, focusable from script and never a stop for Tab, as a Discover tile's is. */}
+        <h3
+          data-card-name=""
+          tabIndex={onOpen === undefined ? -1 : undefined}
+          className="text-card font-medium break-words"
+        >
           {onOpen === undefined ? (
             item.title
           ) : (

@@ -328,7 +328,15 @@ export function ColumnFrame({
 
   // Every page loaded so far, the next a press (#35). A poll asks for all of them again, as every
   // refetch does, so the cards a reader has loaded stay loaded.
-  const { data, isPending, error, hasNextPage, fetchNextPage } = useInfiniteQuery({
+  const {
+    data,
+    isPending,
+    error,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+  } = useInfiniteQuery({
     ...columnPages(request),
 
     // A function rather than a number, and that is load-bearing. TanStack calls this to schedule
@@ -353,6 +361,50 @@ export function ColumnFrame({
   useEffect(() => {
     setPollUntil(waiting === '' ? 0 : Date.now() + ESTIMATE_POLL_BUDGET_MS);
   }, [waiting]);
+
+  // Where the keyboard goes once a press of Load more has its answer (#35), set after the answer
+  // and taken in an effect, once the cards it brought are drawn and the button is enabled again.
+  const cards = useRef<HTMLDivElement>(null);
+  const loadButton = useRef<HTMLButtonElement>(null);
+  const [handOff, setHandOff] = useState<{ to: 'card'; index: number } | { to: 'button' } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (handOff === null) {
+      return;
+    }
+
+    if (handOff.to === 'button') {
+      loadButton.current?.focus();
+      return;
+    }
+
+    // The first card the page added, by its place among the cards: its title, which opens its
+    // journal, or on a share, where a card has nothing to press, its name, which a face with no
+    // handlers makes focusable from script alone. See CardFace.
+    const name = cards.current?.querySelectorAll<HTMLElement>('[data-card-name]')[handOff.index];
+    (name?.querySelector<HTMLElement>('button') ?? name)?.focus();
+  }, [handOff]);
+
+  const loadMore = () => {
+    const from = items.length;
+
+    void fetchNextPage().then((result) => {
+      // Only while the keyboard is where the press left it: on the button, or nowhere, which is
+      // where Chromium puts it when the button is disabled under it. Somebody who went elsewhere
+      // while the page came keeps their place.
+      const active = document.activeElement;
+      if (active !== null && active !== document.body && active !== loadButton.current) {
+        return;
+      }
+
+      // To the first card the press added, which arrived above the button: left on the button, a
+      // reader on a keyboard would go back up through every one of them to reach it. Discover's
+      // rule. And back to the button when the page failed, since a press again is the retry.
+      setHandOff(result.isError ? { to: 'button' } : { to: 'card', index: from });
+    });
+  };
 
   const muted = status === 'Dropped';
   const definition = hobbyDefinition(hobby);
@@ -428,10 +480,14 @@ export function ColumnFrame({
         )}
       </div>
 
+      {/* Collapsed, no cards and so no Load more, its pages kept for when it opens again: the
+          query is the frame's, and the frame is there either way (#35). */}
       {!collapsed && (
-        <div className="flex flex-1 flex-col gap-cardgap">
+        <div ref={cards} className="flex flex-1 flex-col gap-cardgap">
           {isPending && <p className="text-sm text-muted">Loading…</p>}
-          {error !== null && (
+          {/* A later page that failed says so by the button instead, under the cards it leaves
+              in place: Discover's rule. */}
+          {error !== null && !isFetchNextPageError && (
             <p role="alert" className="text-sm text-danger">
               {error.message}
             </p>
@@ -442,16 +498,37 @@ export function ColumnFrame({
           {data !== undefined && items.length === 0 && (
             <p className="text-sm text-muted">Nothing here yet.</p>
           )}
-          {/* While the column has pages left, and nothing once every page is in (#35). */}
+
+          {/* While the column has pages left: today's line over Discover's button, word for word
+              and at its own width at every width, the picks from renders on 28 November 2026 over
+              the button alone and over "Load 15 more". The one foot that says how many are left
+              when the heading is far up the page, and it changes nothing that was there. Twice
+              the gap between cards above it, so it never reads as another card. And nothing once
+              every page is in, the column ending as every column ends, the pick over a line
+              saying so. */}
           {hasNextPage && (
-            <>
-              <p className="text-xs text-muted">
+            <div className="mt-cardgap flex flex-col items-center gap-2">
+              <p className="text-center text-xs text-muted">
                 Showing {items.length} of {total}
               </p>
-              <button type="button" onClick={() => void fetchNextPage()}>
-                Load more
+
+              {isFetchNextPageError && (
+                // Pressing the button again is the retry, so it stays where it is, under this.
+                <p role="alert" className="text-center text-sm text-danger">
+                  {error?.message}
+                </p>
+              )}
+
+              <button
+                ref={loadButton}
+                type="button"
+                disabled={isFetchingNextPage}
+                onClick={loadMore}
+                className="h-9 rounded border border-line bg-surface px-6 text-sm font-medium hover:bg-hover disabled:opacity-50"
+              >
+                {isFetchingNextPage ? 'Loading…' : 'Load more'}
               </button>
-            </>
+            </div>
           )}
         </div>
       )}

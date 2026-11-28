@@ -130,6 +130,21 @@ describe('SharedBoardPage', () => {
       expect(share.queriesFor('Backlog').map((query) => query.get('page'))).toEqual(['1', '2']);
     });
 
+    it('hands the keyboard to the first new card’s name, a card having nothing to press', async () => {
+      // On your board the keyboard goes to the first new card's title, which opens its journal.
+      // A share's card is its face alone, so its name takes it, focusable from script and never
+      // a stop for Tab, as a Discover tile's name is: the user's pick at #35's build.
+      sharedServer({ columns: { Backlog: manyGames(140) }, years: [2026] });
+      renderShare();
+
+      const backlog = await screen.findByRole('region', { name: 'Backlog 140' });
+      await userEvent.click(await within(backlog).findByRole('button', { name: 'Load more' }));
+
+      const name = await within(backlog).findByRole('heading', { name: 'Game 101' });
+      await waitFor(() => expect(name).toHaveFocus());
+      expect(name).toHaveAttribute('tabindex', '-1');
+    });
+
     it('offers no way to pick what to play from the owner’s Backlog', async () => {
       // The picker moves a title to Playing, and a share moves nothing. Its way in is handed to
       // your board's Backlog alone, so a share's frame is never given one.
