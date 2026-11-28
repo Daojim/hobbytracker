@@ -65,7 +65,7 @@ named symbol if a line has moved. Lines were read at `162db83` unless a section 
 | 30 | The README, refreshed | S–M | **Planned 20 November 2026**, at the user's request, **after #25 to #29**: shots that open bigger on GitHub, which none does today because each is a `<picture>`, a wheel larger than its 360px GIF shown at 300, and whatever else the workshop finds behind. **Workshopped 22 November 2026 in two rounds**, measured on GitHub's own repo page: the wheel rendered 88px wide on a desktop and 25 on a phone, its cell's doing, and the user's *etc.* was that the pictures were not appealing beside well-made repos. So every shot became a close crop framed on a soft backdrop of Shelf's own colours, the hero the board with a phone over its corner, each still a light and dark pair GitHub picks between by fragment so a press opens the reader's own theme, and the wheel a 656px GIF in its own column. The share link and Settings join the tour, the user's picks over a theme of your own. Every pick but that one was the recommendation. **Shipped 22 November 2026** (PR #111), built the same day, test first: `src/readme.test.ts` holds the pairs and the one picture, and nine faults put back each turned it red. On the pushed branch's own page, in Chrome and Firefox, light and dark, every still opened its own file in the reader's theme, and a reader downloads 5.0 MB against 3.0 today. No deploy: the README is GitHub's. See its section |
 | 31 | The installed app's bottom bar ignores the theme | S | **Planned 25 November 2026**, at the user's request: a bug, measured that day on the user's Android phone. With Dusk chosen and the app closed and reopened, the status bar at the top is Dusk's ground and the navigation bar at the bottom is the manifest's `theme_color`, Shelf Light's, which a stored setting cannot change. First whether anything newer changes that, then a manifest that follows the theme, one fixed colour, or leaving it and saying why. `docs/design.md` gains the measurement whichever is picked. **Checked 27 November 2026 in Chromium's source**: Chrome 153 is what paints the bar from the manifest, from the installed app's own copy, and nothing newer lets the page reach it. **(a) picked, every pick the recommendation**: a manifest per theme, System keeping today's and a theme of your own its base's. **Built the same day, tests first**: the full e2e suite went 279 green, the 278 before and 1 new, Vitest 1,706, every fault put back turned its cases red, and the pre-paint script held in Firefox. **Shipped and deployed 27 November 2026** (PR #113): frontend and docs only, api and caddy both recreated because `aspnet:10.0` had moved, the stylesheet the local build's byte for byte, and every manifest served as one and the commit's bytes. **On the user's phone the same evening, a fresh install wore the theme at the bottom**; an installed app's update to a new theme is yet to be seen. See its section |
 | 32 | A queue for adding many games at once | L | **Planned 25 November 2026**, at the user's request, a workshop first: a list kept apart from the board, filled from search or from a pasted list of names matched against IGDB and never guessed, then a selection added to one column in one go, Completed with #24's year or *I don't remember*. The app's first multi-select, and where the queue lives is the workshop's to propose. A rating, hours and anything done in bulk to titles already on the board come later. **Workshopped 27 November 2026, every pick the recommendation**, 26 of them: round one in words, then the user's own pasted list run live through the app's search, which picked the rule (a name or one of IGDB's alternative names, then the part after the colon, a tie asked: seven of the nine matched, none wrong), then round two in renders and four follow-ups. A page of its own at `/board/:hobby/queue`, found lines into the queue at once, a box on every row with Shift-click, the bar under the heading and at a phone's foot, a fourth quarter on every tile, *Open your queue* under the search box. **Load more on a column first, as #35, so this build waits for it.** See its section |
-| 35 | A column's Load more | S–M | **Planned 27 November 2026, at #32's workshop**, the user's pick: a *Load more* under a column past 100 titles, on Discover's shape, built as its own PR **before #32**. Completed holds 75 under All years. What a drag does in a column partly loaded is its main question. See its section |
+| 35 | A column's Load more | S–M | **Planned 27 November 2026, at #32's workshop**, the user's pick: a *Load more* under a column past 100 titles, on Discover's shape, built as its own PR **before #32**. Completed holds 75 under All years. What a drag does in a column partly loaded is its main question. **Workshopped 28 November 2026** on branch `column-load-more`, all seven picks the recommendation. Round one in words: the server numbers what a drag did not send after what it did, which also ends the interleave a year's drags left under All years, found in the production copy; the next 100 a press; the same button on a share; nothing while folded, its pages kept. Round two in renders, with a column staged past 100 from the production copy: today's *Showing 100 of N* over Discover's *Load more*, at its own width on a phone, and nothing once every page is in. The build is written up in order and not begun. See its section |
 | 33 | Month and week views of the release calendar | M | **Planned 25 November 2026**, at the user's request: a month view, and perhaps a week view, as a choice beside the *Coming soon* agenda, with a place for the titles no day fits. A week view only if the user's real calendar has enough exact days, and a phone considered from the start. See its section |
 | 34 | A better sign-in page | S–M | **Planned 25 November 2026**, at the user's request, a workshop first, in renders: the sign-in page saying what the app is before asking anyone to sign in, from the README's shots, and a sentence that no longer says *a game*. The neutral buttons, the full-bleed ground and *Account deleted* stay. See its section |
 
@@ -7302,6 +7302,131 @@ shape: the tile's add button at its own width, centred, picked for the wall on 2
 - A drag in a column with 100 of 140 loaded leaves the other 40 below, in their order.
 - A card moved out of a column with two pages loaded is drawn once, in the column it went to.
 - **Put the fault back:** number only the ids sent, and the drag case goes red.
+
+### The workshop, 28 November 2026
+
+On branch `column-load-more` from `queue-for-adding-many` at `7a3ed7b`, which holds #32's workshop
+and this plan and is not on `main`. Round one in words; then renders of what is decided by eye
+(the button's words and the line beside it, its place at 390, and what a column says at its end)
+from the user's games board as read from production on 27 November.
+
+**Found by reading, before round one:**
+
+- **A year is a partial view of a column already, and the plan's fault is live.** A drag under a
+  year sends that year's titles alone, and `ReorderAsync` numbers them from 0, so every year
+  dragged in holds 0 upward. In the production copy, Completed under All years in *My order*
+  alternates 2025 and 2026 card by card from the top, `0:2025 0:2026 1:2025 1:2026 …` to 24, then
+  2025's last three, 2024's fifteen at 28 to 42 and one 2025 at 54; the seven finishes kept as
+  years since #24 sit above them at −7 to −1, where an add lands. The partly loaded column is the
+  same fault reached by a page.
+- **Three sorts have no tie-break.** `Sorted`'s *Title*, *Rating* and *Length* arms order on
+  values that tie, and Postgres promises no order among ties from one request to the next, so a
+  second page can repeat a card the first showed and skip another. Completed holds 19 rated 8 and
+  10 rated 9. *My order* ends on `Latest.Id` descending, and *Added* is that alone.
+- **A share's column route takes a page already** (`SharedController`), so a share's Load more
+  needs no server change; `sharedColumn` in `api/shared.ts` sends none yet.
+
+**Round one, in words, 28 November 2026**, every pick the recommendation:
+
+| Choice | Picked | Against |
+|---|---|---|
+| What a drag does in a column partly loaded | **The server numbers the rest after what was sent**, the plan's recommendation: `ReorderAsync` gives the ids sent 0 to n − 1 and every other title in the column the places after, in the order they had. The 40 not loaded stay below in their order, and a card moved in by its menu, a phone's segment or the column's empty space lands at the foot of what is loaded. The request is unchanged. **A drag under one year puts that year's titles above every other year's under All years, as a block**, which ends the interleave a year at a time | the same inside the year dragged in, the request naming it and other years keeping their numbers, so All years stays interleaved (found by reading); the rest of the column loaded before its order is written, the route unchanged and a drag waiting on a read; a route that moves one title between its neighbours, set aside in `docs/board.md` for its arithmetic |
+| How much a press brings | **The next 100**, recommended: a page at a time, as Discover's brings the next 48, one request and at most 100 cards a press | the rest of the column at once: past 200, several requests of 100 in a row or a higher cap on the route |
+| A share's columns | **The same button**, recommended: a share draws the board, and a visitor has no other way past 100. Nothing on a share drags, and its route takes a page already | left as they are, *Showing 100 of N* with no way to the rest |
+| A collapsed column | **No button while folded, and its pages kept**, recommended: no cards, so no button, and the heading's count still says how many; opening it again shows the cards it had loaded and the button under them | Load more beside the sort control, opening the column and loading together; no button and the pages forgotten, so it opens again at 100 |
+
+**Decided without asking, for the user to object to:**
+
+- **Every sort ends on the newest pass first**, `ThenByDescending(row => row.Latest.Id)`, *My
+  order*'s own tie-break, so a page never repeats or skips a tied card.
+- **The renders' column past 100 is staged** as #32's queue would add a history with *I don't
+  remember*: forty undated finishes, so they count under All years alone and every year's view is
+  production's. The user's nine lines from #32's workshop first, each as it matched there, the two
+  it asked about settled on the 1991 *A Link to the Past* and the 2023 *Tears of the Kingdom*;
+  then thirty-one of IGDB's Most played as #23 measured it on 13 November, in its order, less the
+  board's titles. On top of Completed in the queue's order, #32's pick, so Completed under All years
+  holds 115: the first 100 are the forty and sixty of the user's, and Load more brings the user's
+  last fifteen. Every card around the button is the user's.
+- **A column keeps the pages it has loaded** through a move, an add, a removal, a write in the
+  journal and the estimates' poll, refetched together. A reload, a new sort or a new year starts it
+  at its first 100, as Discover's loaded pages are not in the address.
+- **Discover's, each:** the keyboard goes to the first card a press added; a card a later page
+  repeats is dropped; the button says *Loading…* while a page comes, and a page that fails says so
+  by the button and leaves the cards.
+- **The heading's count, the hours and the switcher's counts are unchanged**, each the whole
+  column's already.
+
+**Round two, in renders, 28 November 2026**, from https://claude.ai/artifact/KuJQpFFvcSz6zMMebTXpaU.
+The shipped app on Vite with one swap, `./Column` from `BoardPage` and `../board/Column` from
+`SharedColumn` to `ColumnProto.tsx`, a copy of `Column.tsx` whose Load more follows
+`?words=&width=&end=&fail=`, read once at load; every `/api/` request answered by `stage.mjs` from
+the production copy and the forty staged. Shot at 1440 in Shelf Light and Shelf Dark and at 390, 26
+shots, every caption's number from `measures.json`. All in the gitignored
+`frontend/workshop.local/column-load-more/`.
+
+| Choice | Picked | Against |
+|---|---|---|
+| What a column's foot says while more is left | **Today's line over *Load more***, recommended: *Showing 100 of 115*, centred, over Discover's button word for word at its own width, 119 × 36, with twice the gap between cards above them, 24px at 1440 and 20 at 390. The one option that says how many are left when the heading is 14,151px up the page at 1440, and it changes nothing that is there today; 24px taller than the button alone | *Load more* alone, Discover's exactly; *Load 15 more*, the button saying what a press brings, at most 100, 137 × 36, which past 200 reads *Load 100 more* and no longer says how many are left |
+| The button at 390 | **Its own width**, recommended: 119 × 36, centred, as Discover's is at every width | the column's width, 332 × 36 in a 358px column |
+| Once the last page is in | **Nothing**, recommended: the button goes, and the column ends as every column ends today | a muted line where the button was, *That's everything here.*, the sibling of *Nothing here yet.*, 40px taller at 1440 |
+
+**Shown with the picks, decided by what the app already does or by round one:** a press from the
+keyboard leaves it on *Final Fantasy XVI*, the first card it added; *Loading…* dims the button,
+which narrows to 114 × 36 as Discover's does; a page that fails puts the API's words in red over the
+button, *An error occurred while processing your request.*, two lines in a 266px column, and a
+press again is the retry; a collapsed Completed is its heading and 115, the hours and the sort,
+142px tall, with no cards and no button; a share's Completed has the same line and button at its
+foot.
+
+**Every pick of the workshop was the recommendation**, seven: four in round one and three in round
+two.
+
+### The build, in order
+
+Tests first in each step, each shown red, each fault put back afterwards, a commit per step. The
+picked look is `ColumnProto.tsx` in `frontend/workshop.local/column-load-more/` behind
+`?words=line&width=own&end=nothing`, the reference for values. Its later pages are plain queries
+keyed with `'page'` and a number after the column's key, a workshop shortcut; the build is the
+infinite query of step 3.
+
+1. **The server numbers the rest after**, in `ReorderAsync`: the whole column read in My order,
+   the default partition as today, so the calendar's titles keep their places; the ids sent take
+   0 to n − 1 in the order sent, and every other title the places after, in the order it had.
+   Tests in `LibraryOrderingTests`: a reorder of the first 100 of 140 leaves the other 40 below in
+   their order; a reorder under a year puts that year's titles above every other year's under All
+   years, each year keeping its own order; an id that has left the column is still ignored. Fault:
+   number only the ids sent, and the first two go red.
+2. **Every sort ends on the newest pass first**, `ThenByDescending(row => row.Latest.Id)` on
+   `Sorted`'s *Title*, *Rating* and *Length* arms. Test: a column of more than 100 tied on rating,
+   read in two pages, holds each title once. Fault: the tie-break off *Rating*. Postgres may hold
+   ties still by accident on a fresh table, so if that stays green, say so here rather than claim it.
+3. **A column's answer becomes an infinite query** under the same `columnKey`, pages of 100 by
+   page number, and every reader and writer of it moves together (**Things to get right**):
+   `ColumnFrame`, `useBoard`'s move and reorder with their snapshot, restore, `columnOf` and
+   `findCard`, the picker's *Start playing* finding a card on a later page, a share's
+   `sharedColumnQuery`, and the switcher's counts, read off the first page, which `useQueries`
+   cannot do for an infinite query. `settleMove` and the remove settle by prefix and keep doing so.
+   A title a later page repeats is dropped, and a card moved out of a column with two pages loaded
+   is left in neither page it left. Tests: **Tests first** above.
+4. **The foot, as picked**: *Showing 100 of N* centred over *Load more*, Discover's classes
+   (`h-9 rounded border border-line bg-surface px-6 text-sm font-medium`), `mt-cardgap` above, at
+   its own width on a phone; *Loading…*, disabled, while a page comes; the API's words in red over
+   the button when one fails, a press again the retry; the keyboard to the first card a press
+   added; nothing while collapsed, and nothing once every page is in. **Decide at the build:** a
+   share's card has nothing to press, so where its keyboard lands; Discover's answer for a tile is
+   its name, focusable from script with `tabIndex={-1}`.
+5. **e2e**: a column of 140 seeded through the API, as every spec seeds; 100 and *Load more*, then
+   140 and no button; the drag with 100 of 140 loaded, checked after a reload and a press; a card
+   moved out with two pages loaded drawn once; the phone block at 390; the keyboard in Firefox too.
+6. **Docs**: this section, `docs/board.md` (the manual ranking's paragraph on
+   `PUT /api/library/order`, the query keys, *A card mounted twice*, and the picker's *consequence
+   worth knowing*, which a loaded page answers), `docs/design.md`, `docs/api.md`,
+   `docs/history.md`, and CLAUDE.md: **Small things** loses *A board column stops at 100 titles*,
+   and **Settled** and **What exists** gain the column's Load more.
+
+**Where it stands.** Branch `column-load-more` from `queue-for-adding-many` at `7a3ed7b` holds this
+section's workshop record and its status row, **uncommitted**. The workshop's Vite server is
+stopped. Nothing of the build is begun.
 
 ---
 
